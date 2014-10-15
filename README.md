@@ -1,4 +1,4 @@
-oddt
-====
+opendrugdiscovery
+=================
 
 Open Drug Discovery Toolkit
