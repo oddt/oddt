@@ -87,7 +87,7 @@ class close_contacts(object):
         return out[1:]
     
     def __reduce__(self):
-        return close_contacts, ()
+        return close_contacts, (None, self.cutoff, self.mode, self.ligand_types, self.protein_types, self.aligned_pairs)
         
 class fingerprints(object):
     def __init__(self, fp = 'fp2', toolkit = 'ob'):
