@@ -70,3 +70,36 @@ def dihedral(p1,p2,p3,p4):
     else:
         out[mask] = -out[mask]
     return out
+
+def rmsd(ref, mol, ignore_h = False):
+    """Computes root mean square deviation (RMSD) between two molecules (including or excluding Hydrogens). No symmetry checks are performed.
+    
+    Parameters
+    ----------
+    ref : oddt.toolkit.Molecule object
+        Reference molecule for the RMSD calculation
+    
+    mol : oddt.toolkit.Molecule object
+        Query molecule for RMSD calculation
+    
+    ignore_h : bool (default=False)
+        Flag indicating to ignore Hydrogen atoms while performing RMSD calculation.
+    
+    Returns
+    -------
+    rmsd : float
+        RMSD between two molecules
+    """
+    
+    if ignore_h:
+        hvy_map = np.array([atom.idx-1 for atom in mol if atom.atomicnum != 1])
+        mol_hvy = mol.coords[hvy_map]
+        ref_hvy = ref.coords[hvy_map]
+        if mol_hvy.shape == ref_hvy.shape:
+            return np.sqrt(((mol_hvy - ref_hvy)**2).sum(axis=-1).mean())
+    else:
+        if mol.coords.shape == ref.coords.shape:
+            return np.sqrt(((mol.coords - ref.coords)**2).sum(axis=-1).mean())
+    # at this point raise an exception
+    raise Exception('Unequal number of atoms in molecules')
+    
