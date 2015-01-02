@@ -1,14 +1,25 @@
+"""ODDT pipeline framework for virtual screening"""
 import csv
 from multiprocessing.dummy import Pool
 from oddt import toolkit
 
 def _parallel_helper(args):
-    """Private helper to workaround Python 2 pickle limitations"""
+    """Private helper to workaround Python 2 pickle limitations to paralelize methods"""
     obj, methodname, arg = args
     return getattr(obj, methodname)(**arg)
 
 class virtualscreening:
     def __init__(self, n_cpu=-1, verbose=False):
+        """Virtual Screening pipeline stack
+        
+        Parameters
+        ----------
+            n_cpu: int (default=-1)
+                The number of parallel procesors to use
+            
+            verbose: bool (default=False)
+                Verbosity flag for some methods
+        """
         self._pipe = None
         self.n_cpu = n_cpu
         self.num_input = 0
@@ -18,6 +29,17 @@ class virtualscreening:
         self._pool = Pool(n_cpu if n_cpu > 0 else None)
         
     def load_ligands(self, file_type, ligands_file):
+        """Loads file with ligands.
+        
+        Parameters
+        ----------
+            file_type: string
+                Type of molecular file
+            
+            ligands_file: string
+                Path to a file, which is loaded to pipeline
+        
+        """
         self._pipe = self._ligand_pipe(toolkit.readfile(file_type, ligands_file))
     
     def _ligand_pipe(self, ligands):
@@ -26,6 +48,22 @@ class virtualscreening:
             yield mol
     
     def apply_filter(self, expression, filter_type='expression', soft_fail = 0):
+        """Filtering method, can use raw expressions (strings to be evaled in if statement, can use oddt.toolkit.Molecule methods, eg. 'mol.molwt < 500')
+        Currently supported presets:
+            * Lipinski Rule of 5 ('r5' or 'l5')
+            * Fragment Rule of 3 ('r3')
+        
+        Parameters
+        ----------
+            expression: string or list of strings
+                Expresion(s) to be used while filtering.
+            
+            filter_type: 'expression' or 'preset' (default='expression')
+                Specify filter type: 'expression' or 'preset'. Default strings are treated as expressions.
+            
+            soft_fail: int (default=0)
+                The number of faulures molecule can have to pass filter, aka. soft-fails.
+        """
         if filter_type == 'expression':
             self._pipe = self._filter(self._pipe, expression, soft_fail = soft_fail)
         elif filter_type == 'preset':
@@ -52,6 +90,17 @@ class virtualscreening:
                     yield mol
     
     def dock(self, engine, protein, *args, **kwargs):
+        """Docking procedure.
+        
+        Parameters
+        ----------
+            engine: string
+                Which docking engine to use.
+        
+        Note
+        ----
+            Additional parameters are passed directly to the engine.
+        """
         if engine.lower() == 'autodock_vina':
             from .docking.autodock_vina import autodock_vina
             engine = autodock_vina(protein, *args, **kwargs)
@@ -69,6 +118,20 @@ class virtualscreening:
         self._pipe = _iter_conf(docking_results)
         
     def score(self, function, protein, *args, **kwargs):
+        """Scoring procedure.
+        
+        Parameters
+        ----------
+            function: string
+                Which scoring function to use.
+            
+            protein: oddt.toolkit.Molecule
+                Default protein to use as reference
+        
+        Note
+        ----
+            Additional parameters are passed directly to the scoring function.
+        """
         if type(protein) is str:
             extension = protein.split('.')[-1]
             protein = toolkit.readfile(extension, protein).next()
@@ -100,6 +163,19 @@ class virtualscreening:
     
     # Consume the pipe
     def write(self, fmt, filename, csv_filename = None, **kwargs):
+        """Outputs molecules to a file
+        
+        Parameters
+        ----------
+            file_type: string
+                Type of molecular file
+            
+            ligands_file: string
+                Path to a output file
+            
+            csv_filename: string
+                Optional path to a CSV file
+        """
         output_mol_file = toolkit.Outputfile(fmt, filename, **kwargs)
         if csv_filename:
             f = open(csv_filename, 'w')
@@ -131,6 +207,16 @@ class virtualscreening:
         self._pipe = toolkit.readfile(fmt, filename)
     
     def write_csv(self, csv_filename, keep_pipe = False, **kwargs):
+        """Outputs molecules to a csv file
+        
+        Parameters
+        ----------
+            csv_filename: string
+                Optional path to a CSV file
+            
+            keep_pipe: bool (default=False)
+                If set to True, the ligand pipe is sustained.
+        """
         f = open(csv_filename, 'w')
         csv_file = None
         for mol in self.fetch():
