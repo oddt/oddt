@@ -71,7 +71,7 @@ def dihedral(p1,p2,p3,p4):
         out[mask] = -out[mask]
     return out
 
-def rmsd(ref, mol, ignore_h = False):
+def rmsd(ref, mol, ignore_h = False, canonize = False, normalize = False):
     """Computes root mean square deviation (RMSD) between two molecules (including or excluding Hydrogens). No symmetry checks are performed.
     
     Parameters
@@ -83,27 +83,47 @@ def rmsd(ref, mol, ignore_h = False):
         Query molecule for RMSD calculation
     
     ignore_h : bool (default=False)
-        Flag indicating to ignore Hydrogen atoms while performing RMSD calculation.
+        Flag indicating to ignore Hydrogen atoms while performing RMSD calculation
+    
+    canonize : bool (default=False)
+        Match heavy atoms using OB canonical ordering
+    
+    normalize : bool (default=False)
+        Normalize RMSD by square root of rot. bonds
     
     Returns
     -------
     rmsd : float
         RMSD between two molecules
     """
-    
     if ignore_h:
-        hvy_map = np.array([atom.idx-1 for atom in mol if atom.atomicnum != 1])
-        mol_hvy = mol.coords[hvy_map]
-        ref_hvy = ref.coords[hvy_map]
+        if canonize:
+            # Undocumented hack of OB - writing a molecule to cannonical smiles adds data field with cannonical atom order
+            ref.write('can')
+            ref_can = np.array(ref.data['SMILES Atom Order'].split(), dtype=int)-1
+            ref_hvy = ref.coords[ref_can]
+            mol.write('can')
+            mol_can = np.array(mol.data['SMILES Atom Order'].split(), dtype=int)-1
+            mol_hvy = mol.coords[mol_can]
+        else:
+            hvy_map = np.array([atom.idx-1 for atom in mol if atom.atomicnum != 1])
+            mol_hvy = mol.coords[hvy_map]
+            ref_hvy = ref.coords[hvy_map]
         if mol_hvy.shape == ref_hvy.shape:
-            return np.sqrt(((mol_hvy - ref_hvy)**2).sum(axis=-1).mean())
+            rmsd = np.sqrt(((mol_hvy - ref_hvy)**2).sum(axis=-1).mean())
+            if normalize:
+                rmsd /= np.sqrt(mol.num_rotors)
+            return rmsd
     else:
         if mol.coords.shape == ref.coords.shape:
-            return np.sqrt(((mol.coords - ref.coords)**2).sum(axis=-1).mean())
+            rmsd = np.sqrt(((mol.coords - ref.coords)**2).sum(axis=-1).mean())
+            if normalize:
+                    rmsd /= np.sqrt(mol.num_rotors)
+            return rmsd
     # at this point raise an exception
     raise Exception('Unequal number of atoms in molecules')
 
 def distance_complex(x, y):
     """ Computes distance between points, similar to distance(cdist), with major difference - allows higher dimmentions of input (cdist supports 2). But it's 2-6 times slower, so use distance unless you have to nest it wit a for loop."""
     return numpy.sqrt(((x[...,np.newaxis,:]-y)**2).sum(axis=-1))
-    
+
