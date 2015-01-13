@@ -2,8 +2,23 @@ import numpy as np
 from scipy.spatial.distance import cdist as distance
 
 def atoms_by_type(atom_dict, types, mode = 'atomic_nums'):
-    """
-    AutoDock4 types definition: http://autodock.scripps.edu/faqs-help/faq/where-do-i-set-the-autodock-4-force-field-parameters
+    """Returns atom dictionaries based on given criteria. Currently we have 3 types of atom selection criteria:
+        * atomic numbers ['atomic_nums']
+        * Sybyl Atom Types ['atom_types_sybyl']
+        * AutoDock4 atom types ['atom_types_ad4'] (http://autodock.scripps.edu/faqs-help/faq/where-do-i-set-the-autodock-4-force-field-parameters)
+    
+    Parameters
+    ----------
+        atom_dict: oddt.toolkit.Molecule.atom_dict
+            Atom dictionary as implemeted in oddt.toolkit.Molecule class
+        
+        types: array-like
+            List of atom types/numbers wanted.
+    
+    Returns
+    -------
+        out: dictionary of shape=[len(types)]
+            A dictionary of queried atom types (types are keys of the dictionary). Values are of oddt.toolkit.Molecule.atom_dict type.
     """
     if mode == 'atomic_nums':
         return {num: atom_dict[atom_dict['atomicnum'] == num] for num in set(types)}
@@ -18,7 +33,7 @@ def atoms_by_type(atom_dict, types, mode = 'atomic_nums'):
                 out[t] = atom_dict[atom_dict['atomicnum'] == 1 & atom_dict['isdonorh']]
             elif t == 'C':
                 out[t] = atom_dict[atom_dict['atomicnum'] == 6 & ~atom_dict['isaromatic']]
-            elif t == 'CD': # not canonical AD4 type, although used by NNscore, with no description. properies assued by name
+            elif t == 'CD': # not canonical AD4 type, although used by NNscore, with no description. properies assumed by name
                 out[t] = atom_dict[atom_dict['atomicnum'] == 6 & ~atom_dict['isdonor']]
             elif t == 'A':
                 out[t] = atom_dict[atom_dict['atomicnum'] == 6 & atom_dict['isaromatic']]
@@ -60,6 +75,28 @@ def atoms_by_type(atom_dict, types, mode = 'atomic_nums'):
 
 class close_contacts(object):
     def __init__(self, protein = None, cutoff = 4, mode = 'atomic_nums', ligand_types = None, protein_types = None, aligned_pairs = False):
+        """Close contacts descriptor which tallies atoms of type X in certain cutoff from atoms of type Y.
+        
+        Parameters
+        ----------
+            protein: oddt.toolkit.Molecule or None (default=None)
+                Default protein to use as reference
+            
+            cutoff: int (default=4)
+                Cutoff for atoms in Angstroms
+            
+            mode: string (default='atomic_nums')
+                Method of atoms selection, as used in `atoms_by_type`
+            
+            ligand_types: array
+                List of ligand atom types to use
+            
+            protein_types: array
+                List of protein atom types to use
+            
+            aligned_pairs: bool (default=False)
+                Flag indicating should permutation of types should be done, otherwise the atoms are treated as aligned pairs.
+        """
         self.cutoff = cutoff
         self.protein = protein
         self.ligand_types = ligand_types
@@ -68,9 +105,23 @@ class close_contacts(object):
         self.mode = mode
     
     def build(self, ligands, protein = None, single = False):
+        """Builds descriptors for series of ligands
+    
+        Parameters
+        ----------
+            ligands: iterable of oddt.toolkit.Molecules or oddt.toolkit.Molecule
+                A list or iterable of ligands to build the descriptor or a single molecule.
+            
+            protein: oddt.toolkit.Molecule or None (default=None)
+                Default protein to use as reference
+            
+            single: bool (default=False)
+                Flag indicating if the ligand is single.
+        
+        """
         if protein is None:
             protein = self.protein
-        if single:
+        if single and type(ligands) is not list:
             ligands = [ligands]
 #        prot_dict = atoms_by_type(protein.atom_dict, self.protein_types, self.mode)
         desc_size = len(self.ligand_types) if self.aligned_pairs else len(self.ligand_types)*len(self.protein_types)

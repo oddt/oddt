@@ -13,6 +13,20 @@ def cross_validate(model, cv_set, cv_target, n = 10, shuffle=True, n_jobs = 1):
 ### FIX ### If possible make ensemble scorer lazy, for now it consumes all ligands
 class scorer(object):
     def __init__(self, model_instances, descriptor_generator_instances, score_title = 'score'):
+        """Scorer class is parent class for scoring functions. It's capable of using multiple models and/or multiple descriptors.
+        If multiple models and multiple descriptors are used they should be aligned, since no permutation of such is made.
+        
+        Parameters
+        ----------
+        model_instances: array of models
+            An array of medels compatible with sklearn API (fit, predict and score methods)
+        
+        descriptor_generator_instances: array of descriptors
+            An array of descriptor objects
+        
+        score_title: string
+            Title of score to be used.
+        """
         self.model = model_instances
         if type(model_instances) is list:
             self.single_model = False
@@ -29,6 +43,16 @@ class scorer(object):
         self.score_title = score_title
         
     def fit(self, ligands, target, *args, **kwargs):
+        """Trains model on supplied ligands and target values
+        
+        Parameters
+        ----------
+            ligands: array-like of ligands
+                Ground truth (correct) target values.
+            
+            target: array-like of shape = [n_samples] or [n_samples, n_outputs]
+                Estimated target values.
+        """
         if self.single_descriptor:
             self.train_descs = self.descriptor_generator.build(ligands)
         else:
@@ -43,6 +67,21 @@ class scorer(object):
             return [model.fit(self.train_descs[n],target, *args, **kwargs) for n, model in enumerate(self.model)]
     
     def predict(self, ligands, *args, **kwargs):
+        """Predicts values (eg. affinity) for supplied ligands
+        
+        Parameters
+        ----------
+            ligands: array-like of ligands
+                Ground truth (correct) target values.
+            
+            target: array-like of shape = [n_samples] or [n_samples, n_outputs]
+                Estimated target values.
+        
+        Returns
+        -------
+            predicted: np.array or array of np.arrays of shape = [n_ligands]
+                Predicted scores for ligands
+        """
         if self.single_model and self.single_descriptor:
             descs = self.descriptor_generator.build(ligands)
             return self.model.predict(descs)
@@ -53,6 +92,21 @@ class scorer(object):
             return [model.predict(descs[n],target, *args, **kwargs) for n, model in enumerate(self.model)]
     
     def score(self, ligands, target, *args, **kwargs):
+        """Methods estimates the quality of prediction as squared correlation coefficient (R^2)
+        
+        Parameters
+        ----------
+            ligands: array-like of ligands
+                Ground truth (correct) target values.
+            
+            target: array-like of shape = [n_samples] or [n_samples, n_outputs]
+                Estimated target values.
+        
+        Returns
+        -------
+            r2: float
+                Squared correlation coefficient (R^2) for prediction
+        """
         if self.single_model and self.single_descriptor:
             descs = self.descriptor_generator.build(ligands)
             return self.model.score(descs, *args, **kwargs)
@@ -63,16 +117,48 @@ class scorer(object):
             return [model.score(descs[n],target, *args, **kwargs) for n, model in enumerate(self.model)]
     
     def predict_ligand(self, ligand):
+        """Local method to score one ligand and update it's scores.
+        
+        Parameters
+        ----------
+            ligand: oddt.toolkit.Molecule object
+                Ligand to be scored
+            
+        Returns
+        -------
+            ligand: oddt.toolkit.Molecule object
+                Scored ligand with updated scores
+        """
         score = self.predict([ligand])[0]
         ligand.data.update({self.score_title: score})
         return ligand
     
     def predict_ligands(self, ligands):
+        """Method to score ligands lazily
+        
+        Parameters
+        ----------
+            ligands: iterable of oddt.toolkit.Molecule objects
+                Ligands to be scored
+            
+        Returns
+        -------
+            ligand: iterator of oddt.toolkit.Molecule objects
+                Scored ligands with updated scores
+        """
         # make lazy calculation
         for lig in ligands:
             yield self.predict_ligand(lig)
     
     def set_protein(self, protein):
+        """Proxy method to update protein in all relevant places.
+        
+        Parameters
+        ----------
+            protein: oddt.toolkit.Molecule object
+                New default protein
+            
+        """
         self.protein = protein
         if self.single_descriptor:
             if hasattr(self.descriptor_generator, 'set_protein'):
@@ -86,16 +172,14 @@ class scorer(object):
                 else:
                     desc.protein = protein
     
-    def cross_validate(self, n = 10, test_set = None, test_target = None, *args, **kwargs):
-        if test_set and test_target:
-            cv_set = np.vstack((self.train_descs, self.test_descs, test_set))
-            cv_target = np.hstack((self.train_target.flatten(), self.test_target.flatten(), test_target.flatten()))
-        else:
-            cv_set = np.vstack((self.train_descs, self.test_descs))
-            cv_target = np.hstack((self.train_target.flatten(), self.test_target.flatten()))
-        return cross_validate(self.model, cv_set, cv_target, cv = n, *args, **kwargs)
-    
     def save(self, filename):
+        """Saves scoring function to a pickle file.
+        
+        Parameters
+        ----------
+            filename: string
+                Pickle filename
+        """
         self.protein = None
         if self.single_descriptor:
             self.descriptor_generator.protein = None
@@ -106,11 +190,30 @@ class scorer(object):
     
     @classmethod
     def load(self, filename):
+        """Loads scoring function from a pickle file.
+        
+        Parameters
+        ----------
+            filename: string
+                Pickle filename
+        
+        Returns
+        -------
+            sf: scorer-like object
+                Scoring function object loaded from a pickle
+        """
         return pickle.load(filename)
     
 
 class ensemble_model(object):
     def __init__(self, models):
+        """Proxy class to build an ensemble of models with an API as one
+        
+        Parameters
+        ----------
+            models: array
+                An array of models
+        """
         self._models = models if len(models) else None
     
     def fit(self, X, y, *args, **kwargs):
