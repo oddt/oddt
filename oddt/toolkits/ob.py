@@ -1,3 +1,4 @@
+import gzip
 import pybel
 from pybel import *
 import copy_reg
@@ -14,8 +15,49 @@ typetable.SetToType('SYB')
 # hash OB!
 pybel.ob.obErrorLog.StopLogging()
 
+def readfile(format, filename, opt=None):
+    if format == 'mol2':
+        def filereader_mol2():
+            block = ''
+            data = ''
+            n = 0
+            f = open(filename)
+            for line in f:
+                if line[:1] == '#':
+                    data += line
+                elif line[:17] == '@<TRIPOS>MOLECULE':
+                    if n>0: #skip `zero` molecule (any preciding comments and spaces)
+                        yield Molecule(source={'fmt': format, 'string': block, 'opt': opt, 'n': n, 'filename': filename})
+                    n += 1
+                    block = data
+                    data = ''
+                block += line
+            f.close()
+            
+        return filereader_mol2()
+    
+    elif format == 'sdf':
+        def filereader_sdf():
+            block = ''
+            n = 0
+            f = open(filename)
+            for line in f:
+                block += line
+                if line[:4] == '$$$$':
+                    yield Molecule(source={'fmt': format, 'string': block, 'opt': opt, 'n': n, 'filename': filename})
+                    n += 1
+                    block = ''
+            f.close()
+        return filereader_sdf()
+    
+    else:
+        return pybel.readfile(format, filename, opt=opt)
+
 class Molecule(pybel.Molecule):
-    def __init__(self, OBMol, protein = False):
+    def __init__(self, OBMol = None, source = None, protein = False):
+        # lazy
+        self._source = source # dict with keys: n, fmt, string, filename
+        
         # call parent constructor
         super(Molecule,self).__init__(OBMol)
         
@@ -26,13 +68,24 @@ class Molecule(pybel.Molecule):
         #if len(res_dict) > 1 and not molecule.OBMol.HasChainsPerceived():
         #    print "Dirty HACK"
         #    molecule = pybel.readstring('pdb', molecule.write('pdb'))
-        
         self._atom_dict = None
         self._res_dict = None
         self._ring_dict = None
         self._coords = None
         self._charges = None
         
+    # lazy Molecule parsing requires masked OBMol
+    @property
+    def OBMol(self):
+        if not self._OBMol and self._source:
+            self._OBMol = readstring(self._source['fmt'], self._source['string'], opt=self._source['opt'] if 'opt' in self._source else {}).OBMol
+            self._source = None
+        return self._OBMol
+        
+    @OBMol.setter
+    def OBMol(self, value):
+        self._OBMol = value
+    
     # cache frequently used properties and cache them in prefixed [_] variables
     @property
     def coords(self):
@@ -311,10 +364,14 @@ pybel.Fingerprint = Fingerprint
 ### Monkeypatch pybel objects pickling
 pickle_format = 'mol2'
 def pickle_mol(self):
-    return unpickle_mol, (self.write(pickle_format), dict(self.data.items()))
+    if self._source:
+        return unpickle_mol, (self._source,)
+    else:
+        return unpickle_mol, ({'fmt': pickle_format, 'string': self.write(pickle_format), 'data': dict(self.data.items())},)
 
-def unpickle_mol(string, data):
-    mol = readstring(pickle_format, string)
-    mol.data.update(data)
+def unpickle_mol(source):
+    mol = Molecule(source=source)
+    if 'data' in source:
+        mol.data.update(source['data'])
     return mol
 copy_reg.pickle(Molecule, pickle_mol, unpickle_mol)

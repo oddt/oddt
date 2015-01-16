@@ -111,11 +111,18 @@ def readfile(format, filename, *args, **kwargs):
     # errors in the format and errors in opening the file.
     # Then switch to an iterator...
     if format=="sdf":
-        iterator = Chem.SDMolSupplier(filename, *args, **kwargs)
-        def sdf_reader():
-            for mol in iterator:
-                yield Molecule(mol)
-        return sdf_reader()
+        def filereader_sdf():
+            block = ''
+            n = 0
+            f = open(filename)
+            for line in f:
+                block += line
+                if line[:4] == '$$$$':
+                    yield Molecule(source={'fmt': format, 'string': block, 'n': n, 'filename': filename})
+                    n += 1
+                    block = ''
+            f.close()
+        return filereader_sdf()
     elif format=="mol":
         def mol_reader():
             yield Molecule(Chem.MolFromMolFile(filename, *args, **kwargs))
@@ -125,16 +132,25 @@ def readfile(format, filename, *args, **kwargs):
             yield Molecule(Chem.MolFromPDBFile(filename, *args, **kwargs))
         return mol_reader()
     elif format=="mol2":
-        def mol_reader():
+        def filereader_mol2():
             block = ''
-            for line in open(filename, 'r'):
-                if line.strip() == "@<TRIPOS>MOLECULE" and len(block) > 0:
-                    yield Molecule(Chem.MolFromMol2Block(block, *args, **kwargs))
+            data = ''
+            n = 0
+            f = open(filename)
+            for line in f:
+                if line[:1] == '#':
+                    data += line
+                elif line[:17] == '@<TRIPOS>MOLECULE':
+                    if n>0: #skip `zero` molecule (any preciding comments and spaces)
+                        yield Molecule(source={'fmt': format, 'string': block, 'n': n, 'filename': filename})
+                    n += 1
+                    block = data
+                    data = ''
                 block += line
-            # process last molecule
-            if len(block) > 0:
-                yield Molecule(Chem.MolFromMol2Block(block, *args, **kwargs))
-        return mol_reader()
+            f.close()
+            
+        return filereader_mol2()
+    
     elif format=="smi":
         iterator = Chem.SmilesMolSupplier(filename, delimiter=" \t",
                                           titleLine=False, *args, **kwargs)
@@ -166,7 +182,7 @@ def readstring(format, string):
     5
     """
     format = format.lower()
-    if format=="mol":
+    if format=="mol" or format=="sdf":
         mol = Chem.MolFromMolBlock(string)
     elif format=="mol2":
         mol = Chem.MolFromMol2Block(string)
@@ -253,7 +269,7 @@ class Molecule(object):
     """
     _cinfony = True
 
-    def __init__(self, Mol, protein = False):
+    def __init__(self, Mol = None, source = None, protein = False):
         if hasattr(Mol, "_cinfony"):
             a, b = Mol._exchange
             if a == 0:
@@ -270,7 +286,21 @@ class Molecule(object):
         self._ring_dict = None
         self._coords = None
         self._charges = None
-
+        # lazy
+        self._source = source # dict with keys: n, fmt, string, filename
+    
+    # lazy Molecule parsing requires masked Mol
+    @property
+    def Mol(self):
+        if not self._Mol and self._source:
+            self._Mol = readstring(self._source['fmt'], self._source['string']).Mol
+            self._source = None
+        return self._Mol
+        
+    @Mol.setter
+    def Mol(self, value):
+        self._Mol = value
+    
     @property
     def atoms(self): return [Atom(rdkatom) for rdkatom in self.Mol.GetAtoms()]
     @property
