@@ -431,7 +431,7 @@ class Molecule(object):
                       partialcharge,
                       atomicnum,
                       atomtype,
-                      atom.Atom.GetHybridization(),
+                      np.clip(atom.Atom.GetHybridization()-1, 0, 3),
                       neighbors['coords'],
                       # residue info
                       residue.idx if residue else 0,
@@ -544,6 +544,8 @@ class Molecule(object):
             result = Chem.MolToSmiles(self.Mol, isomericSmiles=True, canonical=True)
         elif format=="mol":
             result = Chem.MolToMolBlock(self.Mol)
+        elif format=="mol2":
+            result = Chem.MolToMol2Block(self.Mol)
         elif format=="pdb":
             result = Chem.MolToPDBBlock(self.Mol)
         elif format in ('inchi', 'inchikey') and Chem.INCHI_AVAILABLE:
