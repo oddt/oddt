@@ -99,6 +99,13 @@ class Molecule(pybel.Molecule):
             self._charges = np.array([atom.partialcharge for atom in self.atoms])
         return self._charges
     
+    def write(self, format="smi", filename=None, overwrite=False, opt=None):
+        format = format.lower()
+        # Use lazy molecule if possible
+        if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
+            return self._source['string']
+        super(Molecule,self).write(format=format, filename=filename, overwrite=overwrite, opt=opt)
+    
     ### Backport code implementing resudues (by me) to support older versions of OB (aka 'stable')
     @property
     def residue(self): return Residue(self.OBAtom.GetResidue())

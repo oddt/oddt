@@ -535,6 +535,9 @@ class Molecule(object):
         the Outputfile class.
         """
         format = format.lower()
+        # Use lazy molecule if possible
+        if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
+            return self._source['string']
         if filename:
             if not overwrite and os.path.isfile(filename):
                 raise IOError, "%s already exists. Use 'overwrite=True' to overwrite it." % filename
