@@ -75,6 +75,32 @@ class virtualscreening:
             # Rule of three
             elif expression.lower() in ['ro3']:
                 self._pipe = self._filter(self._pipe, ['mol.molwt < 300', 'mol.calcdesc(["HBA1"])["HBA1"] <= 3', 'mol.calcdesc(["HBD"])["HBD"] <= 3', 'mol.calcdesc(["logP"])["logP"] <= 3'], soft_fail = soft_fail)
+            # PAINS filter
+            elif expression.lower() in ['pains']:
+                pains_smarts = {}
+                with open(dirname(__file__)+'filter/pains.smarts') as pains_file:
+                    csv_reader = csv.reader(pains_file, delimiter="\t")
+                    for line in csv_reader:
+                        if len(line) > 1:
+                            pains_smarts[line[1][8:-2]] = line[0]
+                self._pipe = self._filter_smarts(self._pipe, pains_smarts.values(), soft_fail = soft_fail)
+    
+    def _filter_smarts(self, pipe, smarts, soft_fail = 0):
+        for mol in pipe:
+            if type(smarts) is list:
+                compiled_smarts = [toolkit.Smarts(s) for s in smarts]
+                fail = 0
+                for s in compiled_smarts:
+                    if len(s.findall(mol)) > 0:
+                        fail += 1
+                    if fail > soft_fail:
+                        break
+                if fail <= soft_fail:
+                    yield mol
+            else:
+                compiled_smarts = toolkit.Smarts(smarts)
+                if len(compiled_smiles.findall(mol)) == 0:
+                    yield mol
     
     def _filter(self, pipe, expression, soft_fail = 0):
         for mol in pipe:
@@ -83,6 +109,8 @@ class virtualscreening:
                 for e in expression:
                     if not eval(e):
                         fail += 1
+                    if fail > soft_fail:
+                        break
                 if fail <= soft_fail:
                     yield mol
             else:
