@@ -102,4 +102,8 @@ def rmsd(ref, mol, ignore_h = False):
             return np.sqrt(((mol.coords - ref.coords)**2).sum(axis=-1).mean())
     # at this point raise an exception
     raise Exception('Unequal number of atoms in molecules')
+
+def distance_complex(x, y):
+    """ Computes distance between points, similar to distance(cdist), with major difference - allows higher dimmentions of input (cdist supports 2). But it's 2-6 times slower, so use distance unless you have to nest it wit a for loop."""
+    return numpy.sqrt(((x[...,np.newaxis,:]-y)**2).sum(axis=-1))
     
