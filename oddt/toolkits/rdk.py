@@ -518,7 +518,7 @@ class Molecule(object):
         """Remove hydrogens."""
         self.Mol = Chem.RemoveHs(self.Mol)
 
-    def write(self, format="smi", filename=None, overwrite=False):
+    def write(self, format="smi", filename=None, overwrite=False, **kwargs):
         """Write the molecule to a file or return a string.
 
         Optional parameters:
@@ -541,20 +541,18 @@ class Molecule(object):
         if filename:
             if not overwrite and os.path.isfile(filename):
                 raise IOError, "%s already exists. Use 'overwrite=True' to overwrite it." % filename
-        if format=="smi":
-            result = Chem.MolToSmiles(self.Mol, isomericSmiles=True, canonical=False)
-        elif format=="can":
-            result = Chem.MolToSmiles(self.Mol, isomericSmiles=True, canonical=True)
+        if format=="smi" or format=="can":
+            result = Chem.MolToSmiles(self.Mol, **kwargs)
         elif format=="mol":
-            result = Chem.MolToMolBlock(self.Mol)
+            result = Chem.MolToMolBlock(self.Mol, **kwargs)
         elif format=="mol2":
-            result = Chem.MolToMol2Block(self.Mol)
+            result = Chem.MolToMol2Block(self.Mol, **kwargs)
         elif format=="pdb":
-            result = Chem.MolToPDBBlock(self.Mol)
+            result = Chem.MolToPDBBlock(self.Mol, **kwargs)
         elif format in ('inchi', 'inchikey') and Chem.INCHI_AVAILABLE:
-            result = Chem.inchi.MolToInchi(self.Mol)
+            result = Chem.inchi.MolToInchi(self.Mol, **kwargs)
             if format == 'inchikey':
-                result = Chem.inchi.InchiToInchiKey(result)
+                result = Chem.inchi.InchiToInchiKey(result, **kwargs)
         else:
             raise ValueError,"%s is not a recognised RDKit format" % format
         if filename:
