@@ -104,7 +104,8 @@ class Molecule(pybel.Molecule):
         # Use lazy molecule if possible
         if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
             return self._source['string']
-        super(Molecule,self).write(format=format, filename=filename, overwrite=overwrite, opt=opt)
+        else:
+            return super(Molecule,self).write(format=format, filename=filename, overwrite=overwrite, opt=opt)
     
     ### Backport code implementing resudues (by me) to support older versions of OB (aka 'stable')
     @property
