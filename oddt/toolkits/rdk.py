@@ -167,7 +167,7 @@ def readfile(format, filename, *args, **kwargs):
     else:
         raise ValueError, "%s is not a recognised RDKit format" % format
 
-def readstring(format, string):
+def readstring(format, string, **kwargs):
     """Read in a molecule from a string.
 
     Required parameters:
@@ -183,15 +183,15 @@ def readstring(format, string):
     """
     format = format.lower()
     if format=="mol" or format=="sdf":
-        mol = Chem.MolFromMolBlock(string)
+        mol = Chem.MolFromMolBlock(string, **kwargs)
     elif format=="mol2":
-        mol = Chem.MolFromMol2Block(string)
+        mol = Chem.MolFromMol2Block(string, **kwargs)
     elif format=="pdb":
-        mol = Chem.MolFromPDBBlock(string)
+        mol = Chem.MolFromPDBBlock(string, **kwargs)
     elif format=="smi":
-        mol = Chem.MolFromSmiles(string)
+        mol = Chem.MolFromSmiles(string, **kwargs)
     elif format=='inchi' and Chem.INCHI_AVAILABLE:
-        mol = Chem.inchi.MolFromInchi(string)
+        mol = Chem.inchi.MolFromInchi(string, **kwargs)
     else:
         raise ValueError,"%s is not a recognised RDKit format" % format
     if mol:
