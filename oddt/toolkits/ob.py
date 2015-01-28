@@ -32,6 +32,9 @@ def readfile(format, filename, opt=None):
                     block = data
                     data = ''
                 block += line
+            # open last molecule
+            if block:
+                yield Molecule(source={'fmt': format, 'string': block, 'opt': opt, 'n': n, 'filename': filename})
             f.close()
             
         return filereader_mol2()
