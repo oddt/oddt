@@ -21,7 +21,7 @@ def readfile(format, filename, opt=None):
             block = ''
             data = ''
             n = 0
-            f = open(filename)
+            f = gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename)
             for line in f:
                 if line[:1] == '#':
                     data += line
@@ -40,7 +40,7 @@ def readfile(format, filename, opt=None):
         def filereader_sdf():
             block = ''
             n = 0
-            f = open(filename)
+            f = gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename)
             for line in f:
                 block += line
                 if line[:4] == '$$$$':

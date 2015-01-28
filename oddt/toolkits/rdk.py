@@ -20,6 +20,7 @@ Global variables:
 
 import os
 from copy import copy
+import gzip
 
 import numpy as np
 
@@ -114,7 +115,7 @@ def readfile(format, filename, *args, **kwargs):
         def filereader_sdf():
             block = ''
             n = 0
-            f = open(filename)
+            f = gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename)
             for line in f:
                 block += line
                 if line[:4] == '$$$$':
@@ -136,7 +137,7 @@ def readfile(format, filename, *args, **kwargs):
             block = ''
             data = ''
             n = 0
-            f = open(filename)
+            f = gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename)
             for line in f:
                 if line[:1] == '#':
                     data += line
@@ -194,11 +195,11 @@ def readstring(format, string, **kwargs):
         mol = Chem.inchi.MolFromInchi(string, **kwargs)
     else:
         raise ValueError,"%s is not a recognised RDKit format" % format
-    if mol:
-        return Molecule(mol)
-    else:
-        raise IOError, "Failed to convert '%s' to format '%s'" % (
-            string, format)
+#    if mol:
+    return Molecule(mol)
+#    else:
+#        raise IOError, "Failed to convert '%s' to format '%s'" % (
+#            string, format)
 
 class Outputfile(object):
     """Represent a file to which *output* is to be sent.
@@ -226,7 +227,9 @@ class Outputfile(object):
         elif format=="smi":
             self._writer = Chem.SmilesWriter(self.filename, isomericSmiles=True)
         elif format in ('inchi', 'inchikey') and Chem.INCHI_AVAILABLE:
-            self._writer= open(filename, 'w')
+            self._writer = open(filename, 'w')
+        elif format in ('mol2'):
+            self._writer = gzip.open(filename, 'w') if filename.split('.')[-1] == 'gz' else open(filename, 'w')
         else:
             raise ValueError,"%s is not a recognised RDKit format" % format
         self.total = 0 # The total number of molecules written to the file
@@ -239,7 +242,7 @@ class Outputfile(object):
         """
         if not self.filename:
             raise IOError, "Outputfile instance is closed."
-        if self.format in ('inchi', 'inchikey'):
+        if self.format in ('inchi', 'inchikey', 'mol2'):
             self._writer.write(molecule.write(self.format) +'\n')
         else:
             self._writer.write(molecule.Mol)
