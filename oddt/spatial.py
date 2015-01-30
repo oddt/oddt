@@ -71,7 +71,7 @@ def dihedral(p1,p2,p3,p4):
         out[mask] = -out[mask]
     return out
 
-def rmsd(ref, mol, ignore_h = False, canonize = False, normalize = False):
+def rmsd(ref, mol, ignore_h = True, canonize = False, normalize = False):
     """Computes root mean square deviation (RMSD) between two molecules (including or excluding Hydrogens). No symmetry checks are performed.
     
     Parameters
