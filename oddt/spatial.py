@@ -98,13 +98,8 @@ def rmsd(ref, mol, ignore_h = False, canonize = False, normalize = False):
     """
     if ignore_h:
         if canonize:
-            # Undocumented hack of OB - writing a molecule to cannonical smiles adds data field with cannonical atom order
-            ref.write('can')
-            ref_can = np.array(ref.data['SMILES Atom Order'].split(), dtype=int)-1
-            ref_hvy = ref.coords[ref_can]
-            mol.write('can')
-            mol_can = np.array(mol.data['SMILES Atom Order'].split(), dtype=int)-1
-            mol_hvy = mol.coords[mol_can]
+            ref_hvy = ref.coords[ref.canonic_order]
+            mol_hvy = mol.coords[mol.canonic_order]
         else:
             hvy_map = np.array([atom.idx-1 for atom in mol if atom.atomicnum != 1])
             mol_hvy = mol.coords[hvy_map]

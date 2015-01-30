@@ -129,6 +129,13 @@ class Molecule(pybel.Molecule):
         return self.write('svg')
     
     @property
+    def canonic_order(self):
+        """ Returns np.array with canonic order of heavy atoms in the molecule """
+        tmp = self.clone
+        tmp.write('can')
+        return np.array(tmp.data['SMILES Atom Order'].split(), dtype=int)-1
+    
+    @property
     def atom_dict(self):
         # check cache and generate dicts
         if self._atom_dict is None:

@@ -39,6 +39,12 @@ from rdkit.Chem.Lipinski import NumRotatableBonds
 from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D,Generate
 
+# trap errors since it's still new feature
+try:
+    from rdkit.Chem import CanonicalRankAtoms
+except ImportError:
+    pass
+
 # PIL and Tkinter
 try:
     import Tkinter as tk
@@ -350,6 +356,13 @@ class Molecule(object):
     @property
     def num_rotors(self):
         return NumRotatableBonds(self.Mol)
+    
+    @property
+    def canonic_order(self):
+        """ Returns np.array with canonic order of heavy atoms in the molecule """
+        tmp = self.clone
+        tmp.removeh()
+        return np.array(CanonicalRankAtoms(tmp.Mol), dtype=int)
     
     @property
     def atom_dict(self):
