@@ -87,6 +87,38 @@ _forcefields = {'uff': AllChem.UFFOptimizeMolecule}
 forcefields = _forcefields.keys()
 """A list of supported forcefields"""
 
+def _filereader_mol2(filename):
+    block = ''
+    data = ''
+    n = 0
+    with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
+        for line in f:
+            if line[:1] == '#':
+                data += line
+            elif line[:17] == '@<TRIPOS>MOLECULE':
+                if n>0: #skip `zero` molecule (any preciding comments and spaces)
+                    yield Molecule(source={'fmt': 'mol2', 'string': block})
+                n += 1
+                block = data
+                data = ''
+            block += line
+        # open last molecule
+        if block:
+            yield Molecule(source={'fmt': 'mol2', 'string': block})
+    
+def _filereader_sdf(filename):
+    block = ''
+    n = 0
+    with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
+        for line in f:
+            block += line
+            if line[:4] == '$$$$':
+                yield Molecule(source={'fmt': 'sdf', 'string': block})
+                n += 1
+                block = ''
+        if block: # open last molecule if any
+            yield Molecule(source={'fmt': 'sdf', 'string': block})
+
 def readfile(format, filename, *args, **kwargs):
     """Iterate over the molecules in a file.
 
@@ -118,18 +150,7 @@ def readfile(format, filename, *args, **kwargs):
     # errors in the format and errors in opening the file.
     # Then switch to an iterator...
     if format=="sdf":
-        def filereader_sdf():
-            block = ''
-            n = 0
-            f = gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename)
-            for line in f:
-                block += line
-                if line[:4] == '$$$$':
-                    yield Molecule(source={'fmt': format, 'string': block, 'n': n, 'filename': filename})
-                    n += 1
-                    block = ''
-            f.close()
-        return filereader_sdf()
+        return _filereader_sdf(filename)
     elif format=="mol":
         def mol_reader():
             yield Molecule(Chem.MolFromMolFile(filename, *args, **kwargs))
@@ -139,28 +160,7 @@ def readfile(format, filename, *args, **kwargs):
             yield Molecule(Chem.MolFromPDBFile(filename, *args, **kwargs))
         return mol_reader()
     elif format=="mol2":
-        def filereader_mol2():
-            block = ''
-            data = ''
-            n = 0
-            f = gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename)
-            for line in f:
-                if line[:1] == '#':
-                    data += line
-                elif line[:17] == '@<TRIPOS>MOLECULE':
-                    if n>0: #skip `zero` molecule (any preciding comments and spaces)
-                        yield Molecule(source={'fmt': format, 'string': block, 'n': n, 'filename': filename})
-                    n += 1
-                    block = data
-                    data = ''
-                block += line
-            # open last molecule
-            if block:
-                yield Molecule(source={'fmt': format, 'string': block, 'n': n, 'filename': filename})
-            f.close()
-            
-        return filereader_mol2()
-    
+        return _filereader_mol2(filename)
     elif format=="smi":
         iterator = Chem.SmilesMolSupplier(filename, delimiter=" \t",
                                           titleLine=False, *args, **kwargs)
