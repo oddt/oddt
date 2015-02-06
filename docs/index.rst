@@ -13,7 +13,7 @@ Contents:
 
    rst/oddt
 
-.. automodule::
+.. automodule:: oddt
    :members:
    :inherited-members:
    :imported-members:

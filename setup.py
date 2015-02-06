@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-from distutils.core import setup
+from setuptools import setup
 
 setup(name='ODDT',
         version='0.1.0',
@@ -16,5 +16,6 @@ setup(name='ODDT',
                     'oddt.scoring.descriptors',
                     'oddt.docking',
                     ],
-    package_data={'oddt.scoring.functions': ['NNScore/*.csv', 'RFScore/*.csv']},
+        package_data={'oddt.scoring.functions': ['NNScore/*.csv', 'RFScore/*.csv']},
+        install_requires = open('requirements.txt', 'r').readlines(),
     )

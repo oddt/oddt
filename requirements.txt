@@ -1,0 +1,5 @@
+numpydoc
+numpy>=1.6.2
+scipy>=0.10
+scikit-learn>=0.11
+ffnet>=0.7.1
