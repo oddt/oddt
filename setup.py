@@ -18,4 +18,7 @@ setup(name='ODDT',
                     ],
         package_data={'oddt.scoring.functions': ['NNScore/*.csv', 'RFScore/*.csv']},
         install_requires = open('requirements.txt', 'r').readlines(),
+        extras_require = {
+            'neural_networks' : ['ffnet']
+        }
     )

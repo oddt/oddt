@@ -345,3 +345,37 @@ intersphinx_mapping = {}
 intersphinx_mapping['sklearn'] = ('http://scikit-learn.org/stable', None)
 intersphinx_mapping['numpy'] = ('http://docs.scipy.org/doc/numpy/', None)
 intersphinx_mapping['scipy'] = ('http://docs.scipy.org/doc/scipy/reference/', None)
+
+# Ignore some modules during documentation building on readthedocs.org
+if os.environ.get('READTHEDOCS', None) == 'True':
+    # Invoke sphinx-apidoc
+    os.system("sphinx-apidoc -f -o rst/ ../oddt")
+    
+    try:
+        from unittest.mock import MagicMock # Python 3.3
+    except ImportError:
+        from mock import patch, MagicMock
+
+    pybel = MagicMock()
+    openbabel = MagicMock()
+    rdkit = MagicMock()
+    modules = {
+                # OpenBabel
+                'pybel': pybel,
+                'openbabel' : openbabel,
+                
+                # RDK
+                'rdkit': rdkit,
+                'rdkit.Chem': rdkit.Chem,
+                'rdkit.DataStructs': rdkit.DataStructs,
+                'rdkit.Chem.MACCSkeys': rdkit.Chem.MACCSkeys,
+                'rdkit.Chem.AtomPairs': rdkit.Chem.AtomPairs,
+                'rdkit.Chem.AtomPairs.Pairs': rdkit.Chem.AtomPairs.Pairs,
+                'rdkit.Chem.AtomPairs.Torsions': rdkit.Chem.AtomPairs.Torsions,
+                'rdkit.Chem.Lipinski': rdkit.Chem.Lipinski,
+                'rdkit.Chem.AllChem': rdkit.Chem.AllChem,
+                'rdkit.Chem.Pharm2D': rdkit.Chem.Pharm2D,
+            }
+
+    p = patch.dict('sys.modules', modules)
+    p.start()

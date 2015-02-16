@@ -11,7 +11,7 @@ Contents:
 .. toctree::
    :maxdepth: 5
 
-   rst/oddt
+   rst/oddt.rst
 
 .. automodule:: oddt
    :members:
