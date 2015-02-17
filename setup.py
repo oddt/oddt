@@ -1,24 +1,16 @@
 #!/usr/bin/env python
+import setuptools
+from setuptools import setup,find_packages
 
-from setuptools import setup
-
-setup(name='ODDT',
+setup(name='oddt',
         version='0.1.0',
         description='Open Drug Discovery Toolkit',
         author='Maciej Wojcikowski',
         author_email='mwojcikowski@ibb.waw.pl',
         url='https://github.com/oddt/oddt',
-        packages=['oddt',
-                    'oddt.toolkits',
-                    'oddt.scoring',
-                    'oddt.scoring.models',
-                    'oddt.scoring.functions',
-                    'oddt.scoring.descriptors',
-                    'oddt.docking',
-                    ],
+        license = 'BSD',
+        packages=find_packages(),
         package_data={'oddt.scoring.functions': ['NNScore/*.csv', 'RFScore/*.csv']},
+        setup_requires = ['numpy>=1.6.2'],
         install_requires = open('requirements.txt', 'r').readlines(),
-        extras_require = {
-            'neural_networks' : ['ffnet']
-        }
     )
