@@ -17,6 +17,10 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
 When all requirements are met, then installation process is simple
 > python setup.py install
 
+You can also use pip. All requirements besides toolkits (OpenBabel, RDKit) are installed if necessary.
+Installing inside virtualenv is encouraged, but not necessary.
+> pip install oddt
+
 ### Documentation
 Automatic documentation for ODDT can be build
    > cd docs
