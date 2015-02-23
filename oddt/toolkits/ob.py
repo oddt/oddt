@@ -12,6 +12,9 @@ typetable = OBTypeTable()
 typetable.SetFromType('INT')
 typetable.SetToType('SYB')
 
+# setup ElementTable
+elementtable = ob.OBElementTable()
+
 # hash OB!
 pybel.ob.obErrorLog.StopLogging()
 
@@ -168,6 +171,7 @@ class Molecule(pybel.Molecule):
         atom_dtype = [('id', 'int16'),
                  # atom info
                  ('coords', 'float16', 3),
+                 ('radius', 'float16'),
                  ('charge', 'float16'),
                  ('atomicnum', 'int8'),
                  ('atomtype','a4'),
@@ -222,6 +226,7 @@ class Molecule(pybel.Molecule):
                 neighbors[n] = (nbr_atom.coords, nbr_atomicnum)
             atom_dict[i] = (atom.idx,
                       coords,
+                      elementtable.GetVdwRad(atomicnum),
                       partialcharge,
                       atomicnum,
                       atomtype,

@@ -41,6 +41,8 @@ from rdkit.Chem.Lipinski import NumRotatableBonds
 from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D,Generate
 
+elementtable = Chem.GetPeriodicTable()
+
 # trap errors since it's still new feature
 try:
     from rdkit.Chem import CanonicalRankAtoms
@@ -405,6 +407,7 @@ class Molecule(object):
         atom_dtype = [('id', 'int16'),
                  # atom info
                  ('coords', 'float16', 3),
+                 ('radius', 'float16'),
                  ('charge', 'float16'),
                  ('atomicnum', 'int8'),
                  ('atomtype','a4'),
@@ -452,6 +455,7 @@ class Molecule(object):
                 neighbors[n] = (nbr_atom.coords, nbr_atom.atomicnum)
             atom_dict[i] = (atom.idx,
                       coords,
+                      elementtable.GetRvdw(atomicnum),
                       partialcharge,
                       atomicnum,
                       atomtype,
