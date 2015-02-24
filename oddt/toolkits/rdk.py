@@ -112,7 +112,7 @@ def _filereader_mol2(filename):
         # open last molecule
         if block:
             yield Molecule(source={'fmt': 'mol2', 'string': block})
-    
+
 def _filereader_sdf(filename):
     block = ''
     n = 0
@@ -307,7 +307,7 @@ class Molecule(object):
         self._charges = None
         # lazy
         self._source = source # dict with keys: n, fmt, string, filename
-    
+
     # lazy Molecule parsing requires masked Mol
     @property
     def Mol(self):
@@ -315,11 +315,11 @@ class Molecule(object):
             self._Mol = readstring(self._source['fmt'], self._source['string']).Mol
             self._source = None
         return self._Mol
-        
+
     @Mol.setter
     def Mol(self, value):
         self._Mol = value
-    
+
     @property
     def atoms(self): return [Atom(rdkatom) for rdkatom in self.Mol.GetAtoms()]
     @property
@@ -342,20 +342,20 @@ class Molecule(object):
             return (0, self.write("smi"))
         else:
             return (1, self.write("mol"))
-    
+
     # cache frequently used properties and cache them in prefixed [_] variables
     @property
     def coords(self):
         if self._coords is None:
             self._coords = np.array([atom.coords for atom in self.atoms])
         return self._coords
-    
+
     @property
     def charges(self):
         if self._charges is None:
             self._charges = np.array([atom.partialcharge for atom in self.atoms])
         return self._charges
-    
+
     #### Custom ODDT properties ####
     @property
     def sssr(self):
@@ -363,45 +363,45 @@ class Molecule(object):
     @property
     def num_rotors(self):
         return NumRotatableBonds(self.Mol)
-    
+
     @property
     def canonic_order(self):
         """ Returns np.array with canonic order of heavy atoms in the molecule """
         tmp = self.clone
         tmp.removeh()
         return np.array(CanonicalRankAtoms(tmp.Mol), dtype=int)
-    
+
     @property
     def atom_dict(self):
         # check cache and generate dicts
         if self._atom_dict is None:
             self._dicts()
         return self._atom_dict
-        
+
     @property
     def res_dict(self):
         # check cache and generate dicts
         if self._res_dict is None:
             self._dicts()
         return self._res_dict
-        
+
     @property
     def ring_dict(self):
         # check cache and generate dicts
         if self._ring_dict is None:
             self._dicts()
         return self._ring_dict
-    
+
     @property
     def clone(self):
         return Molecule(copy(self.Mol))
-    
+
     def clone_coords(self, source):
         self.Mol.RemoveAllConformers()
         for conf in source.Mol.GetConformers():
             self.Mol.AddConformer(conf)
         return self
-    
+
     def _dicts(self):
         # Atoms
         atom_dtype = [('id', 'int16'),
@@ -437,7 +437,7 @@ class Molecule(object):
         metals = [3,4,11,12,13,19,20,21,22,23,24,25,26,27,28,29,30,31,37,38,39,40,41,42,43,44,45,46,47,48,49,50,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,87,88,89,90,91,
     92,93,94,95,96,97,98,99,100,101,102,103]
         for i, atom in enumerate(self.atoms):
-            
+
             atomicnum = atom.atomicnum
             partialcharge = atom.partialcharge
             coords = atom.coords
@@ -447,10 +447,10 @@ class Molecule(object):
 #            else:
 #                residue = False
             residue = None
-            
+
             # get neighbors, but only for those atoms which realy need them
-            neighbors = np.empty(4, dtype=[('coords', 'float16', 3),('atomicnum', 'int8')])
-            neighbors.fill(np.nan)
+            neighbors = np.zeros(4, dtype=[('coords', 'float16', 3),('atomicnum', 'int8')])
+            neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
                 neighbors[n] = (nbr_atom.coords, nbr_atom.atomicnum)
             atom_dict[i] = (atom.idx,
@@ -470,15 +470,15 @@ class Molecule(object):
                       False, #atom.OBAtom.IsHbondDonor(),
                       False, #atom.OBAtom.IsHbondDonorH(),
                       atomicnum in metals,
-                      False, #atomicnum == 6 and not (np.in1d(neighbors['atomicnum'], [6,1])).any(), #hydrophobe #doble negation, since nan gives False
+                      atomicnum == 6 and np.in1d(neighbors['atomicnum'], [6,1,0]).all(), #hydrophobe
                       atom.Atom.GetIsAromatic(),
-                      atomtype in ['O3-', '02-' 'O-'], # is charged (minus)
-                      atomtype in ['N3+', 'N2+', 'Ng+'], # is charged (plus)
+                      atomtype in ['O3-', '02-' 'O-'] or atom.formalcharge < 0, # is charged (minus)
+                      atomtype in ['N3+', 'N2+', 'Ng+'] or atom.formalcharge > 0, # is charged (plus)
                       atomicnum in [9,17,35,53], # is halogen?
                       False, # alpha
                       False # beta
                       )
-        
+
         # Match features and mark them in atom_dict
         feats = base_feature_factory.GetFeaturesForMol(self.Mol)
         translate_feats = {'Donor':'isdonor',
@@ -496,10 +496,10 @@ class Molecule(object):
                 feat_atom_ids[translate_feats[f.GetFamily()]] += f.GetAtomIds()
         for key, aids in feat_atom_ids.items():
             atom_dict[key][np.array(aids)] = True
-        
+
         ### FIX: remove acidic carbons from isminus group (they are part of smarts)
         atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
-        
+
 #        if self.protein:
 #            # Protein Residues (alpha helix and beta sheet)
 #            res_dtype = [('id', 'int16'),
@@ -526,7 +526,7 @@ class Molecule(object):
 #                if len(backbone.keys()) == 3:
 #                    b.append((residue.idx, residue.name, backbone['N'],  backbone['CA'], backbone['C'], False, False))
 #            res_dict = np.array(b, dtype=res_dtype)
-#            
+#
 #            # detect secondary structure by phi and psi angles
 #            first = res_dict[:-1]
 #            second = res_dict[1:]
@@ -553,12 +553,12 @@ class Molecule(object):
                 vector = np.cross(coords - np.vstack((coords[1:],coords[:1])), np.vstack((coords[1:],coords[:1])) - np.vstack((coords[2:],coords[:2]))).mean(axis=0) - centroid
                 r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
         ring_dict = np.array(r, dtype=[('centroid', 'float16', 3),('vector', 'float16', 3),('isalpha', 'bool'),('isbeta', 'bool'),])
-        
+
         self._atom_dict = atom_dict
         self._ring_dict = ring_dict
         if self.protein:
             self._res_dict = res_dict
-    
+
     def addh(self):
         """Add hydrogens."""
         self.Mol = Chem.AddHs(self.Mol)
@@ -797,7 +797,7 @@ class Atom(object):
         if not self.Atom.HasProp('_GasteigerCharge'):
             ComputeGasteigerCharges(self.Atom.GetOwningMol())
         return float(self.Atom.GetProp('_GasteigerCharge').replace(',','.'))
-    
+
     def __str__(self):
         if hasattr(self, "coords"):
             return "Atom: %d (%.2f %.2f %.2f)" % (self.atomicnum, self.coords[0],
@@ -956,4 +956,3 @@ def _compressbits(bitvector, wordsize=32):
 if __name__=="__main__": #pragma: no cover
     import doctest
     doctest.testmod()
-

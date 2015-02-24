@@ -176,7 +176,7 @@ class Molecule(pybel.Molecule):
                  ('atomicnum', 'int8'),
                  ('atomtype','a4'),
                  ('hybridization', 'int8'),
-                 ('neighbors', 'float16', (4,3)), # non-H neighbors coordinates for angles (max of 6 neighbors should be enough)
+                 ('neighbors', 'float16', (4,3)), # max of 4 neighbors should be enough
                  # residue info
                  ('resid', 'int16'),
                  ('resname', 'a3'),
@@ -216,8 +216,8 @@ class Molecule(pybel.Molecule):
                 residue = False
 
             # get neighbors, but only for those atoms which realy need them
-            neighbors = np.empty(4, dtype=[('coords', 'float16', 3),('atomicnum', 'int8')])
-            neighbors.fill(np.nan)
+            neighbors = np.zeros(4, dtype=[('coords', 'float16', 3),('atomicnum', 'int8')])
+            neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
                 # concider raising neighbors list to 6, but must do some benchmarks
                 if n > 3:
@@ -241,10 +241,10 @@ class Molecule(pybel.Molecule):
                       atom.OBAtom.IsHbondDonor(),
                       atom.OBAtom.IsHbondDonorH(),
                       atomicnum in metals,
-                      atomicnum == 6 and not (np.in1d(neighbors['atomicnum'], [6,1])).any(), #hydrophobe #doble negation, since nan gives False
+                      atomicnum == 6 and np.in1d(neighbors['atomicnum'], [6,1,0]).all(), #hydrophobe
                       atom.OBAtom.IsAromatic(),
-                      atomtype in ['O3-', '02-' 'O-'], # is charged (minus)
-                      atomtype in ['N3+', 'N2+', 'Ng+'], # is charged (plus)
+                      atomtype in ['O3-', '02-' 'O-'] or atom.formalcharge < 0, # is charged (minus)
+                      atomtype in ['N3+', 'N2+', 'Ng+'] or atom.formalcharge > 0, # is charged (plus)
                       atomicnum in [9,17,35,53], # is halogen?
                       False, # alpha
                       False # beta
