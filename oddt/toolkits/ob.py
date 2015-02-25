@@ -90,6 +90,10 @@ class Molecule(pybel.Molecule):
     @OBMol.setter
     def OBMol(self, value):
         self._OBMol = value
+    
+    @property
+    def atoms(self):
+        return AtomStack(self.OBMol)
 
     # cache frequently used properties and cache them in prefixed [_] variables
     @property
@@ -312,6 +316,23 @@ class Molecule(pybel.Molecule):
 
 ### Extend pybel.Molecule
 pybel.Molecule = Molecule
+
+class AtomStack(object):
+    def __init__(self,OBMol):
+        self.OBMol = OBMol
+
+    def __iter__(self):
+        for i in range(self.OBMol.NumAtoms()):
+            yield Atom(self.OBMol.GetAtom(i+1))
+
+    def __len__(self):
+        return self.OBMol.NumAtoms()
+
+    def __getitem__(self, i):
+        if 0 <= i < self.OBMol.NumAtoms():
+            return Atom(self.OBMol.GetAtom(i+1))
+        else:
+            raise AttributeError("There is no atom with ID %i" % i)
 
 class Atom(pybel.Atom):
     @property

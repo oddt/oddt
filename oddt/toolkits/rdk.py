@@ -321,7 +321,7 @@ class Molecule(object):
         self._Mol = value
 
     @property
-    def atoms(self): return [Atom(rdkatom) for rdkatom in self.Mol.GetAtoms()]
+    def atoms(self): return AtomStack(self.Mol)
     @property
     def data(self): return MoleculeData(self.Mol)
     @property
@@ -756,6 +756,23 @@ class Molecule(object):
                 raise Error, "Embedding failed!"
         self.localopt(forcefield, steps)
 
+class AtomStack(object):
+    def __init__(self,Mol):
+        self.Mol = Mol
+    
+    def __iter__(self):
+        for i in range(self.Mol.GetNumAtoms()):
+            yield Atom(self.Mol.GetAtomWithIdx(i))
+    
+    def __len__(self):
+        return self.Mol.GetNumAtoms()
+    
+    def __getitem__(self, i):
+        if 0 <= i < self.Mol.GetNumAtoms():
+            return Atom(self.Mol.GetAtomWithIdx(i))
+        else:
+            raise AttributeError("There is no atom with ID %i" % i)
+
 class Atom(object):
     """Represent an rdkit Atom.
 
@@ -786,7 +803,8 @@ class Atom(object):
     ### ODDT ###
     @property
     def idx(self):
-        return self.Atom.GetIdx()
+        """ Note that this index is 1-based and RDKit's internal index in 0-based. Changed to be compatible with OpenBabel"""
+        return self.Atom.GetIdx()+1
     @property
     def neighbors(self):
         return [Atom(a) for a in self.Atom.GetNeighbors()]
