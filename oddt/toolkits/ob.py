@@ -90,10 +90,14 @@ class Molecule(pybel.Molecule):
     @OBMol.setter
     def OBMol(self, value):
         self._OBMol = value
-    
+
     @property
     def atoms(self):
         return AtomStack(self.OBMol)
+    
+    @property
+    def bonds(self):
+        return BondStack(self.OBMol)
 
     # cache frequently used properties and cache them in prefixed [_] variables
     @property
@@ -332,7 +336,7 @@ class AtomStack(object):
         if 0 <= i < self.OBMol.NumAtoms():
             return Atom(self.OBMol.GetAtom(i+1))
         else:
-            raise AttributeError("There is no atom with ID %i" % i)
+            raise AttributeError("There is no atom with Idx %i" % i)
 
 class Atom(pybel.Atom):
     @property
@@ -343,6 +347,35 @@ class Atom(pybel.Atom):
         return Residue(self.OBAtom.GetResidue())
 
 pybel.Atom = Atom
+
+class BondStack(object):
+    def __init__(self,OBMol):
+        self.OBMol = OBMol
+
+    def __iter__(self):
+        for i in range(self.OBMol.NumBonds()):
+            yield Bond(self.OBMol.GetBond(i))
+
+    def __len__(self):
+        return self.OBMol.NumBonds()
+
+    def __getitem__(self, i):
+        if 0 <= i < self.OBMol.NumBonds():
+            return Bond(self.OBMol.GetBond(i))
+        else:
+            raise AttributeError("There is no bond with Idx %i" % i)
+
+class Bond(object):
+    def __init__(self, OBBond):
+        self.OBBond = OBBond
+
+    @property
+    def order(self):
+        return self.OBBond.GetBondOrder()
+
+    @property
+    def atoms(self):
+        return (Atom(self.OBBond.GetBeginAtom()), Atom(self.OBBond.GetEndAtom()))
 
 class Residue(object):
     """Represent a Pybel residue.
