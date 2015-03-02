@@ -44,14 +44,14 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None):
     Returns
     -------
         ef : float
-            Enrichment Factor for given percenage
+            Enrichment Factor for given percenage in range 0:1
     """
     if pos_label is None:
         pos_label = 1
     labels = y_true == pos_label
     # calculate fraction of positve labels
-    n_perc = ceil(float(percentage)/100.*len(labels))
-    return labels[:n_perc].sum()/n_perc*100
+    n_perc = int(ceil(float(percentage)/100.*len(labels)))
+    return float(labels[:n_perc].sum())/n_perc
     
 def roc_log_auc(y_true, y_score, pos_label=None, log_min=0.001, log_max=1.):
     """Computes area under semi-log ROC for random distribution.
