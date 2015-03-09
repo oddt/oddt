@@ -26,7 +26,7 @@ def angle(p1,p2,p3):
     return angle_2v(v1,v2)
 
 def angle_2v(v1, v2):
-    """Returns an angle from a series of 3 points (point #2 is centroid).Angle is returned in degrees.
+    """Returns an angle between two vecors.Angle is returned in degrees.
     
     Parameters
     ----------
@@ -40,7 +40,7 @@ def angle_2v(v1, v2):
     """
     dot = (v1*v2).sum(axis=-1) # better than np.dot(v1, v2), multiple vectors can be applied
     norm = np.linalg.norm(v1, axis=-1)* np.linalg.norm(v2, axis=-1)
-    return np.degrees(np.arccos(dot/norm))
+    return np.degrees(np.arccos(np.clip(dot/norm, -1, 1)))
 
 def dihedral(p1,p2,p3,p4):
     """Returns an dihedral angle from a series of 4 points. Dihedral is returned in degrees.
