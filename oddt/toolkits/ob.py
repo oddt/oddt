@@ -94,7 +94,7 @@ class Molecule(pybel.Molecule):
     @property
     def atoms(self):
         return AtomStack(self.OBMol)
-    
+
     @property
     def bonds(self):
         return BondStack(self.OBMol)
@@ -105,6 +105,13 @@ class Molecule(pybel.Molecule):
         if self._coords is None:
             self._coords = np.array([atom.coords for atom in self.atoms])
         return self._coords
+    
+    @coords.setter
+    def coords(self, new):
+        [a.OBAtom.SetVector(v[0],v[1],v[2]) for v, a in zip(new, self.atoms)]
+        # clear cache
+        self._cache = None
+
 
     @property
     def charges(self):
@@ -376,6 +383,11 @@ class Bond(object):
     @property
     def atoms(self):
         return (Atom(self.OBBond.GetBeginAtom()), Atom(self.OBBond.GetEndAtom()))
+
+    @property
+    def isrotor(self):
+        return self.OBBond.IsRotor()
+
 
 class Residue(object):
     """Represent a Pybel residue.
