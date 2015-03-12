@@ -7,7 +7,7 @@ import warnings
 from oddt import toolkit, random_seed
 from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
-from oddt.scoring.descriptors import close_contacts, autodock_vina_descriptor
+from oddt.scoring.descriptors import close_contacts, oddt_vina_descriptor
 from oddt.datasets import pdbbind
 
 # numpy after pickling gives Runtime Warnings
@@ -48,7 +48,7 @@ class rfscore(scorer):
         elif version == 3:
             cutoff = 12
             cc = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
-            vina = autodock_vina_descriptor(protein)
+            vina = oddt_vina_descriptor(protein, vina_scores = ['vina_gauss1', 'vina_gauss2', 'vina_repulsion', 'vina_hydrophobic', 'vina_hydrogen', 'vina_num_rotors'])
             descriptors = ensemble_descriptor((vina, cc))
         super(rfscore,self).__init__(model, descriptors, score_title = 'rfscore_v%i' % self.version)
 
