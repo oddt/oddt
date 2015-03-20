@@ -32,4 +32,4 @@ Automatic documentation for ODDT can be build
 ### License
 ODDT is released under permissive [3-clause BSD license](./LICENSE)
 
-[![Analytics](https://ga-beacon.appspot.com/UA-XXXXX-X/your-repo/page-name)](https://github.com/igrigorik/ga-beacon)
+[![Analytics](https://ga-beacon.appspot.com/UA-44788495-3/oddt/oddt)](https://github.com/igrigorik/ga-beacon)
