@@ -22,7 +22,7 @@ Installing inside virtualenv is encouraged, but not necessary.
 > pip install oddt
 
 ### Documentation
-Automatic documentation for ODDT can be build
+Automatic documentation for ODDT is available on [Readthedocs.org](https://oddt.readthedocs.org/). Additionally it can be build localy:
    > cd docs
    
    > make html
