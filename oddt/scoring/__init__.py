@@ -1,9 +1,36 @@
 import numpy as np
 from scipy.stats import linregress
-from sklearn.cross_validation import cross_val_score, KFold
+from sklearn.cross_validation import cross_val_score, KFold, train_test_split
 from sklearn.externals import joblib as pickle
 
 def cross_validate(model, cv_set, cv_target, n = 10, shuffle=True, n_jobs = 1):
+    """Perform cross validation of model using provided data
+    
+    Parameters
+    ----------
+        model: object
+            Model to be tested
+        
+        cv_set: array-like of shape = [n_samples, n_features]
+            Estimated target values.
+        
+        cv_target: array-like of shape = [n_samples] or [n_samples, n_outputs]
+            Estimated target values.
+        
+        n: integer (default = 10)
+            How many folds to be created from dataset
+        
+        shuffle: bool (default = True)
+            Should data be shuffled before folding.
+        
+        n_jobs: integer (default = 1)
+            How many CPUs to use during cross validation
+        
+    Returns
+    -------
+        r2: array of shape = [n]
+            R^2 score for each of generated folds
+    """
     if shuffle:
         cv = KFold(len(cv_target), n_folds=n, shuffle=True)
     else:
@@ -18,14 +45,14 @@ class scorer(object):
         
         Parameters
         ----------
-        model_instances: array of models
-            An array of medels compatible with sklearn API (fit, predict and score methods)
-        
-        descriptor_generator_instances: array of descriptors
-            An array of descriptor objects
-        
-        score_title: string
-            Title of score to be used.
+            model_instances: array of models
+                An array of medels compatible with sklearn API (fit, predict and score methods)
+            
+            descriptor_generator_instances: array of descriptors
+                An array of descriptor objects
+            
+            score_title: string
+                Title of score to be used.
         """
         self.model = model_instances
         if type(model_instances) is list:
