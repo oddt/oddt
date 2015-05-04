@@ -8,7 +8,7 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
 
 ### Documentation, Discussion and Contribution:
  * Documentation: http://oddt.readthedocs.org/en/latest
- * Mailing list: http://groups.google.com/d/forum/oddt
+ * Mailing list: oddt@googlegroups.com  http://groups.google.com/d/forum/oddt
  * Issues: https://github.com/oddt/oddt/issues
 
 ### Requrements
