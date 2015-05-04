@@ -4,6 +4,10 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
 
 [![Documentation Status](https://readthedocs.org/projects/oddt/badge/?version=latest)](http://oddt.readthedocs.org/en/latest/)
 
+### Documentation, Discussion and Contribution:
+ * Documentation: http://oddt.readthedocs.org/en/latest
+ * Mailing list: http://groups.google.com/d/forum/oddt
+ * Issues: https://github.com/oddt/oddt/issues
 
 ### Requrements
    * Python 2.7.X
