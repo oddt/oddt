@@ -28,6 +28,7 @@ import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
 from rdkit.Chem import Descriptors
+from rdkit import RDConfig
 
 _descDict = dict(Descriptors.descList)
 
@@ -83,6 +84,9 @@ informats = dict([(_x, _formats[_x]) for _x in _formats if _x not in _notinforma
 """A dictionary of supported input formats"""
 outformats = dict([(_x, _formats[_x]) for _x in _formats if _x not in _notoutformats])
 """A dictionary of supported output formats"""
+
+base_feature_factory = AllChem.BuildFeatureFactory(os.path.join(RDConfig.RDDataDir,'BaseFeatures.fdef'))
+""" Global feature factory based on BaseFeatures.fdef """
 
 _forcefields = {'uff': AllChem.UFFOptimizeMolecule}
 forcefields = _forcefields.keys()
@@ -462,7 +466,7 @@ class Molecule(object):
                       False, #atom.OBAtom.IsHbondDonor(),
                       False, #atom.OBAtom.IsHbondDonorH(),
                       atomicnum in metals,
-                      atomicnum == 6 and not (np.in1d(neighbors['atomicnum'], [6,1])).any(), #hydrophobe #doble negation, since nan gives False
+                      False, #atomicnum == 6 and not (np.in1d(neighbors['atomicnum'], [6,1])).any(), #hydrophobe #doble negation, since nan gives False
                       atom.Atom.GetIsAromatic(),
                       atomtype in ['O3-', '02-' 'O-'], # is charged (minus)
                       atomtype in ['N3+', 'N2+', 'Ng+'], # is charged (plus)
@@ -470,6 +474,27 @@ class Molecule(object):
                       False, # alpha
                       False # beta
                       )
+        
+        # Match features and mark them in atom_dict
+        feats = base_feature_factory.GetFeaturesForMol(self.Mol)
+        translate_feats = {'Donor':'isdonor',
+                   'Acceptor':'isacceptor',
+                   'NegIonizable':'isminus',
+                   'PosIonizable':'isplus',
+                   'Aromatic':'isaromatic',
+                   'Hydrophobe':'ishydrophobe'
+                   }
+        feat_atom_ids = {}
+        for f in feats:
+            if f.GetFamily() in translate_feats:
+                if not translate_feats[f.GetFamily()] in feat_atom_ids:
+                    feat_atom_ids[translate_feats[f.GetFamily()]] = tuple()
+                feat_atom_ids[translate_feats[f.GetFamily()]] += f.GetAtomIds()
+        for key, aids in feat_atom_ids.items():
+            atom_dict[key][np.array(aids)] = True
+        
+        ### FIX: remove acidic carbons from isminus group (they are part of smarts)
+        atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
         
 #        if self.protein:
 #            # Protein Residues (alpha helix and beta sheet)
