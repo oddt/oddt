@@ -33,7 +33,7 @@ def _filereader_mol2(filename, opt = None):
         # open last molecule
         if block:
             yield Molecule(source={'fmt': 'mol2', 'string': block, 'opt': opt})
-    
+
 def _filereader_sdf(filename, opt = None):
     block = ''
     n = 0
@@ -59,12 +59,12 @@ class Molecule(pybel.Molecule):
     def __init__(self, OBMol = None, source = None, protein = False):
         # lazy
         self._source = source # dict with keys: n, fmt, string, filename
-        
+
         # call parent constructor
         super(Molecule,self).__init__(OBMol)
-        
+
         self.protein = protein
-        
+
         #ob.DeterminePeptideBackbone(molecule.OBMol)
         # percieve chains in residues
         #if len(res_dict) > 1 and not molecule.OBMol.HasChainsPerceived():
@@ -75,7 +75,7 @@ class Molecule(pybel.Molecule):
         self._ring_dict = None
         self._coords = None
         self._charges = None
-        
+
     # lazy Molecule parsing requires masked OBMol
     @property
     def OBMol(self):
@@ -83,24 +83,24 @@ class Molecule(pybel.Molecule):
             self._OBMol = readstring(self._source['fmt'], self._source['string'], opt=self._source['opt'] if 'opt' in self._source else {}).OBMol
             self._source = None
         return self._OBMol
-        
+
     @OBMol.setter
     def OBMol(self, value):
         self._OBMol = value
-    
+
     # cache frequently used properties and cache them in prefixed [_] variables
     @property
     def coords(self):
         if self._coords is None:
             self._coords = np.array([atom.coords for atom in self.atoms])
         return self._coords
-    
+
     @property
     def charges(self):
         if self._charges is None:
             self._charges = np.array([atom.partialcharge for atom in self.atoms])
         return self._charges
-    
+
     def write(self, format="smi", filename=None, overwrite=False, opt=None):
         format = format.lower()
         # Use lazy molecule if possible
@@ -108,61 +108,61 @@ class Molecule(pybel.Molecule):
             return self._source['string']
         else:
             return super(Molecule,self).write(format=format, filename=filename, overwrite=overwrite, opt=opt)
-    
+
     ### Backport code implementing resudues (by me) to support older versions of OB (aka 'stable')
     @property
     def residue(self): return Residue(self.OBAtom.GetResidue())
-    
+
     #### Custom ODDT properties ####
     def __getattr__(self, attr):
         for desc in pybel._descdict.keys():
             if attr.lower() == desc.lower():
                 return self.calcdesc([desc])[desc]
         raise AttributeError('Molecule has no such property: %s' % attr)
-    
+
     @property
     def num_rotors(self):
         return self.OBMol.NumRotors()
-    
-    def _repr_html_():
-        return self.write('svg')
-    
+
+    def _repr_svg_(self):
+        return self.write('svg', opt={'d':None}).replace('\n', '')
+
     @property
     def canonic_order(self):
         """ Returns np.array with canonic order of heavy atoms in the molecule """
         tmp = self.clone
         tmp.write('can')
         return np.array(tmp.data['SMILES Atom Order'].split(), dtype=int)-1
-    
+
     @property
     def atom_dict(self):
         # check cache and generate dicts
         if self._atom_dict is None:
             self._dicts()
         return self._atom_dict
-        
+
     @property
     def res_dict(self):
         # check cache and generate dicts
         if self._res_dict is None:
             self._dicts()
         return self._res_dict
-        
+
     @property
     def ring_dict(self):
         # check cache and generate dicts
         if self._ring_dict is None:
             self._dicts()
         return self._ring_dict
-    
+
     @property
     def clone(self):
         return Molecule(ob.OBMol(self.OBMol))
-    
+
     def clone_coords(self, source):
         self.OBMol.SetCoordinates(source.OBMol.GetCoordinates())
         return self
-    
+
     def _dicts(self):
         # Atoms
         atom_dtype = [('id', 'int16'),
@@ -197,7 +197,7 @@ class Molecule(pybel.Molecule):
         metals = [3,4,11,12,13,19,20,21,22,23,24,25,26,27,28,29,30,31,37,38,39,40,41,42,43,44,45,46,47,48,49,50,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,87,88,89,90,91,
     92,93,94,95,96,97,98,99,100,101,102,103]
         for i, atom in enumerate(self.atoms):
-            
+
             atomicnum = atom.atomicnum
             # skip non-polar hydrogens for performance
 #            if atomicnum == 1 and atom.OBAtom.IsNonPolarHydrogen():
@@ -205,12 +205,12 @@ class Molecule(pybel.Molecule):
             atomtype = typetable.Translate(atom.type) # sybyl atom type
             partialcharge = atom.partialcharge
             coords = atom.coords
-            
+
             if self.protein:
                 residue = pybel.Residue(atom.OBAtom.GetResidue())
             else:
                 residue = False
-            
+
             # get neighbors, but only for those atoms which realy need them
             neighbors = np.empty(4, dtype=[('coords', 'float16', 3),('atomicnum', 'int8')])
             neighbors.fill(np.nan)
@@ -244,7 +244,7 @@ class Molecule(pybel.Molecule):
                       False, # alpha
                       False # beta
                       )
-        
+
         if self.protein:
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', 'int16'),
@@ -271,7 +271,7 @@ class Molecule(pybel.Molecule):
                 if len(backbone.keys()) == 3:
                     b.append((residue.idx, residue.name, backbone['N'],  backbone['CA'], backbone['C'], False, False))
             res_dict = np.array(b, dtype=res_dtype)
-            
+
             # detect secondary structure by phi and psi angles
             first = res_dict[:-1]
             second = res_dict[1:]
@@ -299,7 +299,7 @@ class Molecule(pybel.Molecule):
                 vector = np.cross(coords - np.vstack((coords[1:],coords[:1])), np.vstack((coords[1:],coords[:1])) - np.vstack((coords[2:],coords[:2]))).mean(axis=0) - centroid
                 r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
         ring_dict = np.array(r, dtype=[('centroid', 'float16', 3),('vector', 'float16', 3),('isalpha', 'bool'),('isbeta', 'bool'),])
-        
+
         self._atom_dict = atom_dict
         self._ring_dict = ring_dict
         if self.protein:
