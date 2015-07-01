@@ -43,4 +43,5 @@ If you found Open Drug Discovery Toolkit useful for your research, please cite u
 
 1. Wójcikowski, M., Zielenkiewicz, P., & Siedlecki, P. (2015). Open Drug Discovery Toolkit (ODDT): a new open-source player in the drug discovery field. Journal of Cheminformatics, 7(1), 26. [doi:10.1186/s13321-015-0078-2](https://dx.doi.org/10.1186/s13321-015-0078-2)
 
-[![Analytics](https://ga-beacon.appspot.com/UA-44788495-3/oddt/oddt)](https://github.com/igrigorik/ga-beacon)
+
+[![Analytics](https://ga-beacon.appspot.com/UA-44788495-3/oddt/oddt?flat)](https://github.com/igrigorik/ga-beacon)
