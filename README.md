@@ -27,12 +27,16 @@ You can also use pip. All requirements besides toolkits (OpenBabel, RDKit) are i
 Installing inside virtualenv is encouraged, but not necessary.
 > pip install oddt
 
+### Upgrading
+To upgrade oddt using pip (without upgrading dependencies):
+> pip install -U --no-deps oddt
+
 ### Documentation
 Automatic documentation for ODDT is available on [Readthedocs.org](https://oddt.readthedocs.org/). Additionally it can be build localy:
    > cd docs
-   
+
    > make html
-   
+
    > make latexpdf
 
 ### License
