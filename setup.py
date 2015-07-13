@@ -13,6 +13,6 @@ setup(name='oddt',
         package_data={'oddt.scoring.functions': ['NNScore/*.csv', 'RFScore/*.csv']},
         setup_requires = ['numpy>=1.6.2'],
         install_requires = open('requirements.txt', 'r').readlines(),
-        download_url = 'https://github.com/peterldowns/mypackage/tarball/0.1.2',
+        download_url = 'https://github.com/oddt/oddt/tarball/0.1.2',
         keywords = ['cheminformatics', 'qsar', 'virtual screening', 'docking', 'pipeline'],
     )
