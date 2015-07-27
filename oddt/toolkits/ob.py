@@ -50,11 +50,26 @@ def _filereader_sdf(filename, opt = None):
         if block: # open last molecule if any
             yield Molecule(source={'fmt': 'sdf', 'string': block, 'opt': opt})
 
+def _filereader_pdb(filename, opt = None):
+    block = ''
+    n = 0
+    with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
+        for line in f:
+            block += line
+            if line[:4] == 'ENDMDL':
+                yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
+                n += 1
+                block = ''
+        if block: # open last molecule if any
+            yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
+
 def readfile(format, filename, opt=None, lazy=False):
     if lazy and format == 'mol2':
         return _filereader_mol2(filename, opt=opt)
     elif lazy and format == 'sdf':
         return _filereader_sdf(filename, opt=opt)
+    elif lazy and format == 'pdb':
+        return _filereader_pdb(filename, opt=opt)
     else:
         return pybel.readfile(format, filename, opt=opt)
 
@@ -105,7 +120,7 @@ class Molecule(pybel.Molecule):
         if self._coords is None:
             self._coords = np.array([atom.coords for atom in self.atoms])
         return self._coords
-    
+
     @coords.setter
     def coords(self, new):
         [a.OBAtom.SetVector(v[0],v[1],v[2]) for v, a in zip(new, self.atoms)]

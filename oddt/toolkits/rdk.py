@@ -126,6 +126,19 @@ def _filereader_sdf(filename):
         if block: # open last molecule if any
             yield Molecule(source={'fmt': 'sdf', 'string': block})
 
+def _filereader_pdb(filename, opt = None):
+    block = ''
+    n = 0
+    with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
+        for line in f:
+            block += line
+            if line[:4] == 'ENDMDL':
+                yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
+                n += 1
+                block = ''
+        if block: # open last molecule if any
+            yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
+
 def readfile(format, filename, *args, **kwargs):
     """Iterate over the molecules in a file.
 
@@ -759,14 +772,14 @@ class Molecule(object):
 class AtomStack(object):
     def __init__(self,Mol):
         self.Mol = Mol
-    
+
     def __iter__(self):
         for i in range(self.Mol.GetNumAtoms()):
             yield Atom(self.Mol.GetAtomWithIdx(i))
-    
+
     def __len__(self):
         return self.Mol.GetNumAtoms()
-    
+
     def __getitem__(self, i):
         if 0 <= i < self.Mol.GetNumAtoms():
             return Atom(self.Mol.GetAtomWithIdx(i))
