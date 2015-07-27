@@ -1,9 +1,30 @@
+language: python
+addons:
+    apt:
+        packages:
+        - gfortran
+        - liblapack3gf
+        - libblas3gf
+        - liblapack-dev
+        - libblas-dev
+        - python-numpy
+        - python-scipy
+virtualenv:
+    system_site_packages: true
+
 deploy:
-  provider: pypi
-  user: mwojcikowski
-  password:
-    secure: PqHbSgU4Niwaki1TepPSBek1x6mvKYWdF2//07k0tCSU779Tqv3BXZ7vDBuHGEXIR+/0ZezTjv2ajOraT69foKJViwKY4D+swZN7i0zhkbEjWL6cpRd+BI84ez6YI/BRpNVNhjNaiaDtuLjDHLxnD966L9LK35xa/S3RU4QBtFQ=
-  on:
-    tags: true
-    repo: oddt/oddt
-    branch: master
+    provider: pypi
+    user: mwojcikowski
+    password:
+        secure: PqHbSgU4Niwaki1TepPSBek1x6mvKYWdF2//07k0tCSU779Tqv3BXZ7vDBuHGEXIR+/0ZezTjv2ajOraT69foKJViwKY4D+swZN7i0zhkbEjWL6cpRd+BI84ez6YI/BRpNVNhjNaiaDtuLjDHLxnD966L9LK35xa/S3RU4QBtFQ=
+    on:
+        tags: true
+        repo: oddt/oddt
+        branch: master
+
+# install packages manually, since not all of them are whitelisted
+before_install:
+    - sudo apt-get update -qq
+    - sudo apt-get install -qq python-sklearn python-openbabel python-rdkit 
+
+script: python -c "import oddt"
