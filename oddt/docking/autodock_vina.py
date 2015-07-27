@@ -19,7 +19,7 @@ class autodock_vina(object):
 
             auto_ligand: oddt.toolkit.Molecule object or string (default=None)
                 Ligand use to center the docking box. Either ODDT molecule or a file (opened based on extesion and read to ODDT molecule). Box is centered on geometric center of molecule.
-            
+
             size: tuple, shape=[3] (default=(10,10,10))
                 Dimentions of docking box (in Angstroms)
 
@@ -114,11 +114,11 @@ class autodock_vina(object):
                 self.protein = toolkit.readfile(extension, protein).next()
                 self.protein.protein = True
                 self.protein_file = self.tmp_dir  + '/protein.pdbqt'
-                self.protein.write('pdbqt', self.protein_file, opt={'r':None,}, overwrite=True)
+                self.protein.write('pdbqt', self.protein_file, opt={'r':None, 'c':None}, overwrite=True)
         else:
             # write protein to file
             self.protein_file = self.tmp_dir  + '/protein.pdbqt'
-            self.protein.write('pdbqt', self.protein_file, opt={'r':None,}, overwrite=True)
+            self.protein.write('pdbqt', self.protein_file, opt={'r':None, 'c':None}, overwrite=True)
 
     def score(self, ligands, protein = None, single = False):
         """Automated scoring procedure.

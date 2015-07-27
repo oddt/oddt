@@ -3,7 +3,7 @@ import setuptools
 from setuptools import setup,find_packages
 
 setup(name='oddt',
-        version='0.1.2',
+        version='0.1.2.2',
         description='Open Drug Discovery Toolkit',
         author='Maciej Wojcikowski',
         author_email='mwojcikowski@ibb.waw.pl',

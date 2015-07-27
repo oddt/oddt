@@ -1,0 +1,9 @@
+deploy:
+  provider: pypi
+  user: mwojcikowski
+  password:
+    secure: PqHbSgU4Niwaki1TepPSBek1x6mvKYWdF2//07k0tCSU779Tqv3BXZ7vDBuHGEXIR+/0ZezTjv2ajOraT69foKJViwKY4D+swZN7i0zhkbEjWL6cpRd+BI84ez6YI/BRpNVNhjNaiaDtuLjDHLxnD966L9LK35xa/S3RU4QBtFQ=
+  on:
+    tags: true
+    repo: oddt/oddt
+    branch: master
