@@ -6,15 +6,15 @@ def atoms_by_type(atom_dict, types, mode = 'atomic_nums'):
         * atomic numbers ['atomic_nums']
         * Sybyl Atom Types ['atom_types_sybyl']
         * AutoDock4 atom types ['atom_types_ad4'] (http://autodock.scripps.edu/faqs-help/faq/where-do-i-set-the-autodock-4-force-field-parameters)
-    
+
     Parameters
     ----------
         atom_dict: oddt.toolkit.Molecule.atom_dict
             Atom dictionary as implemeted in oddt.toolkit.Molecule class
-        
+
         types: array-like
             List of atom types/numbers wanted.
-    
+
     Returns
     -------
         out: dictionary of shape=[len(types)]
@@ -76,70 +76,82 @@ def atoms_by_type(atom_dict, types, mode = 'atomic_nums'):
 class close_contacts(object):
     def __init__(self, protein = None, cutoff = 4, mode = 'atomic_nums', ligand_types = None, protein_types = None, aligned_pairs = False):
         """Close contacts descriptor which tallies atoms of type X in certain cutoff from atoms of type Y.
-        
+
         Parameters
         ----------
             protein: oddt.toolkit.Molecule or None (default=None)
                 Default protein to use as reference
-            
+
             cutoff: int (default=4)
                 Cutoff for atoms in Angstroms
-            
+
             mode: string (default='atomic_nums')
                 Method of atoms selection, as used in `atoms_by_type`
-            
+
             ligand_types: array
                 List of ligand atom types to use
-            
+
             protein_types: array
                 List of protein atom types to use
-            
+
             aligned_pairs: bool (default=False)
                 Flag indicating should permutation of types should be done, otherwise the atoms are treated as aligned pairs.
         """
-        self.cutoff = cutoff
+        self.cutoff = np.array([cutoff]) if type(cutoff) == int else np.array(cutoff)
         self.protein = protein
         self.ligand_types = ligand_types
         self.protein_types = protein_types if protein_types else ligand_types
         self.aligned_pairs = aligned_pairs
         self.mode = mode
-    
+
     def build(self, ligands, protein = None, single = False):
         """Builds descriptors for series of ligands
-    
+
         Parameters
         ----------
             ligands: iterable of oddt.toolkit.Molecules or oddt.toolkit.Molecule
                 A list or iterable of ligands to build the descriptor or a single molecule.
-            
+
             protein: oddt.toolkit.Molecule or None (default=None)
                 Default protein to use as reference
-            
+
             single: bool (default=False)
                 Flag indicating if the ligand is single.
-        
+
         """
         if protein is None:
             protein = self.protein
         if single and type(ligands) is not list:
             ligands = [ligands]
 #        prot_dict = atoms_by_type(protein.atom_dict, self.protein_types, self.mode)
-        desc_size = len(self.ligand_types) if self.aligned_pairs else len(self.ligand_types)*len(self.protein_types)
+        desc_size = len(self.ligand_types)*self.cutoff.shape[0] if self.aligned_pairs else len(self.ligand_types)*len(self.protein_types)*self.cutoff.shape[0]
         out = np.zeros(desc_size, dtype=int)
         for mol in ligands:
-#            mol_dict = atoms_by_type(mol.atom_dict, self.ligand_types, self.mode) 
+#            mol_dict = atoms_by_type(mol.atom_dict, self.ligand_types, self.mode)
             if self.aligned_pairs:
-                #desc = np.array([(distance(prot_dict[str(prot_type)]['coords'], mol_dict[str(mol_type)]['coords']) <= self.cutoff).sum() for mol_type, prot_type in zip(self.ligand_types, self.protein_types)], dtype=int)
-                # this must be LAZY!
-                desc = np.array([(distance(atoms_by_type(protein.atom_dict, [prot_type], self.mode)[prot_type]['coords'], atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords']) <= self.cutoff).sum() for mol_type, prot_type in zip(self.ligand_types, self.protein_types)], dtype=int)
+                pairs = zip(self.ligand_types, self.protein_types)
             else:
-                desc = np.array([(distance(atoms_by_type(protein.atom_dict, [prot_type], self.mode)[prot_type]['coords'], atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords']) <= self.cutoff).sum() for mol_type in self.ligand_types for prot_type in self.protein_types], dtype=int)
+                pairs = [(mol_type, prot_type) for mol_type in self.ligand_types for prot_type in self.protein_types]
+            #desc = np.array([(distance(atoms_by_type(protein.atom_dict, [prot_type], self.mode)[prot_type]['coords'], atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords'])[..., np.newaxis] <= self.cutoff).sum(axis=(0,1)) for mol_type, prot_type in pairs], dtype=int).flatten()
+
+            desc = []
+            for mol_type, prot_type in pairs:
+                prot_coords = atoms_by_type(protein.atom_dict, [prot_type], self.mode)[prot_type]['coords']
+                mol_coords = atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords']
+                d = distance(prot_coords, mol_coords)[..., np.newaxis]
+                if len(self.cutoff) > 1:
+                    count = ((d > self.cutoff[...,0]) & (d <= self.cutoff[...,1])).sum(axis=(0,1))
+                    #count = ne.evaluate('(d > c0) & (d <= c1)', {'d': d, 'c0': cutoff[...,0], 'c1': self.cutoff[...,1]}).sum(axis=(0,1))
+                else:
+                    count = (d <= self.cutoff).sum()
+                desc.append(count)
+            desc = np.array(desc, dtype=int).flatten()
             out = np.vstack((out, desc))
         return out[1:]
-    
+
     def __reduce__(self):
         return close_contacts, (None, self.cutoff, self.mode, self.ligand_types, self.protein_types, self.aligned_pairs)
-        
+
 class fingerprints(object):
     def __init__(self, fp = 'fp2', toolkit = 'ob'):
         self.fp = fp
@@ -149,23 +161,23 @@ class fingerprints(object):
         #else:
         #    self.exchange = True
         #    self.target_toolkit = __import__('toolkits.'+toolkit)
-    
+
     def _get_fingerprint(self, mol):
         if self.exchange:
             mol = self.target_toolkit.Molecule(mol)
         return mol.calcfp(self.fp).raw
-        
+
     def build(self, mols, single = False):
         if single:
             mols = [mols]
         out = None
-        
+
         for mol in mols:
             fp = self._get_fingerprint(mol)
             if out is None:
                 out = np.zeros_like(fp)
             out = np.vstack((fp, out))
         return out[1:]
-    
+
     def __reduce__(self):
         return fingerprints, ()
