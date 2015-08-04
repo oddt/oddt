@@ -82,8 +82,9 @@ class close_contacts(object):
             protein: oddt.toolkit.Molecule or None (default=None)
                 Default protein to use as reference
 
-            cutoff: int (default=4)
-                Cutoff for atoms in Angstroms
+            cutoff: int or list, shape=[n,2] (default=4)
+                Cutoff for atoms in Angstroms given as an integer or a list of ranges, eg. [[0,4],[4,8],[8,12]].
+                Upper bound is always inclusive, lower exclusive.
 
             mode: string (default='atomic_nums')
                 Method of atoms selection, as used in `atoms_by_type`
