@@ -134,9 +134,10 @@ class close_contacts(object):
                 pairs = [(mol_type, prot_type) for mol_type in self.ligand_types for prot_type in self.protein_types]
             #desc = np.array([(distance(atoms_by_type(protein.atom_dict, [prot_type], self.mode)[prot_type]['coords'], atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords'])[..., np.newaxis] <= self.cutoff).sum(axis=(0,1)) for mol_type, prot_type in pairs], dtype=int).flatten()
 
+            local_protein_dict = protein.atom_dict[(distance(protein.atom_dict['coords'], mol.atom_dict['coords']) <= self.cutoff.max()).any(axis=1)]
             desc = []
             for mol_type, prot_type in pairs:
-                prot_coords = atoms_by_type(protein.atom_dict, [prot_type], self.mode)[prot_type]['coords']
+                prot_coords = atoms_by_type(local_protein_dict, [prot_type], self.mode)[prot_type]['coords']
                 mol_coords = atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords']
                 d = distance(prot_coords, mol_coords)[..., np.newaxis]
                 if len(self.cutoff) > 1:
