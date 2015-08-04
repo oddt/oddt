@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 import setuptools
 from setuptools import setup,find_packages
+from oddt import __version__ as VERSION
 
 setup(name='oddt',
-        version='0.1.2.2',
+        version=VERSION,
         description='Open Drug Discovery Toolkit',
         author='Maciej Wojcikowski',
         author_email='mwojcikowski@ibb.waw.pl',

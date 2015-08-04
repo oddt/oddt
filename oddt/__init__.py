@@ -13,16 +13,17 @@ from numpy.random import seed as np_seed
 from random import seed as python_seed
 from .toolkits import ob, rdk
 
+__version__ = '0.1.3'
 toolkit = ob
 __all__ = ['toolkit']
 
 def random_seed(i):
     """
     Set global random seed for all underlying components. Use 'brute-force' approach, by setting undelying libraries' seeds.
-    
+
     Parameters
     ----------
-        i: int 
+        i: int
             integer used as seed for random number generators
     """
     # python's random module
