@@ -11,10 +11,22 @@ Universal and easy to use resource for various drug discovery tasks, ie docking,
 
 from numpy.random import seed as np_seed
 from random import seed as python_seed
-from .toolkits import ob, rdk
+try:
+    from .toolkits import ob
+except ImportError:
+    ob = None
+try:
+    from .toolkits import rdk
+except ImportError:
+    rdk = None
+if ob:
+    toolkit = ob
+elif rdk:
+    toolkit = rdk
+else:
+    raise Exception('You need at least one toolkit for ODDT.')
 
 __version__ = '0.1.3'
-toolkit = ob
 __all__ = ['toolkit']
 
 def random_seed(i):
