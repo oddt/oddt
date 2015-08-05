@@ -129,11 +129,10 @@ class close_contacts(object):
             protein = self.protein
         if single and type(ligands) is not list:
             ligands = [ligands]
-#        prot_dict = atoms_by_type(protein.atom_dict, self.protein_types, self.mode)
         desc_size = len(self.ligand_types)*self.cutoff.shape[0] if self.aligned_pairs else len(self.ligand_types)*len(self.protein_types)*self.cutoff.shape[0]
         out = np.zeros(desc_size, dtype=int)
         for mol in ligands:
-#            mol_dict = atoms_by_type(mol.atom_dict, self.ligand_types, self.mode)
+            mol_dict = atoms_by_type(mol.atom_dict, self.ligand_types, self.mode)
             if self.aligned_pairs:
                 pairs = zip(self.ligand_types, self.protein_types)
             else:
@@ -141,11 +140,10 @@ class close_contacts(object):
             #desc = np.array([(distance(atoms_by_type(protein.atom_dict, [prot_type], self.mode)[prot_type]['coords'], atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords'])[..., np.newaxis] <= self.cutoff).sum(axis=(0,1)) for mol_type, prot_type in pairs], dtype=int).flatten()
 
             local_protein_dict = protein.atom_dict[(distance(protein.atom_dict['coords'], mol.atom_dict['coords']) <= self.cutoff.max()).any(axis=1)]
+            prot_dict = atoms_by_type(local_protein_dict, self.protein_types, self.mode)
             desc = []
             for mol_type, prot_type in pairs:
-                prot_coords = atoms_by_type(local_protein_dict, [prot_type], self.mode)[prot_type]['coords']
-                mol_coords = atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords']
-                d = distance(prot_coords, mol_coords)[..., np.newaxis]
+                d = distance(prot_dict[prot_type]['coords'], mol_dict[mol_type]['coords'] )[..., np.newaxis]
                 if len(self.cutoff) > 1:
                     count = ((d > self.cutoff[...,0]) & (d <= self.cutoff[...,1])).sum(axis=(0,1))
                     #count = ne.evaluate('(d > c0) & (d <= c1)', {'d': d, 'c0': cutoff[...,0], 'c1': self.cutoff[...,1]}).sum(axis=(0,1))
