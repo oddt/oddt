@@ -82,8 +82,8 @@ class close_contacts(object):
             protein: oddt.toolkit.Molecule or None (default=None)
                 Default protein to use as reference
 
-            cutoff: int or list, shape=[n,2] (default=4)
-                Cutoff for atoms in Angstroms given as an integer or a list of ranges, eg. [[0,4],[4,8],[8,12]].
+            cutoff: int or list, shape=[n,] or shape=[n,2] (default=4)
+                Cutoff for atoms in Angstroms given as an integer or a list of ranges, eg. [0, 4, 8, 12] or [[0,4],[4,8],[8,12]].
                 Upper bound is always inclusive, lower exclusive.
 
             mode: string (default='atomic_nums')
@@ -98,8 +98,13 @@ class close_contacts(object):
             aligned_pairs: bool (default=False)
                 Flag indicating should permutation of types should be done, otherwise the atoms are treated as aligned pairs.
         """
-        self.cutoff = np.array([cutoff]) if type(cutoff) == int else np.array(cutoff)
-        self.protein = protein
+        if type(cutoff) == int:
+            self.cutoff = np.array([cutoff])
+        elif len(np.array(cutoff).shape) == 1:
+            self.cutoff = np.vstack((np.array(cutoff)[:-1], np.array(cutoff)[1:])).T
+        else:
+            self.cutoff = np.array(cutoff)
+
         self.ligand_types = ligand_types
         self.protein_types = protein_types if protein_types else ligand_types
         self.aligned_pairs = aligned_pairs
