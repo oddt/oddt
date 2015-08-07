@@ -153,5 +153,4 @@ class rfscore(scorer):
             print "No pickle, training new scoring function."
             rf = rfscore()
             filename = rf.train()
-
-            return scorer.load(filename)
+        return scorer.load(filename)
