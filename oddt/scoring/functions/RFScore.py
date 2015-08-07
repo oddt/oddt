@@ -5,9 +5,9 @@ from multiprocessing import Pool
 import warnings
 
 from oddt import toolkit
-from oddt.scoring import scorer
+from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
-from oddt.scoring.descriptors import close_contacts
+from oddt.scoring.descriptors import close_contacts, autodock_vina_descriptor
 
 # numpy after pickling gives Runtime Warnings
 warnings.simplefilter("ignore", RuntimeWarning)
@@ -36,18 +36,28 @@ def _csv_file_filter(f):
         yield ' '.join(row.split())
 
 class rfscore(scorer):
-    def __init__(self, protein = None, n_jobs = -1, **kwargs):
+    def __init__(self, protein = None, n_jobs = -1, version = 1, **kwargs):
         self.protein = protein
         self.n_jobs = n_jobs
-        model = randomforest(n_estimators = 500, oob_score = True, n_jobs = n_jobs, **kwargs)
-        descriptors = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
+        self.version = version
+        model = randomforest(n_estimators = 500, oob_score = True, n_jobs = n_jobs, max_features=14, **kwargs)
+        if version == 1:
+            cutoff = 12
+            descriptors = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
+        elif version == 2:
+            cutoff = np.array([ 0,  2,  4,  6,  8, 10, 12])
+            descriptors = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
+        elif version == 3:
+            cutoff = 12
+            cc = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
+            vina = autodock_vina_descriptor(protein)
+            descriptors = ensemble_descriptor((vina, cc))
         super(rfscore,self).__init__(model, descriptors, score_title = 'rfscore')
-    
+
     def gen_training_data(self, pdbbind_dir, pdbbind_version = '2007', sf_pickle = ''):
-        # build train and test 
-        cpus = self.n_jobs if self.n_jobs > 0 else None
-        pool = Pool(processes=cpus)
-        
+        # build train and test
+        cpus = self.n_jobs if self.n_jobs > 0 else -1
+        #pool = Pool(processes=cpus)
         core_act = np.zeros(1, dtype=float)
         core_set = []
         pdb_set = 'core'
@@ -62,11 +72,15 @@ class rfscore(scorer):
             act = float(row[3])
             core_set.append(pdbid)
             core_act = np.vstack((core_act, act))
-        
-        result = pool.map(generate_descriptor, [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in core_set])
+
+        result = []
+        for arg in [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in core_set]:
+            result.append(generate_descriptor(arg))
+
+        #result = Parallel(n_jobs=cpus)(delayed(generate_descriptor)((pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version)) for pdbid in core_set)
         core_desc = np.vstack(result)
         core_act = core_act[1:]
-        
+
         refined_act = np.zeros(1, dtype=float)
         refined_set = []
         pdb_set = 'refined'
@@ -83,51 +97,54 @@ class rfscore(scorer):
                 continue
             refined_set.append(pdbid)
             refined_act = np.vstack((refined_act, act))
-        
-        result = pool.map(generate_descriptor, [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in refined_set])
+
+        result = []
+        for arg in [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in refined_set]:
+            result.append(generate_descriptor(arg))
+        #result = pool.map(generate_descriptor, [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in refined_set])
         refined_desc = np.vstack(result)
         refined_act = refined_act[1:]
-        
+
         self.train_descs = refined_desc
         self.train_target = refined_act
         self.test_descs = core_desc
         self.test_target = core_act
-        
+
         # save numpy arrays
-        np.savetxt(dirname(__file__) + '/RFScore/train_descs.csv', self.train_descs, fmt='%i', delimiter=',')
+        np.savetxt(dirname(__file__) + '/RFScore/train_descs_v%i.csv' % (self.version), self.train_descs, fmt='%g', delimiter=',')
         np.savetxt(dirname(__file__) + '/RFScore/train_target.csv', self.train_target, fmt='%.2f', delimiter=',')
-        np.savetxt(dirname(__file__) + '/RFScore/test_descs.csv', self.test_descs, fmt='%i', delimiter=',')
+        np.savetxt(dirname(__file__) + '/RFScore/test_descs_v%i.csv' % (self.version), self.test_descs, fmt='%g', delimiter=',')
         np.savetxt(dirname(__file__) + '/RFScore/test_target.csv', self.test_target, fmt='%.2f', delimiter=',')
-        
-        
+
+
     def train(self, sf_pickle = ''):
         # load precomputed descriptors and target values
-        self.train_descs = np.loadtxt(dirname(__file__) + '/RFScore/train_descs.csv', delimiter=',', dtype=int)
+        self.train_descs = np.loadtxt(dirname(__file__) + '/RFScore/train_descs_v%i.csv' % (self.version), delimiter=',', dtype=float)
         self.train_target = np.loadtxt(dirname(__file__) + '/RFScore/train_target.csv', delimiter=',', dtype=float)
-        
-        self.test_descs = np.loadtxt(dirname(__file__) + '/RFScore/test_descs.csv', delimiter=',', dtype=int)
+
+        self.test_descs = np.loadtxt(dirname(__file__) + '/RFScore/test_descs_v%i.csv' % (self.version), delimiter=',', dtype=float)
         self.test_target = np.loadtxt(dirname(__file__) + '/RFScore/test_target.csv', delimiter=',', dtype=float)
-        
+
         self.model.fit(self.train_descs, self.train_target)
-        
+
         r2 = self.model.score(self.test_descs, self.test_target)
         r = np.sqrt(r2)
         print 'Test set: R**2:', r2, ' R:', r
-        
+
         rmse = np.sqrt(np.mean(np.square(self.model.oob_prediction_ - self.train_target)))
         r2 = self.model.score(self.train_descs, self.train_target)
         r = np.sqrt(r2)
         print 'Train set: R**2:', r2, ' R:', r, 'RMSE:', rmse
-        
+
         if sf_pickle:
             return self.save(sf_pickle)
         else:
-            return self.save('RFScore.pickle')
-        
+            return self.save('RFScore_v%i.pickle' % self.version)
+
     @classmethod
     def load(self, filename = ''):
         if not filename:
-            for f in ['RFScore.pickle', dirname(__file__) + '/RFScore.pickle']:
+            for f in ['RFScore_v%i.pickle' % self.version, dirname(__file__) + '/RFScore_v%i.pickle' % self.version]:
                 if isfile(f):
                     filename = f
                     break
@@ -136,4 +153,5 @@ class rfscore(scorer):
             print "No pickle, training new scoring function."
             rf = rfscore()
             filename = rf.train()
-        return scorer.load(filename)
+
+            return scorer.load(filename)
