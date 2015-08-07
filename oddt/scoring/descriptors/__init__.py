@@ -139,19 +139,23 @@ class close_contacts(object):
                 pairs = [(mol_type, prot_type) for mol_type in self.ligand_types for prot_type in self.protein_types]
             #desc = np.array([(distance(atoms_by_type(protein.atom_dict, [prot_type], self.mode)[prot_type]['coords'], atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords'])[..., np.newaxis] <= self.cutoff).sum(axis=(0,1)) for mol_type, prot_type in pairs], dtype=int).flatten()
 
-            local_protein_dict = protein.atom_dict[(distance(protein.atom_dict['coords'], mol.atom_dict['coords']) <= self.cutoff.max()).any(axis=1)]
-            prot_dict = atoms_by_type(local_protein_dict, self.protein_types, self.mode)
-            desc = []
-            for mol_type, prot_type in pairs:
-                d = distance(prot_dict[prot_type]['coords'], mol_dict[mol_type]['coords'] )[..., np.newaxis]
-                if len(self.cutoff) > 1:
-                    count = ((d > self.cutoff[...,0]) & (d <= self.cutoff[...,1])).sum(axis=(0,1))
-                    #count = ne.evaluate('(d > c0) & (d <= c1)', {'d': d, 'c0': cutoff[...,0], 'c1': self.cutoff[...,1]}).sum(axis=(0,1))
-                else:
-                    count = (d <= self.cutoff).sum()
-                desc.append(count)
-            desc = np.array(desc, dtype=int).flatten()
-            out = np.vstack((out, desc))
+            try:
+                local_protein_dict = protein.atom_dict[(distance(protein.atom_dict['coords'], mol.atom_dict['coords']) <= self.cutoff.max()).any(axis=1)]
+            except ValueError:
+                local_protein_dict = None
+            if local_protein_dict:
+                prot_dict = atoms_by_type(local_protein_dict, self.protein_types, self.mode)
+                desc = []
+                for mol_type, prot_type in pairs:
+                    d = distance(prot_dict[prot_type]['coords'], mol_dict[mol_type]['coords'] )[..., np.newaxis]
+                    if len(self.cutoff) > 1:
+                        count = ((d > self.cutoff[...,0]) & (d <= self.cutoff[...,1])).sum(axis=(0,1))
+                        #count = ne.evaluate('(d > c0) & (d <= c1)', {'d': d, 'c0': cutoff[...,0], 'c1': self.cutoff[...,1]}).sum(axis=(0,1))
+                    else:
+                        count = (d <= self.cutoff).sum()
+                    desc.append(count)
+                desc = np.array(desc, dtype=int).flatten()
+                out = np.vstack((out, desc))
         return out[1:]
 
     def __reduce__(self):
