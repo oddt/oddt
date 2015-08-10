@@ -37,11 +37,11 @@ class pdbbind(object):
 
     @property
     def ids(self):
-        return self.sets[self.default_set].keys()
+        return sorted(self.sets[self.default_set].keys())
 
     @property
     def activities(self):
-        return self.sets[self.default_set].values()
+        return [self.sets[self.default_set][i] for i in self.ids]
 
     def __iter__(self):
         for id in self.ids:
