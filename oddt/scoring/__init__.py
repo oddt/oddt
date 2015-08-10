@@ -39,34 +39,22 @@ def cross_validate(model, cv_set, cv_target, n = 10, shuffle=True, n_jobs = 1):
 
 ### FIX ### If possible make ensemble scorer lazy, for now it consumes all ligands
 class scorer(object):
-    def __init__(self, model_instances, descriptor_generator_instances, score_title = 'score'):
-        """Scorer class is parent class for scoring functions. It's capable of using multiple models and/or multiple descriptors.
-        If multiple models and multiple descriptors are used they should be aligned, since no permutation of such is made.
+    def __init__(self, model_instance, descriptor_generator_instance, score_title = 'score'):
+        """Scorer class is parent class for scoring functions.
 
         Parameters
         ----------
-            model_instances: array of models
-                An array of medels compatible with sklearn API (fit, predict and score methods)
+            model_instance: model
+                Medel compatible with sklearn API (fit, predict and score methods)
 
-            descriptor_generator_instances: array of descriptors
-                An array of descriptor objects
+            descriptor_generator_instance: array of descriptors
+                Descriptor generator object
 
             score_title: string
                 Title of score to be used.
         """
-        self.model = model_instances
-        if type(model_instances) is list:
-            self.single_model = False
-        else:
-            self.single_model = True
-
-        self.descriptor_generator = descriptor_generator_instances
-        if type(descriptor_generator_instances) is list:
-            if len(descriptor_generator_instances) == len(model_instances):
-                raise ValueError, "Length of models list doesn't equal descriptors list"
-            self.single_descriptor = False
-        else:
-            self.single_descriptor = True
+        self.model = model_instance
+        self.descriptor_generator = descriptor_generator_instance
         self.score_title = score_title
 
     def fit(self, ligands, target, *args, **kwargs):
@@ -80,18 +68,8 @@ class scorer(object):
             target: array-like of shape = [n_samples] or [n_samples, n_outputs]
                 Estimated target values.
         """
-        if self.single_descriptor:
-            self.train_descs = self.descriptor_generator.build(ligands)
-        else:
-            self.train_descs = [desc_gen.build(ligands) for desc_gen in self.descriptor_generator]
-        self.train_target = target
-
-        if self.single_model and self.single_descriptor:
-            return model.fit(self.train_descs,target, *args, **kwargs)
-        elif self.single_model and not self.single_descriptor:
-            return [model.fit(desc,target, *args, **kwargs) for desc in self.train_descs]
-        else:
-            return [model.fit(self.train_descs[n],target, *args, **kwargs) for n, model in enumerate(self.model)]
+        self.train_descs = self.descriptor_generator.build(ligands)
+        return model.fit(self.train_descs,target, *args, **kwargs)
 
     def predict(self, ligands, *args, **kwargs):
         """Predicts values (eg. affinity) for supplied ligands
@@ -109,14 +87,8 @@ class scorer(object):
             predicted: np.array or array of np.arrays of shape = [n_ligands]
                 Predicted scores for ligands
         """
-        if self.single_model and self.single_descriptor:
-            descs = self.descriptor_generator.build(ligands)
-            return self.model.predict(descs)
-        elif self.single_model and not self.single_descriptor:
-            return [self.model.predict(descs, *args, **kwargs) for desc in self.train_descs]
-        else:
-            descs = [desc_gen.build(ligands) for desc_gen in self.descriptor_generator]
-            return [model.predict(descs[n],target, *args, **kwargs) for n, model in enumerate(self.model)]
+        descs = self.descriptor_generator.build(ligands)
+        return self.model.predict(descs)
 
     def score(self, ligands, target, *args, **kwargs):
         """Methods estimates the quality of prediction as squared correlation coefficient (R^2)
@@ -134,14 +106,8 @@ class scorer(object):
             r2: float
                 Squared correlation coefficient (R^2) for prediction
         """
-        if self.single_model and self.single_descriptor:
-            descs = self.descriptor_generator.build(ligands)
-            return self.model.score(descs, *args, **kwargs)
-        elif self.single_model and not self.single_descriptor:
-            return [self.model.score(descs, *args, **kwargs) for desc in self.train_descs]
-        else:
-            descs = [desc_gen.build(ligands) for desc_gen in self.descriptor_generator]
-            return [model.score(descs[n],target, *args, **kwargs) for n, model in enumerate(self.model)]
+        descs = self.descriptor_generator.build(ligands)
+        return self.model.score(descs, *args, **kwargs)
 
     def predict_ligand(self, ligand):
         """Local method to score one ligand and update it's scores.
@@ -187,17 +153,11 @@ class scorer(object):
 
         """
         self.protein = protein
-        if self.single_descriptor:
-            if hasattr(self.descriptor_generator, 'set_protein'):
-                self.descriptor_generator.set_protein(protein)
-            else:
-                self.descriptor_generator.protein = protein
+        if hasattr(self.descriptor_generator, 'set_protein'):
+            self.descriptor_generator.set_protein(protein)
         else:
-            for desc in self.descriptor_generator:
-                if hasattr(desc, 'set_protein'):
-                    desc.set_protein(protein)
-                else:
-                    desc.protein = protein
+            self.descriptor_generator.protein = protein
+
 
     def save(self, filename):
         """Saves scoring function to a pickle file.
@@ -207,12 +167,7 @@ class scorer(object):
             filename: string
                 Pickle filename
         """
-        self.protein = None
-        if self.single_descriptor:
-            self.descriptor_generator.protein = None
-        else:
-            for desc in self.descriptor_generator:
-                desc.protein = None
+        self.set_protein(None)
         return pickle.dump(self, filename, compress=9)[0]
 
     @classmethod
