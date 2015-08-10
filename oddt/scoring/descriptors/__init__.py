@@ -106,6 +106,8 @@ class close_contacts(object):
             self.cutoff = np.vstack((np.array(cutoff)[:-1], np.array(cutoff)[1:])).T
         else:
             self.cutoff = np.array(cutoff)
+        #for pickle save original value
+        self.original_cutoff = cutoff
 
         self.ligand_types = ligand_types
         self.protein_types = protein_types if protein_types else ligand_types
@@ -157,7 +159,7 @@ class close_contacts(object):
         return out[1:]
 
     def __reduce__(self):
-        return close_contacts, (None, self.cutoff, self.mode, self.ligand_types, self.protein_types, self.aligned_pairs)
+        return close_contacts, (None, self.original_cutoff, self.mode, self.ligand_types, self.protein_types, self.aligned_pairs)
 
 class fingerprints(object):
     def __init__(self, fp = 'fp2', toolkit = 'ob'):
