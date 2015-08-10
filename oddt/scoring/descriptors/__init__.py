@@ -220,4 +220,4 @@ class autodock_vina_descriptor(object):
         return desc
 
     def __reduce__(self):
-        return autodock_vina_descriptor, ()
+        return autodock_vina_descriptor, (None, self.vina_scores)

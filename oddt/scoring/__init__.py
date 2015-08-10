@@ -220,7 +220,6 @@ class ensemble_descriptor(object):
         """
         self._desc_gens = descriptor_generators if len(descriptor_generators) else None
 
-
     def build(self, mols, *args, **kwargs):
         out = None
         for mol in mols:
