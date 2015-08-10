@@ -230,5 +230,12 @@ class ensemble_descriptor(object):
             out = np.vstack((out, desc))
         return out[1:]
 
+    def set_protein(self, protein):
+        for desc in self._desc_gens:
+            if hasattr(desc, 'set_protein'):
+                desc.set_protein(protein)
+            else:
+                desc.protein = protein
+
     def __reduce__(self):
         return ensemble_descriptor, (self._desc_gens)
