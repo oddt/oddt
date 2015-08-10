@@ -36,10 +36,11 @@ def _csv_file_filter(f):
         yield ' '.join(row.split())
 
 class rfscore(scorer):
-    def __init__(self, protein = None, n_jobs = -1, version = 1, **kwargs):
+    def __init__(self, protein = None, n_jobs = -1, version = 1, spr = 0, **kwargs):
         self.protein = protein
         self.n_jobs = n_jobs
         self.version = version
+        self.spr = spr
         model = randomforest(n_estimators = 500, oob_score = True, n_jobs = n_jobs, max_features=14, **kwargs)
         if version == 1:
             cutoff = 12
@@ -124,6 +125,13 @@ class rfscore(scorer):
 
         self.test_descs = np.loadtxt(dirname(__file__) + '/RFScore/test_descs_v%i.csv' % (self.version), delimiter=',', dtype=float)
         self.test_target = np.loadtxt(dirname(__file__) + '/RFScore/test_target.csv', delimiter=',', dtype=float)
+
+        # remove sparse dimentions
+        if self.spr > 0:
+            self.mask = (self.train_descs > self.spr).any(axis=0)
+            if self.mask.sum() > 0:
+                self.train_descs =  self.train_descs[:,self.mask]
+                self.test_descs = self.test_descs[:,self.mask]
 
         self.model.fit(self.train_descs, self.train_target)
 
