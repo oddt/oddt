@@ -52,12 +52,14 @@ class rfscore(scorer):
             descriptors = ensemble_descriptor((vina, cc))
         super(rfscore,self).__init__(model, descriptors, score_title = 'rfscore')
 
-    def gen_training_data(self, pdbbind_dir, pdbbind_version = '2007', sf_pickle = ''):
+    def gen_training_data(self, pdbbind_dir, pdbbind_version = '2007', home_dir = None, sf_pickle = ''):
         # build train and test
         cpus = self.n_jobs if self.n_jobs > 0 else -1
         #pool = Pool(processes=cpus)
         pdbbind_db = pdbbind(pdbbind_dir, int(pdbbind_version), opt={'b':None})
-
+        if not home_dir:
+            home_dir = dirname(__file__) + '/RFScore'
+            
         pdbbind_db.default_set = 'core'
         core_set = pdbbind_db.ids
         core_act = np.array(pdbbind_db.activities)
@@ -66,9 +68,9 @@ class rfscore(scorer):
         core_desc = np.vstack(result)
 
 
-        pdbbind_db.default_set = 'refined'
+        pdbbind_db.default_set = 'general'
         refined_set  = [pid for pid in pdbbind_db.ids if not pid in core_set]
-        refined_act = np.array([pdbbind_db.sets['refined'][pid] for pid in refined_set])
+        refined_act = np.array([pdbbind_db.sets[pdbbind_db.default_set][pid] for pid in refined_set])
 #         refined_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.pocket) for pid in pdbbind_db])
         result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket and not pid.id in core_set)
         refined_desc = np.vstack(result)
@@ -79,19 +81,21 @@ class rfscore(scorer):
         self.test_target = core_act
 
         # save numpy arrays
-        np.savetxt(dirname(__file__) + '/RFScore/train_descs_v%i.csv' % (self.version), self.train_descs, fmt='%g', delimiter=',')
-        np.savetxt(dirname(__file__) + '/RFScore/train_target.csv', self.train_target, fmt='%.2f', delimiter=',')
-        np.savetxt(dirname(__file__) + '/RFScore/test_descs_v%i.csv' % (self.version), self.test_descs, fmt='%g', delimiter=',')
-        np.savetxt(dirname(__file__) + '/RFScore/test_target.csv', self.test_target, fmt='%.2f', delimiter=',')
+        np.savetxt(home_dir + '/train_descs_v%i.csv' % (self.version), self.train_descs, fmt='%g', delimiter=',')
+        np.savetxt(home_dir + '/train_target.csv', self.train_target, fmt='%.2f', delimiter=',')
+        np.savetxt(home_dir + '/test_descs_v%i.csv' % (self.version), self.test_descs, fmt='%g', delimiter=',')
+        np.savetxt(home_dir + '/test_target.csv', self.test_target, fmt='%.2f', delimiter=',')
 
 
-    def train(self, sf_pickle = ''):
+    def train(self, home_dir = None, sf_pickle = ''):
+        if not home_dir:
+            home_dir = dirname(__file__) + '/RFScore'
         # load precomputed descriptors and target values
-        self.train_descs = np.loadtxt(dirname(__file__) + '/RFScore/train_descs_v%i.csv' % (self.version), delimiter=',', dtype=float)
-        self.train_target = np.loadtxt(dirname(__file__) + '/RFScore/train_target.csv', delimiter=',', dtype=float)
+        self.train_descs = np.loadtxt(home_dir + '/train_descs_v%i.csv' % (self.version), delimiter=',', dtype=float)
+        self.train_target = np.loadtxt(home_dir + '/train_target.csv', delimiter=',', dtype=float)
 
-        self.test_descs = np.loadtxt(dirname(__file__) + '/RFScore/test_descs_v%i.csv' % (self.version), delimiter=',', dtype=float)
-        self.test_target = np.loadtxt(dirname(__file__) + '/RFScore/test_target.csv', delimiter=',', dtype=float)
+        self.test_descs = np.loadtxt(home_dir + '/test_descs_v%i.csv' % (self.version), delimiter=',', dtype=float)
+        self.test_target = np.loadtxt(home_dir + '/test_target.csv', delimiter=',', dtype=float)
 
         # remove sparse dimentions
         if self.spr > 0:
