@@ -20,12 +20,16 @@ class pdbbind(object):
         self._set_ids = {}
         self._set_act = {}
         if version:
-            pdbind_sets = ['core', 'refined', 'general']
+            if str(version) == '2007':
+                pdbind_sets = ['core', 'refined', 'general']
+            else:
+                pdbind_sets = ['core', 'refined', 'general_PL']
             for pdbind_set in pdbind_sets:
                 if str(version) == '2007':
                     csv_file = '%s/INDEX.%s.%s.data' % (self.home, version, pdbind_set)
                 else:
-                    csv_file = '%s/INDEX_%s_data.%s' % (self.home, pdbind_set, version)
+                    csv_file = '%s/INDEX_%s_data.%s' % (self.home, pdbind_set , version)
+
                 if isfile(csv_file):
                     self._set_ids[pdbind_set] = []
                     self._set_act[pdbind_set] = []
