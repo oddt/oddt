@@ -237,4 +237,4 @@ class ensemble_descriptor(object):
                 desc.protein = protein
 
     def __reduce__(self):
-        return ensemble_descriptor, (self._desc_gens)
+        return ensemble_descriptor, (self._desc_gens,)

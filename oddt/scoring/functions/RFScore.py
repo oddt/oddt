@@ -1,13 +1,14 @@
 import csv
 from os.path import dirname, isfile, isdir
 import numpy as np
-from multiprocessing import Pool
+from joblib import Parallel, delayed
 import warnings
 
 from oddt import toolkit
 from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
 from oddt.scoring.descriptors import close_contacts, autodock_vina_descriptor
+from oddt.datasets import pdbbind
 
 # numpy after pickling gives Runtime Warnings
 warnings.simplefilter("ignore", RuntimeWarning)
@@ -18,15 +19,11 @@ protein_atomic_nums = [6,7,8,16]
 cutoff = 12
 
 # define sub-function for paralelization
-def generate_descriptor(packed):
-    pdbid, gen, pdbbind_dir, pdbbind_version = packed
-    protein_file = "%s/v%s/%s/%s_pocket.pdb" % (pdbbind_dir, pdbbind_version, pdbid, pdbid)
-    if not isfile(protein_file):
-        protein_file = pdbbind_dir + "/v" + pdbbind_version + "/%s/%s_protein.pdb" % (pdbid, pdbid)
-    ligand_file = pdbbind_dir + "/v" + pdbbind_version + "/%s/%s_ligand.sdf" % (pdbid, pdbid)
-    protein = toolkit.readfile("pdb", protein_file, opt = {'b': None}).next()
-    ligand = toolkit.readfile("sdf", ligand_file).next()
-    return gen.build([ligand], protein).flatten()
+def _parallel_helper(*args, **kwargs):
+    """Private helper to workaround Python 2 pickle limitations to paralelize methods"""
+    obj, methodname = args[:2]
+    new_args = args[2:]
+    return getattr(obj, methodname)(*new_args, **kwargs)
 
 # skip comments and merge multiple spaces
 def _csv_file_filter(f):
@@ -41,7 +38,7 @@ class rfscore(scorer):
         self.n_jobs = n_jobs
         self.version = version
         self.spr = spr
-        model = randomforest(n_estimators = 500, oob_score = True, n_jobs = n_jobs, max_features=14, **kwargs)
+        model = randomforest(n_estimators = 500, oob_score = True, n_jobs = n_jobs, **kwargs)
         if version == 1:
             cutoff = 12
             descriptors = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
@@ -59,52 +56,22 @@ class rfscore(scorer):
         # build train and test
         cpus = self.n_jobs if self.n_jobs > 0 else -1
         #pool = Pool(processes=cpus)
-        core_act = np.zeros(1, dtype=float)
-        core_set = []
-        pdb_set = 'core'
-        if pdbbind_version == '2007':
-            csv_file = '%s/v%s/INDEX.%s.%s.data' % (pdbbind_dir, pdbbind_version, pdbbind_version, pdb_set)
-        else:
-            csv_file = '%s/v%s/INDEX_%s_data.%s' % (pdbbind_dir, pdbbind_version, pdb_set, pdbbind_version)
-        for row in csv.reader(_csv_file_filter(csv_file), delimiter=' '):
-            pdbid = row[0]
-            if not isfile('%s/v%s/%s/%s_pocket.pdb' % (pdbbind_dir, pdbbind_version, pdbid, pdbid)):
-                continue
-            act = float(row[3])
-            core_set.append(pdbid)
-            core_act = np.vstack((core_act, act))
+        pdbbind_db = pdbbind(pdbbind_dir, int(pdbbind_version), opt={'b':None})
 
-        result = []
-        for arg in [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in core_set]:
-            result.append(generate_descriptor(arg))
-
-        #result = Parallel(n_jobs=cpus)(delayed(generate_descriptor)((pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version)) for pdbid in core_set)
+        pdbbind_db.default_set = 'core'
+        core_set = pdbbind_db.ids
+        core_act = np.array(pdbbind_db.activities)
+#         core_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.pocket) for pid in pdbbind_db])
+        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket)
         core_desc = np.vstack(result)
-        core_act = core_act[1:]
 
-        refined_act = np.zeros(1, dtype=float)
-        refined_set = []
-        pdb_set = 'refined'
-        if pdbbind_version == '2007':
-            csv_file = '%s/v%s/INDEX.%s.%s.data' % (pdbbind_dir, pdbbind_version, pdbbind_version, pdb_set)
-        else:
-            csv_file = '%s/v%s/INDEX_%s_data.%s' % (pdbbind_dir, pdbbind_version, pdb_set, pdbbind_version)
-        for row in csv.reader(_csv_file_filter(csv_file), delimiter=' '):
-            pdbid = row[0]
-            if not isfile('%s/v%s/%s/%s_pocket.pdb' % (pdbbind_dir, pdbbind_version, pdbid, pdbid)):
-                continue
-            act = float(row[3])
-            if pdbid in core_set:
-                continue
-            refined_set.append(pdbid)
-            refined_act = np.vstack((refined_act, act))
 
-        result = []
-        for arg in [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in refined_set]:
-            result.append(generate_descriptor(arg))
-        #result = pool.map(generate_descriptor, [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in refined_set])
+        pdbbind_db.default_set = 'refined'
+        refined_set  = [pid for pid in pdbbind_db.ids if not pid in core_set]
+        refined_act = np.array([pdbbind_db.sets['refined'][pid] for pid in refined_set])
+#         refined_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.pocket) for pid in pdbbind_db])
+        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket and not pid.id in core_set)
         refined_desc = np.vstack(result)
-        refined_act = refined_act[1:]
 
         self.train_descs = refined_desc
         self.train_target = refined_act

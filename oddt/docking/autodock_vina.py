@@ -104,21 +104,22 @@ class autodock_vina(object):
         """
         # generate new directory
         self._tmp_dir = None
-        self.protein = protein
-        if type(protein) is str:
-            extension = protein.split('.')[-1]
-            if extension == 'pdbqt':
-                self.protein_file = protein
-                self.protein = toolkit.readfile(extension, protein).next()
+        if protein:
+            self.protein = protein
+            if type(protein) is str:
+                extension = protein.split('.')[-1]
+                if extension == 'pdbqt':
+                    self.protein_file = protein
+                    self.protein = toolkit.readfile(extension, protein).next()
+                else:
+                    self.protein = toolkit.readfile(extension, protein).next()
+                    self.protein.protein = True
+                    self.protein_file = self.tmp_dir  + '/protein.pdbqt'
+                    self.protein.write('pdbqt', self.protein_file, opt={'r':None, 'c':None}, overwrite=True)
             else:
-                self.protein = toolkit.readfile(extension, protein).next()
-                self.protein.protein = True
+                # write protein to file
                 self.protein_file = self.tmp_dir  + '/protein.pdbqt'
                 self.protein.write('pdbqt', self.protein_file, opt={'r':None, 'c':None}, overwrite=True)
-        else:
-            # write protein to file
-            self.protein_file = self.tmp_dir  + '/protein.pdbqt'
-            self.protein.write('pdbqt', self.protein_file, opt={'r':None, 'c':None}, overwrite=True)
 
     def score(self, ligands, protein = None, single = False):
         """Automated scoring procedure.
