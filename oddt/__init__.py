@@ -9,6 +9,7 @@ Universal and easy to use resource for various drug discovery tasks, ie docking,
         This setting is toolkit-wide, and sets given toolkit as default
 """
 
+import os, subprocess
 from numpy.random import seed as np_seed
 from random import seed as python_seed
 try:
@@ -26,7 +27,15 @@ elif rdk:
 else:
     raise Exception('You need at least one toolkit for ODDT.')
 
-__version__ = '0.1.3'
+def get_version():
+    home = os.path.dirname(__file__)
+    if os.path.isdir(home + '/../.git'):
+        v = subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip()
+    if not v:
+        v = '0.1.3'
+    return v
+
+__version__ = get_version()
 __all__ = ['toolkit']
 
 def random_seed(i):
