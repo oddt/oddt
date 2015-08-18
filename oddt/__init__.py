@@ -29,6 +29,7 @@ else:
 
 def get_version():
     home = os.path.dirname(__file__)
+    v = None
     if os.path.isdir(home + '/../.git'):
         v = subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip()
     if not v:
