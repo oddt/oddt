@@ -6,30 +6,47 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
 [![Latest Version](https://img.shields.io/pypi/v/oddt.svg)](https://pypi.python.org/pypi/oddt/)
 [![Downloads](https://img.shields.io/pypi/dm/oddt.svg)](https://pypi.python.org/pypi/oddt/)
 
-### Documentation, Discussion and Contribution:
- * Documentation: http://oddt.readthedocs.org/en/latest
- * Mailing list: oddt@googlegroups.com  http://groups.google.com/d/forum/oddt
- * Issues: https://github.com/oddt/oddt/issues
+## Documentation, Discussion and Contribution:
+  * Documentation: http://oddt.readthedocs.org/en/latest
+  * Mailing list: oddt@googlegroups.com  http://groups.google.com/d/forum/oddt
+  * Issues: https://github.com/oddt/oddt/issues
 
-### Requrements
-   * Python 2.7.X
-   * OpenBabel (2.3.2+) or/and RDKit (2012.03)
-   * Numpy (1.6.2+)
-   * Scipy (0.10+)
-   * Sklearn (0.11+)
-   * ffnet (0.7.1+) only for neural network functionality.
+## Requrements
+  * Python 2.7.X
+  * OpenBabel (2.3.2+) or/and RDKit (2012.03)
+  * Numpy (1.6.2+)
+  * Scipy (0.10+)
+  * Sklearn (0.11+)
+  * ffnet (0.7.1+) only for neural network functionality.
 
-### Install
-When all requirements are met, then installation process is simple
-> python setup.py install
+## Install
 
-You can also use pip. All requirements besides toolkits (OpenBabel, RDKit) are installed if necessary.
-Installing inside virtualenv is encouraged, but not necessary.
-> pip install oddt
+### Using PyPi (pip)
+  When all requirements are met, then installation process is simple
+  > python setup.py install
+  
+  You can also use pip. All requirements besides toolkits (OpenBabel, RDKit) are installed if necessary.
+  Installing inside virtualenv is encouraged, but not necessary.
+  > pip install oddt
+  
+  To upgrade oddt using pip (without upgrading dependencies):
+  > pip install -U --no-deps oddt
 
-### Upgrading
-To upgrade oddt using pip (without upgrading dependencies):
-> pip install -U --no-deps oddt
+### Using conda
+  Add conda channel which contains OpenBabel and ODDT [[link](https://anaconda.org/mwojcikowski)]
+  > conda config --add channels mwojcikowski
+  
+  Optionally you can add RDKit's channel
+  > conda config --add channels rdkit
+  
+  Install ODDT:
+  > conda install oddt
+  
+  Optionally install RDKit:
+  > conda install rdkit
+  
+  Upgrading procedure using conda is straightforward:
+  > conda update oddt
 
 ### Documentation
 Automatic documentation for ODDT is available on [Readthedocs.org](https://oddt.readthedocs.org/). Additionally it can be build localy:
