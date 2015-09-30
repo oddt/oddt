@@ -74,14 +74,15 @@ class autodock_vina(object):
 
         #pregenerate common Vina parameters
         self.params = []
-        self.params = self.params + ['--center_x', str(self.center[0]), '--center_y', str(self.center[1]), '--center_z', str(self.center[2])]
-        self.params = self.params + ['--size_x', str(self.size[0]), '--size_y', str(self.size[1]), '--size_z', str(self.size[2])]
-        self.params = self.params + ['--cpu', str(n_cpu)]
-        self.params = self.params + ['--exhaustiveness', str(exhaustivness)]
+        self.params += ['--center_x', str(self.center[0]), '--center_y', str(self.center[1]), '--center_z', str(self.center[2])]
+        self.params += ['--size_x', str(self.size[0]), '--size_y', str(self.size[1]), '--size_z', str(self.size[2])]
+        if n_cpu > 0:
+            self.params += ['--cpu', str(n_cpu)]
+        self.params += ['--exhaustiveness', str(exhaustivness)]
         if not seed is None:
-            self.params = self.params + ['--seed', str(seed)]
-        self.params = self.params + ['--num_modes', str(num_modes)]
-        self.params = self.params + ['--energy_range', str(energy_range)]
+            self.params += ['--seed', str(seed)]
+        self.params += ['--num_modes', str(num_modes)]
+        self.params += ['--energy_range', str(energy_range)]
 
     @property
     def tmp_dir(self):
