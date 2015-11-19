@@ -59,7 +59,7 @@ class rfscore(scorer):
         pdbbind_db = pdbbind(pdbbind_dir, int(pdbbind_version), opt={'b':None})
         if not home_dir:
             home_dir = dirname(__file__) + '/RFScore'
-            
+
         pdbbind_db.default_set = 'core'
         core_set = pdbbind_db.ids
         core_act = np.array(pdbbind_db.activities)
@@ -121,9 +121,9 @@ class rfscore(scorer):
             return self.save('RFScore_v%i.pickle' % self.version)
 
     @classmethod
-    def load(self, filename = ''):
+    def load(self, filename = '', version = 1):
         if not filename:
-            for f in ['RFScore_v%i.pickle' % self.version, dirname(__file__) + '/RFScore_v%i.pickle' % self.version]:
+            for f in ['RFScore_v%i.pickle' % version, dirname(__file__) + '/RFScore_v%i.pickle' % version]:
                 if isfile(f):
                     filename = f
                     break
