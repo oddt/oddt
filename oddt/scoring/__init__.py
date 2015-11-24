@@ -1,7 +1,7 @@
 import numpy as np
 from scipy.stats import linregress
 from sklearn.cross_validation import cross_val_score, KFold, train_test_split
-from sklearn.externals import joblib as pickle
+import joblib as pickle
 
 def cross_validate(model, cv_set, cv_target, n = 10, shuffle=True, n_jobs = 1):
     """Perform cross validation of model using provided data

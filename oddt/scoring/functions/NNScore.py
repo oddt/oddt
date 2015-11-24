@@ -3,7 +3,7 @@ from os.path import dirname, isfile
 import numpy as np
 from multiprocessing import Pool
 import warnings
-from sklearn.externals.joblib import Parallel, delayed
+from joblib import Parallel, delayed
 
 from oddt import toolkit
 from oddt.scoring import scorer, ensemble_model
@@ -44,12 +44,12 @@ class nnscore(scorer):
         model = None
         decsriptors = binana_descriptor(protein)
         super(nnscore,self).__init__(model, decsriptors, score_title='nnscore')
-    
+
     def gen_training_data(self, pdbbind_dir, pdbbind_version = '2007', sf_pickle = ''):
-        # build train and test 
+        # build train and test
         cpus = self.n_jobs if self.n_jobs > 0 else None
         pool = Pool(processes=cpus)
-        
+
         core_act = np.zeros(1, dtype=float)
         core_set = []
         pdb_set = 'core'
@@ -64,11 +64,11 @@ class nnscore(scorer):
             act = float(row[3])
             core_set.append(pdbid)
             core_act = np.vstack((core_act, act))
-        
+
         result = pool.map(generate_descriptor, [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in core_set])
         core_desc = np.vstack(result)
         core_act = core_act[1:]
-        
+
         refined_act = np.zeros(1, dtype=float)
         refined_set = []
         pdb_set = 'refined'
@@ -85,52 +85,52 @@ class nnscore(scorer):
                 continue
             refined_set.append(pdbid)
             refined_act = np.vstack((refined_act, act))
-        
+
         result = pool.map(generate_descriptor, [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in refined_set])
         refined_desc = np.vstack(result)
         refined_act = refined_act[1:]
-        
+
         self.train_descs = refined_desc
         self.train_target = refined_act.flatten()
         self.test_descs = core_desc
         self.test_target = core_act.flatten()
-        
+
         # save numpy arrays
         np.savetxt(dirname(__file__) + '/NNScore/train_descs.csv', self.train_descs, fmt='%.5g', delimiter=',')
         np.savetxt(dirname(__file__) + '/NNScore/train_target.csv', self.train_target, fmt='%.2f', delimiter=',')
         np.savetxt(dirname(__file__) + '/NNScore/test_descs.csv', self.test_descs, fmt='%.5g', delimiter=',')
         np.savetxt(dirname(__file__) + '/NNScore/test_target.csv', self.test_target, fmt='%.2f', delimiter=',')
-        
-        
+
+
     def train(self, sf_pickle = ''):
         # load precomputed descriptors and target values
         self.train_descs = np.loadtxt(dirname(__file__) + '/NNScore/train_descs.csv', delimiter=',', dtype=float)
         self.train_target = np.loadtxt(dirname(__file__) + '/NNScore/train_target.csv', delimiter=',', dtype=float)
         self.test_descs = np.loadtxt(dirname(__file__) + '/NNScore/test_descs.csv', delimiter=',', dtype=float)
         self.test_target = np.loadtxt(dirname(__file__) + '/NNScore/test_target.csv', delimiter=',', dtype=float)
-        
+
         n_dim = (~((self.train_descs == 0).all(axis=0) | (self.train_descs.min(axis=0) == self.train_descs.max(axis=0)))).sum()
-        
+
         # number of network to sample; original implementation did 1000, but 100 give results good enough.
         n = 1000
         trained_nets = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(neuralnetwork([n_dim,5,1]), 'fit', self.train_descs, self.train_target, train_alg='tnc', maxfun=1000) for i in xrange(n))
         # get 20 best
         best_idx = np.array([net.score(self.test_descs, self.test_target.flatten()) for net in trained_nets]).argsort()[::-1][:20]
         self.model = ensemble_model([trained_nets[i] for i in best_idx])
-        
+
         r2 = self.model.score(self.test_descs, self.test_target)
         r = np.sqrt(r2)
         print 'Test set: R**2:', r2, ' R:', r
-        
+
         r2 = self.model.score(self.train_descs, self.train_target)
         r = np.sqrt(r2)
         print 'Train set: R**2:', r2, ' R:', r
-        
+
         if sf_pickle:
             return self.save(sf_pickle)
         else:
             return self.save('NNScore.pickle')
-    
+
     @classmethod
     def load(self, filename = ''):
         if not filename:
