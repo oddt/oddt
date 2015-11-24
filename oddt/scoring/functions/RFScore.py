@@ -106,6 +106,8 @@ class rfscore(scorer):
 
         self.model.fit(self.train_descs, self.train_target)
 
+        print "Training RFScore v%i" % self.version
+
         r2 = self.model.score(self.test_descs, self.test_target)
         r = np.sqrt(r2)
         print 'Test set: R**2:', r2, ' R:', r
@@ -130,6 +132,6 @@ class rfscore(scorer):
         # if still no pickle found - train function from pregenerated descriptors
         if not filename:
             print "No pickle, training new scoring function."
-            rf = rfscore()
-            filename = rf.train()
+            rf = rfscore(version = version)
+            filename = rf.train(sf_pickle=filename)
         return scorer.load(filename)
