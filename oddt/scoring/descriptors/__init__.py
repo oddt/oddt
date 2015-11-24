@@ -100,7 +100,7 @@ class close_contacts(object):
             aligned_pairs: bool (default=False)
                 Flag indicating should permutation of types should be done, otherwise the atoms are treated as aligned pairs.
         """
-        if type(cutoff) == int:
+        if type(cutoff) in [int, float]:
             self.cutoff = np.array([cutoff])
         elif len(np.array(cutoff).shape) == 1:
             self.cutoff = np.vstack((np.array(cutoff)[:-1], np.array(cutoff)[1:])).T
