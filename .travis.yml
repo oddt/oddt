@@ -10,8 +10,6 @@ addons:
         - libblas3gf
         - liblapack-dev
         - libblas-dev
-virtualenv:
-    system_site_packages: true
 
 deploy:
     provider: pypi
@@ -33,5 +31,6 @@ install:
     - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy scikit-learn
     - conda install --yes -c mwojcikowski openbabel
     - conda install --yes -c rdkit rdkit
+    - pip install .
 
 script: python -c "import oddt"
