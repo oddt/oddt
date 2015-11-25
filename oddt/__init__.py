@@ -31,7 +31,10 @@ def get_version():
     home = os.path.dirname(__file__)
     v = None
     if os.path.isdir(home + '/../.git'):
-        v = subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip()
+        try:
+            v = subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip()
+        except CalledProcessError: # catch errors, eg. no git installed
+            pass
     if not v:
         v = '0.1.3'
     return v
