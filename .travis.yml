@@ -1,36 +1,33 @@
 sudo: false
 language: python
 python:
-  - "2.7"
+    - '2.7'
 addons:
     apt:
         packages:
-        - gfortran
-        - liblapack3gf
-        - libblas3gf
-        - liblapack-dev
-        - libblas-dev
-
+            - gfortran
+            - liblapack3gf
+            - libblas3gf
+            - liblapack-dev
+            - libblas-dev
 deploy:
     provider: pypi
     user: mwojcikowski
     password:
-        secure: PqHbSgU4Niwaki1TepPSBek1x6mvKYWdF2//07k0tCSU779Tqv3BXZ7vDBuHGEXIR+/0ZezTjv2ajOraT69foKJViwKY4D+swZN7i0zhkbEjWL6cpRd+BI84ez6YI/BRpNVNhjNaiaDtuLjDHLxnD966L9LK35xa/S3RU4QBtFQ=
+        secure: Y1+kPOAjQhFZW9N25q8StT5TFvJiUhecTbmpHIlGzlPi/L/RUE8txXXI5e7o4lD0bz5pqDtoKwF8Nas2VQJGS/dE0lkjmsDR/cQdjoSd88BflhxaqlvL6L2fVmIZ2RWXXmrlE6s/Obw1JpMjtzhCGk0ywe306Z1NVkj1VEURIlc=
+    distributions: sdist bdist_wheel egg_info
     on:
         tags: true
         repo: oddt/oddt
         branch: master
-
-# install packages manually, since not all of them are whitelisted
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH="$HOME/miniconda/bin:$PATH"
     - conda update --yes conda
 install:
-    - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy scikit-learn
+    - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy scikit-learn joblib
     - conda install --yes -c mwojcikowski openbabel
     - conda install --yes -c rdkit rdkit
     - pip install .
-
 script: python -c "import oddt"
