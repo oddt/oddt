@@ -5,9 +5,9 @@
 Welcome to ODDT's documentation!
 ********************************
 
-.. contents:: 
+.. contents::
     :depth: 5
-    
+
 Installation
 ============
 
@@ -16,10 +16,11 @@ Requirements
 
 * Python 2.7.x
 * OpenBabel (2.3.2+) or/and RDKit (2012.03)
-* Numpy (1.6.2+)
-* Scipy (0.10+)
-* Sklearn (0.11+)
+* Numpy (1.8+)
+* Scipy (0.13+)
+* Sklearn (0.13+)
 * ffnet (0.7.1+) only for neural network functionality.
+* joblib (0.8+)
 
 .. note:: All installation methods assume that one of toolkits is installed. For detailed installation procedure visit toolkit’s website (OpenBabel, RDKit)
 
@@ -113,18 +114,18 @@ Reading from string
         print mol.title
 
 .. note:: You can force molecules to be read in asynchronously, aka “lazy molecules”. Current default is not to produce lazy molecules due to OpenBabel’s Memory Leaks in OBConverter. Main advantage of lazy molecules is using them in multiprocessing, then conversion is spreaded on all jobs.
- 
+
 Reading molecules from file in asynchronous manner
 ::
     for mol in oddt.toolkit.readfile(‘smi’, ‘test.smi’, lazy=True):
         pass
 
-This example will execute instantaneously, since no molecules were evaluated. 
+This example will execute instantaneously, since no molecules were evaluated.
 
 Numpy Dictionaries - store your molecule as an uniform structure
 ```````````````````````````````````````````````
 
-Most important and handy property of Molecule in ODDT are Numpy dictionaries containing most properties of supplied molecule. Some of them are straightforward, other require some calculation, ie. atom features. Dictionaries are provided for major entities of molecule: atoms, bonds, residues and rings. It was primarily used for interactions calculations, although it is applicable for any other calculation. The main benefit is marvelous Numpy broadcasting and subsetting. 
+Most important and handy property of Molecule in ODDT are Numpy dictionaries containing most properties of supplied molecule. Some of them are straightforward, other require some calculation, ie. atom features. Dictionaries are provided for major entities of molecule: atoms, bonds, residues and rings. It was primarily used for interactions calculations, although it is applicable for any other calculation. The main benefit is marvelous Numpy broadcasting and subsetting.
 
 
 Each dictionary is defined as a format in Numpy.
@@ -207,4 +208,3 @@ Docuimentation Indices and tables
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
-
