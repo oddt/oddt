@@ -3,6 +3,7 @@ import pybel
 from pybel import *
 import copy_reg
 import numpy as np
+import openbabel as ob
 from openbabel import OBAtomAtomIter,OBTypeTable
 from oddt.spatial import angle, angle_2v, dihedral
 
