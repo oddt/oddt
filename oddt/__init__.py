@@ -24,8 +24,8 @@ if ob:
     toolkit = ob
 elif rdk:
     toolkit = rdk
-elif os.path.basename(__file__) == 'setup.py':
-    # allow no toolkits during installation
+elif os.path.basename(__file__) == 'setup.py' or os.environ.get('READTHEDOCS', None) == 'True':
+    # allow no toolkits during installation and docs building
     pass
 else:
     raise Exception('You need at least one toolkit for ODDT.')
