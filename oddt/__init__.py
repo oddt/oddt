@@ -22,7 +22,7 @@ if ob:
     toolkit = ob
 elif rdk:
     toolkit = rdk
-elif os.path.basename(__file__) == 'setup.py' or os.environ.get('READTHEDOCS', None) == 'True':
+elif os.path.basename(__file__) == 'setup.py' or os.path.basename(os.path.dirname(__file__)).startswith('pip-') or os.environ.get('READTHEDOCS', None) == 'True':
     # allow no toolkits during installation and docs building
     pass
 else:
