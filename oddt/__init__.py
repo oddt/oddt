@@ -22,11 +22,6 @@ if ob:
     toolkit = ob
 elif rdk:
     toolkit = rdk
-elif os.path.basename(__file__) == 'setup.py' or os.path.basename(os.path.dirname(__file__)).startswith('pip-') or os.environ.get('READTHEDOCS', None) == 'True':
-    # allow no toolkits during installation and docs building
-    pass
-else:
-    raise Exception('You need at least one toolkit for ODDT.')
 
 def get_version():
     home = os.path.dirname(__file__)
