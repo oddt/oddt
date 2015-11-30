@@ -10,8 +10,6 @@ Universal and easy to use resource for various drug discovery tasks, ie docking,
 """
 
 import os, subprocess
-from numpy.random import seed as np_seed
-from random import seed as python_seed
 try:
     from .toolkits import ob
 except ImportError:
@@ -54,6 +52,9 @@ def random_seed(i):
         i: int
             integer used as seed for random number generators
     """
+    from numpy.random import seed as np_seed
+    from random import seed as python_seed
+
     # python's random module
     python_seed(i)
     # numpy random module
