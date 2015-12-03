@@ -32,7 +32,7 @@ def get_version():
         except CalledProcessError: # catch errors, eg. no git installed
             pass
     if not v:
-        v = '0.1.4'
+        v = '0.1.5'
     return v
 
 __version__ = get_version()
