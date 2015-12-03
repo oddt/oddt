@@ -15,7 +15,7 @@ Requirements
 ````````````
 
 * Python 2.7.x
-* OpenBabel (2.3.2+) or/and RDKit (2012.03)
+* OpenBabel (2.3.2+) or/and RDKit (2014.03)
 * Numpy (1.8+)
 * Scipy (0.13+)
 * Sklearn (0.13+)
