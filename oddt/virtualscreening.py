@@ -1,5 +1,6 @@
 """ODDT pipeline framework for virtual screening"""
 import csv
+from os.path import isfile
 from multiprocessing.dummy import Pool
 from oddt import toolkit
 
@@ -28,7 +29,7 @@ class virtualscreening:
         # setup pool
         self._pool = Pool(n_cpu if n_cpu > 0 else None)
 
-    def load_ligands(self, file_type, ligands_file, *args, **kwargs):
+    def load_ligands(self, fmt, ligands_file, *args, **kwargs):
         """Loads file with ligands.
 
         Parameters
@@ -40,7 +41,12 @@ class virtualscreening:
                 Path to a file, which is loaded to pipeline
 
         """
-        self._pipe = self._ligand_pipe(toolkit.readfile(file_type, ligands_file, *args, **kwargs))
+        if fmt == 'mol2' and toolkit.backend == 'ob':
+            if 'opt' in kwargs:
+                kwargs['opt']['c'] = None
+            else:
+                kwargs['opt'] = {'c': None}
+        self._pipe = self._ligand_pipe(toolkit.readfile(fmt, ligands_file, *args, **kwargs))
 
     def _ligand_pipe(self, ligands):
         for n, mol in enumerate(ligands):
@@ -204,6 +210,11 @@ class virtualscreening:
             csv_filename: string
                 Optional path to a CSV file
         """
+        if fmt == 'mol2' and toolkit.backend == 'ob':
+            if 'opt' in kwargs:
+                kwargs['opt']['c'] = None
+            else:
+                kwargs['opt'] = {'c': None}
         output_mol_file = toolkit.Outputfile(fmt, filename, **kwargs)
         if csv_filename:
             f = open(csv_filename, 'w')
@@ -231,8 +242,8 @@ class virtualscreening:
         if csv_filename:
             f.close()
 #        if kwargs.has_key('keep_pipe') and kwargs['keep_pipe']:
-        #FIXME destroys data
-        self._pipe = toolkit.readfile(fmt, filename)
+        if isfile(filename):
+            self._pipe = toolkit.readfile(fmt, filename, **kwargs)
 
     def write_csv(self, csv_filename, keep_pipe = False, **kwargs):
         """Outputs molecules to a csv file

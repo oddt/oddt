@@ -41,6 +41,8 @@ from rdkit.Chem.Lipinski import NumRotatableBonds
 from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D,Generate
 
+backend = 'rdk'
+
 elementtable = Chem.GetPeriodicTable()
 
 # trap errors since it's still new feature
