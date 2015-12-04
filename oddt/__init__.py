@@ -10,6 +10,7 @@ Universal and easy to use resource for various drug discovery tasks, ie docking,
 """
 
 import os, subprocess
+from distutils.version import LooseVersion
 try:
     from .toolkits import ob
 except ImportError:
@@ -25,14 +26,15 @@ elif rdk:
 
 def get_version():
     home = os.path.dirname(__file__)
-    v = None
+    git_v = None
+    v = '0.1.5'
     if os.path.isdir(home + '/../.git'):
         try:
-            v = subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip()
+            git_v = subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip()
         except CalledProcessError: # catch errors, eg. no git installed
             pass
-    if not v:
-        v = '0.1.5'
+    if git_v and LooseVersion(git_v) > LooseVersion(v):
+        v = git_v
     return v
 
 __version__ = get_version()
