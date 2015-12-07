@@ -139,7 +139,7 @@ class virtualscreening:
             Additional parameters are passed directly to the engine.
         """
         if engine.lower() == 'autodock_vina':
-            from .docking.autodock_vina import autodock_vina
+            from oddt.docking import autodock_vina
             engine = autodock_vina(protein, *args, **kwargs)
         else:
             raise ValueError('Docking engine %s was not implemented in ODDT' % engine)
