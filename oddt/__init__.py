@@ -27,7 +27,7 @@ elif rdk:
 def get_version():
     home = os.path.dirname(__file__)
     git_v = None
-    v = '0.1.7'
+    v = '0.1.8'
     if os.path.isdir(home + '/../.git'):
         try:
             git_v = subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip()
