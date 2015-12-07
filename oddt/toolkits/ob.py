@@ -243,7 +243,7 @@ class Molecule(pybel.Molecule):
             coords = atom.coords
 
             if self.protein:
-                residue = pybel.Residue(atom.OBAtom.GetResidue())
+                residue = Residue(atom.OBAtom.GetResidue())
             else:
                 residue = False
 
