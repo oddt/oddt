@@ -2,6 +2,8 @@
 import csv
 from os.path import isfile
 from multiprocessing.dummy import Pool
+from itertools import chain
+
 from oddt import toolkit
 
 def _parallel_helper(args):
@@ -46,7 +48,8 @@ class virtualscreening:
                 kwargs['opt']['c'] = None
             else:
                 kwargs['opt'] = {'c': None}
-        self._pipe = self._ligand_pipe(toolkit.readfile(fmt, ligands_file, *args, **kwargs))
+        new_pipe = self._ligand_pipe(toolkit.readfile(fmt, ligands_file, *args, **kwargs))
+        self._pipe = chain(self._pipe, new_pipe) if self._pipe else new_pipe
 
     def _ligand_pipe(self, ligands):
         for n, mol in enumerate(ligands):
