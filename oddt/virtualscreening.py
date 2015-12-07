@@ -243,6 +243,7 @@ class virtualscreening:
             f.close()
 #        if kwargs.has_key('keep_pipe') and kwargs['keep_pipe']:
         if isfile(filename):
+            kwargs.pop('overwrite') # this argument is unsupported in readfile
             self._pipe = toolkit.readfile(fmt, filename, **kwargs)
 
     def write_csv(self, csv_filename, keep_pipe = False, **kwargs):
