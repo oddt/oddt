@@ -52,8 +52,8 @@ class virtualscreening:
         self._pipe = chain(self._pipe, new_pipe) if self._pipe else new_pipe
 
     def _ligand_pipe(self, ligands):
-        for n, mol in enumerate(ligands):
-            self.num_input = n+1
+        for mol in ligands:
+            self.num_input += 1
             yield mol
 
     def apply_filter(self, expression, filter_type='expression', soft_fail = 0):
