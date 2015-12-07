@@ -145,7 +145,8 @@ class Molecule(pybel.Molecule):
 
     ### Backport code implementing resudues (by me) to support older versions of OB (aka 'stable')
     @property
-    def residue(self): return Residue(self.OBAtom.GetResidue())
+    def residues(self):
+        return [Residue(res) for res in ob.OBResidueIter(self.OBMol)]
 
     #### Custom ODDT properties ####
     def __getattr__(self, attr):
