@@ -60,7 +60,10 @@ class autodock_vina(object):
             self.center = tuple(np.array([atom.coords for atom in auto_ligand], dtype=np.float16).mean(axis=0))
         # autodetect Vina executable
         if not executable:
-            self.executable = subprocess.check_output(['which', 'vina']).split('\n')[0]
+            try:
+                self.executable = subprocess.check_output(['which', 'vina']).split('\n')[0]
+            except subprocess.CalledProcessError:
+                raise Exception('Could not find Autodock Vina binary. You have to install it globaly or supply binary full directory via `executable` parameter.')
         else:
             self.executable = executable
         # detect version
