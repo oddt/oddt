@@ -19,6 +19,8 @@ try:
     from .toolkits import rdk
 except ImportError:
     rdk = None
+
+toolkit = None
 if ob:
     toolkit = ob
 elif rdk:
