@@ -57,7 +57,7 @@ class autodock_vina(object):
             if type(auto_ligand) is str:
                 extension = auto_ligand.split('.')[-1]
                 auto_ligand = toolkit.readfile(extension, auto_ligand).next()
-            self.center = tuple(np.array([atom.coords for atom in auto_ligand], dtype=np.float16).mean(axis=0))
+            self.center = tuple(np.array([atom.coords for atom in auto_ligand], dtype=np.float32).mean(axis=0))
         # autodetect Vina executable
         if not executable:
             try:
