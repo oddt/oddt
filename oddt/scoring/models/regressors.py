@@ -7,7 +7,7 @@ try:
     from sklearn.cross_decomposition import PLSRegression as pls
 except ImportError:
     from sklearn.pls import PLSRegression as pls
-    
+
 from .neuralnetwork import neuralnetwork
 
 __all__ = ['randomforest', 'svm', 'pls', 'neuralnetwork', 'mlr']

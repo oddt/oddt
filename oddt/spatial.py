@@ -10,12 +10,12 @@ __all__ = ['angle', 'angle_2v', 'dihedral', 'distance']
 # angle functions
 def angle(p1,p2,p3):
     """Returns an angle from a series of 3 points (point #2 is centroid).Angle is returned in degrees.
-    
+
     Parameters
     ----------
     p1,p2,p3 : numpy arrays, shape = [n_points, n_dimensions]
         Triplets of points in n-dimensional space, aligned in rows.
-    
+
     Returns
     -------
     angles : numpy array, shape = [n_points]
@@ -27,12 +27,12 @@ def angle(p1,p2,p3):
 
 def angle_2v(v1, v2):
     """Returns an angle between two vecors.Angle is returned in degrees.
-    
+
     Parameters
     ----------
     v1,v2 : numpy arrays, shape = [n_vectors, n_dimensions]
         Pairs of vectors in n-dimensional space, aligned in rows.
-    
+
     Returns
     -------
     angles : numpy array, shape = [n_vectors]
@@ -45,12 +45,12 @@ def angle_2v(v1, v2):
 def dihedral(p1,p2,p3,p4):
     """Returns an dihedral angle from a series of 4 points. Dihedral is returned in degrees.
     Function distingishes clockwise and antyclockwise dihedrals.
-    
+
     Parameters
     ----------
     p1,p2,p3,p4 : numpy arrays, shape = [n_points, n_dimensions]
         Quadruplets of points in n-dimensional space, aligned in rows.
-    
+
     Returns
     -------
     angles : numpy array, shape = [n_points]
@@ -74,24 +74,24 @@ def dihedral(p1,p2,p3,p4):
 
 def rmsd(ref, mol, ignore_h = True, canonize = False, normalize = False):
     """Computes root mean square deviation (RMSD) between two molecules (including or excluding Hydrogens). No symmetry checks are performed.
-    
+
     Parameters
     ----------
     ref : oddt.toolkit.Molecule object
         Reference molecule for the RMSD calculation
-    
+
     mol : oddt.toolkit.Molecule object
         Query molecule for RMSD calculation
-    
+
     ignore_h : bool (default=False)
         Flag indicating to ignore Hydrogen atoms while performing RMSD calculation
-    
+
     canonize : bool (default=False)
         Match heavy atoms using OB canonical ordering
-    
+
     normalize : bool (default=False)
         Normalize RMSD by square root of rot. bonds
-    
+
     Returns
     -------
     rmsd : float
@@ -122,4 +122,3 @@ def rmsd(ref, mol, ignore_h = True, canonize = False, normalize = False):
 def distance_complex(x, y):
     """ Computes distance between points, similar to distance(cdist), with major difference - allows higher dimmentions of input (cdist supports 2). But it's 2-6 times slower, so use distance unless you have to nest it wit a for loop."""
     return np.sqrt(((x[...,np.newaxis,:]-y)**2).sum(axis=-1))
-

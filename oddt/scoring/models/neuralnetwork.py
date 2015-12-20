@@ -29,14 +29,14 @@ class neuralnetwork(object):
             self.model = ffnet(conec)
             if random_weights:
                 self.model.randomweights()
-    
+
     def get_params(self, deep=True):
         return {'shape': self.shape, 'full_conn': self.full_conn, 'biases': self.biases, 'random_weights': self.random_weights, 'normalize': self.normalize}
-    
+
     def set_params(self, args):
         self.__init__(**args)
         return self
-    
+
     def fit(self, input_descriptors, target_values, train_alg='tnc', **kwargs):
         if self.reduce_empty_dims:
             self.desc_mask = np.argwhere(~((input_descriptors == 0).all(axis=0) | (input_descriptors.min(axis=0) == input_descriptors.max(axis=0)))).flatten()
@@ -47,7 +47,7 @@ class neuralnetwork(object):
             descs = input_descriptors
         getattr(self.model, 'train_'+train_alg)(descs, target_values, **kwargs)
         return self
-    
+
     def predict(self, input_descriptors):
         if self.reduce_empty_dims:
             input_descriptors = input_descriptors[:,self.desc_mask]
@@ -56,7 +56,6 @@ class neuralnetwork(object):
         else:
             descs = input_descriptors
         return np.squeeze(self.model.call(descs), axis=1)
-    
+
     def score(self, X, y):
         return linregress(self.predict(X).flatten(), y)[2]**2
-        
