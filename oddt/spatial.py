@@ -3,7 +3,7 @@ Mainly used by other modules, but can be accessed directly.
 """
 
 from math import sin, cos
-from six import PY3
+import math
 import numpy as np
 from scipy.spatial.distance import cdist
 # for Hungarian algorithm, in future use scipy.optimize.linear_sum_assignment (in scipy 0.17+)
@@ -15,6 +15,9 @@ except ImportError:
     def linear_sum_assignment(M):
         out = linear_assignment(M)
         return out[:, 0], out[:, 1]
+
+from numba import autojit, double
+
 import oddt
 
 __all__ = ['angle',
@@ -254,3 +257,141 @@ def rotate(coords, alpha, beta, gamma):
                             cos_alpha * cos_beta]])
 
     return (coords[:, np.newaxis, :] * rot_matrix).sum(axis=2) + centroid
+
+
+# Experimental Numba support goes below
+# Numba helper functions that replace numpy
+@autojit
+def numba_cross(vec1, vec2):
+    """ Calculate the cross product of two 3d vectors. """
+    n = len(vec1)
+    result = np.zeros((n, 3))
+    for i in range(n):
+        a1, a2, a3 = double(vec1[i][0]), double(vec1[i][1]), double(vec1[i][2])
+        b1, b2, b3 = double(vec2[i][0]), double(vec2[i][1]), double(vec2[i][2])
+
+        result[i][0] = a2 * b3 - a3 * b2
+        result[i][1] = a3 * b1 - a1 * b3
+        result[i][2] = a1 * b2 - a2 * b1
+    return result
+
+
+@autojit
+def numba_dot(vec1, vec2):
+    """ Calculate the dot product of two vectors. """
+    result = np.zeros((vec1.shape[0], vec2.shape[1]))
+    for i in range(vec1.shape[0]):
+        for j in range(vec2.shape[1]):
+            for d in range(vec1.shape[1]):
+                result[i][j] += vec1[i][d] * vec2[d][j]
+    return result
+
+
+@autojit
+def numba_norm(vec):
+    """ Calculate the norm of a vector. """
+    M, N = vec.shape
+    result = np.zeros(M)
+    for i in range(M):
+        for d in range(N):
+            result[i] += vec[i][d]**2
+        result[i] = math.sqrt(result[i])
+    return result
+
+
+@autojit
+def numba_normalize(vec):
+    """ Calculate the normalized vector (norm: one). """
+    return vec / numba_norm(vec).reshape(-1, 1)
+
+
+# Numba versions of ODDT's functions
+@autojit
+def numba_angle_2v(v1, v2):
+    """Returns an angle between two vecors.Angle is returned in degrees.
+
+    Parameters
+    ----------
+    v1,v2 : numpy arrays, shape = [n_vectors, n_dimensions]
+        Pairs of vectors in n-dimensional space, aligned in rows.
+
+    Returns
+    -------
+    angles : numpy array, shape = [n_vectors]
+        Series of angles in degrees
+    """
+    # doesn't work with broadcasting (check if ndims = 3)
+    v1_M, v1_N = v1.shape
+    v2_M, v2_N = v2.shape
+    result = np.zeros(v1_M)
+    result_norm = numba_norm(v1)*numba_norm(v2)
+    for i in range(v1_M):
+        for d in range(v1_N):
+            result[i] += v1[i][d]*v2[i][d]
+        result[i] /= result_norm[i]
+        # clip values due to rounding
+        if result[i] > 1:
+            result[i] = 1
+        elif result[i] < -1:
+            result[i] = -1
+        result[i] = math.degrees(math.acos(result[i]))
+    return result
+
+
+@autojit
+def numba_angle(p1, p2, p3):
+    v1 = p1-p2
+    v2 = p3-p2
+    return numba_angle_2v(v1, v2)
+
+
+@autojit
+def numba_dihedral(p1, p2, p3, p4):
+    # BUG! works for series (2dim), fix for points (1dim)
+    v12 = (p1 - p2)/numba_norm(p1-p2).reshape(-1, 1)
+    v23 = (p2 - p3)/numba_norm(p2-p3).reshape(-1, 1)
+    v34 = (p3 - p4)/numba_norm(p3-p4).reshape(-1, 1)
+    c1 = numba_cross(v12, v23)
+    c2 = numba_cross(v23, v34)
+    out = numba_angle_2v(c1, c2)
+    # check clockwise and anticlockwise
+    n1 = c1/numba_norm(c1).reshape(-1, 1)
+
+    # not numba save
+    mask = (n1*v34).sum(axis=-1) > 0
+    if len(mask.shape) == 0:
+        if mask:
+            out = -out
+    else:
+        out[mask] = -out[mask]
+    return out
+
+
+@autojit
+def numba_distance(X, Y):
+    X_M = X.shape[0]
+    X_N = X.shape[1]
+    Y_M = Y.shape[0]
+    Y_N = Y.shape[1]
+    if X_N == Y_N:
+        N = X_N
+    else:
+        raise Exception('Wrong dims')
+    D = np.empty((X_M, Y_M), dtype=np.float)
+    for i in range(X_M):
+        for j in range(Y_M):
+            d = 0.0
+            for k in range(N):
+                tmp = X[i, k] - Y[j, k]
+                d += tmp * tmp
+            D[i, j] = math.sqrt(d)
+    return D
+
+
+# def init():
+#     """ call all functions once to compile them """
+#     vec1, vec2 = np.random.random((10,3)), np.random.random((10,3))
+#     numba_cross(vec1, vec2)
+#     numba_norm(vec1)
+#     numba_normalize(vec1)
+# init()
