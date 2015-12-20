@@ -202,13 +202,13 @@ class Molecule(pybel.Molecule):
         # Atoms
         atom_dtype = [('id', 'int16'),
                  # atom info
-                 ('coords', 'float16', 3),
-                 ('radius', 'float16'),
-                 ('charge', 'float16'),
+                 ('coords', 'float32', 3),
+                 ('radius', 'float32'),
+                 ('charge', 'float32'),
                  ('atomicnum', 'int8'),
                  ('atomtype','a4'),
                  ('hybridization', 'int8'),
-                 ('neighbors', 'float16', (4,3)), # max of 4 neighbors should be enough
+                 ('neighbors', 'float32', (4,3)), # max of 4 neighbors should be enough
                  # residue info
                  ('resid', 'int16'),
                  ('resname', 'a3'),
@@ -248,7 +248,7 @@ class Molecule(pybel.Molecule):
                 residue = False
 
             # get neighbors, but only for those atoms which realy need them
-            neighbors = np.zeros(4, dtype=[('coords', 'float16', 3),('atomicnum', 'int8')])
+            neighbors = np.zeros(4, dtype=[('coords', 'float32', 3),('atomicnum', 'int8')])
             neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
                 # concider raising neighbors list to 6, but must do some benchmarks
@@ -286,9 +286,9 @@ class Molecule(pybel.Molecule):
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', 'int16'),
                          ('resname', 'a3'),
-                         ('N', 'float16', 3),
-                         ('CA', 'float16', 3),
-                         ('C', 'float16', 3),
+                         ('N', 'float32', 3),
+                         ('CA', 'float32', 3),
+                         ('C', 'float32', 3),
                          ('isalpha', 'bool'),
                          ('isbeta', 'bool')
                          ] # N, CA, C
@@ -335,7 +335,7 @@ class Molecule(pybel.Molecule):
                 # get vector perpendicular to ring
                 vector = np.cross(coords - np.vstack((coords[1:],coords[:1])), np.vstack((coords[1:],coords[:1])) - np.vstack((coords[2:],coords[:2]))).mean(axis=0) - centroid
                 r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
-        ring_dict = np.array(r, dtype=[('centroid', 'float16', 3),('vector', 'float16', 3),('isalpha', 'bool'),('isbeta', 'bool'),])
+        ring_dict = np.array(r, dtype=[('centroid', 'float32', 3),('vector', 'float32', 3),('isalpha', 'bool'),('isbeta', 'bool'),])
 
         self._atom_dict = atom_dict
         self._ring_dict = ring_dict

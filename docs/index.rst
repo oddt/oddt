@@ -135,12 +135,12 @@ atom_dict
 
 Atom basic information
 
-* '*coords*', type: ``float16``, shape: (3) - atom coordinates
-* '*charge*', type: ``float16`` - atom's charge
+* '*coords*', type: ``float32``, shape: (3) - atom coordinates
+* '*charge*', type: ``float32`` - atom's charge
 * '*atomicnum*', type: ``int8`` - atomic number
 * '*atomtype', type: ``a4`` - Sybyl atom's type
 * '*hybridization*', type: ``int8`` - atoms hybrydization
-* '*neighbors*', type: ``float16``, shape: (4,3) - coordinates of non-H neighbors coordinates for angles (max of 4 neighbors should be enough)
+* '*neighbors*', type: ``float32``, shape: (4,3) - coordinates of non-H neighbors coordinates for angles (max of 4 neighbors should be enough)
 
 Residue information for current atom
 
@@ -169,8 +169,8 @@ Secondary structure
 ring_dict
 ---------
 
-* '*centroid*', type: ``float16``, shape: 3 - coordinates of ring's centroid
-* '*vector*', type: ``float16``, shape: 3 - normal vector for ring
+* '*centroid*', type: ``float32``, shape: 3 - coordinates of ring's centroid
+* '*vector*', type: ``float32``, shape: 3 - normal vector for ring
 * '*isalpha*', type: ``bool`` - is ring a part of alpha helix
 * '*isbeta*', type: ``bool'`` - is ring a part of beta strand
 
@@ -179,9 +179,9 @@ res_dict
 
 * '*id*', type: ``int16`` - residue ID
 * '*resname*', type: ``a3`` - Residue name (3 letters)
-* '*N*', type: ``float16``, shape: 3 - cordinates of backbone N atom
-* '*CA*', type: ``float16``, shape: 3 - cordinates of backbone CA atom
-* '*C*', type: ``float16``, shape: 3 - cordinates of backbone C atom
+* '*N*', type: ``float32``, shape: 3 - cordinates of backbone N atom
+* '*CA*', type: ``float32``, shape: 3 - cordinates of backbone CA atom
+* '*C*', type: ``float32``, shape: 3 - cordinates of backbone C atom
 * '*isalpha*', type: ``bool`` - is residue a part of alpha helix
 * '*isbeta*', type: ``bool'`` - is residue a part of beta strand
 
