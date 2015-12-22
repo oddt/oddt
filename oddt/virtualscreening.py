@@ -174,16 +174,23 @@ class virtualscreening:
             protein = toolkit.readfile(extension, protein).next()
             protein.protein = True
 
-        if function.lower() == 'rfscore':
-            from .scoring.functions.RFScore import rfscore
-            sf = rfscore.load()
-            sf.set_protein(protein)
-        elif function.lower() == 'nnscore':
-            from .scoring.functions.NNScore import nnscore
-            sf = nnscore.load()
-            sf.set_protein(protein)
+        if type(function) is str:
+            if function.lower() == 'rfscore':
+                from .scoring.functions.RFScore import rfscore
+                sf = rfscore.load()
+                sf.set_protein(protein)
+            elif function.lower() == 'nnscore':
+                from .scoring.functions.NNScore import nnscore
+                sf = nnscore.load()
+                sf.set_protein(protein)
+            else:
+                raise ValueError('Scoring Function %s was not implemented in ODDT' % function)
         else:
-            raise ValueError('Scoring Function %s was not implemented in ODDT' % function)
+            if hasattr(function, 'set_protein') and hasattr(function, 'predict_ligands') and hasattr(function, 'predict_ligand'):
+                sf = function
+                sf.set_protein(protein)
+            else:
+                raise ValueError('Supplied object "%s" is not an ODDT scoring funtion' % function.__name__)
         if self.n_cpu != 1:
             self._pipe = self._pool.imap(_parallel_helper, ((sf, 'predict_ligand', {'ligand': lig}) for lig in self._pipe))
         else:
