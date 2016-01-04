@@ -11,3 +11,5 @@ dependencies:
 - ffnet>=0.7.1
 - joblib>=0.8
 - networkx>=1.3
+- rdkit
+- openbabel
