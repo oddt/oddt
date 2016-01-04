@@ -1,0 +1,13 @@
+name: oddt_env
+channels:
+- mwojcikowski
+- rdkit
+dependencies:
+- python=2
+- numpydoc
+- numpy>=1.8
+- scipy>=0.13.0
+- scikit-learn>=0.13.0
+- ffnet>=0.7.1
+- joblib>=0.8
+- networkx>=1.3
