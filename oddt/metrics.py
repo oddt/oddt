@@ -2,9 +2,36 @@
 
 from math import ceil
 import numpy as np
-from sklearn.metrics import roc_curve as roc, roc_auc_score as roc_auc, auc, mean_squared_error
+from sklearn.metrics import roc_curve as roc, auc, mean_squared_error
 
 __all__ = ['roc', 'auc', 'roc_auc', 'roc_log_auc', 'enrichment_factor', 'random_roc_log_auc', 'rmse']
+
+def roc_auc(y_true, y_score, pos_label=None, ascending_score=True):
+    """Computes ROC AUC score
+
+    Parameters
+    ----------
+        y_true : array, shape=[n_samples]
+            True binary labels, in range {0,1} or {-1,1}. If positive label is different than 1, it must be explicitly defined.
+
+        y_score : array, shape=[n_samples]
+            Scores for tested series of samples
+
+        pos_label: int
+            Positive label of samples (if other than 1)
+
+        ascending_score: bool (default=True)
+            Indicates if your score is ascendig
+
+    Returns
+    -------
+        ef : float
+            Enrichment Factor for given percenage in range 0:1
+    """
+    if ascending_score:
+        y_score = -y_score
+    fpr, tpr, tresholds = roc(y_true, y_score, pos_label=pos_label)
+    return auc(fpr, tpr, reorder=False)
 
 def rmse(y_true, y_pred):
     """Compute Root Mean Squared Error (RMSE)
@@ -53,7 +80,7 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None):
     n_perc = int(ceil(float(percentage)/100.*len(labels)))
     return float(labels[:n_perc].sum())/n_perc
 
-def roc_log_auc(y_true, y_score, pos_label=None, log_min=0.001, log_max=1.):
+def roc_log_auc(y_true, y_score, pos_label=None, ascending_score=True, log_min=0.001, log_max=1.):
     """Computes area under semi-log ROC for random distribution.
 
     Parameters
@@ -67,6 +94,9 @@ def roc_log_auc(y_true, y_score, pos_label=None, log_min=0.001, log_max=1.):
         pos_label: int
             Positive label of samples (if other than 1)
 
+        ascending_score: bool (default=True)
+            Indicates if your score is ascendig
+
         log_min : float (default=0.001)
             Minimum logarithm value for estimating AUC
 
@@ -78,10 +108,12 @@ def roc_log_auc(y_true, y_score, pos_label=None, log_min=0.001, log_max=1.):
         auc : float
             semi-log ROC AUC
     """
+    if ascending_score:
+        y_score = -y_score
     fpr, tpr, t = roc(y_true, y_score, pos_label=pos_label)
     idx = (fpr >= log_min) & (fpr <= log_max)
     log_fpr = 1-np.log10(fpr[idx])/np.log10(log_min)
-    return auc(log_fpr, tpr[idx])
+    return auc(log_fpr, tpr[idx], reorder=False)
 
 def random_roc_log_auc(log_min=0.001, log_max=1.):
     """Computes area under semi-log ROC for random distribution.
