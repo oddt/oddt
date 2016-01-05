@@ -3,7 +3,6 @@ channels:
 - mwojcikowski
 - rdkit
 dependencies:
-- python=2
 - numpydoc
 - numpy>=1.8
 - scipy>=0.13.0
