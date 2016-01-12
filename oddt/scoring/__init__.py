@@ -69,7 +69,7 @@ class scorer(object):
                 Estimated target values.
         """
         self.train_descs = self.descriptor_generator.build(ligands)
-        return model.fit(self.train_descs,target, *args, **kwargs)
+        return self.model.fit(self.train_descs,target, *args, **kwargs)
 
     def predict(self, ligands, *args, **kwargs):
         """Predicts values (eg. affinity) for supplied ligands
@@ -107,7 +107,7 @@ class scorer(object):
                 Squared correlation coefficient (R^2) for prediction
         """
         descs = self.descriptor_generator.build(ligands)
-        return self.model.score(descs, *args, **kwargs)
+        return self.model.score(descs, target, *args, **kwargs)
 
     def predict_ligand(self, ligand):
         """Local method to score one ligand and update it's scores.

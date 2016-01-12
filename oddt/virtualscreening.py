@@ -154,7 +154,7 @@ class virtualscreening:
             docking_results = (engine.dock(lig, single=True) for lig in self._pipe)
         self._pipe = _iter_conf(docking_results)
 
-    def score(self, function, protein, *args, **kwargs):
+    def score(self, function, protein = None, *args, **kwargs):
         """Scoring procedure.
 
         Parameters
