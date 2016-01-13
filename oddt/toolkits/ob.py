@@ -119,14 +119,17 @@ class Molecule(pybel.Molecule):
     @property
     def coords(self):
         if self._coords is None:
-            self._coords = np.array([atom.coords for atom in self.atoms])
+            self._coords = np.array([atom.coords for atom in self.atoms], dtype=np.float32)
+            self._coords.setflags(write=False)
         return self._coords
 
     @coords.setter
     def coords(self, new):
+        new = np.asarray(new, dtype=np.float64)
         [a.OBAtom.SetVector(v[0],v[1],v[2]) for v, a in zip(new, self.atoms)]
         # clear cache
-        self._cache = None
+        self._coords = None
+        self._atom_dict = None
 
 
     @property
@@ -338,9 +341,12 @@ class Molecule(pybel.Molecule):
         ring_dict = np.array(r, dtype=[('centroid', 'float32', 3),('vector', 'float32', 3),('isalpha', 'bool'),('isbeta', 'bool'),])
 
         self._atom_dict = atom_dict
+        self._atom_dict.setflags(write=False)
         self._ring_dict = ring_dict
+        self._ring_dict.setflags(write=False)
         if self.protein:
             self._res_dict = res_dict
+            self._res_dict.setflags(write=False)
 
 ### Extend pybel.Molecule
 pybel.Molecule = Molecule

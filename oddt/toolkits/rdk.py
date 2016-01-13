@@ -362,8 +362,23 @@ class Molecule(object):
     @property
     def coords(self):
         if self._coords is None:
-            self._coords = np.array([atom.coords for atom in self.atoms])
+            self._coords = np.array([atom.coords for atom in self.atoms], dtype=np.float32)
+            self._coords.setflags(write=False)
         return self._coords
+
+    @coords.setter
+    def coords(self, new):
+        new = np.asarray(new, dtype=np.float64)
+        if self.Mol.GetNumConformers() == 0:
+            raise AttributeError, "Atom has no coordinates (0D structure)"
+        if self.Mol.GetNumAtoms() != new.shape[0]:
+            raise AttributeError, "Atom number is unequal. You have to supply new coordinates for all atoms"
+        conformer = self.Mol.GetConformer()
+        for idx in xrange(self.Mol.GetNumAtoms()):
+            conformer.SetAtomPosition(idx, new[idx,:])
+        # clear cache
+        self._coords = None
+        self._atom_dict = None
 
     @property
     def charges(self):
@@ -570,9 +585,12 @@ class Molecule(object):
         ring_dict = np.array(r, dtype=[('centroid', 'float32', 3),('vector', 'float32', 3),('isalpha', 'bool'),('isbeta', 'bool'),])
 
         self._atom_dict = atom_dict
+        self._atom_dict.setflags(write=False)
         self._ring_dict = ring_dict
+        self._ring_dict.setflags(write=False)
         if self.protein:
             self._res_dict = res_dict
+            self._res_dict.setflags(write=False)
 
     def addh(self):
         """Add hydrogens."""
@@ -803,8 +821,10 @@ class Atom(object):
 
     def __init__(self, Atom):
         self.Atom = Atom
+
     @property
     def atomicnum(self): return self.Atom.GetAtomicNum()
+
     @property
     def coords(self):
         owningmol = self.Atom.GetOwningMol()
@@ -813,16 +833,20 @@ class Atom(object):
         idx = self.Atom.GetIdx()
         atomcoords = owningmol.GetConformer().GetAtomPosition(idx)
         return (atomcoords[0], atomcoords[1], atomcoords[2])
+
     @property
     def formalcharge(self): return self.Atom.GetFormalCharge()
+
     ### ODDT ###
     @property
     def idx(self):
         """ Note that this index is 1-based and RDKit's internal index in 0-based. Changed to be compatible with OpenBabel"""
         return self.Atom.GetIdx()+1
+
     @property
     def neighbors(self):
         return [Atom(a) for a in self.Atom.GetNeighbors()]
+
     @property
     def partialcharge(self):
         if self.Atom.HasProp('_TriposPartialCharge'):
