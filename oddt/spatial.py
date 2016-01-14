@@ -2,6 +2,7 @@
 Mainly used by other modules, but can be accessed directly.
 """
 
+from math import sin, cos
 import numpy as np
 from scipy.spatial.distance import cdist as distance
 
@@ -122,3 +123,35 @@ def rmsd(ref, mol, ignore_h = True, canonize = False, normalize = False):
 def distance_complex(x, y):
     """ Computes distance between points, similar to distance(cdist), with major difference - allows higher dimmentions of input (cdist supports 2). But it's 2-6 times slower, so use distance unless you have to nest it wit a for loop."""
     return np.sqrt(((x[...,np.newaxis,:]-y)**2).sum(axis=-1))
+
+def rotate(coords, alpha, beta, gamma):
+    """Returns an angle from a series of 3 points (point #2 is centroid).Angle is returned in degrees.
+
+    Parameters
+    ----------
+    coords : numpy arrays, shape = [n_points, 3]
+        Coordinates in 3-dimensional space.
+
+    alpha, beta, gamma: float
+        Angles to rotate the coordinates along X,Y and Z axis. Angles are specified in radians.
+
+    Returns
+    -------
+    new_coords : numpy arrays, shape = [n_points, 3]
+        Rorated coordinates in 3-dimensional space.
+    """
+    centroid = coords.mean(axis=0)
+    coords = coords - centroid
+
+    sin_alpha = sin(alpha)
+    cos_alpha = cos(alpha)
+    sin_beta = sin(beta)
+    cos_beta = cos(beta)
+    sin_gamma = sin(gamma)
+    cos_gamma = cos(gamma)
+
+    rot_matrix = np.array([[cos_beta*cos_gamma, sin_alpha*sin_beta*cos_gamma-cos_alpha*sin_gamma, cos_alpha*sin_beta*cos_gamma+sin_alpha*sin_gamma],
+                           [cos_beta*sin_gamma, sin_alpha*sin_beta*sin_gamma+cos_alpha*cos_gamma, cos_alpha*sin_beta*sin_gamma-sin_alpha*cos_gamma],
+                           [-sin_beta,          sin_alpha*cos_beta,                               cos_alpha*cos_beta]])
+
+    return (coords[:,np.newaxis,:] * rot_matrix).sum(axis=2) + centroid
