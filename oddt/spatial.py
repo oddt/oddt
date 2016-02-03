@@ -11,8 +11,8 @@ try:
 except ImportError:
     from sklearn.utils.linear_assignment_ import linear_assignment
     def linear_sum_assignment(M):
-        o = linear_assignment(M)
-        return o[:,0], o[:,1]
+        out = linear_assignment(M)
+        return out[:,0], out[:,1]
 
 __all__ = ['angle', 'angle_2v', 'dihedral', 'distance', 'rmsd', 'rotate']
 
