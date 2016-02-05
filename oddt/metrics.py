@@ -21,7 +21,7 @@ def roc_auc(y_true, y_score, pos_label=None, ascending_score=True):
             Positive label of samples (if other than 1)
 
         ascending_score: bool (default=True)
-            Indicates if your score is ascendig
+            Indicates if your score is ascendig. Ascending score icreases with deacreasing activity. In other words it ascends on ranking list (where actives are on top).
 
     Returns
     -------
@@ -43,7 +43,7 @@ def rmse(y_true, y_pred):
 
         y_pred : array-like of shape = [n_samples] or [n_samples, n_outputs]
             Estimated target values.
-    
+
     Returns
     -------
         rmse : float
@@ -95,7 +95,7 @@ def roc_log_auc(y_true, y_score, pos_label=None, ascending_score=True, log_min=0
             Positive label of samples (if other than 1)
 
         ascending_score: bool (default=True)
-            Indicates if your score is ascendig
+            Indicates if your score is ascendig. Ascending score icreases with deacreasing activity. In other words it ascends on ranking list (where actives are on top).
 
         log_min : float (default=0.001)
             Minimum logarithm value for estimating AUC
