@@ -109,6 +109,7 @@ class close_contacts(object):
         #for pickle save original value
         self.original_cutoff = cutoff
 
+        self.protein = protein
         self.ligand_types = ligand_types
         self.protein_types = protein_types if protein_types else ligand_types
         self.aligned_pairs = aligned_pairs
@@ -129,8 +130,8 @@ class close_contacts(object):
                 Flag indicating if the ligand is single.
 
         """
-        if protein is None:
-            protein = self.protein
+        if protein:
+            self.protein = protein
         if single and type(ligands) is not list:
             ligands = [ligands]
         desc_size = len(self.ligand_types)*self.cutoff.shape[0] if self.aligned_pairs else len(self.ligand_types)*len(self.protein_types)*self.cutoff.shape[0]
@@ -143,7 +144,7 @@ class close_contacts(object):
                 pairs = [(mol_type, prot_type) for mol_type in self.ligand_types for prot_type in self.protein_types]
             #desc = np.array([(distance(atoms_by_type(protein.atom_dict, [prot_type], self.mode)[prot_type]['coords'], atoms_by_type(mol.atom_dict, [mol_type], self.mode)[mol_type]['coords'])[..., np.newaxis] <= self.cutoff).sum(axis=(0,1)) for mol_type, prot_type in pairs], dtype=int).flatten()
 
-            local_protein_dict = protein.atom_dict[(distance(protein.atom_dict['coords'], mol.atom_dict['coords']) <= self.cutoff.max()).any(axis=1)]
+            local_protein_dict = self.protein.atom_dict[(distance(self.protein.atom_dict['coords'], mol.atom_dict['coords']) <= self.cutoff.max()).any(axis=1)]
             prot_dict = atoms_by_type(local_protein_dict, self.protein_types, self.mode)
             desc = []
             for mol_type, prot_type in pairs:
