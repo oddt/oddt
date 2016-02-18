@@ -273,7 +273,10 @@ class virtualscreening:
             keep_pipe: bool (default=False)
                 If set to True, the ligand pipe is sustained.
         """
-        f = open(csv_filename, 'w')
+        if hasattr(csv_filename, 'write'):
+            f = csv_filename
+        else:
+            f = open(csv_filename, 'w')
         csv_file = None
         for mol in self.fetch():
             data = dict(mol.data)

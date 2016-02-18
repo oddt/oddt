@@ -1,0 +1,126 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import sys
+from os.path import isfile
+import argparse
+import joblib
+
+import oddt
+from oddt.virtualscreening import virtualscreening as vs
+
+# arguments
+parser = argparse.ArgumentParser(description='Open Drug Discovery (ODDT) command line tools')
+parser.add_argument('--toolkit', dest='toolkit', choices=['ob', 'rdk'], default='ob', help='Choose which toolkit should be used for calculations, either "ob" (OpenBabel) or "rdkit" (RDKit) (default: ob)')
+parser.add_argument('-n', '--n_cpu', dest='n_cpu', type=int, help='The number of parallel processes. -1 automatically assigns maximum number of CPUs. (default=-1)')
+parser.add_argument('--version', action='version', version='%(prog)s ' + oddt.__version__)
+
+# in/out files and formats
+parser.add_argument('in_file', nargs='+', help='Input files of formats supported by toolkit.')
+parser.add_argument('-i', dest='in_format', help='Input file(s) format')
+parser.add_argument('-o', dest='out_format', help='Output file format')
+parser.add_argument('-O', '--output', dest='out_file', help='Output file')
+
+# filter
+group = parser.add_argument_group('Filtering')
+group.add_argument('--filter', dest='filter', action='append', default=[], help='Choose built-in filters to be used (eg. "ro5", "ro3", "pains")')#
+
+# docking
+group = parser.add_argument_group('Protein-Ligand docking')
+group.add_argument('--dock', dest='dock', choices=['autodock_vina',], help='Choose docking software to be used')
+group.add_argument('--receptor', help='Protein file')
+group.add_argument('--auto_ligand', help='Docking Box is determined on that ligand')
+group.add_argument('--center', help='Docking Box center (x,y,z)')
+group.add_argument('--size', help='Docking Box dimentions  (x,y,z)')
+group.add_argument('--exhaustiveness', default=8, type=int, help='Exhaustiveness of docking')
+group.add_argument('--seed', help='Random Seed')
+
+# scoring
+group = parser.add_argument_group('Rescoring')
+group.add_argument('--score', dest='score', choices=['autodock_vina', 'rfscore', 'rfscore_v1', 'rfscore_v2', 'rfscore_v3', 'nnscore'], action='append', default=[], help='Choose built-in scoring function to be used')#
+group.add_argument('--score_file', dest='score_file',  action='append', default=[], help='Choose ODDT scoring function saved to file (pickle)')
+
+#group.add_argument('--receptor', help='Protein file')
+
+
+args = parser.parse_args()
+
+# Switch toolkits
+if 'toolkit' in args:
+    if args.toolkit == 'ob':
+        from oddt.toolkits import ob
+        oddt.toolkit = ob
+    elif args.toolkit == 'rdk':
+        from oddt.toolkits import rdk
+        oddt.toolkit = rdk
+
+# Create pipeline for docking and rescoring
+pipeline = vs(n_cpu=args.n_cpu if 'n_cpu' in args else -1)
+for f in args.in_file:
+    if args.in_format:
+        fmt = args.in_format
+    else: # autodiscover
+        tmp = f.split('.')
+        if tmp[-1] == 'gz':
+            fmt = tmp[-2]
+        else:
+            fmt = tmp[-1]
+    pipeline.load_ligands(fmt, f) # add loading ligands from STDIN?
+
+# Filter ligands
+for filter in args.filter:
+    pipeline.apply_filter(filter)
+
+# Docking
+if args.dock == 'autodock_vina':
+    kwargs = {}
+    if args.center:
+        kwargs['center'] = args.center
+    if args.size:
+        kwargs['size'] = args.size
+    if args.size:
+        kwargs['size'] = args.size
+    if args.auto_ligand:
+        kwargs['auto_ligand'] = args.auto_ligand
+    if args.exhaustiveness:
+        kwargs['exhaustiveness'] = args.exhaustiveness
+    if args.seed:
+        kwargs['seed'] = args.seed
+    pipeline.dock('autodock_vina', args.receptor, **kwargs)
+
+# Rescoring
+for score in args.score:
+    if score == 'nnscore':
+        pipeline.score('nnscore', args.receptor)
+    elif score.startswith('rfscore'):
+        pipeline.score(score, args.receptor)
+    elif score == 'autodock_vina':
+        pipeline.score('autodock_vina', args.receptor)
+
+for score_file in args.score_file:
+    if isfile(score_file): # load pickle
+        sf = joblib.load(score_file)
+        pipeline.score(sf, args.receptor)
+    else:
+        raise IOError('Could not read pickle file %s' % score_file)
+
+# Write to file or STDOUT
+if args.out_file:
+    if args.out_format:
+        fmt = args.out_format
+    else: # autodiscover
+        tmp = args.out_file.split('.')
+        if tmp[-1] == 'gz':
+            fmt = tmp[-2]
+        else:
+            fmt = tmp[-1]
+    if fmt == 'csv':
+        pipeline.write_csv(args.out_file)
+    else:
+        pipeline.write(fmt, args.out_file, overwrite=True)
+else:
+    fmt = args.out_format
+    if fmt == 'csv':
+        pipeline.write_csv(sys.stdout)
+    else:
+        for lig in pipeline.fetch():
+            sys.stdout.write(lig.write(fmt))

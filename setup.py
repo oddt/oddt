@@ -16,4 +16,5 @@ setup(name='oddt',
         install_requires = open('requirements.txt', 'r').readlines(),
         download_url = 'https://github.com/oddt/oddt/tarball/%s' % VERSION,
         keywords = ['cheminformatics', 'qsar', 'virtual screening', 'docking', 'pipeline'],
+        scripts=['bin/oddt'],
     )
