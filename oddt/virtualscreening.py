@@ -176,12 +176,16 @@ class virtualscreening:
 
         if type(function) is str:
             if function.lower() == 'rfscore':
-                from .scoring.functions.RFScore import rfscore
+                from oddt.scoring.functions.RFScore import rfscore
                 sf = rfscore.load()
                 sf.set_protein(protein)
             elif function.lower() == 'nnscore':
-                from .scoring.functions.NNScore import nnscore
+                from oddt.scoring.functions.NNScore import nnscore
                 sf = nnscore.load()
+                sf.set_protein(protein)
+            elif function.lower() == 'autodock_vina':
+                from oddt.docking import autodock_vina
+                sf = autodock_vina(protein, *args, **kwargs)
                 sf.set_protein(protein)
             else:
                 raise ValueError('Scoring Function %s was not implemented in ODDT' % function)

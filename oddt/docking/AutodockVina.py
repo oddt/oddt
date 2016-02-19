@@ -206,6 +206,36 @@ class autodock_vina(object):
         for d in self.cleanup_dirs:
             rmtree(d)
 
+    def predict_ligand(self, ligand):
+        """Local method to score one ligand and update it's scores.
+
+        Parameters
+        ----------
+            ligand: oddt.toolkit.Molecule object
+                Ligand to be scored
+
+        Returns
+        -------
+            ligand: oddt.toolkit.Molecule object
+                Scored ligand with updated scores
+        """
+        return self.score([ligand])[0]
+
+    def predict_ligands(self, ligands):
+        """Method to score ligands lazily
+
+        Parameters
+        ----------
+            ligands: iterable of oddt.toolkit.Molecule objects
+                Ligands to be scored
+
+        Returns
+        -------
+            ligand: iterator of oddt.toolkit.Molecule objects
+                Scored ligands with updated scores
+        """
+        return self.score(ligands)
+
 def parse_vina_scoring_output(output):
     """Function parsing Autodock Vina scoring output to a dictionary
 
