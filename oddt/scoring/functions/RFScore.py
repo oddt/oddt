@@ -50,7 +50,7 @@ class rfscore(scorer):
             cc = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
             vina = autodock_vina_descriptor(protein)
             descriptors = ensemble_descriptor((vina, cc))
-        super(rfscore,self).__init__(model, descriptors, score_title = 'rfscore')
+        super(rfscore,self).__init__(model, descriptors, score_title = 'rfscore_v%i' % self.version)
 
     def gen_training_data(self, pdbbind_dir, pdbbind_version = '2007', home_dir = None, sf_pickle = ''):
         # build train and test

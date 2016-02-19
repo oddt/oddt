@@ -175,9 +175,11 @@ class virtualscreening:
             protein.protein = True
 
         if type(function) is str:
-            if function.lower() == 'rfscore':
+            if function.lower().startswith('rfscore'):
                 from oddt.scoring.functions.RFScore import rfscore
-                sf = rfscore.load()
+                tmp = function.lower().split('_')
+                v = int(tmp[-1][1:]) if len(tmp) > 1 else 1
+                sf = rfscore.load(version=v)
                 sf.set_protein(protein)
             elif function.lower() == 'nnscore':
                 from oddt.scoring.functions.NNScore import nnscore
