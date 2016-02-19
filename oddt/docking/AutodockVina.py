@@ -81,7 +81,7 @@ class autodock_vina(object):
         self.params += ['--size_x', str(self.size[0]), '--size_y', str(self.size[1]), '--size_z', str(self.size[2])]
         if n_cpu > 0:
             self.params += ['--cpu', str(n_cpu)]
-        self.params += ['--exhaustiveness', str(exhaustivness)]
+        self.params += ['--exhaustiveness', str(exhaustiveness)]
         if not seed is None:
             self.params += ['--seed', str(seed)]
         self.params += ['--num_modes', str(num_modes)]
