@@ -9,7 +9,7 @@ from random import random
 from oddt import toolkit
 
 class autodock_vina(object):
-    def __init__(self, protein=None, auto_ligand=None, size=(10,10,10), center=(0,0,0), exhaustivness=8, num_modes=9, energy_range=3, seed=None, prefix_dir='/tmp', n_cpu=1, executable=None, autocleanup=True):
+    def __init__(self, protein=None, auto_ligand=None, size=(10,10,10), center=(0,0,0), exhaustiveness=8, num_modes=9, energy_range=3, seed=None, prefix_dir='/tmp', n_cpu=1, executable=None, autocleanup=True):
         """Autodock Vina docking engine, which extends it's capabilities: automatic box (autocentering on ligand).
 
         Parameters
