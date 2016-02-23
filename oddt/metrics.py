@@ -69,6 +69,9 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None, kind='fold'
             Positive label of samples (if other than 1)
 
         kind: 'fold' or 'percentage' (default='fold')
+            Two kinds of enrichment factor: fold and percentage.
+            Fold shows the increase over random distribution (1 is random, the higher EF the better enrichment).
+            Percentage returns the fraction of positive labels within the top x% of dataset.
 
     Returns
     -------
