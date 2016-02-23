@@ -2,23 +2,37 @@ sudo: false
 language: python
 python:
     - '2.7'
+env:
+    global:
+        secure: OVE5GtJJ2Ga+GDJIFuyPsbJ5SFCecdbiPv6TzrdNT6AoMdjEZK/zw1ZRHNtMHvrPbq5G7qY/54tHEePSKJlm7pi8agYPbTAg3pPvUvFfmyoQm4Vg07BEULKJ9wfgNI2c+IsMp77r1hW+04+HpwMT81p/zYndVcuhvj7C7vJ0hgo=
 deploy:
-    provider: pypi
-    user: mwojcikowski
-    password:
-        secure: Y1+kPOAjQhFZW9N25q8StT5TFvJiUhecTbmpHIlGzlPi/L/RUE8txXXI5e7o4lD0bz5pqDtoKwF8Nas2VQJGS/dE0lkjmsDR/cQdjoSd88BflhxaqlvL6L2fVmIZ2RWXXmrlE6s/Obw1JpMjtzhCGk0ywe306Z1NVkj1VEURIlc=
-    distributions: sdist bdist_wheel egg_info
-    on:
-        tags: true
-        repo: oddt/oddt
-        branch: master
+    # pypi
+    - provider: pypi
+      user: mwojcikowski
+      password:
+          secure: Y1+kPOAjQhFZW9N25q8StT5TFvJiUhecTbmpHIlGzlPi/L/RUE8txXXI5e7o4lD0bz5pqDtoKwF8Nas2VQJGS/dE0lkjmsDR/cQdjoSd88BflhxaqlvL6L2fVmIZ2RWXXmrlE6s/Obw1JpMjtzhCGk0ywe306Z1NVkj1VEURIlc=
+      distributions: sdist bdist_wheel egg_info
+      on:
+          tags: true
+          repo: oddt/oddt
+          branch: master
+    # conda
+    - provider: script
+      script: conda/deploy.sh
+      on:
+          tags: true
+          repo: oddt/oddt
+          branch: master
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH="$HOME/miniconda/bin:$PATH"
     - conda update --yes conda
-    - conda install --yes python=$TRAVIS_PYTHON_VERSION
+    - conda install --yes python=$TRAVIS_PYTHON_VERSION conda-build anaconda-client
     - conda env update --name root --file environment.yml
 install:
     - pip install .
 script: python -c "import oddt"
+after_success:
+# Change permissions for Anaconda deployment script
+  - chmod +x ./deploy_anaconda.sh
