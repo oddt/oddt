@@ -51,7 +51,7 @@ def rmse(y_true, y_pred):
     """
     return np.sqrt(mean_squared_error(y_true, y_pred))
 
-def enrichment_factor(y_true, y_score, percentage=1, pos_label=None):
+def enrichment_factor(y_true, y_score, percentage=1, pos_label=None, kind='fold'):
     """Computes enrichment factor for given percentage, i.e. EF_1% is enrichment factor for first percent of given samples.
 
     Parameters
@@ -68,6 +68,8 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None):
         pos_label: int
             Positive label of samples (if other than 1)
 
+        kind: 'fold' or 'percentage' (default='fold')
+
     Returns
     -------
         ef : float
@@ -78,7 +80,10 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None):
     labels = y_true == pos_label
     # calculate fraction of positve labels
     n_perc = int(ceil(float(percentage)/100.*len(labels)))
-    return float(labels[:n_perc].sum())/n_perc
+    out = float(labels[:n_perc].sum())/n_perc
+    if kind == 'fold':
+         out /= (float(labels.sum())/len(labels))
+    return out
 
 def roc_log_auc(y_true, y_score, pos_label=None, ascending_score=True, log_min=0.001, log_max=1.):
     """Computes area under semi-log ROC for random distribution.
