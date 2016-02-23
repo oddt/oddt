@@ -6,6 +6,7 @@ env:
     global:
         secure: OVE5GtJJ2Ga+GDJIFuyPsbJ5SFCecdbiPv6TzrdNT6AoMdjEZK/zw1ZRHNtMHvrPbq5G7qY/54tHEePSKJlm7pi8agYPbTAg3pPvUvFfmyoQm4Vg07BEULKJ9wfgNI2c+IsMp77r1hW+04+HpwMT81p/zYndVcuhvj7C7vJ0hgo=
 deploy:
+
     # pypi
     - provider: pypi
       user: mwojcikowski
@@ -23,6 +24,7 @@ deploy:
           tags: true
           repo: oddt/oddt
           branch: master
+      skip_cleanup: true
 before_install:
     - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
     - bash miniconda.sh -b -p $HOME/miniconda
@@ -30,6 +32,7 @@ before_install:
     - conda update --yes conda
     - conda install --yes python=$TRAVIS_PYTHON_VERSION conda-build anaconda-client
     - conda env update --name root --file environment.yml
+    - chmod u+x conda/deploy.sh
 install:
     - pip install .
 script: python -c "import oddt"
