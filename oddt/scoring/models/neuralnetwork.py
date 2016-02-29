@@ -7,7 +7,7 @@ import numpy as np
 from scipy.stats import linregress
 
 class _ffnet_sklearned(object):
-    def __init__(self, shape = None, full_conn=True, biases=True, random_weights = True):
+    def __init__(self, shape = None, full_conn=True, biases=True, random_weights=True):
         """
         shape: shape of a NN given as a tuple
         """
@@ -20,7 +20,7 @@ class _ffnet_sklearned(object):
     def get_params(self, deep=True):
         return {'shape': self.shape, 'full_conn': self.full_conn, 'biases': self.biases, 'random_weights': self.random_weights}
 
-    def set_params(self, args):
+    def set_params(self, **args):
         self.__init__(**args)
         return self
 
