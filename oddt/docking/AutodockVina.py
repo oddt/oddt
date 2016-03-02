@@ -2,6 +2,7 @@ from tempfile import mkdtemp
 from shutil import rmtree
 from os.path import exists
 from os import remove
+import sys
 import subprocess
 import numpy as np
 import re
@@ -153,8 +154,13 @@ class autodock_vina(object):
         for n, ligand in enumerate(ligands):
             # write ligand to file
             ligand_file = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '.pdbqt'
-            ligand.write('pdbqt', ligand_file, overwrite=True)
-            scores = parse_vina_scoring_output(subprocess.check_output([self.executable, '--score_only', '--receptor', self.protein_file, '--ligand', ligand_file] + self.params, stderr=subprocess.STDOUT))
+            ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b':None})
+            try:
+                scores = parse_vina_scoring_output(subprocess.check_output([self.executable, '--score_only', '--receptor', self.protein_file, '--ligand', ligand_file] + self.params))
+            except subprocess.CalledProcessError as e:
+                 sys.stderr.write(e.output)
+                 raise Exception('Autodock Vina failed. Command: "%s"' % ' '.join(e.cmd))
+
             ligand.data.update(scores)
             output_array.append(ligand)
         rmtree(ligand_dir)
@@ -189,8 +195,12 @@ class autodock_vina(object):
             # write ligand to file
             ligand_file = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '.pdbqt'
             ligand_outfile = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '_out.pdbqt'
-            ligand.write('pdbqt', ligand_file, overwrite=True)
-            vina = parse_vina_docking_output(subprocess.check_output([self.executable, '--receptor', self.protein_file, '--ligand', ligand_file, '--out', ligand_outfile] + self.params, stderr=subprocess.STDOUT))
+            ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b':None})
+            try:
+                vina = parse_vina_docking_output(subprocess.check_output([self.executable, '--receptor', self.protein_file, '--ligand', ligand_file, '--out', ligand_outfile] + self.params, stderr=subprocess.STDOUT))
+            except subprocess.CalledProcessError as e:
+                 sys.stderr.write(e.output)
+                 raise Exception('Autodock Vina failed. Command: "%s"' % ' '.join(e.cmd))
             ### HACK # overcome connectivity problems in obabel
             source_ligand = toolkit.readfile('pdbqt', ligand_file).next()
             for lig, scores in zip([lig for lig in toolkit.readfile('pdbqt', ligand_outfile, opt={'b': None})], vina):
