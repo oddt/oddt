@@ -4,7 +4,7 @@ import numpy as np
 from joblib import Parallel, delayed
 import warnings
 
-from oddt import toolkit
+from oddt import toolkit, random_seed
 from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
 from oddt.scoring.descriptors import close_contacts, autodock_vina_descriptor
@@ -104,6 +104,8 @@ class rfscore(scorer):
                 self.train_descs =  self.train_descs[:,self.mask]
                 self.test_descs = self.test_descs[:,self.mask]
 
+        # make nets reproducible
+        random_seed(1)
         self.model.fit(self.train_descs, self.train_target)
 
         print "Training RFScore v%i" % self.version

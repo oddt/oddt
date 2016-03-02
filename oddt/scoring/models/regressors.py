@@ -22,7 +22,7 @@ class neuralnetwork(RegressorMixin):
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
         local_kwargs = {key: kwargs.pop(key) for key in kwargs.keys() if key != 'steps' and len(key.split('__', 1)) == 1}
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
-                                  ('standard_scaler', MinMaxScaler()),
+                                  ('scaler', MinMaxScaler()),
                                   ('neural_network', _ffnet_sklearned(*args, **local_kwargs))
                                  ]).set_params(**kwargs)
 
@@ -48,7 +48,7 @@ class svm(RegressorMixin):
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
         local_kwargs = {key: kwargs.pop(key) for key in kwargs.keys() if key != 'steps' and len(key.split('__', 1)) == 1}
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
-                                  ('standard_scaler', MinMaxScaler()),
+                                  ('scaler', MinMaxScaler()),
                                   ('svm', SVR(*args, **local_kwargs))
                                  ]).set_params(**kwargs)
 

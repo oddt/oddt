@@ -5,7 +5,7 @@ from multiprocessing import Pool
 import warnings
 from joblib import Parallel, delayed
 
-from oddt import toolkit
+from oddt import toolkit, random_seed
 from oddt.scoring import scorer, ensemble_model
 from oddt.scoring.descriptors.binana import binana_descriptor
 from oddt.scoring.models.regressors import neuralnetwork
@@ -113,7 +113,10 @@ class nnscore(scorer):
 
         # number of network to sample; original implementation did 1000, but 100 give results good enough.
         n = 1000
-        trained_nets = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(neuralnetwork([n_dim,5,1]), 'fit', self.train_descs, self.train_target, neural_network__train_alg='tnc', neural_network__maxfun=1000) for i in xrange(n))
+        # make nets reproducible
+        random_seed(1)
+        seeds = np.random.randint(123456789, size=n)
+        trained_nets = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(neuralnetwork([n_dim,5,1], random_state=seeds[i]), 'fit', self.train_descs, self.train_target, neural_network__train_alg='tnc', neural_network__maxfun=10000) for i in xrange(n))
         # get 20 best
         best_idx = np.array([net.score(self.test_descs, self.test_target.flatten()) for net in trained_nets]).argsort()[::-1][:20]
         self.model = ensemble_model([trained_nets[i] for i in best_idx])
