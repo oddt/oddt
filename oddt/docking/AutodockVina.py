@@ -73,6 +73,8 @@ class autodock_vina(object):
         self.cleanup_dirs = set()
 
         # share protein to class
+        self.protein = None
+        self.protein_file = None
         if protein:
             self.set_protein(protein)
 
@@ -147,6 +149,8 @@ class autodock_vina(object):
         """
         if protein:
             self.set_protein(protein)
+        if not self.protein_file:
+            raise IOError("No receptor.")
         if single:
             ligands = [ligands]
         ligand_dir = mkdtemp(dir = self.tmp_dir, prefix='ligands_')
@@ -187,6 +191,8 @@ class autodock_vina(object):
         """
         if protein:
             self.set_protein(protein)
+        if not self.protein_file:
+            raise IOError("No receptor.")
         if single:
             ligands = [ligands]
         ligand_dir = mkdtemp(dir = self.tmp_dir, prefix='ligands_')
