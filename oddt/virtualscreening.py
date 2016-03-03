@@ -1,6 +1,6 @@
 """ODDT pipeline framework for virtual screening"""
 import csv
-from os.path import isfile
+from os.path import dirname, isfile
 from multiprocessing.dummy import Pool
 from itertools import chain
 
@@ -56,26 +56,22 @@ class virtualscreening:
             self.num_input += 1
             yield mol
 
-    def apply_filter(self, expression, filter_type='expression', soft_fail = 0):
+    def apply_filter(self, expression, soft_fail = 0):
         """Filtering method, can use raw expressions (strings to be evaled in if statement, can use oddt.toolkit.Molecule methods, eg. 'mol.molwt < 500')
         Currently supported presets:
-            * Lipinski Rule of 5 ('r5' or 'l5')
-            * Fragment Rule of 3 ('r3')
+            * Lipinski Rule of 5 ('ro5' or 'l5')
+            * Fragment Rule of 3 ('ro3')
+            * PAINS filter ('pains')
 
         Parameters
         ----------
             expression: string or list of strings
                 Expresion(s) to be used while filtering.
 
-            filter_type: 'expression' or 'preset' (default='expression')
-                Specify filter type: 'expression' or 'preset'. Default strings are treated as expressions.
-
             soft_fail: int (default=0)
                 The number of faulures molecule can have to pass filter, aka. soft-fails.
         """
-        if filter_type == 'expression':
-            self._pipe = self._filter(self._pipe, expression, soft_fail = soft_fail)
-        elif filter_type == 'preset':
+        if expression in ['l5', 'ro5', 'ro3', 'pains']:
             # define presets
             # TODO: move presets to another config file
             # Lipinski rule of 5's
@@ -87,12 +83,14 @@ class virtualscreening:
             # PAINS filter
             elif expression.lower() in ['pains']:
                 pains_smarts = {}
-                with open(dirname(__file__)+'filter/pains.smarts') as pains_file:
+                with open(dirname(__file__)+'/filter/pains.smarts') as pains_file:
                     csv_reader = csv.reader(pains_file, delimiter="\t")
                     for line in csv_reader:
                         if len(line) > 1:
                             pains_smarts[line[1][8:-2]] = line[0]
                 self._pipe = self._filter_smarts(self._pipe, pains_smarts.values(), soft_fail = soft_fail)
+        else:
+            self._pipe = self._filter(self._pipe, expression, soft_fail = soft_fail)
 
     def _filter_smarts(self, pipe, smarts, soft_fail = 0):
         for mol in pipe:
