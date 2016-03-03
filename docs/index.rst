@@ -192,6 +192,43 @@ Get all acceptor atoms:
 ::
     mol.atom_dict[‘is_acceptor’]
 
+ODDT command line interface (CLI)
+=================================
+
+There is an `oddt` command to interface with Open Drug Discovery Toolkit from terminal, without any programming knowleadge.
+It simply reproduces :class:`oddt.virtualscreening.virtualscreening`.
+One can filter, dock and score ligands using methods implemented or compatible with ODDT.
+All positional arguments are treated as input ligands, whereas output must be assigned using `-O` option (following `obabel` convention).
+Input and output formats are defined using `-i` and `-o` accordingly.
+If output format is present and no output file is assigned, then molecules are printed to STDOUT.
+
+
+
+To list all the available options issue `-h` option:
+::
+    oddt -h
+
+Examples
+--------
+
+1. Docking ligand using Autodock Vina (construct box using ligand from crystal structure) with additional RFscore v2 rescoring:
+::
+    oddt input_ligands.sdf --dock autodock_vina --receptor rec.mol2 --auto_ligand crystal_ligand.mol2 --score rfscore_v2 -O output_ligands.sdf
+
+
+2. Filtering ligands using Lipinski RO5 and PAINS. Afterwards dock with Autodock Vina:
+::
+    oddt input_ligands.sdf --filter ro5 --filter pains --dock autodock_vina --receptor rec.mol2 --auto_ligand crystal_ligand.mol2 -O output_ligands.sdf
+
+3. Dock with Autodock Vina, with precise box position and dimensions. Fix seed for reproducibility and increase exhaustiveness:
+::
+    oddt ampc/actives_final.mol2.gz --dock autodock_vina --receptor ampc/receptor.pdb --size '(8,8,8)' --center '(1,2,0.5)' --exhaustiveness 20 --seed 1 -O ampc_docked.sdf
+
+4. Rescore ligands using 3 versions of RFscore and pre-trained scoring function (either pickle from ODDT or any other SF implementing :class:`oddt.scoring.scorer` API):
+::
+    oddt docked_ligands.sdf --receptor rec.mol2 --score rfscore_v1 --score rfscore_v2 --score rfscore_v3 --score TrainedNN.pickle -O docked_ligands_rescored.sdf
+
+
 ODDT API documentation
 ======================
 
