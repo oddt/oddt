@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 import sys
 from os.path import isfile
+from ast import literal_eval
 import argparse
 import joblib
 
@@ -29,8 +30,8 @@ group = parser.add_argument_group('Protein-Ligand docking')
 group.add_argument('--dock', dest='dock', choices=['autodock_vina',], help='Choose docking software to be used')
 group.add_argument('--receptor', help='Protein file')
 group.add_argument('--auto_ligand', help='Docking Box is determined on that ligand')
-group.add_argument('--center', help='Docking Box center (x,y,z)')
-group.add_argument('--size', help='Docking Box dimentions  (x,y,z)')
+group.add_argument('--center', type=literal_eval, help='Docking Box center (x,y,z)')
+group.add_argument('--size', type=literal_eval, help='Docking Box dimentions  (x,y,z)')
 group.add_argument('--exhaustiveness', default=8, type=int, help='Exhaustiveness of docking')
 group.add_argument('--seed', help='Random Seed')
 
@@ -38,9 +39,6 @@ group.add_argument('--seed', help='Random Seed')
 group = parser.add_argument_group('Rescoring')
 group.add_argument('--score', dest='score', choices=['autodock_vina', 'rfscore', 'rfscore_v1', 'rfscore_v2', 'rfscore_v3', 'nnscore'], action='append', default=[], help='Choose built-in scoring function to be used')#
 group.add_argument('--score_file', dest='score_file',  action='append', default=[], help='Choose ODDT scoring function saved to file (pickle)')
-
-#group.add_argument('--receptor', help='Protein file')
-
 
 args = parser.parse_args()
 
@@ -64,7 +62,10 @@ for f in args.in_file:
             fmt = tmp[-2]
         else:
             fmt = tmp[-1]
-    pipeline.load_ligands(fmt, f) # add loading ligands from STDIN?
+    if isfile(f):
+        pipeline.load_ligands(fmt, f) # add loading ligands from STDIN?
+    else:
+        raise IOError("File does not exist: '%s'" % f)
 
 # Filter ligands
 for filter in args.filter:
