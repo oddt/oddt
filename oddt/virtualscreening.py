@@ -1,15 +1,16 @@
 """ODDT pipeline framework for virtual screening"""
 import csv
 from os.path import dirname, isfile
-from multiprocessing.dummy import Pool
+#from multiprocessing.dummy import Pool # threading
+from multiprocessing import Pool # process
 from itertools import chain
+from functools import partial
 
 from oddt import toolkit
 
-def _parallel_helper(args):
+def _parallel_helper(obj, methodname, kwargs):
     """Private helper to workaround Python 2 pickle limitations to paralelize methods"""
-    obj, methodname, arg = args
-    return getattr(obj, methodname)(**arg)
+    return getattr(obj, methodname)(**kwargs)
 
 class virtualscreening:
     def __init__(self, n_cpu=-1, verbose=False):
@@ -147,7 +148,8 @@ class virtualscreening:
                 for conf in confs:
                     yield conf
         if self.n_cpu != 1:
-            docking_results = self._pool.imap(_parallel_helper, ((engine, "dock", {'ligands':lig, 'single': True}) for lig in self._pipe))
+            _parallel_helper_partial = partial(_parallel_helper, engine, 'dock')
+            docking_results = self._pool.imap(_parallel_helper_partial, ({'ligands':lig, 'single': True} for lig in self._pipe))
         else:
             docking_results = (engine.dock(lig, single=True) for lig in self._pipe)
         self._pipe = _iter_conf(docking_results)
@@ -196,7 +198,8 @@ class virtualscreening:
             else:
                 raise ValueError('Supplied object "%s" is not an ODDT scoring funtion' % function.__name__)
         if self.n_cpu != 1:
-            self._pipe = self._pool.imap(_parallel_helper, ((sf, 'predict_ligand', {'ligand': lig}) for lig in self._pipe))
+            _parallel_helper_partial = partial(_parallel_helper, sf, 'predict_ligand')
+            self._pipe = self._pool.imap(_parallel_helper_partial, ({'ligand': lig} for lig in self._pipe), chunksize=100)
         else:
             self._pipe = sf.predict_ligands(self._pipe)
 
