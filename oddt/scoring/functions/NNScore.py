@@ -116,7 +116,7 @@ class nnscore(scorer):
         # make nets reproducible
         random_seed(1)
         seeds = np.random.randint(123456789, size=n)
-        trained_nets = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(neuralnetwork([n_dim,5,1], random_state=seeds[i]), 'fit', self.train_descs, self.train_target, neural_network__train_alg='tnc', neural_network__maxfun=10000) for i in xrange(n))
+        trained_nets = Parallel(n_jobs=self.n_jobs, verbose=10)(delayed(_parallel_helper)(neuralnetwork([n_dim,5,1], random_state=seeds[i]), 'fit', self.train_descs, self.train_target, neural_network__train_alg='tnc', neural_network__maxfun=10000) for i in xrange(n))
         # get 20 best
         best_idx = np.array([net.score(self.test_descs, self.test_target.flatten()) for net in trained_nets]).argsort()[::-1][:20]
         self.model = ensemble_model([trained_nets[i] for i in best_idx])
