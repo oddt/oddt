@@ -183,4 +183,4 @@ class binana_descriptor(object):
         return desc[1:]
 
     def __reduce__(self):
-        return binana_descriptor, ()
+        return binana_descriptor, (self.protein,)
