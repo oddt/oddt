@@ -2,6 +2,7 @@ sudo: false
 language: python
 python:
     - '2.7'
+    - '3.5'
 env:
     global:
         secure: OVE5GtJJ2Ga+GDJIFuyPsbJ5SFCecdbiPv6TzrdNT6AoMdjEZK/zw1ZRHNtMHvrPbq5G7qY/54tHEePSKJlm7pi8agYPbTAg3pPvUvFfmyoQm4Vg07BEULKJ9wfgNI2c+IsMp77r1hW+04+HpwMT81p/zYndVcuhvj7C7vJ0hgo=
