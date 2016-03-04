@@ -45,6 +45,10 @@ backend = 'rdk'
 
 elementtable = Chem.GetPeriodicTable()
 
+BOND_ORDERS = {Chem.BondType.SINGLE:1.0, Chem.BondType.DOUBLE:2.0, Chem.BondType.TRIPLE:3.0, Chem.BondType.AROMATIC:1.5, Chem.BondType.UNSPECIFIED:0.0}
+SMARTS_DEF = {
+    'rot_bond': Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&!$(C(Cl)(Cl)Cl)&!$(C(Br)(Br)Br)&!$(C([CH3])([CH3])[CH3])&!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&!$([CD3](=[N+])-!@[#7!D1])&!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&!D1&!$(C(F)(F)F)&!$(C(Cl)(Cl)Cl)&!$(C(Br)(Br)Br)&!$(C([CH3])([CH3])[CH3])]').GetBonds()[0]
+}
 # trap errors since it's still new feature
 try:
     from rdkit.Chem import CanonicalRankAtoms
@@ -393,6 +397,10 @@ class Molecule(object):
     @property
     def num_rotors(self):
         return NumRotatableBonds(self.Mol)
+
+    @property
+    def bonds(self):
+        return BondStack(self.Mol)
 
     @property
     def canonic_order(self):
@@ -848,6 +856,10 @@ class Atom(object):
         return [Atom(a) for a in self.Atom.GetNeighbors()]
 
     @property
+    def bonds(self):
+        return [Bond(b) for b in self.Atom.GetBonds()]
+
+    @property
     def partialcharge(self):
         if self.Atom.HasProp('_TriposPartialCharge'):
             return float(self.Atom.GetProp('_TriposPartialCharge'))
@@ -861,6 +873,39 @@ class Atom(object):
                                                     self.coords[1], self.coords[2])
         else:
             return "Atom: %d (no coords)" % (self.atomicnum)
+
+class BondStack(object):
+    def __init__(self,Mol):
+        self.Mol = Mol
+
+    def __iter__(self):
+        for i in range(self.Mol.GetNumBonds()):
+            yield Bond(self.Mol.GetBondWithIdx(i))
+
+    def __len__(self):
+        return self.Mol.GetNumBonds()
+
+    def __getitem__(self, i):
+        if 0 <= i < self.Mol.GetNumBonds():
+            return Bond(self.Mol.GetBondWithIdx(i))
+        else:
+            raise AttributeError("There is no bond with Idx %i" % i)
+
+class Bond(object):
+    def __init__(self, Bond):
+        self.Bond = Bond
+
+    @property
+    def order(self):
+        return BOND_ORDERS[self.Bond.GetBondType()]
+
+    @property
+    def atoms(self):
+        return (Atom(self.Bond.GetBeginAtom()), Atom(self.Bond.GetEndAtom()))
+
+    @property
+    def isrotor(self):
+        return self.Bond.Match(SMARTS_DEF['rot_bond'])
 
 class Smarts(object):
     """A Smarts Pattern Matcher

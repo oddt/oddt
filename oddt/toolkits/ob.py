@@ -375,6 +375,10 @@ class Atom(pybel.Atom):
     @property
     def residue(self):
         return Residue(self.OBAtom.GetResidue())
+        
+    @property
+    def bonds(self):
+        return [Bond(self.OBAtom.GetBond(n.OBAtom)) for n in self.neighbors]
 
 pybel.Atom = Atom
 
