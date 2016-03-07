@@ -168,7 +168,7 @@ class scorer(object):
                 Pickle filename
         """
         self.set_protein(None)
-        return pickle.dump(self, filename, compress=9)[0]
+        return pickle.dump(self, filename, compress=1)[0]
 
     @classmethod
     def load(self, filename):
