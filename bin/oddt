@@ -7,7 +7,6 @@ import argparse
 import joblib
 
 import oddt
-from oddt.virtualscreening import virtualscreening as vs
 
 # arguments
 parser = argparse.ArgumentParser(description='Open Drug Discovery (ODDT) command line tools')
@@ -50,6 +49,8 @@ if 'toolkit' in args:
     elif args.toolkit == 'rdk':
         from oddt.toolkits import rdk
         oddt.toolkit = rdk
+
+from oddt.virtualscreening import virtualscreening as vs
 
 # Create pipeline for docking and rescoring
 pipeline = vs(n_cpu=args.n_cpu if 'n_cpu' in args else -1)
