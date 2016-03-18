@@ -189,7 +189,7 @@ def readfile(format, filename, *args, **kwargs):
         return _filereader_mol2(filename)
     elif format=="smi":
         iterator = Chem.SmilesMolSupplier(filename, delimiter=" \t",
-                                          titleLine=False, *args, **kwargs)
+                                          titleLine=True, *args, **kwargs)
         def smi_reader():
             for mol in iterator:
                 yield Molecule(mol)
@@ -225,7 +225,9 @@ def readstring(format, string, **kwargs):
     elif format=="pdb":
         mol = Chem.MolFromPDBBlock(string, **kwargs)
     elif format=="smi":
-        mol = Chem.MolFromSmiles(string, **kwargs)
+        s = string.split()
+        mol = Chem.MolFromSmiles(s[0], **kwargs)
+        mol.SetProp("_Name", ' '.join(s[1:]))
     elif format=='inchi' and Chem.INCHI_AVAILABLE:
         mol = Chem.inchi.MolFromInchi(string, **kwargs)
     else:
@@ -265,6 +267,8 @@ class Outputfile(object):
             self._writer = open(filename, 'w')
         elif format in ('mol2'):
             self._writer = gzip.open(filename, 'w') if filename.split('.')[-1] == 'gz' else open(filename, 'w')
+        elif format=="pdb":
+            self._writer = Chem.PDBWriter(self.filename)
         else:
             raise ValueError,"%s is not a recognised RDKit format" % format
         self.total = 0 # The total number of molecules written to the file
@@ -538,7 +542,8 @@ class Molecule(object):
         ### FIX: remove acidic carbons from isminus group (they are part of smarts)
         atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
 
-#        if self.protein:
+        if self.protein:
+            res_dict = None
 #            # Protein Residues (alpha helix and beta sheet)
 #            res_dtype = [('id', 'int16'),
 #                         ('resname', 'a3'),
@@ -598,7 +603,7 @@ class Molecule(object):
         self._ring_dict.setflags(write=False)
         if self.protein:
             self._res_dict = res_dict
-            self._res_dict.setflags(write=False)
+            #self._res_dict.setflags(write=False)
 
     def addh(self):
         """Add hydrogens."""
@@ -632,8 +637,8 @@ class Molecule(object):
             if not overwrite and os.path.isfile(filename):
                 raise IOError, "%s already exists. Use 'overwrite=True' to overwrite it." % filename
         if format=="smi" or format=="can":
-            result = Chem.MolToSmiles(self.Mol, **kwargs)
-        elif format=="mol":
+            result = '%s\t%s\n' % (Chem.MolToSmiles(self.Mol, **kwargs), self.title)
+        elif format in ["mol", "sdf"]:
             result = Chem.MolToMolBlock(self.Mol, **kwargs)
         elif format=="mol2":
             result = Chem.MolToMol2Block(self.Mol, **kwargs)
@@ -796,6 +801,13 @@ class Molecule(object):
             if success == -1:
                 raise Error, "Embedding failed!"
         self.localopt(forcefield, steps)
+
+    def __getstate__(self):
+        return {'Mol': self.Mol, 'data': dict([(k, self.Mol.GetProp(k)) for k in self.Mol.GetPropNames(includePrivate=True)])}
+
+    def __setstate__(self, state):
+        Molecule.__init__(self, state['Mol'])
+        self.data.update(state['data'])
 
 class AtomStack(object):
     def __init__(self,Mol):
