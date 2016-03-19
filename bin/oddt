@@ -72,6 +72,11 @@ for f in args.in_file:
 for filter in args.filter:
     pipeline.apply_filter(filter)
 
+# load protein once
+extension = args.receptor.split('.')[-1]
+receptor = oddt.toolkit.readfile(extension,  args.receptor).next()
+receptor.protein = True
+
 # Docking
 if args.dock == 'autodock_vina':
     kwargs = {}
@@ -87,21 +92,21 @@ if args.dock == 'autodock_vina':
         kwargs['exhaustiveness'] = args.exhaustiveness
     if args.seed:
         kwargs['seed'] = args.seed
-    pipeline.dock('autodock_vina', args.receptor, **kwargs)
+    pipeline.dock('autodock_vina', receptor, **kwargs)
 
 # Rescoring
 for score in args.score:
     if score == 'nnscore':
-        pipeline.score('nnscore', args.receptor)
+        pipeline.score('nnscore', receptor)
     elif score.startswith('rfscore'):
-        pipeline.score(score, args.receptor)
+        pipeline.score(score, receptor)
     elif score == 'autodock_vina':
-        pipeline.score('autodock_vina', args.receptor)
+        pipeline.score('autodock_vina', receptor)
 
 for score_file in args.score_file:
     if isfile(score_file): # load pickle
         sf = joblib.load(score_file)
-        pipeline.score(sf, args.receptor)
+        pipeline.score(sf, receptor)
     else:
         raise IOError('Could not read pickle file %s' % score_file)
 
