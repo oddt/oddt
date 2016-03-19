@@ -507,11 +507,11 @@ class Molecule(object):
                       # residue info
                       residue.GetResidueNumber() if residue else 0,
                       residue.GetResidueName() if residue else '',
-                      False, #residue.OBResidue.GetAtomProperty(atom.OBAtom, 2) if residue else False, # is backbone
+                      False, # is backbone
                       # atom properties
-                      False, #atom.OBAtom.IsHbondAcceptor(),
-                      False, #atom.OBAtom.IsHbondDonor(),
-                      False, #atom.OBAtom.IsHbondDonorH(),
+                      False, #IsHbondAcceptor
+                      False, #IsHbondDonor,
+                      False, #IsHbondDonorH,
                       atomicnum in metals,
                       atomicnum == 6 and np.in1d(neighbors['atomicnum'], [6,1,0]).all(), #hydrophobe
                       atom.Atom.GetIsAromatic(),
@@ -523,14 +523,12 @@ class Molecule(object):
                       )
 
         # Match features and mark them in atom_dict
-        translate_feats = {'Donor':'isdonor',
+        translate_feats = {
+                   'Donor':'isdonor',
                    'Acceptor':'isacceptor',
                    'NegIonizable':'isminus',
                    'PosIonizable':'isplus',
-                   'Aromatic':'isaromatic',
-                   'Hydrophobe':'ishydrophobe'
                    }
-        feat_atom_ids = {}
         for f, field in translate_feats.iteritems():
             feats = base_feature_factory.GetFeaturesForMol(self.Mol,includeOnly=f)
             atom_dict[field][[idx for f in feats for idx in f.GetAtomIds()]] = True
