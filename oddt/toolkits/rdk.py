@@ -533,10 +533,27 @@ class Molecule(object):
             feats = base_feature_factory.GetFeaturesForMol(self.Mol,includeOnly=f)
             atom_dict[field][[idx for f in feats for idx in f.GetAtomIds()]] = True
 
-        ### FIX: remove acidic carbons from isminus group (they are part of smarts)
-        atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
-
         if self.protein:
+            # # gen residues paths and match properites - its much faster for residues in protein
+            # residues = {}
+            # for aid in range(self.Mol.GetNumAtoms()):
+            #     res = self.Mol.GetAtomWithIdx(aid).GetMonomerInfo()
+            #     resid = res.GetResidueNumber()
+            #     resname = res.GetResidueName()
+            #     reschain = res.GetChainId()
+            #     k = '%i_%s' % (resid, reschain)
+            #     if resid in residues:
+            #         residues[k]['path'].append(aid)
+            #     else:
+            #         residues[k] = {'id': resid, 'name': resname, 'path': [aid]}
+            # for r in residues.values():
+            #     amap = {}
+            #     res = Chem.PathToSubmol(self.Mol, r['path'], atomMap=amap)
+            #     amap = dict((v,k) for k,v in amap.items()) # inverse mapping (new->old)
+            #     for f, field in translate_feats.iteritems():
+            #         feats = base_feature_factory.GetFeaturesForMol(res,includeOnly=f)
+            #         atom_dict[field][[amap[idx] for f in feats for idx in f.GetAtomIds()]] = True
+
             res_dict = None
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', 'int16'),
@@ -547,16 +564,6 @@ class Molecule(object):
                          ('isalpha', 'bool'),
                          ('isbeta', 'bool')
                          ] # N, CA, C
-            # gen residues paths
-            # residues = {}
-            # for aid in range(self.Mol.GetNumAtoms()):
-            #     res = self.Mol.GetAtomWithIdx(aid).GetMonomerInfo()
-            #     resid = res.GetResidueNumber()
-            #     resname = res.GetResidueName()
-            #     if resid in residues:
-            #         residues[resid]['path'].append(aid)
-            #     else:
-            #         residues[resid] = {'id': resid, 'name': resname, 'path': [aid]}
             b = []
             aa = Chem.MolFromSmarts('[NX3,NX4+][CX4H,CX4H2][CX3](=[OX1])[O,N]') # amino backbone SMARTS
             conf = self.Mol.GetConformer()
@@ -579,6 +586,9 @@ class Molecule(object):
             res_mask_beta = np.where(((phi >= -180) & (phi < -40) & (psi <= 180) & (psi > 90)) | ((phi >= -180) & (phi < -70) & (psi <= -165))) # beta
             res_dict['isbeta'][res_mask_beta] = True
             atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_mask_beta]['id'])] = True
+
+        ### FIX: remove acidic carbons from isminus group (they are part of smarts)
+        atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
 
         # Aromatic Rings
         r = []
