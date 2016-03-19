@@ -41,6 +41,8 @@ from rdkit.Chem.Lipinski import NumRotatableBonds
 from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D,Generate
 
+from oddt.spatial import dihedral
+
 backend = 'rdk'
 
 elementtable = Chem.GetPeriodicTable()
@@ -484,11 +486,10 @@ class Molecule(object):
             partialcharge = atom.partialcharge
             coords = atom.coords
             atomtype = atom.Atom.GetProp("_TriposAtomType") if atom.Atom.HasProp("_TriposAtomType") else atom.Atom.GetSymbol()
-#            if self.protein:
-#                residue = pybel.Residue(atom.OBAtom.GetResidue())
-#            else:
-#                residue = False
-            residue = None
+            if self.protein:
+                residue = atom.Atom.GetMonomerInfo()
+            else:
+                residue = False
 
             # get neighbors, but only for those atoms which realy need them
             neighbors = np.zeros(4, dtype=[('coords', 'float32', 3),('atomicnum', 'int8')])
@@ -504,8 +505,8 @@ class Molecule(object):
                       np.clip(atom.Atom.GetHybridization()-1, 0, 3),
                       neighbors['coords'],
                       # residue info
-                      residue.idx if residue else 0,
-                      residue.name if residue else '',
+                      residue.GetResidueNumber() if residue else 0,
+                      residue.GetResidueName() if residue else '',
                       False, #residue.OBResidue.GetAtomProperty(atom.OBAtom, 2) if residue else False, # is backbone
                       # atom properties
                       False, #atom.OBAtom.IsHbondAcceptor(),
@@ -522,7 +523,6 @@ class Molecule(object):
                       )
 
         # Match features and mark them in atom_dict
-        feats = base_feature_factory.GetFeaturesForMol(self.Mol)
         translate_feats = {'Donor':'isdonor',
                    'Acceptor':'isacceptor',
                    'NegIonizable':'isminus',
@@ -531,59 +531,56 @@ class Molecule(object):
                    'Hydrophobe':'ishydrophobe'
                    }
         feat_atom_ids = {}
-        for f in feats:
-            if f.GetFamily() in translate_feats:
-                if not translate_feats[f.GetFamily()] in feat_atom_ids:
-                    feat_atom_ids[translate_feats[f.GetFamily()]] = tuple()
-                feat_atom_ids[translate_feats[f.GetFamily()]] += f.GetAtomIds()
-        for key, aids in feat_atom_ids.items():
-            atom_dict[key][np.array(aids)] = True
+        for f, field in translate_feats.iteritems():
+            feats = base_feature_factory.GetFeaturesForMol(self.Mol,includeOnly=f)
+            atom_dict[field][[idx for f in feats for idx in f.GetAtomIds()]] = True
 
         ### FIX: remove acidic carbons from isminus group (they are part of smarts)
         atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
 
         if self.protein:
             res_dict = None
-#            # Protein Residues (alpha helix and beta sheet)
-#            res_dtype = [('id', 'int16'),
-#                         ('resname', 'a3'),
-#                         ('N', 'float32', 3),
-#                         ('CA', 'float32', 3),
-#                         ('C', 'float32', 3),
-#                         ('isalpha', 'bool'),
-#                         ('isbeta', 'bool')
-#                         ] # N, CA, C
+            # Protein Residues (alpha helix and beta sheet)
+            res_dtype = [('id', 'int16'),
+                         ('resname', 'a3'),
+                         ('N', 'float32', 3),
+                         ('CA', 'float32', 3),
+                         ('C', 'float32', 3),
+                         ('isalpha', 'bool'),
+                         ('isbeta', 'bool')
+                         ] # N, CA, C
+            # gen residues paths
+            # residues = {}
+            # for aid in range(self.Mol.GetNumAtoms()):
+            #     res = self.Mol.GetAtomWithIdx(aid).GetMonomerInfo()
+            #     resid = res.GetResidueNumber()
+            #     resname = res.GetResidueName()
+            #     if resid in residues:
+            #         residues[resid]['path'].append(aid)
+            #     else:
+            #         residues[resid] = {'id': resid, 'name': resname, 'path': [aid]}
+            b = []
+            aa = Chem.MolFromSmarts('[NX3,NX4+][CX4H,CX4H2][CX3](=[OX1])[O,N]') # amino backbone SMARTS
+            conf = self.Mol.GetConformer()
+            for path in self.Mol.GetSubstructMatches(aa):
+                residue = self.Mol.GetAtomWithIdx(path[0]).GetMonomerInfo()
+                b.append((residue.GetResidueNumber(), residue.GetResidueName(), conf.GetAtomPosition(path[0]), conf.GetAtomPosition(path[1]), conf.GetAtomPosition(path[2]), False, False))
+            res_dict = np.array(b, dtype=res_dtype)
 
-#            b = []
-#            for residue in self.residues:
-#                backbone = {}
-#                for atom in residue:
-#                    if residue.OBResidue.GetAtomProperty(atom.OBAtom,1):
-#                        if atom.atomicnum == 7:
-#                            backbone['N'] = atom.coords
-#                        elif atom.atomicnum == 6:
-#                            if atom.type == 'C3':
-#                                backbone['CA'] = atom.coords
-#                            else:
-#                                backbone['C'] = atom.coords
-#                if len(backbone.keys()) == 3:
-#                    b.append((residue.idx, residue.name, backbone['N'],  backbone['CA'], backbone['C'], False, False))
-#            res_dict = np.array(b, dtype=res_dtype)
-#
-#            # detect secondary structure by phi and psi angles
-#            first = res_dict[:-1]
-#            second = res_dict[1:]
-#            psi = dihedral(first['N'], first['CA'], first['C'], second['N'])
-#            phi = dihedral(first['C'], second['N'], second['CA'], second['C'])
-#            # mark atoms belonging to alpha and beta
-#            res_mask_alpha = np.where(((phi > -145) & (phi < -35) & (psi > -70) & (psi < 50))) # alpha
-#            res_dict['isalpha'][res_mask_alpha] = True
-#            for i in res_dict[res_mask_alpha]['id']:
-#                atom_dict['isalpha'][atom_dict['resid'] == i] = True
+            # detect secondary structure by phi and psi angles
+            first = res_dict[:-1]
+            second = res_dict[1:]
+            psi = dihedral(first['N'], first['CA'], first['C'], second['N'])
+            phi = dihedral(first['C'], second['N'], second['CA'], second['C'])
+            # mark atoms belonging to alpha and beta
+            res_mask_alpha = np.where(((phi > -145) & (phi < -35) & (psi > -70) & (psi < 50))) # alpha
+            res_dict['isalpha'][res_mask_alpha] = True
+            for i in res_dict[res_mask_alpha]['id']:
+                atom_dict['isalpha'][atom_dict['resid'] == i] = True
 
-#            res_mask_beta = np.where(((phi >= -180) & (phi < -40) & (psi <= 180) & (psi > 90)) | ((phi >= -180) & (phi < -70) & (psi <= -165))) # beta
-#            res_dict['isbeta'][res_mask_beta] = True
-#            atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_mask_beta]['id'])] = True
+            res_mask_beta = np.where(((phi >= -180) & (phi < -40) & (psi <= 180) & (psi > 90)) | ((phi >= -180) & (phi < -70) & (psi <= -165))) # beta
+            res_dict['isbeta'][res_mask_beta] = True
+            atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_mask_beta]['id'])] = True
 
         # Aromatic Rings
         r = []
@@ -803,11 +800,20 @@ class Molecule(object):
         self.localopt(forcefield, steps)
 
     def __getstate__(self):
-        return {'Mol': self.Mol, 'data': dict([(k, self.Mol.GetProp(k)) for k in self.Mol.GetPropNames(includePrivate=True)])}
+        return {'Mol': self.Mol,
+                'data': dict([(k, self.Mol.GetProp(k)) for k in self.Mol.GetPropNames(includePrivate=True)]),
+                'dicts': {'atom_dict': self._atom_dict,
+                          'ring_dict': self._ring_dict,
+                          'res_dict': self._res_dict,
+                         }
+                }
 
     def __setstate__(self, state):
         Molecule.__init__(self, state['Mol'])
         self.data.update(state['data'])
+        self._atom_dict = state['dicts']['atom_dict']
+        self._ring_dict = state['dicts']['ring_dict']
+        self._res_dict = state['dicts']['res_dict']
 
 class AtomStack(object):
     def __init__(self,Mol):
