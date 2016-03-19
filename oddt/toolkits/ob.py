@@ -348,6 +348,24 @@ class Molecule(pybel.Molecule):
             self._res_dict = res_dict
             self._res_dict.setflags(write=False)
 
+    def __getstate__(self):
+        pickle_format = 'mol2'
+        return {'fmt': self._source['fmt'] if self._source else pickle_format,
+                'string': self._source['string'] if self._source else self.write(pickle_format),
+                'data': dict(self.data.items()),
+                'dicts': {'atom_dict': self._atom_dict,
+                          'ring_dict': self._ring_dict,
+                          'res_dict': self._res_dict,
+                         }
+                }
+
+    def __setstate__(self, state):
+        Molecule.__init__(self, source=state)
+        self.data.update(state['data'])
+        self._atom_dict = state['dicts']['atom_dict']
+        self._ring_dict = state['dicts']['ring_dict']
+        self._res_dict = state['dicts']['res_dict']
+
 ### Extend pybel.Molecule
 pybel.Molecule = Molecule
 
@@ -375,7 +393,7 @@ class Atom(pybel.Atom):
     @property
     def residue(self):
         return Residue(self.OBAtom.GetResidue())
-        
+
     @property
     def bonds(self):
         return [Bond(self.OBAtom.GetBond(n.OBAtom)) for n in self.neighbors]
@@ -475,18 +493,3 @@ def _unrollbits(fp, bitsperint):
     return ans
 
 pybel.Fingerprint = Fingerprint
-
-### Monkeypatch pybel objects pickling
-pickle_format = 'mol2'
-def pickle_mol(self):
-    if self._source:
-        return unpickle_mol, (self._source,)
-    else:
-        return unpickle_mol, ({'fmt': pickle_format, 'string': self.write(pickle_format), 'data': dict(self.data.items())},)
-
-def unpickle_mol(source):
-    mol = Molecule(source=source)
-    if 'data' in source:
-        mol.data.update(source['data'])
-    return mol
-copy_reg.pickle(Molecule, pickle_mol, unpickle_mol)
