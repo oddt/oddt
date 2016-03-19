@@ -173,6 +173,8 @@ class virtualscreening:
             extension = protein.split('.')[-1]
             protein = toolkit.readfile(extension, protein).next()
             protein.protein = True
+        # trigger cache
+        protein.atom_dict
 
         if type(function) is str:
             if function.lower().startswith('rfscore'):
