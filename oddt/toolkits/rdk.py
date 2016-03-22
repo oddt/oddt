@@ -21,6 +21,7 @@ Global variables:
 import os
 from copy import copy
 import gzip
+from itertools import combinations, ifilter
 
 import numpy as np
 
@@ -330,6 +331,7 @@ class Molecule(object):
         self._ring_dict = None
         self._coords = None
         self._charges = None
+        self._residues = None
         # lazy
         self._source = source # dict with keys: n, fmt, string, filename
 
@@ -398,8 +400,30 @@ class Molecule(object):
 
     #### Custom ODDT properties ####
     @property
+    def residues(self):
+        if self._residues is None:
+            residues = {}
+            for aid in range(self.Mol.GetNumAtoms()):
+                res = self.Mol.GetAtomWithIdx(aid).GetMonomerInfo()
+                # trap ligands with no monomer info
+                if res is None:
+                    return [Residue(self.Mol, range(self.Mol.GetNumAtoms()))]
+                resid = res.GetResidueNumber()
+                resname = res.GetResidueName()
+                reschain = res.GetChainId()
+                k = '%i_%s' % (resid, reschain.strip())
+                if k in residues:
+                    residues[k]['path'].append(aid)
+                else:
+                    residues[k] = {'res': res, 'path': [aid]}
+            self._residues = [res['path'] for res in residues.values()]
+
+        return [Residue(self.Mol, path) for path in self._residues]
+
+    @property
     def sssr(self):
         return [list(path) for path in list(Chem.GetSymmSSSR(self.Mol))]
+
     @property
     def num_rotors(self):
         return NumRotatableBonds(self.Mol)
@@ -529,31 +553,15 @@ class Molecule(object):
                    'NegIonizable':'isminus',
                    'PosIonizable':'isplus',
                    }
-        for f, field in translate_feats.iteritems():
-            feats = base_feature_factory.GetFeaturesForMol(self.Mol,includeOnly=f)
-            atom_dict[field][[idx for f in feats for idx in f.GetAtomIds()]] = True
 
+        # build residue dictionary
         if self.protein:
-            # # gen residues paths and match properites - its much faster for residues in protein
-            # residues = {}
-            # for aid in range(self.Mol.GetNumAtoms()):
-            #     res = self.Mol.GetAtomWithIdx(aid).GetMonomerInfo()
-            #     resid = res.GetResidueNumber()
-            #     resname = res.GetResidueName()
-            #     reschain = res.GetChainId()
-            #     k = '%i_%s' % (resid, reschain)
-            #     if resid in residues:
-            #         residues[k]['path'].append(aid)
-            #     else:
-            #         residues[k] = {'id': resid, 'name': resname, 'path': [aid]}
-            # for r in residues.values():
-            #     amap = {}
-            #     res = Chem.PathToSubmol(self.Mol, r['path'], atomMap=amap)
-            #     amap = dict((v,k) for k,v in amap.items()) # inverse mapping (new->old)
-            #     for f, field in translate_feats.iteritems():
-            #         feats = base_feature_factory.GetFeaturesForMol(res,includeOnly=f)
-            #         atom_dict[field][[amap[idx] for f in feats for idx in f.GetAtomIds()]] = True
-
+            # for protein finding features per residue is much faster
+            if self.protein:
+                for res in self.residues:
+                    for f, field in translate_feats.iteritems():
+                        feats = base_feature_factory.GetFeaturesForMol(res.Residue,includeOnly=f)
+                        atom_dict[field][[res.atommap[idx] for f in feats for idx in f.GetAtomIds()]] = True
             res_dict = None
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', 'int16'),
@@ -568,6 +576,7 @@ class Molecule(object):
             aa = Chem.MolFromSmarts('[NX3,NX4+][CX4H,CX4H2][CX3](=[OX1])[O,N]') # amino backbone SMARTS
             conf = self.Mol.GetConformer()
             for path in self.Mol.GetSubstructMatches(aa):
+                atom_dict['isbackbone'][np.array(path)] = True
                 residue = self.Mol.GetAtomWithIdx(path[0]).GetMonomerInfo()
                 b.append((residue.GetResidueNumber(), residue.GetResidueName(), conf.GetAtomPosition(path[0]), conf.GetAtomPosition(path[1]), conf.GetAtomPosition(path[2]), False, False))
             res_dict = np.array(b, dtype=res_dtype)
@@ -586,7 +595,12 @@ class Molecule(object):
             res_mask_beta = np.where(((phi >= -180) & (phi < -40) & (psi <= 180) & (psi > 90)) | ((phi >= -180) & (phi < -70) & (psi <= -165))) # beta
             res_dict['isbeta'][res_mask_beta] = True
             atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_mask_beta]['id'])] = True
-
+        else:
+            # find features for ligands
+            for f, field in translate_feats.iteritems():
+                feats = base_feature_factory.GetFeaturesForMol(self.Mol,includeOnly=f)
+                atom_dict[field][[idx for f in feats for idx in f.GetAtomIds()]] = True
+                
         ### FIX: remove acidic carbons from isminus group (they are part of smarts)
         atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
 
@@ -932,6 +946,56 @@ class Bond(object):
     @property
     def isrotor(self):
         return self.Bond.Match(SMARTS_DEF['rot_bond'])
+
+class Residue(object):
+    """Represent a RDKit residue.
+
+    Required parameter:
+       ParentMol -- Parent molecule (Mol) object
+       path -- atoms path of a residue
+
+    Attributes:
+       atoms, idx, name.
+
+    (refer to the Open Babel library documentation for more info).
+
+    The Mol object constucted of residues' atoms can be accessed using the attribute:
+       Residue
+    """
+
+    def __init__(self, ParentMol, atom_path):
+        self.ParentMol = ParentMol
+        self.atom_path = atom_path
+        self.atommap = {}
+        self.bonds = []
+        for i,j in combinations(self.atom_path, 2):
+            b = self.ParentMol.GetBondBetweenAtoms(i,j)
+            if b:
+                self.bonds.append(b.GetIdx())
+        self.Residue = Chem.PathToSubmol(self.ParentMol, self.bonds, atomMap=self.atommap)
+        self.MonomerInfo = self.ParentMol.GetAtomWithIdx(atom_path[0]).GetMonomerInfo()
+        self.atommap = dict((v,k) for k,v in self.atommap.iteritems())
+
+    @property
+    def atoms(self):
+        return [Atom(self.ParentMol.GetAtomWithIdx(idx)) for idx in self.path]
+
+    @property
+    def idx(self):
+        return self.MonomerInfo.GetResidueNumber() if self.MonomerInfo else 0
+
+    @property
+    def name(self):
+        return self.MonomerInfo.GetResidueName() if self.MonomerInfo else 'UNL'
+
+    def __iter__(self):
+        """Iterate over the Atoms of the Residue.
+
+        This allows constructions such as the following:
+           for atom in residue:
+               print atom
+        """
+        return iter(self.atoms)
 
 class Smarts(object):
     """A Smarts Pattern Matcher
