@@ -148,7 +148,7 @@ def _filereader_pdb(filename, opt = None):
         if block: # open last molecule if any
             yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
 
-def readfile(format, filename, *args, **kwargs):
+def readfile(format, filename, lazy = False, opt = None, *args, **kwargs):
     """Iterate over the molecules in a file.
 
     Required parameters:
@@ -600,7 +600,7 @@ class Molecule(object):
             for f, field in translate_feats.iteritems():
                 feats = base_feature_factory.GetFeaturesForMol(self.Mol,includeOnly=f)
                 atom_dict[field][[idx for f in feats for idx in f.GetAtomIds()]] = True
-                
+
         ### FIX: remove acidic carbons from isminus group (they are part of smarts)
         atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
 

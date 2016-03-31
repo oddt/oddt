@@ -88,6 +88,6 @@ class _pdbbind_id(object):
     @property
     def ligand(self):
         if isfile('%s/%s/%s_ligand.mol2' % (self.home, self.id,self.id)):
-            return toolkit.readfile('mol2', '%s/%s/%s_ligand.mol2' % (self.home, self.id,self.id), lazy=True, opt = self.opt).next()
+            return toolkit.readfile('sdf', '%s/%s/%s_ligand.sdf' % (self.home, self.id,self.id), lazy=True, opt = self.opt).next()
         else:
             return None
