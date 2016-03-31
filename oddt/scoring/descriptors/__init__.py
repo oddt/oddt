@@ -221,6 +221,8 @@ class autodock_vina_descriptor(object):
                 desc = vec
             else:
                 desc = np.vstack((desc, vec))
+        if len(desc.shape) == 1:
+            desc = desc.reshape(1,-1)
         return desc
 
     def __reduce__(self):
@@ -230,7 +232,10 @@ class oddt_vina_descriptor(object):
     def __init__(self, protein = None, vina_scores = None):
         self.protein = protein
         self.vina = vina_docking(protein)
-        self.all_vina_scores = ['vina_affinity', 'vina_gauss1', 'vina_gauss2', 'vina_repulsion', 'vina_hydrophobic', 'vina_hydrogen', 'vina_num_rotors']
+        self.all_vina_scores = ['vina_affinity',
+                                'vina_gauss1', 'vina_gauss2', 'vina_repulsion', 'vina_hydrophobic', 'vina_hydrogen', # inter-molecular interactions
+                                'vina_intra_gauss1', 'vina_intra_gauss2', 'vina_intra_repulsion', 'vina_intra_hydrophobic', 'vina_intra_hydrogen', # intra-molecular interactions
+                                'vina_num_rotors']
         self.vina_scores = vina_scores or self.all_vina_scores
 
     def set_protein(self, protein):
@@ -248,7 +253,12 @@ class oddt_vina_descriptor(object):
         for mol in ligands:
             if any(x not in self.vina_scores for x in mol.data.keys()):
                 self.vina.set_ligand(mol)
-                score = dict(zip(self.all_vina_scores, np.hstack((self.vina.score(), self.vina.score_inter(), self.vina.num_rotors)).flatten()))
+                inter = self.vina.score_inter()
+                intra = self.vina.score_intra()
+                num_rotors = self.vina.num_rotors
+                # could use self.vina.score(), but better to reuse variables
+                affinity = (inter*self.vina.weights[:5]).sum()/(1+self.vina.weights[5]*num_rotors)
+                score = dict(zip(self.all_vina_scores, np.hstack((affinity, inter, intra, num_rotors)).flatten()))
                 mol.data.update(score)
             else:
                 score = dict(mol.data)
@@ -257,6 +267,8 @@ class oddt_vina_descriptor(object):
                 desc = vec
             else:
                 desc = np.vstack((desc, vec))
+        if len(desc.shape) == 1:
+            desc = desc.reshape(1,-1)
         return desc
 
     def __reduce__(self):

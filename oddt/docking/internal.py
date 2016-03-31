@@ -54,7 +54,7 @@ def num_rotors_pdbqt(lig):
     return i
 
 class vina_docking(object):
-    def __init__(self, rec, lig = None, box = None, box_size = 1.):
+    def __init__(self, rec, lig = None, box = None, box_size = 1., weights = None):
         self.box_size = box_size # TODO: Unify box
         if rec:
             self.set_protein(rec)
@@ -63,8 +63,7 @@ class vina_docking(object):
 
         self.set_box(box)
         # constants
-        self.w = np.array((-0.035579, -0.005156,  0.840245, -0.035069, -0.587439, 0.05846))# no.5 use optimized value instead of 1.923
-        #self.w = np.array((-0.01520519, -0.00329316,  0.01316002, -0.01791487, -0.2079333 , 0.04784651))
+        self.weights = weights or np.array((-0.0356, -0.00516, 0.840, -0.0351, -0.587, 0.0585))
         self.mask_inter = {}
         self.mask_intra = {}
 
@@ -135,22 +134,22 @@ class vina_docking(object):
         self.lig_dict['coords'] = coords
 
     def score(self, coords = None):
-        return (self.score_inter(coords)*self.w[:5]).sum()/(1+self.w[5]*self.num_rotors)
-#         inter = (self.score_inter(coords)*self.w[:5]).sum()
-#         total = (self.score_total(coords)*self.w[:5]).sum()
-#         return total/(1+self.w[5]*self.num_rotors)
+        return (self.score_inter(coords)*self.weights[:5]).sum()/(1+self.weights[5]*self.num_rotors)
+#         inter = (self.score_inter(coords)*self.weights[:5]).sum()
+#         total = (self.score_total(coords)*self.weights[:5]).sum()
+#         return total/(1+self.weights[5]*self.num_rotors)
 
     def weighted_total(self, coords = None):
-        return (self.score_total(coords)*self.w[:5]).sum()
+        return (self.score_total(coords)*self.weights[:5]).sum()
 
     def score_total(self, coords = None):
         return self.score_inter(coords)+self.score_intra(coords)
 
     def weighted_inter(self, coords = None):
-        return (self.score_inter(coords)*self.w[:5]).sum()
+        return (self.score_inter(coords)*self.weights[:5]).sum()
 
     def weighted_intra(self, coords = None):
-        return (self.score_intra(coords)*self.w[:5]).sum()
+        return (self.score_intra(coords)*self.weights[:5]).sum()
 
     def score_inter(self, coords = None):
         if coords is None:
