@@ -112,6 +112,28 @@ class rfscore(scorer):
                            'vina_num_rotors']
             vina = oddt_vina_descriptor(protein, vina_scores=vina_scores)
             descriptors = ensemble_descriptor((vina, cc))
+        elif version == 4:
+            cutoff = 12
+            mtry = 12
+            cc = close_contacts_descriptor(
+                protein,
+                cutoff=cutoff,
+                protein_types=protein_atomic_nums,
+                ligand_types=ligand_atomic_nums)
+            vina_scores = ['vina_gauss1',
+                           'vina_gauss2',
+                           'vina_repulsion',
+                           'vina_hydrophobic',
+                           'vina_hydrogen',
+                           'vina_intra_gauss1',
+                           'vina_intra_gauss2',
+                           'vina_intra_repulsion',
+                           'vina_intra_hydrophobic',
+                           'vina_intra_hydrogen',
+                           'vina_num_rotors']
+            vina = oddt_vina_descriptor(protein, vina_scores=vina_scores)
+            descriptors = ensemble_descriptor((vina, cc))
+
         model = randomforest(n_estimators=500,
                              oob_score=True,
                              n_jobs=n_jobs,
