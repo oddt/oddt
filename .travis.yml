@@ -31,8 +31,9 @@ before_install:
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH="$HOME/miniconda/bin:$PATH"
     - conda update --yes conda
-    - conda install --yes python=$TRAVIS_PYTHON_VERSION conda-build anaconda-client
-    - conda env update --name root --file environment.yml
+    - conda create --yes --name oddt_env python=$TRAVIS_PYTHON_VERSION conda-build anaconda-client
+    - conda env update --name oddt_env --file environment.yml
+    - source activate oddt_env
     - chmod u+x conda/deploy.sh
 install:
     - pip install .
