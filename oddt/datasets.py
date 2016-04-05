@@ -14,7 +14,7 @@ def _csv_file_filter(f):
 class pdbbind(object):
     def __init__(self,home, version = None, default_set = None, data_file = None, opt = {}):
         self.home = home
-        self.default_set = default_set if default_set else 'general'
+        self.default_set = default_set if default_set else 'general' if str(version) == '2007' else 'general_PL'
         self.opt = opt
         self.sets = {}
         self._set_ids = {}
