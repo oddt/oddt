@@ -173,7 +173,7 @@ def readfile(format, filename, lazy = False, opt = None, *args, **kwargs):
     43
     """
     if not os.path.isfile(filename):
-        raise IOError, "No such file: '%s'" % filename
+        raise IOError("No such file: '%s'" % filename)
     format = format.lower()
     # Eagerly evaluate the supplier functions in order to report
     # errors in the format and errors in opening the file.
@@ -204,7 +204,7 @@ def readfile(format, filename, lazy = False, opt = None, *args, **kwargs):
                 yield Molecule(mol)
         return inchi_reader()
     else:
-        raise ValueError, "%s is not a recognised RDKit format" % format
+        raise ValueError("%s is not a recognised RDKit format" % format)
 
 def readstring(format, string, **kwargs):
     """Read in a molecule from a string.
@@ -234,7 +234,7 @@ def readstring(format, string, **kwargs):
     elif format=='inchi' and Chem.INCHI_AVAILABLE:
         mol = Chem.inchi.MolFromInchi(string, **kwargs)
     else:
-        raise ValueError,"%s is not a recognised RDKit format" % format
+        raise ValueError("%s is not a recognised RDKit format" % format)
 #    if mol:
     return Molecule(mol)
 #    else:
@@ -261,7 +261,7 @@ class Outputfile(object):
         self.format = format
         self.filename = filename
         if not overwrite and os.path.isfile(self.filename):
-            raise IOError, "%s already exists. Use 'overwrite=True' to overwrite it." % self.filename
+            raise IOError("%s already exists. Use 'overwrite=True' to overwrite it." % self.filename)
         if format=="sdf":
             self._writer = Chem.SDWriter(self.filename)
         elif format=="smi":
@@ -273,7 +273,7 @@ class Outputfile(object):
         elif format=="pdb":
             self._writer = Chem.PDBWriter(self.filename)
         else:
-            raise ValueError,"%s is not a recognised RDKit format" % format
+            raise ValueError("%s is not a recognised RDKit format" % format)
         self.total = 0 # The total number of molecules written to the file
 
     def write(self, molecule):
@@ -283,7 +283,7 @@ class Outputfile(object):
            molecule
         """
         if not self.filename:
-            raise IOError, "Outputfile instance is closed."
+            raise IOError("Outputfile instance is closed.")
         if self.format in ('inchi', 'inchikey', 'mol2'):
             self._writer.write(molecule.write(self.format) +'\n')
         else:
@@ -389,9 +389,9 @@ class Molecule(object):
     def coords(self, new):
         new = np.asarray(new, dtype=np.float64)
         if self.Mol.GetNumConformers() == 0:
-            raise AttributeError, "Atom has no coordinates (0D structure)"
+            raise AttributeError("Atom has no coordinates (0D structure)")
         if self.Mol.GetNumAtoms() != new.shape[0]:
-            raise AttributeError, "Atom number is unequal. You have to supply new coordinates for all atoms"
+            raise AttributeError("Atom number is unequal. You have to supply new coordinates for all atoms")
         conformer = self.Mol.GetConformer()
         for idx in xrange(self.Mol.GetNumAtoms()):
             conformer.SetAtomPosition(idx, new[idx,:])
@@ -663,7 +663,7 @@ class Molecule(object):
             return self._source['string']
         if filename:
             if not overwrite and os.path.isfile(filename):
-                raise IOError, "%s already exists. Use 'overwrite=True' to overwrite it." % filename
+                raise IOError("%s already exists. Use 'overwrite=True' to overwrite it." % filename)
         if format=="smi" or format=="can":
             result = '%s\t%s\n' % (Chem.MolToSmiles(self.Mol, **kwargs), self.title)
         elif format in ["mol", "sdf"]:
@@ -677,7 +677,7 @@ class Molecule(object):
             if format == 'inchikey':
                 result = Chem.inchi.InchiToInchiKey(result, **kwargs)
         else:
-            raise ValueError,"%s is not a recognised RDKit format" % format
+            raise ValueError("%s is not a recognised RDKit format" % format)
         if filename:
             print >> open(filename, "w"), result
         else:
@@ -711,7 +711,7 @@ class Molecule(object):
             try:
                 desc = _descDict[descname]
             except KeyError:
-                raise ValueError, "%s is not a recognised RDKit descriptor type" % descname
+                raise ValueError("%s is not a recognised RDKit descriptor type" % descname)
             ans[descname] = desc(self.Mol)
         return ans
 
@@ -747,7 +747,7 @@ class Molecule(object):
         elif fptype == "pharm2d":
             fp = Fingerprint(Generate.Gen2DFingerprint(self.Mol,Gobbi_Pharm2D.factory))
         else:
-            raise ValueError, "%s is not a recognised RDKit Fingerprint type" % fptype
+            raise ValueError("%s is not a recognised RDKit Fingerprint type" % fptype)
         return fp
 
     def draw(self, show=True, filename=None, update=False, usecoords=False):
@@ -885,7 +885,7 @@ class Atom(object):
     def coords(self):
         owningmol = self.Atom.GetOwningMol()
         if owningmol.GetNumConformers() == 0:
-            raise AttributeError, "Atom has no coordinates (0D structure)"
+            raise AttributeError("Atom has no coordinates (0D structure)")
         idx = self.Atom.GetIdx()
         atomcoords = owningmol.GetConformer().GetAtomPosition(idx)
         return (atomcoords[0], atomcoords[1], atomcoords[2])
@@ -1028,7 +1028,7 @@ class Smarts(object):
         """Initialise with a SMARTS pattern."""
         self.rdksmarts = Chem.MolFromSmarts(smartspattern)
         if not self.rdksmarts:
-            raise IOError, "Invalid SMARTS pattern."
+            raise IOError("Invalid SMARTS pattern.")
 
     def findall(self,molecule):
         """Find all matches of the SMARTS pattern to a particular molecule.
@@ -1069,7 +1069,7 @@ class MoleculeData(object):
         self._mol = Mol
     def _testforkey(self, key):
         if not key in self:
-            raise KeyError, "'%s'" % key
+            raise KeyError("'%s'" % key)
     def keys(self):
         return self._mol.GetPropNames()
     def values(self):
@@ -1127,7 +1127,7 @@ class Fingerprint(object):
             # Create a bits attribute on-the-fly
             return list(self.fp.GetOnBits())
         else:
-            raise AttributeError, "Fingerprint has no attribute %s" % attr
+            raise AttributeError("Fingerprint has no attribute %s" % attr)
     def __str__(self):
         return ", ".join([str(x) for x in _compressbits(self.fp)])
     @property
