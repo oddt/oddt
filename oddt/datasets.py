@@ -12,10 +12,10 @@ def _csv_file_filter(f):
         yield ' '.join(row.split())
 
 class pdbbind(object):
-    def __init__(self,home, version = None, default_set = None, data_file = None, opt = {}):
+    def __init__(self,home, version = None, default_set = None, data_file = None, opt = None):
         self.home = home
         self.default_set = default_set if default_set else 'general' if str(version) == '2007' else 'general_PL'
-        self.opt = opt
+        self.opt = opt or {}
         self.sets = {}
         self._set_ids = {}
         self._set_act = {}
@@ -69,10 +69,10 @@ class pdbbind(object):
             return None
 
 class _pdbbind_id(object):
-    def __init__(self, home, id, opt = {}):
+    def __init__(self, home, id, opt = None):
         self.home = home
         self.id = id
-        self.opt = opt
+        self.opt = opt or {}
     @property
     def protein(self):
         if isfile('%s/%s/%s_protein.pdb' % (self.home, self.id,self.id)):

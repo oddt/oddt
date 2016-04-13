@@ -686,7 +686,7 @@ class Molecule(object):
     def __str__(self):
         return self.write()
 
-    def calcdesc(self, descnames=[]):
+    def calcdesc(self, descnames=None):
         """Calculate descriptor values.
 
         Optional parameter:
@@ -696,8 +696,7 @@ class Molecule(object):
         calculated. See the descs variable for a list of available
         descriptors.
         """
-        if not descnames:
-            descnames = descs
+        descnames = descnames or descs
         ans = {}
         for descname in descnames:
             try:
@@ -818,7 +817,7 @@ class Molecule(object):
             success = AllChem.EmbedMolecule(self.Mol,
                                             useRandomCoords = True)
             if success == -1:
-                raise Error, "Embedding failed!"
+                raise Exception("Embedding failed!")
         self.localopt(forcefield, steps)
 
     def __getstate__(self):

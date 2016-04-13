@@ -33,7 +33,7 @@ def get_version():
     if os.path.isdir(home + '/../.git'):
         try:
             git_v = subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip()
-        except CalledProcessError: # catch errors, eg. no git installed
+        except subprocess.CalledProcessError: # catch errors, eg. no git installed
             pass
     if git_v and LooseVersion(git_v) > LooseVersion(v):
         v = git_v

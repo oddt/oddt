@@ -107,7 +107,7 @@ class virtualscreening:
                     yield mol
             else:
                 compiled_smarts = toolkit.Smarts(smarts)
-                if len(compiled_smiles.findall(mol)) == 0:
+                if len(compiled_smarts.findall(mol)) == 0:
                     yield mol
 
     def _filter(self, pipe, expression, soft_fail = 0):
