@@ -3,8 +3,7 @@
 """
 
 import numpy as np
-from oddt.docking import autodock_vina
-from oddt.scoring.descriptors import atoms_by_type, close_contacts
+from oddt.scoring.descriptors import atoms_by_type, close_contacts, oddt_vina_descriptor, autodock_vina_descriptor
 from oddt import interactions
 
 class binana_descriptor(object):
@@ -17,7 +16,7 @@ class binana_descriptor(object):
                 Protein object to be used while generating descriptors.
         """
         self.protein = protein
-        self.vina = autodock_vina(protein)
+        self.vina = oddt_vina_descriptor(protein, vina_scores = ['vina_affinity', 'vina_gauss1', 'vina_gauss2', 'vina_repulsion', 'vina_hydrophobic', 'vina_hydrogen'])
         # Close contacts descriptor generators
         cc_4_types = (('A', 'A'), ('A', 'C'), ('A', 'CL'), ('A', 'F'), ('A', 'FE'), ('A', 'HD'), ('A', 'MG'), ('A', 'MN'), ('A', 'N'), ('A', 'NA'), ('A', 'OA'), ('A', 'SA'), ('A', 'ZN'), ('BR', 'C'), ('BR', 'HD'), ('BR', 'OA'), ('C', 'C'), ('C', 'CL'), ('C', 'F'), ('C', 'HD'), ('C', 'MG'), ('C', 'MN'), ('C', 'N'), ('C', 'NA'), ('C', 'OA'), ('C', 'SA'), ('C', 'ZN'), ('CL', 'FE'), ('CL', 'HD'), ('CL', 'MG'), ('CL', 'N'), ('CL', 'OA'), ('CL', 'ZN'), ('F', 'HD'), ('F', 'N'), ('F', 'OA'), ('F', 'SA'), ('FE', 'HD'), ('FE', 'N'), ('FE', 'OA'), ('HD', 'HD'), ('HD', 'I'), ('HD', 'MG'), ('HD', 'MN'), ('HD', 'N'), ('HD', 'NA'), ('HD', 'OA'), ('HD', 'P'), ('HD', 'S'), ('HD', 'SA'), ('HD', 'ZN'), ('MG', 'NA'), ('MG', 'OA'), ('MN', 'N'), ('MN', 'OA'), ('N', 'N'), ('N', 'NA'), ('N', 'OA'), ('N', 'SA'), ('N', 'ZN'), ('NA', 'OA'), ('NA', 'SA'), ('NA', 'ZN'), ('OA', 'OA'), ('OA', 'SA'), ('OA', 'ZN'), ('S', 'ZN'), ('SA', 'ZN'), ('A', 'BR'), ('A', 'I'), ('A', 'P'), ('A', 'S'), ('BR', 'N'), ('BR', 'SA'), ('C', 'FE'), ('C', 'I'), ('C', 'P'), ('C', 'S'), ('CL', 'MN'), ('CL', 'NA'), ('CL', 'P'), ('CL', 'S'), ('CL', 'SA'), ('CU', 'HD'), ('CU', 'N'), ('FE', 'NA'), ('FE', 'SA'), ('I', 'N'), ('I', 'OA'), ('MG', 'N'), ('MG', 'P'), ('MG', 'S'), ('MG', 'SA'), ('MN', 'NA'), ('MN', 'P'), ('MN', 'S'), ('MN', 'SA'), ('N', 'P'), ('N', 'S'), ('NA', 'P'), ('NA', 'S'), ('OA', 'P'), ('OA', 'S'), ('P', 'S'), ('P', 'SA'), ('P', 'ZN'), ('S', 'SA'), ('SA', 'SA'), ('A', 'CU'), ('C', 'CD') )
         cc_4_rec_types, cc_4_lig_types = zip(*cc_4_types)
@@ -25,7 +24,6 @@ class binana_descriptor(object):
         cc_25_types = [('A', 'A'), ('A', 'C'), ('A', 'CL'), ('A', 'F'), ('A', 'FE'), ('A', 'HD'), ('A', 'MG'), ('A', 'MN'), ('A', 'N'), ('A', 'NA'), ('A', 'OA'), ('A', 'SA'), ('A', 'ZN'), ('BR', 'C'), ('BR', 'HD'), ('BR', 'OA'), ('C', 'C'), ('C', 'CL'), ('C', 'F'), ('C', 'HD'), ('C', 'MG'), ('C', 'MN'), ('C', 'N'), ('C', 'NA'), ('C', 'OA'), ('C', 'SA'), ('C', 'ZN'), ('CD', 'OA'), ('CL', 'FE'), ('CL', 'HD'), ('CL', 'MG'), ('CL', 'N'), ('CL', 'OA'), ('CL', 'ZN'), ('F', 'HD'), ('F', 'N'), ('F', 'OA'), ('F', 'SA'), ('F', 'ZN'), ('FE', 'HD'), ('FE', 'N'), ('FE', 'OA'), ('HD', 'HD'), ('HD', 'I'), ('HD', 'MG'), ('HD', 'MN'), ('HD', 'N'), ('HD', 'NA'), ('HD', 'OA'), ('HD', 'P'), ('HD', 'S'), ('HD', 'SA'), ('HD', 'ZN'), ('MG', 'NA'), ('MG', 'OA'), ('MN', 'N'), ('MN', 'OA'), ('N', 'N'), ('N', 'NA'), ('N', 'OA'), ('N', 'SA'), ('N', 'ZN'), ('NA', 'OA'), ('NA', 'SA'), ('NA', 'ZN'), ('OA', 'OA'), ('OA', 'SA'), ('OA', 'ZN'), ('S', 'ZN'), ('SA', 'ZN')]
         cc_25_rec_types, cc_25_lig_types = zip(*cc_25_types)
         self.cc_25 = close_contacts(protein, cutoff=2.5, protein_types=cc_25_rec_types, ligand_types=cc_25_lig_types, mode='atom_types_ad4', aligned_pairs=True)
-
 
     def set_protein(self, protein):
         """ One function to change all relevant proteins
@@ -69,9 +67,7 @@ class binana_descriptor(object):
             # Vina
             ### TODO: Asynchronous output from vina, push command to score and retrieve at the end?
             ### TODO: Check if ligand has vina scores
-            scored_mol = self.vina.score(mol, single=True)[0].data
-            vina_scores = ['vina_affinity', 'vina_gauss1', 'vina_gauss2', 'vina_repulsion', 'vina_hydrophobic', 'vina_hydrogen']
-            vec += tuple([scored_mol[key] for key in vina_scores])
+            vec += tuple(self.vina.build(mol, single=True).flatten())
 
             # Close Contacts (<4A)
             vec += tuple(self.cc_4.build(mol, single=True).flatten())

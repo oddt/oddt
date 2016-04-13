@@ -25,7 +25,9 @@ class pdbbind(object):
             else:
                 pdbind_sets = ['core', 'refined', 'general_PL']
             for pdbind_set in pdbind_sets:
-                if str(version) == '2007':
+                if data_file:
+                    csv_file = data_file
+                elif str(version) == '2007':
                     csv_file = '%s/INDEX.%s.%s.data' % (self.home, version, pdbind_set)
                 else:
                     csv_file = '%s/INDEX_%s_data.%s' % (self.home, pdbind_set , version)
