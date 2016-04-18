@@ -2,7 +2,7 @@ from sklearn.ensemble import RandomForestClassifier as randomforest
 from sklearn.svm import SVC
 from sklearn.base import ClassifierMixin
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 
 from oddt.scoring.models.neuralnetwork import _ffnet_sklearned
@@ -15,7 +15,7 @@ class neuralnetwork(ClassifierMixin):
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
         local_kwargs = {key: kwargs.pop(key) for key in kwargs.keys() if key != 'steps' and len(key.split('__', 1)) == 1}
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
-                                  ('scaler', MinMaxScaler()),
+                                  ('scaler', StandardScaler()),
                                   ('neural_network', _ffnet_sklearned(*args, **local_kwargs))
                                  ]).set_params(**kwargs)
 
@@ -41,7 +41,7 @@ class svm(ClassifierMixin):
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
         local_kwargs = {key: kwargs.pop(key) for key in kwargs.keys() if key != 'steps' and len(key.split('__', 1)) == 1}
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
-                                  ('scaler', MinMaxScaler()),
+                                  ('scaler', StandardScaler()),
                                   ('svm', SVC(*args, **local_kwargs))
                                  ]).set_params(**kwargs)
 

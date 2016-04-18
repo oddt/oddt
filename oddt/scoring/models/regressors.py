@@ -5,7 +5,7 @@ from sklearn.svm import SVR
 from sklearn.linear_model import LinearRegression as mlr
 from sklearn.base import RegressorMixin
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 try:
     from sklearn.cross_decomposition import PLSRegression as pls
@@ -22,7 +22,7 @@ class neuralnetwork(RegressorMixin):
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
         local_kwargs = {key: kwargs.pop(key) for key in kwargs.keys() if key != 'steps' and len(key.split('__', 1)) == 1}
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
-                                  ('scaler', MinMaxScaler()),
+                                  ('scaler', StandardScaler()),
                                   ('neural_network', _ffnet_sklearned(*args, **local_kwargs))
                                  ]).set_params(**kwargs)
 
@@ -48,7 +48,7 @@ class svm(RegressorMixin):
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
         local_kwargs = {key: kwargs.pop(key) for key in kwargs.keys() if key != 'steps' and len(key.split('__', 1)) == 1}
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
-                                  ('scaler', MinMaxScaler()),
+                                  ('scaler', StandardScaler()),
                                   ('svm', SVR(*args, **local_kwargs))
                                  ]).set_params(**kwargs)
 
