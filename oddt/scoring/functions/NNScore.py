@@ -9,22 +9,10 @@ from oddt import toolkit, random_seed
 from oddt.scoring import scorer, ensemble_model
 from oddt.scoring.descriptors.binana import binana_descriptor
 from oddt.scoring.models.regressors import neuralnetwork
+from oddt.datasets import pdbbind
 
 # numpy after pickling gives Runtime Warnings
 warnings.simplefilter("ignore", RuntimeWarning)
-
-# define sub-function for paralelization
-def generate_descriptor(packed):
-    pdbid, gen, pdbbind_dir, pdbbind_version = packed
-    protein_file = pdbbind_dir + "/v" + pdbbind_version + "/%s/%s_pocket.pdb" % (pdbid, pdbid)
-    if not isfile(protein_file):
-        protein_file = pdbbind_dir + "/v" + pdbbind_version + "/%s/%s_protein.pdb" % (pdbid, pdbid)
-    ligand_file = pdbbind_dir + "/v" + pdbbind_version + "/%s/%s_ligand.sdf" % (pdbid, pdbid)
-    protein = toolkit.readfile("pdb", protein_file).next()
-    # mark it as a protein
-    protein.protein = True
-    ligand = toolkit.readfile("sdf", ligand_file).next()
-    return gen.build([ligand], protein).flatten()
 
 # skip comments and merge multiple spaces
 def _csv_file_filter(f):
@@ -45,50 +33,26 @@ class nnscore(scorer):
         decsriptors = binana_descriptor(protein)
         super(nnscore,self).__init__(model, decsriptors, score_title='nnscore')
 
-    def gen_training_data(self, pdbbind_dir, pdbbind_version = '2007', sf_pickle = ''):
+    def gen_training_data(self, pdbbind_dir, pdbbind_version = '2007', home_dir=None, sf_pickle = ''):
         # build train and test
-        cpus = self.n_jobs if self.n_jobs > 0 else None
-        pool = Pool(processes=cpus)
+        cpus = self.n_jobs if self.n_jobs > 0 else -1
+        # pool = Pool(processes=cpus)
+        pdbbind_db = pdbbind(pdbbind_dir, int(pdbbind_version))
+        if not home_dir:
+            home_dir = dirname(__file__) + '/NNScore'
 
-        core_act = np.zeros(1, dtype=float)
-        core_set = []
         pdb_set = 'core'
-        if pdbbind_version == '2007':
-            csv_file = '%s/v%s/INDEX.%s.%s.data' % (pdbbind_dir, pdbbind_version, pdbbind_version, pdb_set)
-        else:
-            csv_file = '%s/v%s/INDEX_%s_data.%s' % (pdbbind_dir, pdbbind_version, pdb_set, pdbbind_version)
-        for row in csv.reader(_csv_file_filter(csv_file), delimiter=' '):
-            pdbid = row[0]
-            if not isfile('%s/v%s/%s/%s_pocket.pdb' % (pdbbind_dir, pdbbind_version, pdbid, pdbid)):
-                continue
-            act = float(row[3])
-            core_set.append(pdbid)
-            core_act = np.vstack((core_act, act))
-
-        result = pool.map(generate_descriptor, [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in core_set])
+        pdbbind_db.default_set = 'core'
+        core_set = pdbbind_db.ids
+        core_act = np.array(pdbbind_db.activities)
+        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket)
         core_desc = np.vstack(result)
-        core_act = core_act[1:]
 
-        refined_act = np.zeros(1, dtype=float)
-        refined_set = []
-        pdb_set = 'refined'
-        if pdbbind_version == '2007':
-            csv_file = '%s/v%s/INDEX.%s.%s.data' % (pdbbind_dir, pdbbind_version, pdbbind_version, pdb_set)
-        else:
-            csv_file = '%s/v%s/INDEX_%s_data.%s' % (pdbbind_dir, pdbbind_version, pdb_set, pdbbind_version)
-        for row in csv.reader(_csv_file_filter(csv_file), delimiter=' '):
-            pdbid = row[0]
-            if not isfile('%s/v%s/%s/%s_pocket.pdb' % (pdbbind_dir, pdbbind_version, pdbid, pdbid)):
-                continue
-            act = float(row[3])
-            if pdbid in core_set:
-                continue
-            refined_set.append(pdbid)
-            refined_act = np.vstack((refined_act, act))
-
-        result = pool.map(generate_descriptor, [(pdbid, self.descriptor_generator, pdbbind_dir, pdbbind_version) for pdbid in refined_set])
+        pdbbind_db.default_set = 'refined'
+        refined_set  = [pid for pid in pdbbind_db.ids if not pid in core_set]
+        refined_act = np.array([pdbbind_db.sets[pdbbind_db.default_set][pid] for pid in refined_set])
+        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket and not pid.id in core_set)
         refined_desc = np.vstack(result)
-        refined_act = refined_act[1:]
 
         self.train_descs = refined_desc
         self.train_target = refined_act.flatten()
@@ -96,18 +60,21 @@ class nnscore(scorer):
         self.test_target = core_act.flatten()
 
         # save numpy arrays
-        np.savetxt(dirname(__file__) + '/NNScore/train_descs.csv', self.train_descs, fmt='%.5g', delimiter=',')
-        np.savetxt(dirname(__file__) + '/NNScore/train_target.csv', self.train_target, fmt='%.2f', delimiter=',')
-        np.savetxt(dirname(__file__) + '/NNScore/test_descs.csv', self.test_descs, fmt='%.5g', delimiter=',')
-        np.savetxt(dirname(__file__) + '/NNScore/test_target.csv', self.test_target, fmt='%.2f', delimiter=',')
+        header = 'NNscore data generated using PDBBind v%s' % pdbbind_version
+        np.savetxt(home_dir + '/train_descs.csv', self.train_descs, fmt='%.5g', delimiter=',', header = header)
+        np.savetxt(home_dir + '/train_target.csv', self.train_target, fmt='%.2f', delimiter=',', header = header)
+        np.savetxt(home_dir + '/test_descs.csv', self.test_descs, fmt='%.5g', delimiter=',', header = header)
+        np.savetxt(home_dir + '/test_target.csv', self.test_target, fmt='%.2f', delimiter=',', header = header)
 
 
-    def train(self, sf_pickle = ''):
+    def train(self, home_dir = None, sf_pickle = ''):
+        if not home_dir:
+            home_dir = dirname(__file__) + '/NNScore'
         # load precomputed descriptors and target values
-        self.train_descs = np.loadtxt(dirname(__file__) + '/NNScore/train_descs.csv', delimiter=',', dtype=float)
-        self.train_target = np.loadtxt(dirname(__file__) + '/NNScore/train_target.csv', delimiter=',', dtype=float)
-        self.test_descs = np.loadtxt(dirname(__file__) + '/NNScore/test_descs.csv', delimiter=',', dtype=float)
-        self.test_target = np.loadtxt(dirname(__file__) + '/NNScore/test_target.csv', delimiter=',', dtype=float)
+        self.train_descs = np.loadtxt(home_dir + '/train_descs.csv', delimiter=',', dtype=float)
+        self.train_target = np.loadtxt(home_dir + '/train_target.csv', delimiter=',', dtype=float)
+        self.test_descs = np.loadtxt(home_dir + '/test_descs.csv', delimiter=',', dtype=float)
+        self.test_target = np.loadtxt(home_dir + '/test_target.csv', delimiter=',', dtype=float)
 
         n_dim = (~((self.train_descs == 0).all(axis=0) | (self.train_descs.min(axis=0) == self.train_descs.max(axis=0)))).sum()
 
