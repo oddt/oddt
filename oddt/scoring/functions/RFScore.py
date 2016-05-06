@@ -69,16 +69,15 @@ class rfscore(scorer):
         pdbbind_db.default_set = 'core'
         core_set = pdbbind_db.ids
         core_act = np.array(pdbbind_db.activities)
-#         core_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.pocket) for pid in pdbbind_db])
-        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket)
+#         core_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.protein) for pid in pdbbind_db])
+        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.protein) for pid in pdbbind_db if pid.protein)
         core_desc = np.vstack(result)
 
-
-        pdbbind_db.default_set = 'general'
+        pdbbind_db.default_set = 'refined'
         refined_set  = [pid for pid in pdbbind_db.ids if not pid in core_set]
         refined_act = np.array([pdbbind_db.sets[pdbbind_db.default_set][pid] for pid in refined_set])
-#         refined_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.pocket) for pid in pdbbind_db])
-        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket and not pid.id in core_set)
+#         refined_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.protein) for pid in pdbbind_db])
+        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.protein) for pid in pdbbind_db if pid.protein and not pid.id in core_set)
         refined_desc = np.vstack(result)
 
         self.train_descs = refined_desc
@@ -87,10 +86,11 @@ class rfscore(scorer):
         self.test_target = core_act
 
         # save numpy arrays
-        np.savetxt(home_dir + '/train_descs_v%i.csv' % (self.version), self.train_descs, fmt='%g', delimiter=',')
-        np.savetxt(home_dir + '/train_target.csv', self.train_target, fmt='%.2f', delimiter=',')
-        np.savetxt(home_dir + '/test_descs_v%i.csv' % (self.version), self.test_descs, fmt='%g', delimiter=',')
-        np.savetxt(home_dir + '/test_target.csv', self.test_target, fmt='%.2f', delimiter=',')
+        header = 'RFScore data generated using PDBBind v%s' % pdbbind_version
+        np.savetxt(home_dir + '/train_descs_v%i.csv' % (self.version), self.train_descs, fmt='%g', delimiter=',', header = header)
+        np.savetxt(home_dir + '/train_target.csv', self.train_target, fmt='%.2f', delimiter=',', header = header)
+        np.savetxt(home_dir + '/test_descs_v%i.csv' % (self.version), self.test_descs, fmt='%g', delimiter=',', header = header)
+        np.savetxt(home_dir + '/test_target.csv', self.test_target, fmt='%.2f', delimiter=',', header = header)
 
 
     def train(self, home_dir = None, sf_pickle = ''):

@@ -73,9 +73,10 @@ for filter in args.filter:
     pipeline.apply_filter(filter)
 
 # load protein once
-extension = args.receptor.split('.')[-1]
-receptor = oddt.toolkit.readfile(extension,  args.receptor).next()
-receptor.protein = True
+if args.receptor:
+    extension = args.receptor.split('.')[-1]
+    receptor = oddt.toolkit.readfile(extension,  args.receptor).next()
+    receptor.protein = True
 
 # Docking
 if args.dock == 'autodock_vina':
