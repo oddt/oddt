@@ -4,6 +4,11 @@ import numpy as np
 from joblib import Parallel, delayed
 import warnings
 
+try:
+    import compiledtrees
+except ImportError:
+    compiledtrees = None
+
 from oddt import toolkit, random_seed
 from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
@@ -124,6 +129,10 @@ class rfscore(scorer):
         r2 = self.model.score(self.train_descs, self.train_target)
         r = np.sqrt(r2)
         print 'Train set: R**2:', r2, ' R:', r, 'RMSE:', rmse
+
+        # compile trees
+        if compiledtrees not is Nont:
+            self.model = compiledtrees.CompiledRegressionPredictor(self.model, n_jobs=cpus)
 
         if sf_pickle:
             return self.save(sf_pickle)
