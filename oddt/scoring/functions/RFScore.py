@@ -131,7 +131,7 @@ class rfscore(scorer):
         print 'Train set: R**2:', r2, ' R:', r, 'RMSE:', rmse
 
         # compile trees
-        if compiledtrees is not Nont:
+        if compiledtrees is not None:
             self.model = compiledtrees.CompiledRegressionPredictor(self.model, n_jobs=cpus)
 
         if sf_pickle:
