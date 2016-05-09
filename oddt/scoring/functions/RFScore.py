@@ -132,7 +132,7 @@ class rfscore(scorer):
 
         # compile trees
         if compiledtrees is not None:
-            self.model = compiledtrees.CompiledRegressionPredictor(self.model, n_jobs=cpus)
+            self.model = compiledtrees.CompiledRegressionPredictor(self.model, n_jobs=self.n_jobs)
 
         if sf_pickle:
             return self.save(sf_pickle)
