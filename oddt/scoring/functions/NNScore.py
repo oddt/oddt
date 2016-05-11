@@ -33,11 +33,9 @@ class nnscore(scorer):
         decsriptors = binana_descriptor(protein)
         super(nnscore,self).__init__(model, decsriptors, score_title='nnscore')
 
-    def gen_training_data(self, pdbbind_dir, pdbbind_version = '2007', home_dir=None, sf_pickle = ''):
+    def gen_training_data(self, pdbbind_dir, pdbbind_version = 2007, home_dir=None, sf_pickle = ''):
         # build train and test
-        cpus = self.n_jobs if self.n_jobs > 0 else -1
-        # pool = Pool(processes=cpus)
-        pdbbind_db = pdbbind(pdbbind_dir, int(pdbbind_version))
+        pdbbind_db = pdbbind(pdbbind_dir, pdbbind_version)
         if not home_dir:
             home_dir = dirname(__file__) + '/NNScore'
 
@@ -45,13 +43,13 @@ class nnscore(scorer):
         pdbbind_db.default_set = 'core'
         core_set = pdbbind_db.ids
         core_act = np.array(pdbbind_db.activities)
-        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket)
+        result = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket is not None)
         core_desc = np.vstack(result)
 
         pdbbind_db.default_set = 'refined'
         refined_set  = [pid for pid in pdbbind_db.ids if not pid in core_set]
         refined_act = np.array([pdbbind_db.sets[pdbbind_db.default_set][pid] for pid in refined_set])
-        result = Parallel(n_jobs=cpus)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket and not pid.id in core_set)
+        result = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket is not None and not pid.id in core_set)
         refined_desc = np.vstack(result)
 
         self.train_descs = refined_desc
@@ -61,20 +59,20 @@ class nnscore(scorer):
 
         # save numpy arrays
         header = 'NNscore data generated using PDBBind v%s' % pdbbind_version
-        np.savetxt(home_dir + '/train_descs.csv', self.train_descs, fmt='%.5g', delimiter=',', header = header)
-        np.savetxt(home_dir + '/train_target.csv', self.train_target, fmt='%.2f', delimiter=',', header = header)
-        np.savetxt(home_dir + '/test_descs.csv', self.test_descs, fmt='%.5g', delimiter=',', header = header)
-        np.savetxt(home_dir + '/test_target.csv', self.test_target, fmt='%.2f', delimiter=',', header = header)
+        np.savetxt(home_dir + '/train_descs_pdbbind%i.csv' % (pdbbind_version), self.train_descs, fmt='%.5g', delimiter=',', header = header)
+        np.savetxt(home_dir + '/train_target_pdbbind%i.csv' % (pdbbind_version), self.train_target, fmt='%.2f', delimiter=',', header = header)
+        np.savetxt(home_dir + '/test_descs_pdbbind%i.csv' % (pdbbind_version), self.test_descs, fmt='%.5g', delimiter=',', header = header)
+        np.savetxt(home_dir + '/test_target_pdbbind%i.csv' % (pdbbind_version), self.test_target, fmt='%.2f', delimiter=',', header = header)
 
 
-    def train(self, home_dir = None, sf_pickle = ''):
+    def train(self, home_dir = None, sf_pickle = '', pdbbind_version = 2007):
         if not home_dir:
             home_dir = dirname(__file__) + '/NNScore'
         # load precomputed descriptors and target values
-        self.train_descs = np.loadtxt(home_dir + '/train_descs.csv', delimiter=',', dtype=float)
-        self.train_target = np.loadtxt(home_dir + '/train_target.csv', delimiter=',', dtype=float)
-        self.test_descs = np.loadtxt(home_dir + '/test_descs.csv', delimiter=',', dtype=float)
-        self.test_target = np.loadtxt(home_dir + '/test_target.csv', delimiter=',', dtype=float)
+        self.train_descs = np.loadtxt(home_dir + '/train_descs_pdbbind%i.csv' % (pdbbind_version), delimiter=',', dtype=float)
+        self.train_target = np.loadtxt(home_dir + '/train_target_pdbbind%i.csv' % (pdbbind_version), delimiter=',', dtype=float)
+        self.test_descs = np.loadtxt(home_dir + '/test_descs_pdbbind%i.csv' % (pdbbind_version), delimiter=',', dtype=float)
+        self.test_target = np.loadtxt(home_dir + '/test_target_pdbbind%i.csv' % (pdbbind_version), delimiter=',', dtype=float)
 
         n_dim = (~((self.train_descs == 0).all(axis=0) | (self.train_descs.min(axis=0) == self.train_descs.max(axis=0)))).sum()
 
@@ -102,15 +100,14 @@ class nnscore(scorer):
             return self.save('NNScore.pickle')
 
     @classmethod
-    def load(self, filename = ''):
+    def load(self, filename = '', pdbbind_version = 2007):
         if not filename:
-            for f in ['NNScore.pickle', dirname(__file__) + '/NNScore.pickle']:
+            for f in ['NNScore_pdbbind%i.pickle' % (pdbbind_version), dirname(__file__) + '/NNScore_pdbbind%i.pickle' % (pdbbind_version)]:
                 if isfile(f):
                     filename = f
                     break
-        # if still no pickle found - train function from pregenerated descriptors
-        if not filename:
-            print "No pickle, training new scoring function."
-            nn = nnscore()
-            filename = nn.train()
+            else:
+                print "No pickle, training new scoring function."
+                nn = nnscore()
+                filename = nn.train()
         return scorer.load(filename)

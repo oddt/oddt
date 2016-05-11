@@ -332,12 +332,14 @@ class Molecule(pybel.Molecule):
         for ring in self.sssr:
             if ring.IsAromatic():
                 path = ring._path
-                atom = atom_dict[atom_dict['id'] == path[0]]
-                coords = atom_dict[np.in1d(atom_dict['id'], path)]['coords']
-                centroid = coords.mean(axis=0)
-                # get vector perpendicular to ring
-                vector = np.cross(coords - np.vstack((coords[1:],coords[:1])), np.vstack((coords[1:],coords[:1])) - np.vstack((coords[2:],coords[:2]))).mean(axis=0) - centroid
-                r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
+                atoms = atom_dict[np.in1d(atom_dict['id'], path)]
+                if len(atoms):
+                    atom = atoms[0]
+                    coords = atoms['coords']
+                    centroid = coords.mean(axis=0)
+                    # get vector perpendicular to ring
+                    vector = np.cross(coords - np.vstack((coords[1:],coords[:1])), np.vstack((coords[1:],coords[:1])) - np.vstack((coords[2:],coords[:2]))).mean(axis=0) - centroid
+                    r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
         ring_dict = np.array(r, dtype=[('centroid', 'float32', 3),('vector', 'float32', 3),('isalpha', 'bool'),('isbeta', 'bool'),])
 
         self._atom_dict = atom_dict

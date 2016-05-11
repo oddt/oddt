@@ -83,8 +83,6 @@ class _pdbbind_id(object):
     def pocket(self):
         if isfile('%s/%s/%s_pocket.pdb' % (self.home, self.id,self.id)):
             return toolkit.readfile('pdb', '%s/%s/%s_pocket.pdb' % (self.home, self.id,self.id), lazy=True, opt = self.opt).next()
-        elif self.protein:
-            return self.protein
         else:
             return None
     @property
