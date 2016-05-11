@@ -179,13 +179,21 @@ class virtualscreening:
         if type(function) is str:
             if function.lower().startswith('rfscore'):
                 from oddt.scoring.functions.RFScore import rfscore
-                tmp = function.lower().split('_')
-                v = int(tmp[-1][1:]) if len(tmp) > 1 else 1
-                sf = rfscore.load(version=v)
+                new_kwargs = {}
+                for bit in function.lower().split('_'):
+                    if bit.startswith('pdbbind'):
+                        new_kwargs['pdbbind_version'] = int(bit.replace('pdbbind', ''))
+                    elif bit.startswith('v'):
+                        new_kwargs['version'] = int(bit.replace('v', ''))
+                sf = rfscore.load(**new_kwargs)
                 sf.set_protein(protein)
             elif function.lower() == 'nnscore':
                 from oddt.scoring.functions.NNScore import nnscore
-                sf = nnscore.load()
+                new_kwargs = {}
+                for bit in function.lower().split('_'):
+                    if bit.startswith('pdbbind'):
+                        new_kwargs['pdbbind_version'] = int(bit.replace('pdbbind', ''))
+                sf = nnscore.load(**new_kwargs)
                 sf.set_protein(protein)
             elif function.lower() == 'autodock_vina':
                 from oddt.docking import autodock_vina

@@ -35,8 +35,16 @@ group.add_argument('--exhaustiveness', default=8, type=int, help='Exhaustiveness
 group.add_argument('--seed', help='Random Seed')
 
 # scoring
+
+# generate scoring functions options
+sf_choices = ['autodock_vina']
+for pdbbind_version in [2007, 2012, 2013, 2014, 2015]:
+    for v in [1,2,3]:
+        sf_choices.append('rfscore_v%i_pdbbind%i' % (v, pdbbind_version))
+    sf_choices.append('nnscore_pdbbind%i' % (pdbbind_version))
+
 group = parser.add_argument_group('Rescoring')
-group.add_argument('--score', dest='score', choices=['autodock_vina', 'rfscore', 'rfscore_v1', 'rfscore_v2', 'rfscore_v3', 'nnscore'], action='append', default=[], help='Choose built-in scoring function to be used')#
+group.add_argument('--score', dest='score', choices=sf_choices, action='append', default=[], help='Choose built-in scoring function to be used')#
 group.add_argument('--score_file', dest='score_file',  action='append', default=[], help='Choose ODDT scoring function saved to file (pickle)')
 
 args = parser.parse_args()
@@ -97,7 +105,7 @@ if args.dock == 'autodock_vina':
 
 # Rescoring
 for score in args.score:
-    if score == 'nnscore':
+    if score.startswith('nnscore'):
         pipeline.score('nnscore', receptor)
     elif score.startswith('rfscore'):
         pipeline.score(score, receptor)
