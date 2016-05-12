@@ -97,7 +97,7 @@ class nnscore(scorer):
         if sf_pickle:
             return self.save(sf_pickle)
         else:
-            return self.save('NNScore.pickle')
+            return self.save('NNScore_pdbbind%i.pickle' % (pdbbind_version))
 
     @classmethod
     def load(self, filename = '', pdbbind_version = 2007):

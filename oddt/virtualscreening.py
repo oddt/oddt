@@ -187,7 +187,7 @@ class virtualscreening:
                         new_kwargs['version'] = int(bit.replace('v', ''))
                 sf = rfscore.load(**new_kwargs)
                 sf.set_protein(protein)
-            elif function.lower() == 'nnscore':
+            elif function.lower().startswith('nnscore'):
                 from oddt.scoring.functions.NNScore import nnscore
                 new_kwargs = {}
                 for bit in function.lower().split('_'):
