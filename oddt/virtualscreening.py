@@ -273,13 +273,16 @@ class virtualscreening:
             kwargs.pop('overwrite') # this argument is unsupported in readfile
             self._pipe = toolkit.readfile(fmt, filename, **kwargs)
 
-    def write_csv(self, csv_filename, keep_pipe = False, **kwargs):
+    def write_csv(self, csv_filename, fields=None, keep_pipe = False, **kwargs):
         """Outputs molecules to a csv file
 
         Parameters
         ----------
             csv_filename: string
                 Optional path to a CSV file
+
+            fields: list (default None)
+                List of fields to save in CSV file
 
             keep_pipe: bool (default=False)
                 If set to True, the ligand pipe is sustained.
@@ -302,7 +305,7 @@ class virtualscreening:
                 print "There is no data to write in CSV file"
                 return False
             if csv_file is None:
-                csv_file = csv.DictWriter(f, data.keys(), **kwargs)
+                csv_file = csv.DictWriter(f, fields or data.keys(), extrasaction='ignore', **kwargs)
                 csv_file.writeheader()
             csv_file.writerow(data)
             if keep_pipe:

@@ -47,6 +47,8 @@ group = parser.add_argument_group('Rescoring')
 group.add_argument('--score', dest='score', choices=sf_choices, action='append', default=[], help='Choose built-in scoring function to be used')#
 group.add_argument('--score_file', dest='score_file',  action='append', default=[], help='Choose ODDT scoring function saved to file (pickle)')
 
+parser.add_argument('--field', dest='save_fields', action='append', default=[], help='Field to save (eg. in CSV). Each field should be specified separately.')#
+
 args = parser.parse_args()
 
 # Switch toolkits
@@ -130,13 +132,13 @@ if args.out_file:
         else:
             fmt = tmp[-1]
     if fmt == 'csv':
-        pipeline.write_csv(args.out_file)
+        pipeline.write_csv(args.out_file, fields=args.save_fields)
     else:
         pipeline.write(fmt, args.out_file, overwrite=True)
 else:
     fmt = args.out_format
     if fmt == 'csv':
-        pipeline.write_csv(sys.stdout)
+        pipeline.write_csv(sys.stdout, fields=args.save_fields)
     else:
         for lig in pipeline.fetch():
             sys.stdout.write(lig.write(fmt))
