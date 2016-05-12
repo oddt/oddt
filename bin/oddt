@@ -106,7 +106,7 @@ if args.dock == 'autodock_vina':
 # Rescoring
 for score in args.score:
     if score.startswith('nnscore'):
-        pipeline.score('nnscore', receptor)
+        pipeline.score(score, receptor)
     elif score.startswith('rfscore'):
         pipeline.score(score, receptor)
     elif score == 'autodock_vina':

@@ -109,5 +109,5 @@ class nnscore(scorer):
             else:
                 print "No pickle, training new scoring function."
                 nn = nnscore()
-                filename = nn.train()
+                filename = nn.train(pdbbind_version = pdbbind_version)
         return scorer.load(filename)
