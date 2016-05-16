@@ -37,7 +37,9 @@ group.add_argument('--seed', help='Random Seed')
 # scoring
 
 # generate scoring functions options
-sf_choices = ['autodock_vina']
+sf_choices = ['autodock_vina', 'rfscore', 'nnscore']
+for v in [1,2,3]:
+    sf_choices.append('rfscore_v%i' % v)
 for pdbbind_version in [2007, 2012, 2013, 2014, 2015]:
     for v in [1,2,3]:
         sf_choices.append('rfscore_v%i_pdbbind%i' % (v, pdbbind_version))
