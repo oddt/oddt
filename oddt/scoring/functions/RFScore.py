@@ -65,7 +65,13 @@ class rfscore(scorer):
                             'vina_num_rotors']
             vina = oddt_vina_descriptor(protein, vina_scores = vina_scores)
             descriptors = ensemble_descriptor((vina, cc))
-        model = randomforest(n_estimators = 500, oob_score = True, n_jobs = n_jobs, max_features=mtry, **kwargs)
+        model = randomforest(n_estimators = 500,
+                             oob_score = True,
+                             min_samples_split = 6,
+                             n_jobs = n_jobs,
+                             max_features = mtry,
+                             bootstrap = True,
+                             **kwargs)
         super(rfscore,self).__init__(model, descriptors, score_title = 'rfscore_v%i' % self.version)
 
     def gen_training_data(self, pdbbind_dir, pdbbind_version = 2007, home_dir = None, sf_pickle = ''):
