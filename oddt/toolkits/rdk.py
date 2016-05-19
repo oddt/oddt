@@ -192,7 +192,7 @@ def readfile(format, filename, lazy = False, opt = None, *args, **kwargs):
         return _filereader_mol2(filename)
     elif format=="smi":
         iterator = Chem.SmilesMolSupplier(filename, delimiter=" \t",
-                                          titleLine=True, *args, **kwargs)
+                                          titleLine=False, *args, **kwargs)
         def smi_reader():
             for mol in iterator:
                 yield Molecule(mol)
@@ -265,7 +265,7 @@ class Outputfile(object):
         if format=="sdf":
             self._writer = Chem.SDWriter(self.filename)
         elif format=="smi":
-            self._writer = Chem.SmilesWriter(self.filename, isomericSmiles=True)
+            self._writer = Chem.SmilesWriter(self.filename, isomericSmiles=True, includeHeader=False)
         elif format in ('inchi', 'inchikey') and Chem.INCHI_AVAILABLE:
             self._writer = open(filename, 'w')
         elif format in ('mol2'):
