@@ -21,9 +21,10 @@ from oddt.datasets import pdbbind
 warnings.simplefilter("ignore", RuntimeWarning)
 
 # RF-Score settings
-ligand_atomic_nums = [6,7,8,9,15,16,17,35,53]
-protein_atomic_nums = [6,7,8,16]
+ligand_atomic_nums = [6, 7, 8, 9, 15, 16, 17, 35, 53]
+protein_atomic_nums = [6, 7, 8, 16]
 cutoff = 12
+
 
 # define sub-function for paralelization
 def _parallel_helper(*args, **kwargs):
@@ -32,6 +33,7 @@ def _parallel_helper(*args, **kwargs):
     new_args = args[2:]
     return getattr(obj, methodname)(*new_args, **kwargs)
 
+
 # skip comments and merge multiple spaces
 def _csv_file_filter(f):
     for row in open(f, 'rb'):
@@ -39,8 +41,9 @@ def _csv_file_filter(f):
             continue
         yield ' '.join(row.split())
 
+
 class rfscore(scorer):
-    def __init__(self, protein = None, n_jobs = -1, version = 1, spr = 0, **kwargs):
+    def __init__(self, protein=None, n_jobs=-1, version=1, spr=0, **kwargs):
         self.protein = protein
         self.n_jobs = n_jobs
         self.version = version
@@ -48,22 +51,22 @@ class rfscore(scorer):
         if version == 1:
             cutoff = 12
             mtry = 6
-            descriptors = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
+            descriptors = close_contacts(protein, cutoff=cutoff, protein_types=protein_atomic_nums, ligand_types=ligand_atomic_nums)
         elif version == 2:
-            cutoff = np.array([ 0,  2,  4,  6,  8, 10, 12])
+            cutoff = np.array([0, 2, 4, 6, 8, 10, 12])
             mtry = 14
-            descriptors = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
+            descriptors = close_contacts(protein, cutoff=cutoff, protein_types=protein_atomic_nums, ligand_types=ligand_atomic_nums)
         elif version == 3:
             cutoff = 12
             mtry = 6
-            cc = close_contacts(protein, cutoff = cutoff, protein_types = protein_atomic_nums, ligand_types = ligand_atomic_nums)
+            cc = close_contacts(protein, cutoff=cutoff, protein_types=protein_atomic_nums, ligand_types=ligand_atomic_nums)
             vina_scores = ['vina_gauss1',
-                            'vina_gauss2',
-                            'vina_repulsion',
-                            'vina_hydrophobic',
-                            'vina_hydrogen',
-                            'vina_num_rotors']
-            vina = oddt_vina_descriptor(protein, vina_scores = vina_scores)
+                           'vina_gauss2',
+                           'vina_repulsion',
+                           'vina_hydrophobic',
+                           'vina_hydrogen',
+                           'vina_num_rotors']
+            vina = oddt_vina_descriptor(protein, vina_scores=vina_scores)
             descriptors = ensemble_descriptor((vina, cc))
         model = randomforest(n_estimators=500,
                              oob_score=True,
@@ -71,11 +74,11 @@ class rfscore(scorer):
                              max_features=mtry,
                              bootstrap=True,
                              **kwargs)
-        super(rfscore,self).__init__(model, descriptors, score_title = 'rfscore_v%i' % self.version)
+        super(rfscore, self).__init__(model, descriptors, score_title='rfscore_v%i' % self.version)
 
-    def gen_training_data(self, pdbbind_dir, pdbbind_version = 2007, home_dir = None, sf_pickle = ''):
+    def gen_training_data(self, pdbbind_dir, pdbbind_version=2007, home_dir=None, sf_pickle=''):
         # build train and test
-        pdbbind_db = pdbbind(pdbbind_dir, pdbbind_version, opt={'b':None})
+        pdbbind_db = pdbbind(pdbbind_dir, pdbbind_version, opt={'b': None})
         if not home_dir:
             home_dir = dirname(__file__) + '/RFScore'
 
@@ -87,7 +90,7 @@ class rfscore(scorer):
         core_desc = np.vstack(result)
 
         pdbbind_db.default_set = 'refined'
-        refined_set  = [pid for pid in pdbbind_db.ids if not pid in core_set]
+        refined_set = [pid for pid in pdbbind_db.ids if not pid in core_set]
         refined_act = np.array([pdbbind_db.sets[pdbbind_db.default_set][pid] for pid in refined_set])
 #         refined_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.protein) for pid in pdbbind_db])
         result = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket is not None and not pid.id in core_set)
@@ -100,13 +103,12 @@ class rfscore(scorer):
 
         # save numpy arrays
         header = 'RFScore data generated using PDBBind v%i' % pdbbind_version
-        np.savetxt(home_dir + '/train_descs_v%i_pdbbind%i.csv' % (self.version, pdbbind_version), self.train_descs, fmt='%g', delimiter=',', header = header)
-        np.savetxt(home_dir + '/train_target_pdbbind%i.csv' % pdbbind_version, self.train_target, fmt='%.2f', delimiter=',', header = header)
-        np.savetxt(home_dir + '/test_descs_v%i_pdbbind%i.csv' % (self.version, pdbbind_version), self.test_descs, fmt='%g', delimiter=',', header = header)
-        np.savetxt(home_dir + '/test_target_pdbbind%i.csv' % pdbbind_version, self.test_target, fmt='%.2f', delimiter=',', header = header)
+        np.savetxt(home_dir + '/train_descs_v%i_pdbbind%i.csv' % (self.version, pdbbind_version), self.train_descs, fmt='%g', delimiter=',', header=header)
+        np.savetxt(home_dir + '/train_target_pdbbind%i.csv' % pdbbind_version, self.train_target, fmt='%.2f', delimiter=',', header=header)
+        np.savetxt(home_dir + '/test_descs_v%i_pdbbind%i.csv' % (self.version, pdbbind_version), self.test_descs, fmt='%g', delimiter=',', header=header)
+        np.savetxt(home_dir + '/test_target_pdbbind%i.csv' % pdbbind_version, self.test_target, fmt='%.2f', delimiter=',', header=header)
 
-
-    def train(self, home_dir = None, sf_pickle = '', pdbbind_version = 2007):
+    def train(self, home_dir=None, sf_pickle='', pdbbind_version=2007):
         if not home_dir:
             home_dir = dirname(__file__) + '/RFScore'
         # load precomputed descriptors and target values
@@ -120,8 +122,8 @@ class rfscore(scorer):
         if self.spr > 0:
             self.mask = (self.train_descs > self.spr).any(axis=0)
             if self.mask.sum() > 0:
-                self.train_descs =  self.train_descs[:,self.mask]
-                self.test_descs = self.test_descs[:,self.mask]
+                self.train_descs = self.train_descs[:, self.mask]
+                self.test_descs = self.test_descs[:, self.mask]
 
         # make nets reproducible
         random_seed(1)
@@ -150,7 +152,7 @@ class rfscore(scorer):
             return self.save('RFScore_v%i_pdbbind%i.pickle' % (self.version, pdbbind_version))
 
     @classmethod
-    def load(self, filename = '', version = 1, pdbbind_version = 2007):
+    def load(self, filename='', version=1, pdbbind_version=2007):
         if not filename:
             for f in ['RFScore_v%i_pdbbind%i.pickle' % (version, pdbbind_version), dirname(__file__) + '/RFScore_v%i_pdbbind%i.pickle' % (version, pdbbind_version)]:
                 if isfile(f):
@@ -158,6 +160,6 @@ class rfscore(scorer):
                     break
             else:
                 print "No pickle, training new scoring function."
-                rf = rfscore(version = version)
-                filename = rf.train(sf_pickle=filename, pdbbind_version = pdbbind_version)
+                rf = rfscore(version=version)
+                filename = rf.train(sf_pickle=filename, pdbbind_version=pdbbind_version)
         return scorer.load(filename)

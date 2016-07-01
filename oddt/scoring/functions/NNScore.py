@@ -14,6 +14,7 @@ from oddt.datasets import pdbbind
 # numpy after pickling gives Runtime Warnings
 warnings.simplefilter("ignore", RuntimeWarning)
 
+
 # skip comments and merge multiple spaces
 def _csv_file_filter(f):
     for row in open(f, 'rb'):
@@ -21,19 +22,21 @@ def _csv_file_filter(f):
             continue
         yield ' '.join(row.split())
 
+
 def _parallel_helper(obj, methodname, *args, **kwargs):
     """Private helper to workaround Python 2 pickle limitations"""
     return getattr(obj, methodname)(*args, **kwargs)
 
+
 class nnscore(scorer):
-    def __init__(self, protein = None, n_jobs = -1, **kwargs):
+    def __init__(self, protein=None, n_jobs=-1, **kwargs):
         self.protein = protein
         self.n_jobs = n_jobs
         model = None
         decsriptors = binana_descriptor(protein)
-        super(nnscore,self).__init__(model, decsriptors, score_title='nnscore')
+        super(nnscore, self).__init__(model, decsriptors, score_title='nnscore')
 
-    def gen_training_data(self, pdbbind_dir, pdbbind_version = 2007, home_dir=None, sf_pickle = ''):
+    def gen_training_data(self, pdbbind_dir, pdbbind_version=2007, home_dir=None, sf_pickle=''):
         # build train and test
         pdbbind_db = pdbbind(pdbbind_dir, pdbbind_version)
         if not home_dir:
@@ -47,7 +50,7 @@ class nnscore(scorer):
         core_desc = np.vstack(result)
 
         pdbbind_db.default_set = 'refined'
-        refined_set  = [pid for pid in pdbbind_db.ids if not pid in core_set]
+        refined_set = [pid for pid in pdbbind_db.ids if not pid in core_set]
         refined_act = np.array([pdbbind_db.sets[pdbbind_db.default_set][pid] for pid in refined_set])
         result = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket is not None and not pid.id in core_set)
         refined_desc = np.vstack(result)
@@ -59,13 +62,12 @@ class nnscore(scorer):
 
         # save numpy arrays
         header = 'NNscore data generated using PDBBind v%s' % pdbbind_version
-        np.savetxt(home_dir + '/train_descs_pdbbind%i.csv' % (pdbbind_version), self.train_descs, fmt='%.5g', delimiter=',', header = header)
-        np.savetxt(home_dir + '/train_target_pdbbind%i.csv' % (pdbbind_version), self.train_target, fmt='%.2f', delimiter=',', header = header)
-        np.savetxt(home_dir + '/test_descs_pdbbind%i.csv' % (pdbbind_version), self.test_descs, fmt='%.5g', delimiter=',', header = header)
-        np.savetxt(home_dir + '/test_target_pdbbind%i.csv' % (pdbbind_version), self.test_target, fmt='%.2f', delimiter=',', header = header)
+        np.savetxt(home_dir + '/train_descs_pdbbind%i.csv' % (pdbbind_version), self.train_descs, fmt='%.5g', delimiter=',', header=header)
+        np.savetxt(home_dir + '/train_target_pdbbind%i.csv' % (pdbbind_version), self.train_target, fmt='%.2f', delimiter=',', header=header)
+        np.savetxt(home_dir + '/test_descs_pdbbind%i.csv' % (pdbbind_version), self.test_descs, fmt='%.5g', delimiter=',', header=header)
+        np.savetxt(home_dir + '/test_target_pdbbind%i.csv' % (pdbbind_version), self.test_target, fmt='%.2f', delimiter=',', header=header)
 
-
-    def train(self, home_dir = None, sf_pickle = '', pdbbind_version = 2007):
+    def train(self, home_dir=None, sf_pickle='', pdbbind_version=2007):
         if not home_dir:
             home_dir = dirname(__file__) + '/NNScore'
         # load precomputed descriptors and target values
@@ -81,7 +83,7 @@ class nnscore(scorer):
         # make nets reproducible
         random_seed(1)
         seeds = np.random.randint(123456789, size=n)
-        trained_nets = Parallel(n_jobs=self.n_jobs, verbose=10)(delayed(_parallel_helper)(neuralnetwork([n_dim,5,1], random_state=seeds[i]), 'fit', self.train_descs, self.train_target, neural_network__train_alg='tnc', neural_network__maxfun=10000) for i in xrange(n))
+        trained_nets = Parallel(n_jobs=self.n_jobs, verbose=10)(delayed(_parallel_helper)(neuralnetwork([n_dim, 5, 1], random_state=seeds[i]), 'fit', self.train_descs, self.train_target, neural_network__train_alg='tnc', neural_network__maxfun=10000) for i in xrange(n))
         # get 20 best
         best_idx = np.array([net.score(self.test_descs, self.test_target.flatten()) for net in trained_nets]).argsort()[::-1][:20]
         self.model = ensemble_model([trained_nets[i] for i in best_idx])
@@ -100,7 +102,7 @@ class nnscore(scorer):
             return self.save('NNScore_pdbbind%i.pickle' % (pdbbind_version))
 
     @classmethod
-    def load(self, filename = '', pdbbind_version = 2007):
+    def load(self, filename='', pdbbind_version=2007):
         if not filename:
             for f in ['NNScore_pdbbind%i.pickle' % (pdbbind_version), dirname(__file__) + '/NNScore_pdbbind%i.pickle' % (pdbbind_version)]:
                 if isfile(f):
@@ -109,5 +111,5 @@ class nnscore(scorer):
             else:
                 print "No pickle, training new scoring function."
                 nn = nnscore()
-                filename = nn.train(pdbbind_version = pdbbind_version)
+                filename = nn.train(pdbbind_version=pdbbind_version)
         return scorer.load(filename)
