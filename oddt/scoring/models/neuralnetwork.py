@@ -1,5 +1,8 @@
 ## FIX use ffnet for now, use sklearn in future
-from ffnet import ffnet,mlgraph,tmlgraph
+try:
+    from ffnet import ffnet,mlgraph,tmlgraph
+except ImportError:
+    pass
 import numpy as np
 from scipy.stats import linregress
 
@@ -25,7 +28,7 @@ class _ffnet_sklearned(object):
         self.__init__(**args)
         return self
 
-    def fit(self, descs, target_values, train_alg='tnc',**kwargs):
+    def fit(self, descs, target_values, train_alg='tnc', **kwargs):
         # setup neural network
         if self.full_conn:
             conec = tmlgraph(self.shape, self.biases)
