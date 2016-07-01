@@ -44,6 +44,7 @@ if sys.platform.startswith('win'):
     # Second override 'Popen' class with our modified version.
     forking.Popen = _Popen
 # END Fix Windows multiprocessing
+import multiprocessing
 
 # arguments
 parser = argparse.ArgumentParser(description='Open Drug Discovery (ODDT) command line tools')
