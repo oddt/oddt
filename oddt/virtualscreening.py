@@ -1,8 +1,10 @@
 """ODDT pipeline framework for virtual screening"""
+from __future__ import print_function
+import sys
 import csv
 from os.path import dirname, isfile
 #from multiprocessing.dummy import Pool # threading
-from multiprocessing import Pool # process
+from multiprocessing import Pool  # process
 from itertools import chain
 from functools import partial
 
@@ -218,10 +220,10 @@ class virtualscreening:
         for n, mol in enumerate(self._pipe):
             self.num_output = n+1
             if self.verbose and self.num_input % 100 == 0:
-                print "\rPassed: %i (%.2f%%)\tTotal: %i" % (self.num_output, float(self.num_output)/float(self.num_input)*100, self.num_input),
+                print("Passed: %i (%.2f%%)\tTotal: %i\r" % (self.num_output, float(self.num_output)/float(self.num_input)*100, self.num_input), file=sys.stderr, end=" ")
             yield mol
         if self.verbose:
-            print ""
+            print('', file=sys.stderr)
 
     # Consume the pipe
     def write(self, fmt, filename, csv_filename = None, **kwargs):
@@ -258,7 +260,7 @@ class virtualscreening:
                 if len(data) > 0:
                     data['name'] = mol.title
                 else:
-                    print "There is no data to write in CSV file"
+                    print("There is no data to write in CSV file", file=sys.stderr)
                     return False
                 if csv_file is None:
                     csv_file = csv.DictWriter(f, data.keys(), **kwargs)
@@ -298,12 +300,12 @@ class virtualscreening:
             #filter some internal data
             blacklist_keys = ['OpenBabel Symmetry Classes', 'MOL Chiral Flag', 'PartialCharges', 'TORSDO', 'REMARK']
             for b in blacklist_keys:
-                if data.has_key(b):
+                if b in data:
                     del data[b]
             if len(data) > 0:
                 data['name'] = mol.title
             else:
-                print "There is no data to write in CSV file"
+                print("There is no data to write in CSV file", file=sys.stderr)
                 return False
             if csv_file is None:
                 csv_file = csv.DictWriter(f, fields or data.keys(), extrasaction='ignore', **kwargs)

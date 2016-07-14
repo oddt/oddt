@@ -1,3 +1,4 @@
+from __future__ import print_function
 import gzip
 import pybel
 from pybel import *
@@ -87,7 +88,7 @@ class Molecule(pybel.Molecule):
         #ob.DeterminePeptideBackbone(molecule.OBMol)
         # percieve chains in residues
         #if len(res_dict) > 1 and not molecule.OBMol.HasChainsPerceived():
-        #    print "Dirty HACK"
+        #    print("Dirty HACK")
         #    molecule = pybel.readstring('pdb', molecule.write('pdb'))
         self._atom_dict = None
         self._res_dict = None
@@ -471,7 +472,7 @@ class Residue(object):
 
         This allows constructions such as the following:
            for atom in residue:
-               print atom
+               print(atom)
         """
         return iter(self.atoms)
 

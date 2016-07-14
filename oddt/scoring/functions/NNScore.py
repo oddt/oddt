@@ -1,3 +1,5 @@
+from __future__ import print_function
+import sys
 import csv
 from os.path import dirname, isfile
 import numpy as np
@@ -90,11 +92,11 @@ class nnscore(scorer):
 
         r2 = self.model.score(self.test_descs, self.test_target)
         r = np.sqrt(r2)
-        print 'Test set: R**2:', r2, ' R:', r
+        print('Test set: R**2:', r2, ' R:', r, file=sys.stderr)
 
         r2 = self.model.score(self.train_descs, self.train_target)
         r = np.sqrt(r2)
-        print 'Train set: R**2:', r2, ' R:', r
+        print('Train set: R**2:', r2, ' R:', r, file=sys.stderr)
 
         if sf_pickle:
             return self.save(sf_pickle)
@@ -109,7 +111,7 @@ class nnscore(scorer):
                     filename = f
                     break
             else:
-                print "No pickle, training new scoring function."
+                print("No pickle, training new scoring function.", file=sys.stderr)
                 nn = nnscore()
                 filename = nn.train(pdbbind_version=pdbbind_version)
         return scorer.load(filename)

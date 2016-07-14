@@ -76,27 +76,27 @@ One of the most common operation would be iterating through molecules atoms
 ::
     mol = oddt.toolkit.readstring(‘smi’, ‘c1cccc1’)
     for atom in mol:
-        print atom.idx
+        print(atom.idx)
 
 .. note:: mol.atoms, returns an object (:class:`~oddt.toolkit.AtomStack`) which can be access via indexes or iterated
 
 Iterating over residues is also very convenient, especially for proteins
 ::
     for res in mol.residues:
-        print res.name
+        print(res.name)
 
 Additionally residues can fetch atoms belonging to them:
 ::
     for res in mol.residues:
         for atom in res:
-            print atom.idx
+            print(atom.idx)
 
 Bonds are also iterable, similar to residues:
 ::
     for bond in mol.bonds:
-        print bond.order
+        print(bond.order)
         for atom in bond:
-            print atom.idx
+            print(atom.idx)
 
 Reading molecules
 `````````````````
@@ -106,12 +106,12 @@ Reading molecules is mostly identical to `Pybel <https://open-babel.readthedocs.
 Reading from file
 ::
     for mol in oddt.toolkit.readfile(‘smi’, ‘test.smi’):
-        print mol.title
+        print(mol.title)
 
 Reading from string
 ::
     mol = oddt.toolkit.readstring(‘smi’, ‘c1ccccc1 benzene’):
-        print mol.title
+        print(mol.title)
 
 .. note:: You can force molecules to be read in asynchronously, aka “lazy molecules”. Current default is not to produce lazy molecules due to OpenBabel’s Memory Leaks in OBConverter. Main advantage of lazy molecules is using them in multiprocessing, then conversion is spreaded on all jobs.
 

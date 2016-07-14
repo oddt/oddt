@@ -1,3 +1,5 @@
+from __future__ import print_function
+import sys
 import csv
 from os.path import dirname, isfile, isdir
 import numpy as np
@@ -90,10 +92,10 @@ class rfscore(scorer):
         core_desc = np.vstack(result)
 
         pdbbind_db.default_set = 'refined'
-        refined_set = [pid for pid in pdbbind_db.ids if not pid in core_set]
+        refined_set = [pid for pid in pdbbind_db.ids if pid not in core_set]
         refined_act = np.array([pdbbind_db.sets[pdbbind_db.default_set][pid] for pid in refined_set])
 #         refined_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.protein) for pid in pdbbind_db])
-        result = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket is not None and not pid.id in core_set)
+        result = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket is not None and pid.id not in core_set)
         refined_desc = np.vstack(result)
 
         self.train_descs = refined_desc
@@ -129,21 +131,21 @@ class rfscore(scorer):
         random_seed(1)
         self.model.fit(self.train_descs, self.train_target)
 
-        print "Training RFScore v%i on PDBBind v%i" % (self.version, pdbbind_version)
+        print("Training RFScore v%i on PDBBind v%i" % (self.version, pdbbind_version), file=sys.stderr)
 
         error = rmse(self.model.predict(self.test_descs), self.test_target)
         r2 = self.model.score(self.test_descs, self.test_target)
         r = np.sqrt(r2)
-        print 'Test set: R**2:', r2, ' R:', r, 'RMSE:', error
+        print('Test set: R**2:', r2, ' R:', r, 'RMSE:', error, file=sys.stderr)
 
         error = rmse(self.model.predict(self.train_descs), self.train_target)
         r2 = self.model.score(self.train_descs, self.train_target)
         r = np.sqrt(r2)
-        print 'Train set: R**2:', r2, ' R:', r, 'RMSE:', error
+        print('Train set: R**2:', r2, ' R:', r, 'RMSE:', error, file=sys.stderr)
 
         # compile trees
         if compiledtrees is not None:
-            print "Compiling Random Forest using sklearn-compiledtrees"
+            print("Compiling Random Forest using sklearn-compiledtrees", file=sys.stderr)
             self.model = compiledtrees.CompiledRegressionPredictor(self.model, n_jobs=self.n_jobs)
 
         if sf_pickle:
@@ -159,7 +161,7 @@ class rfscore(scorer):
                     filename = f
                     break
             else:
-                print "No pickle, training new scoring function."
+                print("No pickle, training new scoring function.", file=sys.stderr)
                 rf = rfscore(version=version)
                 filename = rf.train(sf_pickle=filename, pdbbind_version=pdbbind_version)
         return scorer.load(filename)
