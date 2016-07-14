@@ -393,7 +393,7 @@ class Molecule(object):
         if self.Mol.GetNumAtoms() != new.shape[0]:
             raise AttributeError("Atom number is unequal. You have to supply new coordinates for all atoms")
         conformer = self.Mol.GetConformer()
-        for idx in xrange(self.Mol.GetNumAtoms()):
+        for idx in range(self.Mol.GetNumAtoms()):
             conformer.SetAtomPosition(idx, new[idx,:])
         # clear cache
         self._coords = None
