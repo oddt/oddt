@@ -567,7 +567,7 @@ class Molecule(object):
             # for protein finding features per residue is much faster
             if self.protein:
                 for res in self.residues:
-                    for f, field in translate_feats.iteritems():
+                    for f, field in translate_feats.items():
                         feats = base_feature_factory.GetFeaturesForMol(res.Residue,includeOnly=f)
                         atom_dict[field][[res.atommap[idx] for f in feats for idx in f.GetAtomIds()]] = True
             res_dict = None
@@ -605,7 +605,7 @@ class Molecule(object):
             atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_mask_beta]['id'])] = True
         else:
             # find features for ligands
-            for f, field in translate_feats.iteritems():
+            for f, field in translate_feats.items():
                 feats = base_feature_factory.GetFeaturesForMol(self.Mol,includeOnly=f)
                 atom_dict[field][[idx for f in feats for idx in f.GetAtomIds()]] = True
 
@@ -984,7 +984,7 @@ class Residue(object):
                 self.bonds.append(b.GetIdx())
         self.Residue = Chem.PathToSubmol(self.ParentMol, self.bonds, atomMap=self.atommap)
         self.MonomerInfo = self.ParentMol.GetAtomWithIdx(atom_path[0]).GetMonomerInfo()
-        self.atommap = dict((v,k) for k,v in self.atommap.iteritems())
+        self.atommap = dict((v,k) for k,v in self.atommap.items())
 
     @property
     def atoms(self):
@@ -1059,7 +1059,7 @@ class MoleculeData(object):
     >>> print(data['Comment'])
     CORINA 2.61 0041  25.10.2001
     >>> data['Comment'] = 'This is a new comment'
-    >>> for k,v in data.iteritems():
+    >>> for k,v in data.items():
     ...    print(k, "-->", v)
     Comment --> This is a new comment
     NSC --> 1
@@ -1095,7 +1095,7 @@ class MoleculeData(object):
     def has_key(self, key):
         return key in self
     def update(self, dictionary):
-        for k, v in dictionary.iteritems():
+        for k, v in dictionary.items():
             self[k] = v
     def __getitem__(self, key):
         self._testforkey(key)
@@ -1103,7 +1103,7 @@ class MoleculeData(object):
     def __setitem__(self, key, value):
         self._mol.SetProp(key, str(value))
     def __repr__(self):
-        return dict(self.iteritems()).__repr__()
+        return dict(self.items()).__repr__()
 
 class Fingerprint(object):
     """A Molecular Fingerprint.
