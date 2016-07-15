@@ -1,9 +1,10 @@
 import numpy as np
 from scipy.stats import linregress
 from sklearn.cross_validation import cross_val_score, KFold, train_test_split
-import joblib as pickle
+import joblib
 
-def cross_validate(model, cv_set, cv_target, n = 10, shuffle=True, n_jobs = 1):
+
+def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
     """Perform cross validation of model using provided data
 
     Parameters
@@ -168,7 +169,7 @@ class scorer(object):
                 Pickle filename
         """
         self.set_protein(None)
-        return pickle.dump(self, filename, compress=1)[0]
+        return joblib.dump(self, filename, compress=9)[0]
 
     @classmethod
     def load(self, filename):
@@ -184,7 +185,7 @@ class scorer(object):
             sf: scorer-like object
                 Scoring function object loaded from a pickle
         """
-        return pickle.load(filename)
+        return joblib.load(filename)
 
 
 class ensemble_model(object):
