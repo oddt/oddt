@@ -3,6 +3,7 @@ from shutil import rmtree
 from os.path import exists
 from os import remove
 import sys
+import six
 import subprocess
 import numpy as np
 import re
@@ -57,7 +58,7 @@ class autodock_vina(object):
         if auto_ligand:
             if type(auto_ligand) is str:
                 extension = auto_ligand.split('.')[-1]
-                auto_ligand = toolkit.readfile(extension, auto_ligand).next()
+                auto_ligand = six.next(toolkit.readfile(extension, auto_ligand))
             self.center = tuple(np.array([atom.coords for atom in auto_ligand], dtype=np.float32).mean(axis=0))
         # autodetect Vina executable
         if not executable:
@@ -117,9 +118,9 @@ class autodock_vina(object):
                 extension = protein.split('.')[-1]
                 if extension == 'pdbqt':
                     self.protein_file = protein
-                    self.protein = toolkit.readfile(extension, protein).next()
+                    self.protein = six.next(toolkit.readfile(extension, protein))
                 else:
-                    self.protein = toolkit.readfile(extension, protein).next()
+                    self.protein = six.next(toolkit.readfile(extension, protein))
                     self.protein.protein = True
                     self.protein_file = self.tmp_dir  + '/protein.pdbqt'
                     self.protein.write('pdbqt', self.protein_file, opt={'r':None, 'c':None}, overwrite=True)
@@ -208,7 +209,7 @@ class autodock_vina(object):
                  sys.stderr.write(e.output)
                  raise Exception('Autodock Vina failed. Command: "%s"' % ' '.join(e.cmd))
             ### HACK # overcome connectivity problems in obabel
-            source_ligand = toolkit.readfile('pdbqt', ligand_file).next()
+            source_ligand = six.next(toolkit.readfile('pdbqt', ligand_file))
             for lig, scores in zip([lig for lig in toolkit.readfile('pdbqt', ligand_outfile, opt={'b': None})], vina):
                 ### HACK # copy data from source
                 clone = source_ligand.clone

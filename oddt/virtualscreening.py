@@ -2,8 +2,9 @@
 from __future__ import print_function
 import sys
 import csv
+import six
 from os.path import dirname, isfile
-#from multiprocessing.dummy import Pool # threading
+# from multiprocessing.dummy import Pool # threading
 from multiprocessing import Pool  # process
 from itertools import chain
 from functools import partial
@@ -174,7 +175,7 @@ class virtualscreening:
         """
         if type(protein) is str:
             extension = protein.split('.')[-1]
-            protein = toolkit.readfile(extension, protein).next()
+            protein = six.next(toolkit.readfile(extension, protein))
             protein.protein = True
         # trigger cache
         protein.atom_dict

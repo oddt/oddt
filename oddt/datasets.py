@@ -1,5 +1,6 @@
 """ Datasets wrapped in conviniet models """
 import csv
+import six
 from os.path import isfile
 
 from oddt import toolkit
@@ -76,18 +77,18 @@ class _pdbbind_id(object):
     @property
     def protein(self):
         if isfile('%s/%s/%s_protein.pdb' % (self.home, self.id,self.id)):
-            return toolkit.readfile('pdb', '%s/%s/%s_protein.pdb' % (self.home, self.id,self.id), lazy=True, opt = self.opt).next()
+            return six.next(toolkit.readfile('pdb', '%s/%s/%s_protein.pdb' % (self.home, self.id,self.id), lazy=True, opt = self.opt))
         else:
             return None
     @property
     def pocket(self):
         if isfile('%s/%s/%s_pocket.pdb' % (self.home, self.id,self.id)):
-            return toolkit.readfile('pdb', '%s/%s/%s_pocket.pdb' % (self.home, self.id,self.id), lazy=True, opt = self.opt).next()
+            return six.next(toolkit.readfile('pdb', '%s/%s/%s_pocket.pdb' % (self.home, self.id,self.id), lazy=True, opt = self.opt))
         else:
             return None
     @property
     def ligand(self):
         if isfile('%s/%s/%s_ligand.sdf' % (self.home, self.id,self.id)):
-            return toolkit.readfile('sdf', '%s/%s/%s_ligand.sdf' % (self.home, self.id,self.id), lazy=True, opt = self.opt).next()
+            return six.next(toolkit.readfile('sdf', '%s/%s/%s_ligand.sdf' % (self.home, self.id,self.id), lazy=True, opt = self.opt))
         else:
             return None

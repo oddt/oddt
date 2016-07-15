@@ -159,7 +159,7 @@ def readfile(format, filename, lazy = False, opt = None, *args, **kwargs):
 
     You can access the first molecule in a file using the next() method
     of the iterator:
-        mol = readfile("smi", "myfile.smi").next()
+        mol = next(readfile("smi", "myfile.smi"))
 
     You can make a list of the molecules in a file using:
         mols = list(readfile("smi", "myfile.smi"))
@@ -1050,7 +1050,7 @@ class MoleculeData(object):
     that the data is retrieved on-the-fly from the underlying Mol.
 
     Example:
-    >>> mol = readfile("sdf", 'head.sdf').next()
+    >>> mol = next(readfile("sdf", 'head.sdf'))
     >>> data = mol.data
     >>> print(data)
     {'Comment': 'CORINA 2.61 0041  25.10.2001', 'NSC': '1'}

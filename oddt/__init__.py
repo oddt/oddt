@@ -9,8 +9,8 @@ Universal and easy to use resource for various drug discovery tasks, ie docking,
         This setting is toolkit-wide, and sets given toolkit as default
 """
 
-import os, subprocess
-from distutils.version import LooseVersion
+import os
+import subprocess
 try:
     from .toolkits import ob
 except ImportError:
@@ -26,21 +26,23 @@ if ob:
 elif rdk:
     toolkit = rdk
 
+
 def get_version():
     home = os.path.dirname(__file__)
     git_v = None
-    v = '0.1.8'
+    v = '0.1.15'
     if os.path.isdir(home + '/../.git'):
         try:
-            git_v = subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip()
-        except subprocess.CalledProcessError: # catch errors, eg. no git installed
+            git_v = str(subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip())
+        except subprocess.CalledProcessError:  # catch errors, eg. no git installed
             pass
-    if git_v and LooseVersion(git_v) > LooseVersion(v):
+    if git_v:
         v = git_v
     return v
 
 __version__ = get_version()
 __all__ = ['toolkit']
+
 
 def random_seed(i):
     """
