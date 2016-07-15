@@ -22,7 +22,7 @@ from __future__ import print_function
 import os
 from copy import copy
 import gzip
-from itertools import combinations, ifilter
+from itertools import combinations
 
 import numpy as np
 
@@ -31,8 +31,6 @@ from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
 from rdkit.Chem import Descriptors
 from rdkit import RDConfig
-
-_descDict = dict(Descriptors.descList)
 
 import rdkit.DataStructs
 import rdkit.Chem.MACCSkeys
@@ -44,6 +42,8 @@ from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D,Generate
 
 from oddt.spatial import dihedral
+
+_descDict = dict(Descriptors.descList)
 
 backend = 'rdk'
 
@@ -76,7 +76,7 @@ except ImportError:
 
 fps = ['rdkit', 'layered', 'maccs', 'atompairs', 'torsions', 'morgan']
 """A list of supported fingerprint types"""
-descs = _descDict.keys()
+descs = list(_descDict.keys())
 """A list of supported descriptors"""
 
 _formats = {'smi': "SMILES",
@@ -101,7 +101,7 @@ base_feature_factory = AllChem.BuildFeatureFactory(os.path.join(RDConfig.RDDataD
 """ Global feature factory based on BaseFeatures.fdef """
 
 _forcefields = {'uff': AllChem.UFFOptimizeMolecule}
-forcefields = _forcefields.keys()
+forcefields = list(_forcefields.keys())
 """A list of supported forcefields"""
 
 def _filereader_mol2(filename):
@@ -415,7 +415,7 @@ class Molecule(object):
                 res = self.Mol.GetAtomWithIdx(aid).GetMonomerInfo()
                 # trap ligands with no monomer info
                 if res is None:
-                    return [Residue(self.Mol, range(self.Mol.GetNumAtoms()))]
+                    return [Residue(self.Mol, list(range(self.Mol.GetNumAtoms())))]
                 resid = res.GetResidueNumber()
                 resname = res.GetResidueName()
                 reschain = res.GetChainId()

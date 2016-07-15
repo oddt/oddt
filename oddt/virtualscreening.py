@@ -253,10 +253,10 @@ class virtualscreening:
         for mol in self.fetch():
             if csv_filename:
                 data = dict(mol.data)
-                #filter some internal data
+                # filter some internal data
                 blacklist_keys = ['OpenBabel Symmetry Classes', 'MOL Chiral Flag', 'PartialCharges', 'TORSDO', 'REMARK']
                 for b in blacklist_keys:
-                    if data.has_key(b):
+                    if b in data:
                         del data[b]
                 if len(data) > 0:
                     data['name'] = mol.title
@@ -272,7 +272,7 @@ class virtualscreening:
         output_mol_file.close()
         if csv_filename:
             f.close()
-#        if kwargs.has_key('keep_pipe') and kwargs['keep_pipe']:
+#        if 'keep_pipe' in kwargs and kwargs['keep_pipe']:
         if isfile(filename):
             kwargs.pop('overwrite') # this argument is unsupported in readfile
             self._pipe = toolkit.readfile(fmt, filename, **kwargs)
