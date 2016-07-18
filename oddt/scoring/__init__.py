@@ -2,6 +2,9 @@ import numpy as np
 from scipy.stats import linregress
 from sklearn.cross_validation import cross_val_score, KFold, train_test_split
 import joblib
+import gzip
+import six
+from six.moves import cPickle as pickle
 
 
 def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
@@ -169,7 +172,10 @@ class scorer(object):
                 Pickle filename
         """
         self.set_protein(None)
-        return joblib.dump(self, filename, compress=9)[0]
+        # return joblib.dump(self, filename, compress=9)[0]
+        with gzip.open(filename, 'w+', compresslevel=9) as f:
+            pickle.dump(self, f, protocol=2)
+        return filename
 
     @classmethod
     def load(self, filename):
@@ -185,7 +191,11 @@ class scorer(object):
             sf: scorer-like object
                 Scoring function object loaded from a pickle
         """
-        return joblib.load(filename)
+        # return joblib.load(filename)
+        kwargs = {'encoding': 'latin1'} if six.PY3 else {}
+        with gzip.open(filename) as f:
+            out = pickle.load(f, **kwargs)
+        return out
 
 
 class ensemble_model(object):
