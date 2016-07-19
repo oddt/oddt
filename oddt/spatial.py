@@ -5,8 +5,16 @@ Mainly used by other modules, but can be accessed directly.
 from math import sin, cos
 import numpy as np
 from scipy.spatial.distance import cdist as distance
+# for Hungarian algorithm, in future use scipy.optimize.linear_sum_assignment (in scipy 0.17+)
+try:
+    from scipy.optimize import linear_sum_assignment
+except ImportError:
+    from sklearn.utils.linear_assignment_ import linear_assignment
+    def linear_sum_assignment(M):
+        out = linear_assignment(M)
+        return out[:,0], out[:,1]
 
-__all__ = ['angle', 'angle_2v', 'dihedral', 'distance']
+__all__ = ['angle', 'angle_2v', 'dihedral', 'distance', 'rmsd', 'rotate']
 
 # angle functions
 def angle(p1,p2,p3):
@@ -73,7 +81,7 @@ def dihedral(p1,p2,p3,p4):
         out[mask] = -out[mask]
     return out
 
-def rmsd(ref, mol, ignore_h = True, canonize = False, normalize = False):
+def rmsd(ref, mol, ignore_h = True, method=None, normalize=False):
     """Computes root mean square deviation (RMSD) between two molecules (including or excluding Hydrogens). No symmetry checks are performed.
 
     Parameters
@@ -87,8 +95,12 @@ def rmsd(ref, mol, ignore_h = True, canonize = False, normalize = False):
     ignore_h : bool (default=False)
         Flag indicating to ignore Hydrogen atoms while performing RMSD calculation
 
-    canonize : bool (default=False)
-        Match heavy atoms using OB canonical ordering
+    method : str (default=None)
+        The method to be used for atom asignment between ref and mol.
+        None means that direct matching is applied, which is the default behavior.
+        Available methods:
+            - canonize - match heavy atoms using OB canonical ordering (it forces ignoring H's)
+            - hungarian - minimize RMSD using Hungarian algorithm
 
     normalize : bool (default=False)
         Normalize RMSD by square root of rot. bonds
@@ -98,25 +110,40 @@ def rmsd(ref, mol, ignore_h = True, canonize = False, normalize = False):
     rmsd : float
         RMSD between two molecules
     """
-    if ignore_h:
-        if canonize:
-            ref_hvy = ref.coords[ref.canonic_order]
-            mol_hvy = mol.coords[mol.canonic_order]
-        else:
-            hvy_map = np.array([atom.idx-1 for atom in mol if atom.atomicnum != 1])
-            mol_hvy = mol.coords[hvy_map]
-            ref_hvy = ref.coords[hvy_map]
-        if mol_hvy.shape == ref_hvy.shape:
-            rmsd = np.sqrt(((mol_hvy - ref_hvy)**2).sum(axis=-1).mean())
-            if normalize:
-                rmsd /= np.sqrt(mol.num_rotors)
-            return rmsd
+
+    if method == 'canonize':
+        ref_atoms = ref.coords[ref.canonic_order]
+        mol_atoms = mol.coords[mol.canonic_order]
+    elif method == 'hungarian':
+        mol_map = []
+        ref_map = []
+        for a_type in np.unique(mol.atom_dict['atomtype']):
+            if a_type != 'H' or not ignore_h:
+                mol_idx = np.argwhere(mol.atom_dict['atomtype'] == a_type).flatten()
+                ref_idx = np.argwhere(ref.atom_dict['atomtype'] == a_type).flatten()
+                if len(mol_idx) == 1:
+                    mol_map.append(mol_idx)
+                    ref_map.append(ref_idx)
+                    continue
+                M = distance(mol.atom_dict['coords'][ref_idx], ref.atom_dict['coords'][ref_idx])
+                M = M - M.min(axis=0) - M.min(axis=1).reshape(-1,1)
+                tmp_mol, tmp_ref = linear_sum_assignment(M)
+                mol_map.append(mol_idx[tmp_mol])
+                ref_map.append(ref_idx[tmp_ref])
+        mol_atoms = mol.atom_dict['coords'][np.hstack(mol_map)]
+        ref_atoms = ref.atom_dict['coords'][np.hstack(ref_map)]
+    elif ignore_h:
+        hvy_map = np.argwhere(mol.atom_dict['atomicnum'] != 1).flatten()
+        mol_atoms = mol.coords[hvy_map]
+        ref_atoms = ref.coords[hvy_map]
     else:
-        if mol.coords.shape == ref.coords.shape:
-            rmsd = np.sqrt(((mol.coords - ref.coords)**2).sum(axis=-1).mean())
-            if normalize:
-                    rmsd /= np.sqrt(mol.num_rotors)
-            return rmsd
+        mol_atoms = mol.coords
+        ref_atoms = ref.coords
+    if mol_atoms.shape == ref_atoms.shape:
+        rmsd = np.sqrt(((mol_atoms - ref_atoms)**2).sum(axis=-1).mean())
+        if normalize:
+            rmsd /= np.sqrt(mol.num_rotors)
+        return rmsd
     # at this point raise an exception
     raise Exception('Unequal number of atoms in molecules')
 
