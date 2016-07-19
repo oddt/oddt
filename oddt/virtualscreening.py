@@ -54,8 +54,9 @@ class virtualscreening:
 
     def _ligand_pipe(self, ligands):
         for mol in ligands:
-            self.num_input += 1
-            yield mol
+            if mol:
+                self.num_input += 1
+                yield mol
 
     def apply_filter(self, expression, soft_fail = 0):
         """Filtering method, can use raw expressions (strings to be evaled in if statement, can use oddt.toolkit.Molecule methods, eg. 'mol.molwt < 500')

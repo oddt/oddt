@@ -314,7 +314,14 @@ class Molecule(object):
     """
     _cinfony = True
 
-    def __init__(self, Mol = None, source = None, protein = False):
+    def __new__(cls, Mol=None, *args, **kwargs):
+        """ Trap RDKit molecules which are 'None' """
+        if Mol is None:
+            return None
+        else:
+            return super(Molecule, cls).__new__(cls, Mol, *args, **kwargs)
+
+    def __init__(self, Mol=None, source=None, protein=False):
         if hasattr(Mol, "_cinfony"):
             a, b = Mol._exchange
             if a == 0:
