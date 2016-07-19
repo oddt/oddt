@@ -173,7 +173,7 @@ class scorer(object):
         """
         self.set_protein(None)
         # return joblib.dump(self, filename, compress=9)[0]
-        with gzip.open(filename, 'w+', compresslevel=9) as f:
+        with gzip.open(filename, 'w+b', compresslevel=9) as f:
             pickle.dump(self, f, protocol=2)
         return filename
 
@@ -193,7 +193,7 @@ class scorer(object):
         """
         # return joblib.load(filename)
         kwargs = {'encoding': 'latin1'} if six.PY3 else {}
-        with gzip.open(filename) as f:
+        with gzip.open(filename, 'rb') as f:
             out = pickle.load(f, **kwargs)
         return out
 
