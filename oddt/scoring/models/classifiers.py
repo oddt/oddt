@@ -4,19 +4,18 @@ from sklearn.base import ClassifierMixin
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
-
-from oddt.scoring.models.neuralnetwork import _ffnet_sklearned
+from sklearn.neural_network import MLPClassifier
 
 __all__ = ['randomforest', 'svm', 'neuralnetwork']
 
 class neuralnetwork(ClassifierMixin):
     def __init__(self, *args, **kwargs):
-        """ Assemble Neural network using sklearn tools plus ffnet wrapper """
+        """ Assemble Neural network using sklearn pipeline """
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
         local_kwargs = {key: kwargs.pop(key) for key in kwargs.keys() if key != 'steps' and len(key.split('__', 1)) == 1}
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
                                   ('scaler', StandardScaler()),
-                                  ('neural_network', _ffnet_sklearned(*args, **local_kwargs))
+                                  ('neural_network', MLPClassifier(*args, **local_kwargs))
                                  ]).set_params(**kwargs)
 
     def get_params(self, deep=True):

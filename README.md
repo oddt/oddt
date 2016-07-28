@@ -16,8 +16,7 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   * OpenBabel (2.3.2+) or/and RDKit (2014.03)
   * Numpy (1.8+)
   * Scipy (0.13+)
-  * Sklearn (0.13+)
-  * ffnet (0.7.1+) only for neural network functionality.
+  * Sklearn (0.18+)
   * joblib (0.8+)
 
 ## Install

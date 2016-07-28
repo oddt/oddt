@@ -18,8 +18,7 @@ Requirements
 * OpenBabel (2.3.2+) or/and RDKit (2014.03)
 * Numpy (1.8+)
 * Scipy (0.13+)
-* Sklearn (0.13+)
-* ffnet (0.7.1+) only for neural network functionality.
+* Sklearn (0.18+)
 * joblib (0.8+)
 
 .. note:: All installation methods assume that one of toolkits is installed. For detailed installation procedure visit toolkit’s website (OpenBabel, RDKit)
@@ -41,14 +40,6 @@ Finally you can install ODDT straight from the source
 
 Common installation problems
 ````````````````````````````
-
-ffnet requires numpy.distutils during installation, and you are trying to install ffnet without numpy. You have to install numpy first.
-::
-    pip install numpy
-
-Then you can install ODDT
-::
-    pip install oddt
 
 
 Usage Instructions
