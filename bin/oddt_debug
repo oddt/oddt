@@ -1,0 +1,101 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+from __future__ import print_function
+import sys
+import argparse
+import csv
+import gzip
+
+import six
+
+import oddt
+
+# arguments
+parser = argparse.ArgumentParser(description='Open Drug Discovery (ODDT) command line tools')
+parser.add_argument('--toolkit', dest='toolkit', choices=['ob', 'rdk'], default='ob', help='Choose which toolkit should be used for calculations, either "ob" (OpenBabel) or "rdkit" (RDKit) (default: ob)')
+parser.add_argument('--version', action='version', version='%(prog)s ' + oddt.__version__)
+
+# in/out files and formats
+parser.add_argument('in_file', nargs='+', help='Input files of formats supported by toolkit.')
+parser.add_argument('-i', dest='in_format', help='Input file(s) format')
+parser.add_argument('-O', '--output', dest='out_file', help='Output file')
+
+# descriptors
+group = parser.add_argument_group('Generate CSV from descriptors, scoring functions and docking software')
+group.add_argument('--descriptors',
+                   choices=['autodock_vina',
+                            'oddt_vina',
+                            'nnscore',
+                            'binana',
+                            'rfscore_v1',
+                            'rfscore_v2',
+                            'rfscore_v3',
+                            ],
+                   help='Choose docking software to be used',
+                   )
+group.add_argument('--receptor', help='Protein file')
+
+args = parser.parse_args()
+
+
+# Switch toolkits
+if 'toolkit' in args:
+    if args.toolkit == 'ob':
+        from oddt.toolkits import ob
+        oddt.toolkit = ob
+    elif args.toolkit == 'rdk':
+        from oddt.toolkits import rdk
+        oddt.toolkit = rdk
+
+# load protein once
+if args.receptor:
+    extension = args.receptor.split('.')[-1]
+    receptor = six.next(oddt.toolkit.readfile(extension, args.receptor))
+    receptor.protein = True
+
+# Load descriptor genearator
+if args.descriptors.startswith('rfscore'):
+    from oddt.scoring.functions import rfscore
+    descriptor_generator = rfscore(protein=receptor, version=int(args.descriptors.split('_')[1][1:])).descriptor_generator
+elif args.descriptors == 'nnscore':
+    from oddt.scoring.functions import nnscore
+    descriptor_generator = nnscore(protein=receptor).descriptor_generator
+elif args.descriptors == 'binana':
+    from oddt.scoring.descriptors.binana import binana_descriptor
+    descriptor_generator = binana_descriptor(protein=receptor)
+elif args.descriptors == 'autodock_vina':
+    from oddt.scoring.descriptors import autodock_vina_descriptor
+    descriptor_generator = autodock_vina_descriptor(protein=receptor)
+elif args.descriptors == 'oddt_vina':
+    from oddt.scoring.descriptors import oddt_vina_descriptor
+    descriptor_generator = oddt_vina_descriptor(protein=receptor)
+
+assert descriptor_generator is not None, 'No descriptor generator has been chosen.'
+
+if args.out_file:
+    if args.out_file.split('.')[-1] == 'gz':
+        out_file = gzip.open(args.out_file, 'wb+')
+    else:
+        out_file = open(args.out_file, 'wb+')
+else:
+    out_file = sys.stdout
+
+# Print header if possible
+if hasattr(descriptor_generator, 'titles'):
+    print(','.join(descriptor_generator.titles), file=out_file)
+
+# Read files
+for in_file in args.in_file:
+    if args.in_format:
+        fmt = args.out_format
+    else:  # autodiscover
+        tmp = in_file.split('.')
+        if tmp[-1] == 'gz':
+            fmt = tmp[-2]
+        else:
+            fmt = tmp[-1]
+    for mol in oddt.toolkit.readfile(fmt, in_file):
+        print(','.join(map(str, descriptor_generator.build([mol]).tolist()[0])), file=out_file)
+
+if args.out_file:
+    out_file.close()
