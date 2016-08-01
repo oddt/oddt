@@ -4,6 +4,8 @@ from scipy.spatial.distance import cdist as distance
 from oddt.docking import autodock_vina
 from oddt.docking.internal import vina_docking
 
+__all__ = ['fingerprints', 'autodock_vina_descriptor', 'oddt_vina_descriptor']
+
 def atoms_by_type(atom_dict, types, mode = 'atomic_nums'):
     """Returns atom dictionaries based on given criteria. Currently we have 3 types of atom selection criteria:
         * atomic numbers ['atomic_nums']
@@ -116,6 +118,18 @@ class close_contacts(object):
         self.aligned_pairs = aligned_pairs
         self.mode = mode
 
+        # setup titles
+        if len(self.cutoff) == 1:
+            self.titles = ['%s.%s' % (str(p), str(l))
+                           for p in self.protein_types for l in self.ligand_types
+                           ]
+        else:
+            self.titles = ['%s.%s_%s-%s' % (str(p), str(l), str(c1), str(c2))
+                           for p in self.protein_types
+                           for l in self.ligand_types
+                           for c1, c2 in self.cutoff
+                           ]
+
     def build(self, ligands, protein = None, single = False):
         """Builds descriptors for series of ligands
 
@@ -198,6 +212,7 @@ class autodock_vina_descriptor(object):
         self.protein = protein
         self.vina = autodock_vina(protein)
         self.vina_scores = vina_scores or ['vina_affinity', 'vina_gauss1', 'vina_gauss2', 'vina_repulsion', 'vina_hydrophobic', 'vina_hydrogen']
+        self.titles = self.vina_scores
 
     def set_protein(self, protein):
         self.protein = protein
@@ -237,6 +252,7 @@ class oddt_vina_descriptor(object):
                                 'vina_intra_gauss1', 'vina_intra_gauss2', 'vina_intra_repulsion', 'vina_intra_hydrophobic', 'vina_intra_hydrogen', # intra-molecular interactions
                                 'vina_num_rotors']
         self.vina_scores = vina_scores or self.all_vina_scores
+        self.titles = self.vina_scores
 
     def set_protein(self, protein):
         self.protein = protein
