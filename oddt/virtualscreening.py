@@ -146,17 +146,12 @@ class virtualscreening:
             engine = autodock_vina(protein, *args, **kwargs)
         else:
             raise ValueError('Docking engine %s was not implemented in ODDT' % engine)
-        def _iter_conf(results):
-            """ Generator to go through docking results, and put them to pipe """
-            for confs in results:
-                for conf in confs:
-                    yield conf
         if self.n_cpu != 1:
             _parallel_helper_partial = partial(_parallel_helper, engine, 'dock')
             docking_results = self._pool.imap(_parallel_helper_partial, ({'ligands':lig, 'single': True} for lig in self._pipe))
         else:
             docking_results = (engine.dock(lig, single=True) for lig in self._pipe)
-        self._pipe = _iter_conf(docking_results)
+        self._pipe = chain.from_iterable(docking_results)
 
     def score(self, function, protein = None, *args, **kwargs):
         """Scoring procedure.
