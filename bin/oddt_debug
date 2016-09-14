@@ -95,7 +95,8 @@ for in_file in args.in_file:
         else:
             fmt = tmp[-1]
     for mol in oddt.toolkit.readfile(fmt, in_file):
-        print(','.join(map(str, descriptor_generator.build([mol]).tolist()[0])), file=out_file)
+        if mol:
+            print(','.join(map(str, descriptor_generator.build([mol]).tolist()[0])), file=out_file)
 
 if args.out_file:
     out_file.close()
