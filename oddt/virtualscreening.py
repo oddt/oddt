@@ -32,8 +32,6 @@ class virtualscreening:
         self.num_input = 0
         self.num_output = 0
         self.verbose = verbose
-        # setup pool
-        self._pool = Pool(n_cpu if n_cpu > 0 else None)
 
     def load_ligands(self, fmt, ligands_file, *args, **kwargs):
         """Loads file with ligands.
@@ -148,7 +146,7 @@ class virtualscreening:
             raise ValueError('Docking engine %s was not implemented in ODDT' % engine)
         if self.n_cpu != 1:
             _parallel_helper_partial = partial(_parallel_helper, engine, 'dock')
-            docking_results = self._pool.imap(_parallel_helper_partial, ({'ligands':lig, 'single': True} for lig in self._pipe))
+            docking_results = Pool(self.n_cpu if self.n_cpu > 0 else None).imap(_parallel_helper_partial, ({'ligands':lig, 'single': True} for lig in self._pipe))
         else:
             docking_results = (engine.dock(lig, single=True) for lig in self._pipe)
         self._pipe = chain.from_iterable(docking_results)
@@ -208,7 +206,7 @@ class virtualscreening:
                 raise ValueError('Supplied object "%s" is not an ODDT scoring funtion' % function.__name__)
         if self.n_cpu != 1:
             _parallel_helper_partial = partial(_parallel_helper, sf, 'predict_ligand')
-            self._pipe = self._pool.imap(_parallel_helper_partial, ({'ligand': lig} for lig in self._pipe), chunksize=100)
+            self._pipe = Pool(self.n_cpu if self.n_cpu > 0 else None).imap(_parallel_helper_partial, ({'ligand': lig} for lig in self._pipe), chunksize=100)
         else:
             self._pipe = sf.predict_ligands(self._pipe)
 
