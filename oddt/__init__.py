@@ -30,7 +30,7 @@ elif rdk:
 def get_version():
     home = os.path.dirname(__file__)
     git_v = None
-    v = '0.1.15'
+    v = '0.2.0'
     if os.path.isdir(home + '/../.git'):
         try:
             git_v = str(subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip())
