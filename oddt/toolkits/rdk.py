@@ -100,7 +100,10 @@ outformats = dict([(_x, _formats[_x]) for _x in _formats if _x not in _notoutfor
 base_feature_factory = AllChem.BuildFeatureFactory(os.path.join(RDConfig.RDDataDir,'BaseFeatures.fdef'))
 """ Global feature factory based on BaseFeatures.fdef """
 
-_forcefields = {'uff': AllChem.UFFOptimizeMolecule}
+_forcefields = {
+                'uff': AllChem.UFFOptimizeMolecule,
+                'mmff94': AllChem.MMFFOptimizeMolecule,
+                }
 forcefields = list(_forcefields.keys())
 """A list of supported forcefields"""
 
@@ -231,16 +234,13 @@ def readstring(format, string, **kwargs):
     elif format=="smi":
         s = string.split()
         mol = Chem.MolFromSmiles(s[0], **kwargs)
-        mol.SetProp("_Name", ' '.join(s[1:]))
+        if mol:
+            mol.SetProp("_Name", ' '.join(s[1:]))
     elif format=='inchi' and Chem.INCHI_AVAILABLE:
         mol = Chem.inchi.MolFromInchi(string, **kwargs)
     else:
         raise ValueError("%s is not a recognised RDKit format" % format)
-#    if mol:
     return Molecule(mol)
-#    else:
-#        raise IOError, "Failed to convert '%s' to format '%s'" % (
-#            string, format)
 
 class Outputfile(object):
     """Represent a file to which *output* is to be sent.
@@ -315,12 +315,12 @@ class Molecule(object):
     """
     _cinfony = True
 
-    def __new__(cls, Mol=None, *args, **kwargs):
+    def __new__(cls, Mol=None, source=None, *args, **kwargs):
         """ Trap RDKit molecules which are 'None' """
-        if Mol is None:
+        if Mol is None and not source:
             return None
         else:
-            return super(Molecule, cls).__new__(cls, Mol, *args, **kwargs)
+            return super(Molecule, cls).__new__(cls, Mol=Mol, source=source, *args, **kwargs)
 
     def __init__(self, Mol=None, source=None, protein=False):
         if hasattr(Mol, "_cinfony"):
@@ -349,6 +349,9 @@ class Molecule(object):
         if not self._Mol and self._source:
             self._Mol = readstring(self._source['fmt'], self._source['string']).Mol
             self._source = None
+            if self._Mol is None:
+                self = None
+                return None
         return self._Mol
 
     @Mol.setter
@@ -809,7 +812,7 @@ class Molecule(object):
             self.make3D(forcefield)
         _forcefields[forcefield](self.Mol, maxIters = steps)
 
-    def make3D(self, forcefield = "uff", steps = 50):
+    def make3D(self, forcefield = "mmff94", steps = 50):
         """Generate 3D coordinates.
 
         Optional parameters:
@@ -823,12 +826,14 @@ class Molecule(object):
         to improve the coordinates further.
         """
         forcefield = forcefield.lower()
-        success = AllChem.EmbedMolecule(self.Mol)
-        if success == -1: # Failed
-            success = AllChem.EmbedMolecule(self.Mol,
-                                            useRandomCoords = True)
-            if success == -1:
-                raise Exception("Embedding failed!")
+        success = AllChem.EmbedMolecule(self.Mol,
+                                        useExpTorsionAnglePrefs=True,
+                                        useBasicKnowledge=True,
+                                        enforceChirality=True,
+                                        )
+        if success == -1:
+            raise Exception("Embedding failed!")
+
         self.localopt(forcefield, steps)
 
     def __getstate__(self):
