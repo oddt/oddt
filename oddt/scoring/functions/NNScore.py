@@ -88,13 +88,13 @@ class nnscore(scorer):
         trained_nets = Parallel(n_jobs=self.n_jobs, verbose=10)(delayed(_parallel_helper)(neuralnetwork((5,),
                                                                                                         random_state=seeds[i],
                                                                                                         activation='logistic',
-                                                                                                        algorithm='l-bfgs',
+                                                                                                        solver='lbfgs',
                                                                                                         max_iter=10000,
                                                                                                         ),
                                                                                           'fit',
                                                                                           self.train_descs,
                                                                                           self.train_target)
-                                                                for i in xrange(n))
+                                                                for i in range(n))
         # get 20 best
         best_idx = np.array([net.score(self.test_descs, self.test_target.flatten()) for net in trained_nets]).argsort()[::-1][:20]
         self.model = ensemble_model([trained_nets[i] for i in best_idx])

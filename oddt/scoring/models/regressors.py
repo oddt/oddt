@@ -19,7 +19,7 @@ class neuralnetwork(RegressorMixin):
     def __init__(self, *args, **kwargs):
         """ Assemble Neural network using sklearn pipeline """
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
-        local_kwargs = {key: kwargs.pop(key) for key in kwargs.keys() if key != 'steps' and len(key.split('__', 1)) == 1}
+        local_kwargs = {key: kwargs.pop(key) for key in list(kwargs.keys()) if key != 'steps' and len(key.split('__', 1)) == 1}
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
                                   ('scaler', StandardScaler()),
                                   ('neural_network', MLPRegressor(*args, **local_kwargs))
@@ -45,7 +45,7 @@ class svm(RegressorMixin):
     def __init__(self, *args, **kwargs):
         """ Assemble a proper SVM using sklearn tools regressor """
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
-        local_kwargs = {key: kwargs.pop(key) for key in kwargs.keys() if key != 'steps' and len(key.split('__', 1)) == 1}
+        local_kwargs = {key: kwargs.pop(key) for key in list(kwargs.keys()) if key != 'steps' and len(key.split('__', 1)) == 1}
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
                                   ('scaler', StandardScaler()),
                                   ('svm', SVR(*args, **local_kwargs))
