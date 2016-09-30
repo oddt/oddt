@@ -28,7 +28,7 @@ class virtualscreening:
                 Verbosity flag for some methods
         """
         self._pipe = None
-        self.n_cpu = n_cpu
+        self.n_cpu = n_cpu if n_cpu else -1
         self.num_input = 0
         self.num_output = 0
         self.verbose = verbose

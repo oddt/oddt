@@ -175,12 +175,16 @@ if __name__ == '__main__':
                 fmt = tmp[-2]
             else:
                 fmt = tmp[-1]
+        if not fmt:
+            raise ValueError('No output format nor output file specified.')
         if fmt == 'csv':
             pipeline.write_csv(args.out_file, fields=args.save_fields)
         else:
             pipeline.write(fmt, args.out_file, overwrite=True)
     else:
         fmt = args.out_format
+        if not fmt:
+            raise ValueError('No output format nor output file specified.')
         if fmt == 'csv':
             pipeline.write_csv(sys.stdout, fields=args.save_fields)
         else:

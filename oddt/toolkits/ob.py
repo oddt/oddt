@@ -389,7 +389,7 @@ class AtomStack(object):
 
     def __getitem__(self, i):
         if 0 <= i < self.OBMol.NumAtoms():
-            return Atom(self.OBMol.GetAtom(i+1))
+            return Atom(self.OBMol.GetAtom(int(i+1)))
         else:
             raise AttributeError("There is no atom with Idx %i" % i)
 
