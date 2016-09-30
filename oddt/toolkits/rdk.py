@@ -113,6 +113,7 @@ def _filereader_mol2(filename):
     n = 0
     with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
         for line in f:
+            line = line.decode('ascii')
             if line[:1] == '#':
                 data += line
             elif line[:17] == '@<TRIPOS>MOLECULE':
@@ -131,6 +132,7 @@ def _filereader_sdf(filename):
     n = 0
     with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
         for line in f:
+            line = line.decode('ascii')
             block += line
             if line[:4] == '$$$$':
                 yield Molecule(source={'fmt': 'sdf', 'string': block})
@@ -144,6 +146,7 @@ def _filereader_pdb(filename, opt = None):
     n = 0
     with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
         for line in f:
+            line = line.decode('ascii')
             block += line
             if line[:4] == 'ENDMDL':
                 yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
@@ -203,7 +206,7 @@ def readfile(format, filename, lazy = False, opt = None, *args, **kwargs):
         return smi_reader()
     elif format=='inchi' and Chem.INCHI_AVAILABLE:
         def inchi_reader():
-            for line in open(filename, 'r'):
+            for line in open(filename):
                 mol = Chem.inchi.MolFromInchi(line.strip(), *args, **kwargs)
                 yield Molecule(mol)
         return inchi_reader()

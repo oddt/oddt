@@ -156,6 +156,10 @@ class Molecule(pybel.Molecule):
     def residues(self):
         return [Residue(res) for res in ob.OBResidueIter(self.OBMol)]
 
+    def __str__(self):
+        return self._repr_svg_()
+        # super(Molecule,self).__repr__()
+
     #### Custom ODDT properties ####
     def __getattr__(self, attr):
         for desc in pybel._descdict.keys():
