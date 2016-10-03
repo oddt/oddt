@@ -192,7 +192,8 @@ def readfile(format, filename, lazy = False, opt = None, *args, **kwargs):
         if lazy:
             return _filereader_sdf(filename)
         else:
-            return (Molecule(Mol) for Mol in Chem.SDMolSupplier(filename))
+            filename_handle = gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb')
+            return (Molecule(Mol) for Mol in Chem.ForwardSDMolSupplier(filename_handle))
     elif format=="pdb":
         def mol_reader():
             yield Molecule(Chem.MolFromPDBFile(filename, *args, **kwargs))

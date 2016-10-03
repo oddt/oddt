@@ -9,7 +9,7 @@ pd.set_option("display.max_colwidth", 999999)
 
 def _mol_dict_reader(fmt='sdf',
                      filepath_or_buffer=None,
-                     names=None,
+                     usecols=None,
                      molecule_column='mol',
                      molecule_name='mol_name',
                      smiles_column=None,
@@ -19,8 +19,8 @@ def _mol_dict_reader(fmt='sdf',
     for mol in oddt.toolkit.readfile(fmt, filepath_or_buffer):
         if skip_bad_mols and mol is None:
             continue  # add warning with number of skipped molecules
-        if names:
-            mol_data = dict((k, v) for k, v in mol.data.items() if k in names)
+        if usecols:
+            mol_data = dict((k, v) for k, v in mol.data.items() if k in usecols)
         else:
             mol_data = dict(mol.data)
         if molecule_column:
@@ -34,7 +34,7 @@ def _mol_dict_reader(fmt='sdf',
 
 
 def read_sdf(filepath_or_buffer=None,
-             names=None,
+             usecols=None,
              molecule_column='mol',
              molecule_name='mol_name',
              smiles_column=None,
@@ -42,7 +42,7 @@ def read_sdf(filepath_or_buffer=None,
              **kwargs):
     return _mol_dict_reader(fmt='sdf',
                             filepath_or_buffer=filepath_or_buffer,
-                            names=names,
+                            usecols=usecols,
                             molecule_column=molecule_column,
                             molecule_name=molecule_name,
                             smiles_column=smiles_column,
@@ -66,7 +66,7 @@ class ChemDataFrame(pd.DataFrame):
                filepath_or_buffer=None,
                update_properties=True,
                molecule_column='mol',
-               names=None):
+               columns=None):
         out = oddt.toolkit.Outputfile('sdf', filepath_or_buffer, overwrite=True)
         for ix, row in self.iterrows():
             mol = row[molecule_column].clone
@@ -74,9 +74,9 @@ class ChemDataFrame(pd.DataFrame):
                 new_data = row.to_dict()
                 del new_data[molecule_column]
                 mol.data.update(new_data)
-            if names:
+            if columns:
                 for k in mol.data.keys():
-                    if k not in names:
+                    if k not in columns:
                         del mol.data[k]
             out.write(mol)
         out.close()
