@@ -24,7 +24,7 @@ from copy import copy
 import gzip
 from itertools import combinations
 
-from six import next, BytesIO
+from six import next
 import numpy as np
 
 import rdkit
@@ -188,8 +188,10 @@ def readfile(format, filename, lazy = False, opt = None, *args, **kwargs):
     # errors in the format and errors in opening the file.
     # Then switch to an iterator...
     if format in ["sdf", "mol"]:
-        #return _filereader_sdf(filename)
-        return (Molecule(Mol) for Mol in Chem.SDMolSupplier(filename))
+        if lazy:
+            return _filereader_sdf(filename)
+        else:
+            return (Molecule(Mol) for Mol in Chem.SDMolSupplier(filename))
     elif format=="pdb":
         def mol_reader():
             yield Molecule(Chem.MolFromPDBFile(filename, *args, **kwargs))
@@ -228,8 +230,10 @@ def readstring(format, string, **kwargs):
     """
     format = format.lower()
     if format in ["mol", "sdf"]:
-        with BytesIO(string.encode('ascii')) as bio:
-            mol = next(Chem.ForwardSDMolSupplier(bio, **kwargs))
+        supplier = Chem.SDMolSupplier()
+        supplier.SetData(string)
+        mol = next(supplier)
+        del supplier
     elif format=="mol2":
         mol = Chem.MolFromMol2Block(string, **kwargs)
     elif format=="pdb":
@@ -345,6 +349,8 @@ class Molecule(object):
         self._residues = None
         # lazy
         self._source = source # dict with keys: n, fmt, string, filename
+        if not self.Mol and not self._source:
+            self = None
 
     # lazy Molecule parsing requires masked Mol
     @property
@@ -476,7 +482,7 @@ class Molecule(object):
 
     @property
     def clone(self):
-        return Molecule(Chem.Mol(mol.ToBinary()))
+        return Molecule(Chem.Mol(self.Mol.ToBinary()))
 
     def _repr_svg_(self, size=(200, 200)):
         mc = Chem.Mol(self.Mol.ToBinary())
