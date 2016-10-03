@@ -85,7 +85,7 @@ class Molecule(pybel.Molecule):
         self._source = source # dict with keys: n, fmt, string, filename
 
         # call parent constructor
-        super(Molecule,self).__init__(OBMol)
+        super(Molecule, self).__init__(OBMol)
 
         self.protein = protein
 
@@ -484,6 +484,13 @@ class Residue(object):
         """
         return iter(self.atoms)
 
+
+class MoleculeData(pybel.MoleculeData):
+    def _data(self):
+        blacklist_keys = ['OpenBabel Symmetry Classes', 'MOL Chiral Flag', 'PartialCharges']
+        return [x for x in super(MoleculeData, self)._data() if x.GetAttribute() not in blacklist_keys]
+
+pybel.MoleculeData = MoleculeData
 
 class Fingerprint(pybel.Fingerprint):
     @property
