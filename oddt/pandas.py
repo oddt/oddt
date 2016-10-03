@@ -14,34 +14,8 @@ def _mol_reader(fmt='sdf',
                 molecule_name='mol_name',
                 smiles_column=None,
                 skip_bad_mols=False,
+                chunksize=None,
                 **kwargs):
-    out = []
-    for mol in oddt.toolkit.readfile(fmt, filepath_or_buffer):
-        if skip_bad_mols and mol is None:
-            continue  # add warning with number of skipped molecules
-        if usecols:
-            mol_data = dict((k, v) for k, v in mol.data.items() if k in usecols)
-        else:
-            mol_data = dict(mol.data)
-        if molecule_column:
-            mol_data[molecule_column] = mol
-        if molecule_name:
-            mol_data[molecule_name] = mol.title
-        if smiles_column:
-            mol_data[smiles_column] = mol.write('smi').split()[0]
-        out.append(mol_data)
-    return ChemDataFrame(out, **kwargs)
-
-
-def _mol_chunk_reader(fmt='sdf',
-                      filepath_or_buffer=None,
-                      usecols=None,
-                      molecule_column='mol',
-                      molecule_name='mol_name',
-                      smiles_column=None,
-                      skip_bad_mols=False,
-                      chunksize=1000,
-                      **kwargs):
     chunk = []
     for n, mol in enumerate(oddt.toolkit.readfile(fmt, filepath_or_buffer)):
         if skip_bad_mols and mol is None:
@@ -57,7 +31,7 @@ def _mol_chunk_reader(fmt='sdf',
         if smiles_column:
             mol_data[smiles_column] = mol.write('smi').split()[0]
         chunk.append(mol_data)
-        if (n + 1) % chunksize == 0:
+        if chunksize and (n + 1) % chunksize == 0:
             yield ChemDataFrame(chunk, **kwargs)
             chunk = []
     if chunk:
@@ -70,27 +44,21 @@ def read_sdf(filepath_or_buffer=None,
              molecule_name='mol_name',
              smiles_column=None,
              skip_bad_mols=False,
-             chunksize=1000,
+             chunksize=None,
              **kwargs):
+    result = _mol_reader(fmt='sdf',
+                         filepath_or_buffer=filepath_or_buffer,
+                         usecols=usecols,
+                         molecule_column=molecule_column,
+                         molecule_name=molecule_name,
+                         smiles_column=smiles_column,
+                         skip_bad_mols=skip_bad_mols,
+                         chunksize=chunksize,
+                         **kwargs)
     if chunksize:
-        return _mol_chunk_reader(fmt='sdf',
-                                 filepath_or_buffer=filepath_or_buffer,
-                                 usecols=usecols,
-                                 molecule_column=molecule_column,
-                                 molecule_name=molecule_name,
-                                 smiles_column=smiles_column,
-                                 skip_bad_mols=skip_bad_mols,
-                                 chunksize=chunksize,
-                                 **kwargs)
+        return result
     else:
-        return _mol_reader(fmt='sdf',
-                           filepath_or_buffer=filepath_or_buffer,
-                           usecols=usecols,
-                           molecule_column=molecule_column,
-                           molecule_name=molecule_name,
-                           smiles_column=smiles_column,
-                           skip_bad_mols=skip_bad_mols,
-                           **kwargs)
+        return next(result)
 
 
 class ChemSeries(pd.Series):
