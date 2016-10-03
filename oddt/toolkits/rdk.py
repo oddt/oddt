@@ -24,6 +24,7 @@ from copy import copy
 import gzip
 from itertools import combinations
 
+from six import next, BytesIO
 import numpy as np
 
 import rdkit
@@ -186,12 +187,9 @@ def readfile(format, filename, lazy = False, opt = None, *args, **kwargs):
     # Eagerly evaluate the supplier functions in order to report
     # errors in the format and errors in opening the file.
     # Then switch to an iterator...
-    if format=="sdf":
-        return _filereader_sdf(filename)
-    elif format=="mol":
-        def mol_reader():
-            yield Molecule(Chem.MolFromMolFile(filename, *args, **kwargs))
-        return mol_reader()
+    if format in ["sdf", "mol"]:
+        #return _filereader_sdf(filename)
+        return (Molecule(Mol) for Mol in Chem.SDMolSupplier(filename))
     elif format=="pdb":
         def mol_reader():
             yield Molecule(Chem.MolFromPDBFile(filename, *args, **kwargs))
@@ -229,8 +227,9 @@ def readstring(format, string, **kwargs):
     5
     """
     format = format.lower()
-    if format=="mol" or format=="sdf":
-        mol = Chem.MolFromMolBlock(string, **kwargs)
+    if format in ["mol", "sdf"]:
+        with BytesIO(string.encode('ascii')) as bio:
+            mol = next(Chem.ForwardSDMolSupplier(bio, **kwargs))
     elif format=="mol2":
         mol = Chem.MolFromMol2Block(string, **kwargs)
     elif format=="pdb":
