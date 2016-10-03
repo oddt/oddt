@@ -29,6 +29,7 @@ import numpy as np
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
+from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem import Descriptors
 from rdkit import RDConfig
 
@@ -130,7 +131,7 @@ def _filereader_mol2(filename):
 def _filereader_sdf(filename):
     block = ''
     n = 0
-    with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
+    with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
         for line in f:
             line = line.decode('ascii')
             block += line
@@ -476,7 +477,22 @@ class Molecule(object):
 
     @property
     def clone(self):
-        return Molecule(copy(self.Mol))
+        return Molecule(Chem.Mol(mol.ToBinary()))
+
+    def _repr_svg_(self, size=(200, 200)):
+        mc = Chem.Mol(self.Mol.ToBinary())
+        AllChem.Compute2DCoords(mc)
+        drawer = rdMolDraw2D.MolDraw2DSVG(*size)
+        drawer.DrawMolecule(mc)
+        drawer.FinishDrawing()
+        svg = drawer.GetDrawingText()
+        return svg.replace('svg:', '').replace('\n', '')
+
+    def __str__(self):
+        return self.__repr__()
+
+    def __repr__(self):
+        return self._repr_svg_()
 
     def clone_coords(self, source):
         self.Mol.RemoveAllConformers()
@@ -700,9 +716,6 @@ class Molecule(object):
         """
         return iter(self.atoms)
 
-    def __str__(self):
-        return self.write()
-
     def calcdesc(self, descnames=None):
         """Calculate descriptor values.
 
@@ -757,47 +770,6 @@ class Molecule(object):
         else:
             raise ValueError("%s is not a recognised RDKit Fingerprint type" % fptype)
         return fp
-
-    def draw(self, show=True, filename=None, update=False, usecoords=False):
-        """Create a 2D depiction of the molecule.
-
-        Optional parameters:
-          show -- display on screen (default is True)
-          filename -- write to file (default is None)
-          update -- update the coordinates of the atoms to those
-                    determined by the structure diagram generator
-                    (default is False)
-          usecoords -- don't calculate 2D coordinates, just use
-                       the current coordinates (default is False)
-
-        Aggdraw or Cairo is used for 2D depiction. Tkinter and
-        Python Imaging Library are required for image display.
-        """
-        if not usecoords and update:
-            AllChem.Compute2DCoords(self.Mol)
-            usecoords = True
-        mol = Chem.Mol(self.Mol.ToBinary()) # Clone
-        if not usecoords:
-            AllChem.Compute2DCoords(mol)
-
-        if filename: # Note: overwrite is allowed
-            Draw.MolToFile(mol, filename)
-        if show:
-            if not tk:
-                errormessage = ("Tkinter or Python Imaging "
-                                "Library not found, but is required for image "
-                                "display. See installation instructions for "
-                                "more information.")
-                raise ImportError(errormessage)
-            img = Draw.MolToImage(mol)
-            root = tk.Tk()
-            root.title((hasattr(self, "title") and self.title)
-                       or self.__str__().rstrip())
-            frame = tk.Frame(root, colormap="new", visual='truecolor').pack()
-            imagedata = PILtk.PhotoImage(img)
-            label = tk.Label(frame, image=imagedata).pack()
-            quitbutton = tk.Button(root, text="Close", command=root.destroy).pack(fill=tk.X)
-            root.mainloop()
 
     def localopt(self, forcefield = "uff", steps = 500):
         """Locally optimize the coordinates.
