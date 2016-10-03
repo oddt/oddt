@@ -10,6 +10,8 @@ from pybel import *
 import numpy as np
 import openbabel as ob
 from openbabel import OBAtomAtomIter, OBTypeTable
+
+import oddt
 from oddt.spatial import angle, angle_2v, dihedral
 
 backend = 'ob'
@@ -157,8 +159,13 @@ class Molecule(pybel.Molecule):
         return [Residue(res) for res in ob.OBResidueIter(self.OBMol)]
 
     def __str__(self):
-        return self._repr_svg_()
-        # super(Molecule,self).__repr__()
+        return self.__repr__()
+
+    def __repr__(self):
+        if oddt.ipython_notebook:
+            return self._repr_svg_()
+        else:
+            return super(Molecule, self).__repr__()
 
     #### Custom ODDT properties ####
     def __getattr__(self, attr):

@@ -43,6 +43,7 @@ from rdkit.Chem.Lipinski import NumRotatableBonds
 from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D,Generate
 
+import oddt
 from oddt.spatial import dihedral
 
 _descDict = dict(Descriptors.descList)
@@ -349,8 +350,9 @@ class Molecule(object):
         self._residues = None
         # lazy
         self._source = source # dict with keys: n, fmt, string, filename
-        if not self.Mol and not self._source:
-            self = None
+        if Mol is None and not source:
+            print('DESTRUCT')
+            return None
 
     # lazy Molecule parsing requires masked Mol
     @property
@@ -497,7 +499,10 @@ class Molecule(object):
         return self.__repr__()
 
     def __repr__(self):
-        return self._repr_svg_()
+        if oddt.ipython_notebook:
+            return self._repr_svg_()
+        else:
+            return super(Molecule, self).__repr__()
 
     def clone_coords(self, source):
         self.Mol.RemoveAllConformers()
