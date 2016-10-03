@@ -11,30 +11,43 @@ def _mol_dict_reader(fmt='sdf',
                      filepath_or_buffer=None,
                      names=None,
                      molecule_column='mol',
-                     smiles_column=None):
+                     molecule_name='mol_name',
+                     smiles_column=None,
+                     skip_bad_mols=False,
+                     **kwargs):
     out = []
     for mol in oddt.toolkit.readfile(fmt, filepath_or_buffer):
+        if skip_bad_mols and mol is None:
+            continue  # add warning with number of skipped molecules
         if names:
             mol_data = dict((k, v) for k, v in mol.data.items() if k in names)
         else:
             mol_data = dict(mol.data)
         if molecule_column:
             mol_data[molecule_column] = mol
+        if molecule_name:
+            mol_data[molecule_name] = mol.title
         if smiles_column:
             mol_data[smiles_column] = mol.write('smi').split()[0]
         out.append(mol_data)
-    return ChemDataFrame(out)
+    return ChemDataFrame(out, **kwargs)
 
 
 def read_sdf(filepath_or_buffer=None,
              names=None,
              molecule_column='mol',
-             smiles_column=None):
+             molecule_name='mol_name',
+             smiles_column=None,
+             skip_bad_mols=False,
+             **kwargs):
     return _mol_dict_reader(fmt='sdf',
                             filepath_or_buffer=filepath_or_buffer,
                             names=names,
                             molecule_column=molecule_column,
-                            smiles_column=smiles_column)
+                            molecule_name=molecule_name,
+                            smiles_column=smiles_column,
+                            skip_bad_mols=skip_bad_mols,
+                            **kwargs)
 
 
 class ChemSeries(pd.Series):
