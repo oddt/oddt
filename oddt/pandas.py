@@ -16,14 +16,22 @@ def _mol_reader(fmt='sdf',
                 skip_bad_mols=False,
                 chunksize=None,
                 **kwargs):
+
+    # capture options for reader
+    reader_kwargs = {}
+    if 'opt' in kwargs:
+        reader_kwargs['opt'] = kwargs.pop('opt')
+    if 'sanitize' in kwargs:
+        reader_kwargs['sanitize'] = kwargs.pop('sanitize')
+
     chunk = []
-    for n, mol in enumerate(oddt.toolkit.readfile(fmt, filepath_or_buffer)):
+    for n, mol in enumerate(oddt.toolkit.readfile(fmt, filepath_or_buffer, **reader_kwargs)):
         if skip_bad_mols and mol is None:
             continue  # add warning with number of skipped molecules
         if usecols:
-            mol_data = dict((k, v) for k, v in mol.data.items() if k in usecols)
+            mol_data = dict((k, mol.data[k]) for k in usecols)
         else:
-            mol_data = dict(mol.data)
+            mol_data = mol.data.to_dict()
         if molecule_column:
             mol_data[molecule_column] = mol
         if molecule_name:
@@ -34,7 +42,7 @@ def _mol_reader(fmt='sdf',
         if chunksize and (n + 1) % chunksize == 0:
             yield ChemDataFrame(chunk, **kwargs)
             chunk = []
-    if chunk:
+    if chunk or chunksize is None:
         yield ChemDataFrame(chunk, **kwargs)
 
 

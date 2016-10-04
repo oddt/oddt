@@ -117,9 +117,9 @@ def _filereader_mol2(filename):
     block = ''
     data = ''
     n = 0
-    with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
+    with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
         for line in f:
-            line = line
+            line = line.decode('ascii')
             if line[:1] == '#':
                 data += line
             elif line[:17] == '@<TRIPOS>MOLECULE':
@@ -139,7 +139,7 @@ def _filereader_sdf(filename):
     n = 0
     with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
         for line in f:
-            line = line
+            line = line.decode('ascii')
             block += line
             if line[:4] == '$$$$':
                 yield Molecule(source={'fmt': 'sdf', 'string': block})
@@ -152,9 +152,9 @@ def _filereader_sdf(filename):
 def _filereader_pdb(filename, opt=None):
     block = ''
     n = 0
-    with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
+    with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
         for line in f:
-            line = lin
+            line = line.decode('ascii')
             block += line
             if line[:4] == 'ENDMDL':
                 yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
@@ -199,7 +199,7 @@ def readfile(format, filename, lazy=False, opt=None, *args, **kwargs):
             return _filereader_sdf(filename)
         else:
             filename_handle = gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb')
-            return (Molecule(Mol) for Mol in Chem.ForwardSDMolSupplier(filename_handle))
+            return (Molecule(Mol) for Mol in Chem.ForwardSDMolSupplier(filename_handle, **kwargs))
     elif format == "pdb":
         def mol_reader():
             yield Molecule(Chem.MolFromPDBFile(filename, *args, **kwargs))
@@ -1149,8 +1149,11 @@ class MoleculeData(object):
     def __setitem__(self, key, value):
         self._mol.SetProp(key, str(value))
 
+    def to_dict(self):
+        return self._mol.GetPropsAsDict()
+
     def __repr__(self):
-        return dict(self.items()).__repr__()
+        return self.to_dict().__repr__()
 
 
 class Fingerprint(object):
