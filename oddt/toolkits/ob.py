@@ -2,6 +2,8 @@ from __future__ import print_function
 # All functions using f2py need to be loaded before pybel/openbabel,
 # otherwise it will segfault.
 # See BUG report: https://github.com/numpy/numpy/issues/1746
+from itertools import chain
+
 from scipy.optimize import fmin_l_bfgs_b
 
 import gzip
@@ -513,7 +515,12 @@ class Residue(object):
 class MoleculeData(pybel.MoleculeData):
     def _data(self):
         blacklist_keys = ['OpenBabel Symmetry Classes', 'MOL Chiral Flag', 'PartialCharges']
-        return [x for x in super(MoleculeData, self)._data() if x.GetAttribute() not in blacklist_keys]
+        data = chain(self._mol.GetAllData(pybel._obconsts.PairData),
+                     self._mol.GetAllData(pybel._obconsts.CommentData))
+        return [x for x in data if x.GetAttribute() not in blacklist_keys]
+
+    def to_dict(self):
+        return dict((x.GetAttribute(), x.GetValue()) for x in self._data())
 
 pybel.MoleculeData = MoleculeData
 
