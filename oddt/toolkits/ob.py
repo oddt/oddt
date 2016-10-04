@@ -26,7 +26,8 @@ elementtable = ob.OBElementTable()
 # hash OB!
 pybel.ob.obErrorLog.StopLogging()
 
-def _filereader_mol2(filename, opt = None):
+
+def _filereader_mol2(filename, opt=None):
     block = ''
     data = ''
     n = 0
@@ -35,7 +36,7 @@ def _filereader_mol2(filename, opt = None):
             if line[:1] == '#':
                 data += line
             elif line[:17] == '@<TRIPOS>MOLECULE':
-                if n>0: #skip `zero` molecule (any preciding comments and spaces)
+                if n > 0:  # skip `zero` molecule (any preciding comments and spaces)
                     yield Molecule(source={'fmt': 'mol2', 'string': block, 'opt': opt})
                 n += 1
                 block = data
@@ -45,7 +46,8 @@ def _filereader_mol2(filename, opt = None):
         if block:
             yield Molecule(source={'fmt': 'mol2', 'string': block, 'opt': opt})
 
-def _filereader_sdf(filename, opt = None):
+
+def _filereader_sdf(filename, opt=None):
     block = ''
     n = 0
     with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
@@ -55,10 +57,11 @@ def _filereader_sdf(filename, opt = None):
                 yield Molecule(source={'fmt': 'sdf', 'string': block, 'opt': opt})
                 n += 1
                 block = ''
-        if block: # open last molecule if any
+        if block:  # open last molecule if any
             yield Molecule(source={'fmt': 'sdf', 'string': block, 'opt': opt})
 
-def _filereader_pdb(filename, opt = None):
+
+def _filereader_pdb(filename, opt=None):
     block = ''
     n = 0
     with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
@@ -68,8 +71,9 @@ def _filereader_pdb(filename, opt = None):
                 yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
                 n += 1
                 block = ''
-        if block: # open last molecule if any
+        if block:  # open last molecule if any
             yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
+
 
 def readfile(format, filename, opt=None, lazy=False):
     if lazy and format == 'mol2':
@@ -81,19 +85,20 @@ def readfile(format, filename, opt=None, lazy=False):
     else:
         return pybel.readfile(format, filename, opt=opt)
 
+
 class Molecule(pybel.Molecule):
-    def __init__(self, OBMol = None, source = None, protein = False):
+    def __init__(self, OBMol=None, source=None, protein=False):
         # lazy
-        self._source = source # dict with keys: n, fmt, string, filename
+        self._source = source  # dict with keys: n, fmt, string, filename
 
         # call parent constructor
         super(Molecule, self).__init__(OBMol)
 
         self.protein = protein
 
-        #ob.DeterminePeptideBackbone(molecule.OBMol)
+        # ob.DeterminePeptideBackbone(molecule.OBMol)
         # percieve chains in residues
-        #if len(res_dict) > 1 and not molecule.OBMol.HasChainsPerceived():
+        # if len(res_dict) > 1 and not molecule.OBMol.HasChainsPerceived():
         #    print("Dirty HACK")
         #    molecule = pybel.readstring('pdb', molecule.write('pdb'))
         self._atom_dict = None
@@ -133,11 +138,10 @@ class Molecule(pybel.Molecule):
     @coords.setter
     def coords(self, new):
         new = np.asarray(new, dtype=np.float64)
-        [a.OBAtom.SetVector(v[0],v[1],v[2]) for v, a in zip(new, self.atoms)]
+        [a.OBAtom.SetVector(v[0], v[1], v[2]) for v, a in zip(new, self.atoms)]
         # clear cache
         self._coords = None
         self._atom_dict = None
-
 
     @property
     def charges(self):
@@ -151,9 +155,9 @@ class Molecule(pybel.Molecule):
         if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
             return self._source['string']
         else:
-            return super(Molecule,self).write(format=format, filename=filename, overwrite=overwrite, opt=opt)
+            return super(Molecule, self).write(format=format, filename=filename, overwrite=overwrite, opt=opt)
 
-    ### Backport code implementing resudues (by me) to support older versions of OB (aka 'stable')
+    # Backport code implementing resudues (by me) to support older versions of OB (aka 'stable')
     @property
     def residues(self):
         return [Residue(res) for res in ob.OBResidueIter(self.OBMol)]
@@ -167,7 +171,7 @@ class Molecule(pybel.Molecule):
         else:
             return super(Molecule, self).__repr__()
 
-    #### Custom ODDT properties ####
+    # Custom ODDT properties #
     def __getattr__(self, attr):
         for desc in pybel._descdict.keys():
             if attr.lower() == desc.lower():
@@ -179,14 +183,14 @@ class Molecule(pybel.Molecule):
         return self.OBMol.NumRotors()
 
     def _repr_svg_(self):
-        return self.write('svg', opt={'d':None}).replace('\n', '')
+        return self.write('svg', opt={'d': None}).replace('\n', '')
 
     @property
     def canonic_order(self):
         """ Returns np.array with canonic order of heavy atoms in the molecule """
         tmp = self.clone
         tmp.write('can')
-        return np.array(tmp.data['SMILES Atom Order'].split(), dtype=int)-1
+        return np.array(tmp.data['SMILES Atom Order'].split(), dtype=int) - 1
 
     @property
     def atom_dict(self):
@@ -220,44 +224,48 @@ class Molecule(pybel.Molecule):
     def _dicts(self):
         # Atoms
         atom_dtype = [('id', 'int16'),
-                 # atom info
-                 ('coords', 'float32', 3),
-                 ('radius', 'float32'),
-                 ('charge', 'float32'),
-                 ('atomicnum', 'int8'),
-                 ('atomtype','a4'),
-                 ('hybridization', 'int8'),
-                 ('neighbors', 'float32', (4,3)), # max of 4 neighbors should be enough
-                 # residue info
-                 ('resid', 'int16'),
-                 ('resname', 'a3'),
-                 ('isbackbone', 'bool'),
-                 # atom properties
-                 ('isacceptor', 'bool'),
-                 ('isdonor', 'bool'),
-                 ('isdonorh', 'bool'),
-                 ('ismetal', 'bool'),
-                 ('ishydrophobe', 'bool'),
-                 ('isaromatic', 'bool'),
-                 ('isminus', 'bool'),
-                 ('isplus', 'bool'),
-                 ('ishalogen', 'bool'),
-                 # secondary structure
-                 ('isalpha', 'bool'),
-                 ('isbeta', 'bool')
-                 ]
+                      # atom info
+                      ('coords', 'float32', 3),
+                      ('radius', 'float32'),
+                      ('charge', 'float32'),
+                      ('atomicnum', 'int8'),
+                      ('atomtype', 'a4'),
+                      ('hybridization', 'int8'),
+                      ('neighbors', 'float32', (4, 3)),  # max of 4 neighbors should be enough
+                      # residue info
+                      ('resid', 'int16'),
+                      ('resname', 'a3'),
+                      ('isbackbone', 'bool'),
+                      # atom properties
+                      ('isacceptor', 'bool'),
+                      ('isdonor', 'bool'),
+                      ('isdonorh', 'bool'),
+                      ('ismetal', 'bool'),
+                      ('ishydrophobe', 'bool'),
+                      ('isaromatic', 'bool'),
+                      ('isminus', 'bool'),
+                      ('isplus', 'bool'),
+                      ('ishalogen', 'bool'),
+                      # secondary structure
+                      ('isalpha', 'bool'),
+                      ('isbeta', 'bool')
+                      ]
 
         a = []
         atom_dict = np.empty(self.OBMol.NumAtoms(), dtype=atom_dtype)
-        metals = [3,4,11,12,13,19,20,21,22,23,24,25,26,27,28,29,30,31,37,38,39,40,41,42,43,44,45,46,47,48,49,50,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,87,88,89,90,91,
-    92,93,94,95,96,97,98,99,100,101,102,103]
+        metals = [3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
+                  30, 31, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
+                  50, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68,
+                  69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
+                  87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
+                  102, 103]
         for i, atom in enumerate(self.atoms):
 
             atomicnum = atom.atomicnum
             # skip non-polar hydrogens for performance
 #            if atomicnum == 1 and atom.OBAtom.IsNonPolarHydrogen():
 #                continue
-            atomtype = typetable.Translate(atom.type) # sybyl atom type
+            atomtype = typetable.Translate(atom.type)  # sybyl atom type
             partialcharge = atom.partialcharge
             coords = atom.coords
 
@@ -267,7 +275,7 @@ class Molecule(pybel.Molecule):
                 residue = False
 
             # get neighbors, but only for those atoms which realy need them
-            neighbors = np.zeros(4, dtype=[('coords', 'float32', 3),('atomicnum', 'int8')])
+            neighbors = np.zeros(4, dtype=[('coords', 'float32', 3), ('atomicnum', 'int8')])
             neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
                 # concider raising neighbors list to 6, but must do some benchmarks
@@ -276,30 +284,30 @@ class Molecule(pybel.Molecule):
                 nbr_atomicnum = nbr_atom.atomicnum
                 neighbors[n] = (nbr_atom.coords, nbr_atomicnum)
             atom_dict[i] = (atom.idx,
-                      coords,
-                      elementtable.GetVdwRad(atomicnum),
-                      partialcharge,
-                      atomicnum,
-                      atomtype,
-                      atom.OBAtom.GetHyb(),
-                      neighbors['coords'], #n_coords,
-                      # residue info
-                      residue.idx if residue else 0,
-                      residue.name if residue else '',
-                      residue.OBResidue.GetAtomProperty(atom.OBAtom, 2) if residue else False, # is backbone
-                      # atom properties
-                      atom.OBAtom.IsHbondAcceptor(),
-                      atom.OBAtom.IsHbondDonor(),
-                      atom.OBAtom.IsHbondDonorH(),
-                      atomicnum in metals,
-                      atomicnum == 6 and np.in1d(neighbors['atomicnum'], [6,1,0]).all(), #hydrophobe
-                      atom.OBAtom.IsAromatic(),
-                      atomtype in ['O3-', '02-' 'O-'] or atom.formalcharge < 0, # is charged (minus)
-                      atomtype in ['N3+', 'N2+', 'Ng+'] or atom.formalcharge > 0, # is charged (plus)
-                      atomicnum in [9,17,35,53], # is halogen?
-                      False, # alpha
-                      False # beta
-                      )
+                            coords,
+                            elementtable.GetVdwRad(atomicnum),
+                            partialcharge,
+                            atomicnum,
+                            atomtype,
+                            atom.OBAtom.GetHyb(),
+                            neighbors['coords'],  # n_coords,
+                            # residue info
+                            residue.idx if residue else 0,
+                            residue.name if residue else '',
+                            residue.OBResidue.GetAtomProperty(atom.OBAtom, 2) if residue else False,  # is backbone
+                            # atom properties
+                            atom.OBAtom.IsHbondAcceptor(),
+                            atom.OBAtom.IsHbondDonor(),
+                            atom.OBAtom.IsHbondDonorH(),
+                            atomicnum in metals,
+                            atomicnum == 6 and np.in1d(neighbors['atomicnum'], [6, 1, 0]).all(),  # hydrophobe
+                            atom.OBAtom.IsAromatic(),
+                            atomtype in ['O3-', '02-' 'O-'] or atom.formalcharge < 0,  # is charged (minus)
+                            atomtype in ['N3+', 'N2+', 'Ng+'] or atom.formalcharge > 0,  # is charged (plus)
+                            atomicnum in [9, 17, 35, 53],  # is halogen?
+                            False,  # alpha
+                            False  # beta
+                            )
 
         if self.protein:
             # Protein Residues (alpha helix and beta sheet)
@@ -310,13 +318,13 @@ class Molecule(pybel.Molecule):
                          ('C', 'float32', 3),
                          ('isalpha', 'bool'),
                          ('isbeta', 'bool')
-                         ] # N, CA, C
+                         ]  # N, CA, C
 
             b = []
             for residue in self.residues:
                 backbone = {}
                 for atom in residue:
-                    if residue.OBResidue.GetAtomProperty(atom.OBAtom,1):
+                    if residue.OBResidue.GetAtomProperty(atom.OBAtom, 1):
                         if atom.atomicnum == 7:
                             backbone['N'] = atom.coords
                         elif atom.atomicnum == 6:
@@ -325,7 +333,7 @@ class Molecule(pybel.Molecule):
                             else:
                                 backbone['C'] = atom.coords
                 if len(backbone.keys()) == 3:
-                    b.append((residue.idx, residue.name, backbone['N'],  backbone['CA'], backbone['C'], False, False))
+                    b.append((residue.idx, residue.name, backbone['N'], backbone['CA'], backbone['C'], False, False))
             res_dict = np.array(b, dtype=res_dtype)
 
             # detect secondary structure by phi and psi angles
@@ -334,12 +342,12 @@ class Molecule(pybel.Molecule):
             psi = dihedral(first['N'], first['CA'], first['C'], second['N'])
             phi = dihedral(first['C'], second['N'], second['CA'], second['C'])
             # mark atoms belonging to alpha and beta
-            res_mask_alpha = np.where(((phi > -145) & (phi < -35) & (psi > -70) & (psi < 50))) # alpha
+            res_mask_alpha = np.where(((phi > -145) & (phi < -35) & (psi > -70) & (psi < 50)))  # alpha
             res_dict['isalpha'][res_mask_alpha] = True
             for i in res_dict[res_mask_alpha]['id']:
                 atom_dict['isalpha'][atom_dict['resid'] == i] = True
 
-            res_mask_beta = np.where(((phi >= -180) & (phi < -40) & (psi <= 180) & (psi > 90)) | ((phi >= -180) & (phi < -70) & (psi <= -165))) # beta
+            res_mask_beta = np.where(((phi >= -180) & (phi < -40) & (psi <= 180) & (psi > 90)) | ((phi >= -180) & (phi < -70) & (psi <= -165)))  # beta
             res_dict['isbeta'][res_mask_beta] = True
             atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_mask_beta]['id'])] = True
 
@@ -354,9 +362,14 @@ class Molecule(pybel.Molecule):
                     coords = atoms['coords']
                     centroid = coords.mean(axis=0)
                     # get vector perpendicular to ring
-                    vector = np.cross(coords - np.vstack((coords[1:],coords[:1])), np.vstack((coords[1:],coords[:1])) - np.vstack((coords[2:],coords[:2]))).mean(axis=0) - centroid
+                    vector = np.cross(coords - np.vstack((coords[1:], coords[:1])),
+                                      np.vstack((coords[1:], coords[:1])) - np.vstack((coords[2:], coords[:2]))
+                                      ).mean(axis=0) - centroid
                     r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
-        ring_dict = np.array(r, dtype=[('centroid', 'float32', 3),('vector', 'float32', 3),('isalpha', 'bool'),('isbeta', 'bool'),])
+        ring_dict = np.array(r, dtype=[('centroid', 'float32', 3),
+                                       ('vector', 'float32', 3),
+                                       ('isalpha', 'bool'),
+                                       ('isbeta', 'bool')])
 
         self._atom_dict = atom_dict
         self._atom_dict.setflags(write=False)
@@ -374,7 +387,7 @@ class Molecule(pybel.Molecule):
                 'dicts': {'atom_dict': self._atom_dict,
                           'ring_dict': self._ring_dict,
                           'res_dict': self._res_dict,
-                         }
+                          }
                 }
 
     def __setstate__(self, state):
@@ -384,30 +397,33 @@ class Molecule(pybel.Molecule):
         self._ring_dict = state['dicts']['ring_dict']
         self._res_dict = state['dicts']['res_dict']
 
-### Extend pybel.Molecule
+# Extend pybel.Molecule
 pybel.Molecule = Molecule
 
+
 class AtomStack(object):
-    def __init__(self,OBMol):
+    def __init__(self, OBMol):
         self.OBMol = OBMol
 
     def __iter__(self):
         for i in range(self.OBMol.NumAtoms()):
-            yield Atom(self.OBMol.GetAtom(i+1))
+            yield Atom(self.OBMol.GetAtom(i + 1))
 
     def __len__(self):
         return self.OBMol.NumAtoms()
 
     def __getitem__(self, i):
         if 0 <= i < self.OBMol.NumAtoms():
-            return Atom(self.OBMol.GetAtom(int(i+1)))
+            return Atom(self.OBMol.GetAtom(int(i + 1)))
         else:
             raise AttributeError("There is no atom with Idx %i" % i)
+
 
 class Atom(pybel.Atom):
     @property
     def neighbors(self):
         return [Atom(a) for a in OBAtomAtomIter(self.OBAtom)]
+
     @property
     def residue(self):
         return Residue(self.OBAtom.GetResidue())
@@ -418,8 +434,9 @@ class Atom(pybel.Atom):
 
 pybel.Atom = Atom
 
+
 class BondStack(object):
-    def __init__(self,OBMol):
+    def __init__(self, OBMol):
         self.OBMol = OBMol
 
     def __iter__(self):
@@ -434,6 +451,7 @@ class BondStack(object):
             return Bond(self.OBMol.GetBond(i))
         else:
             raise AttributeError("There is no bond with Idx %i" % i)
+
 
 class Bond(object):
     def __init__(self, OBBond):
@@ -499,14 +517,16 @@ class MoleculeData(pybel.MoleculeData):
 
 pybel.MoleculeData = MoleculeData
 
+
 class Fingerprint(pybel.Fingerprint):
     @property
     def raw(self):
         return _unrollbits(self.fp, pybel.ob.OBFingerprint.Getbitsperint())
 
+
 def _unrollbits(fp, bitsperint):
     """ Unroll unsigned int fingerprint to bool """
-    ans = np.zeros(len(fp)*bitsperint)
+    ans = np.zeros(len(fp) * bitsperint)
     start = 1
     for x in fp:
         i = start
