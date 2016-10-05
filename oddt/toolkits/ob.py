@@ -2,9 +2,9 @@ from __future__ import print_function
 # All functions using f2py need to be loaded before pybel/openbabel,
 # otherwise it will segfault.
 # See BUG report: https://github.com/numpy/numpy/issues/1746
-from itertools import chain
-
 from scipy.optimize import fmin_l_bfgs_b
+
+from itertools import chain
 
 import gzip
 import pybel
