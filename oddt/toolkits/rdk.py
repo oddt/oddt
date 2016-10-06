@@ -317,10 +317,10 @@ class Molecule(object):
 
     def __new__(cls, Mol=None, source=None, *args, **kwargs):
         """ Trap RDKit molecules which are 'None' """
-        if Mol is None and not source:
+        if Mol is None and source is None:
             return None
         else:
-            return super(Molecule, cls).__new__(cls, Mol=Mol, source=source, *args, **kwargs)
+            return super(Molecule, cls).__new__(cls)
 
     def __init__(self, Mol=None, source=None, protein=False):
         if hasattr(Mol, "_cinfony"):
