@@ -1,5 +1,6 @@
 """ Pandas extension for chemical analysis """
 from __future__ import absolute_import
+from collections import deque
 import pandas as pd
 
 import oddt
@@ -66,7 +67,30 @@ def read_sdf(filepath_or_buffer=None,
     if chunksize:
         return result
     else:
-        return next(result)
+        return deque(result, maxlen=1).pop()
+
+
+def read_mol2(filepath_or_buffer=None,
+              usecols=None,
+              molecule_column='mol',
+              molecule_name='mol_name',
+              smiles_column=None,
+              skip_bad_mols=False,
+              chunksize=None,
+              **kwargs):
+    result = _mol_reader(fmt='mol2',
+                         filepath_or_buffer=filepath_or_buffer,
+                         usecols=usecols,
+                         molecule_column=molecule_column,
+                         molecule_name=molecule_name,
+                         smiles_column=smiles_column,
+                         skip_bad_mols=skip_bad_mols,
+                         chunksize=chunksize,
+                         **kwargs)
+    if chunksize:
+        return result
+    else:
+        return deque(result, maxlen=1).pop()
 
 
 class ChemSeries(pd.Series):
