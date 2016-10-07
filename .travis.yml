@@ -43,6 +43,6 @@ before_install:
 install:
     - pip install .
 script:
-    - nosetests -w tests/
+    - nosetests
     - oddt_cli --help
     - oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
