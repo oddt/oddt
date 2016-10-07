@@ -6,8 +6,8 @@ python:
     - '3.5'
 env:
     matrix:
-      - ODDT_TOOLKIT=ob
-      - ODDT_TOOLKIT=rdk
+        - ODDT_TOOLKIT=ob
+        - ODDT_TOOLKIT=rdk
     global:
         secure: OVE5GtJJ2Ga+GDJIFuyPsbJ5SFCecdbiPv6TzrdNT6AoMdjEZK/zw1ZRHNtMHvrPbq5G7qY/54tHEePSKJlm7pi8agYPbTAg3pPvUvFfmyoQm4Vg07BEULKJ9wfgNI2c+IsMp77r1hW+04+HpwMT81p/zYndVcuhvj7C7vJ0hgo=
 deploy:
@@ -30,18 +30,24 @@ deploy:
           repo: oddt/oddt
           branch: master
       skip_cleanup: true
-before_install:
-    - wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh -O miniconda.sh
+install:
+    - if [[ "$TRAVIS_PYTHON_VERSION" == "2.7" ]]; then
+         wget https://repo.continuum.io/miniconda/Miniconda2-latest-Linux-x86_64.sh -O miniconda.sh;
+      else
+         wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
+      fi
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH="$HOME/miniconda/bin:$PATH"
-    - conda update --yes conda
-    - conda install --yes conda-build anaconda-client nose
-    - conda create --yes --name oddt_env python=$TRAVIS_PYTHON_VERSION
-    - conda env update --name oddt_env --file environment.yml
-    - source activate oddt_env
-    - chmod u+x conda/deploy.sh
-install:
-    - pip install .
+    - hash -r
+    - conda config --set always_yes yes --set changeps1 no
+    - conda update -q conda
+    - conda install -q conda-build anaconda-client
+    - conda info -a
+    - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION nose numpydoc six scipy numpy scipy scikit-learn joblib pandas
+    - source activate test-environment
+    - conda install -q -c mwojcikowski openbabel
+    - conda install -q -c rdkit rdkit
+    - python setup.py install
 script:
     - nosetests
     - oddt_cli --help
