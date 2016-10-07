@@ -5,6 +5,9 @@ python:
     - '3.4'
     - '3.5'
 env:
+    matrix:
+      - ODDT_TOOLKIT=ob
+      - ODDT_TOOLKIT=rdk
     global:
         secure: OVE5GtJJ2Ga+GDJIFuyPsbJ5SFCecdbiPv6TzrdNT6AoMdjEZK/zw1ZRHNtMHvrPbq5G7qY/54tHEePSKJlm7pi8agYPbTAg3pPvUvFfmyoQm4Vg07BEULKJ9wfgNI2c+IsMp77r1hW+04+HpwMT81p/zYndVcuhvj7C7vJ0hgo=
 deploy:
@@ -32,11 +35,14 @@ before_install:
     - bash miniconda.sh -b -p $HOME/miniconda
     - export PATH="$HOME/miniconda/bin:$PATH"
     - conda update --yes conda
-    - conda install --yes conda-build anaconda-client
+    - conda install --yes conda-build anaconda-client nose
     - conda create --yes --name oddt_env python=$TRAVIS_PYTHON_VERSION
     - conda env update --name oddt_env --file environment.yml
     - source activate oddt_env
     - chmod u+x conda/deploy.sh
 install:
     - pip install .
-script: python -c "import oddt"
+script:
+    - nosetests -w tests/
+    - oddt_cli --help
+    - oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi

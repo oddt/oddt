@@ -21,7 +21,12 @@ except ImportError:
     rdk = None
 
 toolkit = None
-if ob:
+if 'ODDT_TOOLKIT' in os.environ:
+    if os.environ['ODDT_TOOLKIT'] == 'ob':
+        toolkit = ob
+    elif os.environ['ODDT_TOOLKIT'] == 'rdk':
+        toolkit = rdk
+elif ob:
     toolkit = ob
 elif rdk:
     toolkit = rdk
