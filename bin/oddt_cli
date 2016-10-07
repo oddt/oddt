@@ -47,53 +47,54 @@ import joblib
 
 import oddt
 
-# arguments
-parser = argparse.ArgumentParser(description='Open Drug Discovery (ODDT) command line tools')
-parser.add_argument('--toolkit', dest='toolkit', choices=['ob', 'rdk'], default='ob', help='Choose which toolkit should be used for calculations, either "ob" (OpenBabel) or "rdkit" (RDKit) (default: ob)')
-parser.add_argument('-n', '--n_cpu', dest='n_cpu', type=int, help='The number of parallel processes. -1 automatically assigns maximum number of CPUs. (default=-1)')
-parser.add_argument('--version', action='version', version='%(prog)s ' + oddt.__version__)
-
-# in/out files and formats
-parser.add_argument('in_file', nargs='+', help='Input files of formats supported by toolkit.')
-parser.add_argument('-i', dest='in_format', help='Input file(s) format')
-parser.add_argument('-o', dest='out_format', help='Output file format')
-parser.add_argument('-O', '--output', dest='out_file', help='Output file')
-
-# filter
-group = parser.add_argument_group('Filtering')
-group.add_argument('--filter', dest='filter', action='append', default=[], help='Choose built-in filters to be used (eg. "ro5", "ro3", "pains")')#
-
-# docking
-group = parser.add_argument_group('Protein-Ligand docking')
-group.add_argument('--dock', dest='dock', choices=['autodock_vina',], help='Choose docking software to be used')
-group.add_argument('--receptor', help='Protein file')
-group.add_argument('--auto_ligand', help='Docking Box is determined on that ligand')
-group.add_argument('--center', type=literal_eval, help='Docking Box center (x,y,z)')
-group.add_argument('--size', type=literal_eval, help='Docking Box dimentions  (x,y,z)')
-group.add_argument('--exhaustiveness', default=8, type=int, help='Exhaustiveness of docking')
-group.add_argument('--seed', help='Random Seed')
-
-# scoring
-
-# generate scoring functions options
-sf_choices = ['autodock_vina', 'rfscore', 'nnscore']
-for v in [1,2,3]:
-    sf_choices.append('rfscore_v%i' % v)
-for pdbbind_version in [2007, 2012, 2013, 2014, 2015]:
-    for v in [1,2,3]:
-        sf_choices.append('rfscore_v%i_pdbbind%i' % (v, pdbbind_version))
-    sf_choices.append('nnscore_pdbbind%i' % (pdbbind_version))
-
-group = parser.add_argument_group('Rescoring')
-group.add_argument('--score', dest='score', choices=sf_choices, action='append', default=[], help='Choose built-in scoring function to be used')#
-group.add_argument('--score_file', dest='score_file',  action='append', default=[], help='Choose ODDT scoring function saved to file (pickle)')
-
-parser.add_argument('--field', dest='save_fields', action='append', default=[], help='Field to save (eg. in CSV). Each field should be specified separately.')#
-
 if __name__ == '__main__':
     # On Windows calling this function is necessary.
     # On Linux/OSX it does nothing.
     multiprocessing.freeze_support()
+
+    # arguments
+    parser = argparse.ArgumentParser(description='Open Drug Discovery (ODDT) command line tools')
+    parser.add_argument('--toolkit', dest='toolkit', choices=['ob', 'rdk'], default='ob', help='Choose which toolkit should be used for calculations, either "ob" (OpenBabel) or "rdkit" (RDKit) (default: ob)')
+    parser.add_argument('-n', '--n_cpu', dest='n_cpu', type=int, help='The number of parallel processes. -1 automatically assigns maximum number of CPUs. (default=-1)')
+    parser.add_argument('--version', action='version', version='%(prog)s ' + oddt.__version__)
+
+    # in/out files and formats
+    parser.add_argument('in_file', nargs='+', help='Input files of formats supported by toolkit.')
+    parser.add_argument('-i', dest='in_format', help='Input file(s) format')
+    parser.add_argument('-o', dest='out_format', help='Output file format')
+    parser.add_argument('-O', '--output', dest='out_file', help='Output file')
+
+    # filter
+    group = parser.add_argument_group('Filtering')
+    group.add_argument('--filter', dest='filter', action='append', default=[], help='Choose built-in filters to be used (eg. "ro5", "ro3", "pains")')#
+
+    # docking
+    group = parser.add_argument_group('Protein-Ligand docking')
+    group.add_argument('--dock', dest='dock', choices=['autodock_vina',], help='Choose docking software to be used')
+    group.add_argument('--receptor', help='Protein file')
+    group.add_argument('--auto_ligand', help='Docking Box is determined on that ligand')
+    group.add_argument('--center', type=literal_eval, help='Docking Box center (x,y,z)')
+    group.add_argument('--size', type=literal_eval, help='Docking Box dimentions  (x,y,z)')
+    group.add_argument('--exhaustiveness', default=8, type=int, help='Exhaustiveness of docking')
+    group.add_argument('--seed', help='Random Seed')
+
+    # scoring
+
+    # generate scoring functions options
+    sf_choices = ['autodock_vina', 'rfscore', 'nnscore']
+    for v in [1,2,3]:
+        sf_choices.append('rfscore_v%i' % v)
+    for pdbbind_version in [2007, 2012, 2013, 2014, 2015]:
+        for v in [1,2,3]:
+            sf_choices.append('rfscore_v%i_pdbbind%i' % (v, pdbbind_version))
+        sf_choices.append('nnscore_pdbbind%i' % (pdbbind_version))
+
+    group = parser.add_argument_group('Rescoring')
+    group.add_argument('--score', dest='score', choices=sf_choices, action='append', default=[], help='Choose built-in scoring function to be used')#
+    group.add_argument('--score_file', dest='score_file',  action='append', default=[], help='Choose ODDT scoring function saved to file (pickle)')
+
+    parser.add_argument('--field', dest='save_fields', action='append', default=[], help='Field to save (eg. in CSV). Each field should be specified separately.')#
+
 
     args = parser.parse_args()
 
