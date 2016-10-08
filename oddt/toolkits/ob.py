@@ -78,6 +78,11 @@ def _filereader_pdb(filename, opt=None):
 
 
 def readfile(format, filename, opt=None, lazy=False):
+    if format == 'mol2':
+        if opt:
+            opt['c'] = None
+        else:
+            opt = {'c': None}
     if lazy and format == 'mol2':
         return _filereader_mol2(filename, opt=opt)
     elif lazy and format == 'sdf':
@@ -523,6 +528,16 @@ class MoleculeData(pybel.MoleculeData):
         return dict((x.GetAttribute(), x.GetValue()) for x in self._data())
 
 pybel.MoleculeData = MoleculeData
+
+
+class Outputfile(pybel.Outputfile):
+    def __init__(self, format, filename, overwrite=False, opt=None):
+        if format == 'mol2':
+            if opt:
+                opt['c'] = None
+            else:
+                opt = {'c': None}
+        return super(Outputfile, self).__init__(format, filename, overwrite=overwrite, opt=opt)
 
 
 class Fingerprint(pybel.Fingerprint):

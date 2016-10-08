@@ -47,6 +47,27 @@ def _mol_reader(fmt='sdf',
         yield ChemDataFrame(chunk, **kwargs)
 
 
+def _mol_writer(dataframe,
+                fmt='sdf',
+                filepath_or_buffer=None,
+                update_properties=True,
+                molecule_column='mol',
+                columns=None):
+    out = oddt.toolkit.Outputfile(fmt, filepath_or_buffer, overwrite=True)
+    for ix, row in dataframe.iterrows():
+        mol = row[molecule_column].clone
+        if update_properties:
+            new_data = row.to_dict()
+            del new_data[molecule_column]
+            mol.data.update(new_data)
+        if columns:
+            for k in mol.data.keys():
+                if k not in columns:
+                    del mol.data[k]
+        out.write(mol)
+    out.close()
+
+
 def read_sdf(filepath_or_buffer=None,
              usecols=None,
              molecule_column='mol',
@@ -110,19 +131,24 @@ class ChemDataFrame(pd.DataFrame):
                update_properties=True,
                molecule_column='mol',
                columns=None):
-        out = oddt.toolkit.Outputfile('sdf', filepath_or_buffer, overwrite=True)
-        for ix, row in self.iterrows():
-            mol = row[molecule_column].clone
-            if update_properties:
-                new_data = row.to_dict()
-                del new_data[molecule_column]
-                mol.data.update(new_data)
-            if columns:
-                for k in mol.data.keys():
-                    if k not in columns:
-                        del mol.data[k]
-            out.write(mol)
-        out.close()
+        _mol_writer(self,
+                    fmt='sdf',
+                    filepath_or_buffer=filepath_or_buffer,
+                    update_properties=update_properties,
+                    molecule_column=molecule_column,
+                    columns=columns)
+
+    def to_mol2(self,
+                filepath_or_buffer=None,
+                update_properties=True,
+                molecule_column='mol',
+                columns=None):
+        _mol_writer(self,
+                    fmt='mol2',
+                    filepath_or_buffer=filepath_or_buffer,
+                    update_properties=update_properties,
+                    molecule_column=molecule_column,
+                    columns=columns)
 
     def to_html(self, *args, **kwargs):
         kwargs['escape'] = False

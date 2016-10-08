@@ -52,7 +52,22 @@ def test_reading():
     assert_equal(len(df), 100)
 
 
+def test_writing_mol2():
+    """Writing and reading of mol2 fils to/from ChemDataFrame"""
+    if oddt.toolkit.backend == 'ob':  # RDKit does not support mol2 writing yet
+        df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
+        with NamedTemporaryFile(suffix='.mol2') as f:
+            df.to_mol2(f.name)
+            df2 = opd.read_mol2(f.name)
+            assert_equal(df.shape, df2.shape)
+        with NamedTemporaryFile(suffix='.mol2') as f:
+            df.to_mol2(f.name, columns=['name', 'uniprot_id', 'act'])
+            df2 = opd.read_mol2(f.name)
+            assert_equal(len(df2.columns), 5)
+
+
 def test_writing():
+    """Writing ChemDataFrame to molecular files"""
     df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
     with NamedTemporaryFile(suffix='.sdf') as f:
         df.to_sdf(f.name)
