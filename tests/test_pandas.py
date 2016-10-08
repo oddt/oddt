@@ -1,5 +1,5 @@
 import os
-from tempfile import TemporaryFile
+from tempfile import NamedTemporaryFile
 
 from nose.tools import assert_in, assert_not_in, assert_equal
 from sklearn.utils.testing import assert_true, assert_array_equal
@@ -54,11 +54,11 @@ def test_reading():
 
 def test_writing():
     df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
-    with TemporaryFile() as f:
+    with NamedTemporaryFile(suffix='.sdf') as f:
         df.to_sdf(f.name)
         df2 = opd.read_sdf(f.name)
     assert_array_equal(df.columns, df2.columns)
-    with TemporaryFile() as f:
+    with NamedTemporaryFile(suffix='.sdf') as f:
         df.to_sdf(f.name, columns=['name', 'uniprot_id', 'act'])
         df2 = opd.read_sdf(f.name)
     assert_equal(len(df2.columns), 5)
