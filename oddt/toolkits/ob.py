@@ -7,6 +7,8 @@ from scipy.optimize import fmin_l_bfgs_b
 from itertools import chain
 
 import gzip
+from base64 import b64encode
+import six
 import pybel
 from pybel import *
 import numpy as np
@@ -174,7 +176,10 @@ class Molecule(pybel.Molecule):
 
     def __repr__(self):
         if oddt.ipython_notebook:
-            return self._repr_svg_()
+            if oddt.pandas.image_backend == 'png':
+                return self._repr_png_()
+            else:
+                return self._repr_svg_()
         else:
             return super(Molecule, self).__repr__()
 
@@ -190,7 +195,19 @@ class Molecule(pybel.Molecule):
         return self.OBMol.NumRotors()
 
     def _repr_svg_(self):
-        return self.write('svg', opt={'d': None}).replace('\n', '')
+        return self.clone.write('svg', opt={'d': None}).replace('\n', '')
+
+    def _repr_png_(self, size=200):
+        string = self.clone.write('_png2', opt={'p': size,
+                                                'd': None,
+                                                't': None}
+                                  )
+        if six.PY3:  # bug in SWIG decoding
+            string = string.encode('utf-8', errors='surrogateescape')
+        return '<img src="data:image/png;base64,%s" alt="%s">' % (
+            b64encode(string).decode('ascii'),
+            self.title
+        )
 
     @property
     def canonic_order(self):

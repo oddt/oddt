@@ -84,6 +84,12 @@ def test_ipython():
     df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
     # mock ipython
     oddt.ipython_notebook = True
+    # png
+    oddt.pandas.image_backend = 'png'
+    html = df.head(1).to_html()
+    assert_in('<img src="data:image/png;base64,', html)
+    # svg
+    oddt.pandas.image_backend = 'svg'
     html = df.head(1).to_html()
     assert_in('<svg', html)
     oddt.ipython_notebook = False

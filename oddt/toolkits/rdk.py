@@ -22,9 +22,10 @@ from __future__ import print_function
 import os
 from copy import copy
 import gzip
+from base64 import b64encode
 from itertools import combinations
 
-from six import next
+from six import next, BytesIO
 import numpy as np
 
 import rdkit
@@ -519,12 +520,35 @@ class Molecule(object):
         svg = drawer.GetDrawingText()
         return svg.replace('svg:', '').replace('\n', '')
 
+    def _repr_png_(self, size=(200, 200)):
+        bio = BytesIO()
+        mc = Chem.Mol(self.Mol.ToBinary())
+        AllChem.Compute2DCoords(mc)
+        if hasattr(rdMolDraw2D, 'MolDraw2DCairo'):
+            drawer = rdMolDraw2D.MolDraw2DCairo(*size)
+            drawer.DrawMolecule(mc)
+            drawer.FinishDrawing()
+            return '<img src="data:image/png;base64,%s" alt="%s">' % (
+                b64encode(drawer.GetDrawingText()).decode('ascii'),
+                self.title
+            )
+        else:
+            img = Draw.MolToImage(mc, size=size)
+            img.save(bio, format='PNG')
+            return '<img src="data:image/png;base64,%s" alt="%s">' % (
+                b64encode(bio.getvalue()).decode('ascii'),
+                self.title
+            )
+
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
         if oddt.ipython_notebook:
-            return self._repr_svg_()
+            if oddt.pandas.image_backend == 'png':
+                return self._repr_png_()
+            else:
+                return self._repr_svg_()
         else:
             return super(Molecule, self).__repr__()
 
