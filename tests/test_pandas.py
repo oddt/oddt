@@ -1,7 +1,11 @@
 import os
+from tempfile import TemporaryFile
+
 from nose.tools import assert_in, assert_not_in, assert_equal
-from sklearn.utils.testing import assert_true
+from sklearn.utils.testing import assert_true, assert_array_equal
 import pandas as pd
+
+import oddt
 import oddt.pandas as opd
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
@@ -17,6 +21,10 @@ def test_reading():
     assert_true(isinstance(df['mol'], opd.ChemSeries))
     assert_true(isinstance(df['mol'], pd.Series))
     assert_true(isinstance(df, pd.DataFrame))
+
+    # Check if slicing perserve classes
+    assert_true(isinstance(df.head(1), opd.ChemDataFrame))
+    assert_true(isinstance(df['mol'].head(1), opd.ChemSeries))
 
     # Check dimensions
     assert_equal(len(df), 100)
@@ -42,3 +50,25 @@ def test_reading():
 
     # Check dimensions
     assert_equal(len(df), 100)
+
+
+def test_writing():
+    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
+    with TemporaryFile() as f:
+        df.to_sdf(f.name)
+        df2 = opd.read_sdf(f.name)
+    assert_array_equal(df.columns, df2.columns)
+    with TemporaryFile() as f:
+        df.to_sdf(f.name, columns=['name', 'uniprot_id', 'act'])
+        df2 = opd.read_sdf(f.name)
+    assert_equal(len(df2.columns), 5)
+
+
+def test_ipython():
+    """iPython Notebook molecule rendering in SVG"""
+    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
+    # mock ipython
+    oddt.ipython_notebook = True
+    html = df.head(1).to_html()
+    assert_in('<svg', html)
+    oddt.ipython_notebook = False
