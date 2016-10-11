@@ -26,6 +26,15 @@ def _mol_reader(fmt='sdf',
     if 'sanitize' in kwargs:
         reader_kwargs['sanitize'] = kwargs.pop('sanitize')
 
+    if molecule_column is None:
+        if oddt.toolkit.backend == 'ob' and fmt == 'sdf':
+            if 'opt' in reader_kwargs:
+                reader_kwargs['opt']['P'] = None
+            else:
+                reader_kwargs['opt'] = {'P': None}
+        if oddt.toolkit.backend == 'rdk':
+            reader_kwargs['sanitize'] = False
+
     chunk = []
     for n, mol in enumerate(oddt.toolkit.readfile(fmt, filepath_or_buffer, **reader_kwargs)):
         if skip_bad_mols and mol is None:
