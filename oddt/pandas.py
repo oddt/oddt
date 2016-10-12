@@ -26,13 +26,14 @@ def _mol_reader(fmt='sdf',
     if 'sanitize' in kwargs:
         reader_kwargs['sanitize'] = kwargs.pop('sanitize')
 
+    # when you dont read molecules you can skip parsing them
     if molecule_column is None:
         if oddt.toolkit.backend == 'ob' and fmt == 'sdf':
             if 'opt' in reader_kwargs:
                 reader_kwargs['opt']['P'] = None
             else:
                 reader_kwargs['opt'] = {'P': None}
-        if oddt.toolkit.backend == 'rdk':
+        elif oddt.toolkit.backend == 'rdk':
             reader_kwargs['sanitize'] = False
 
     chunk = []

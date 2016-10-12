@@ -35,6 +35,14 @@ def test_reading():
     assert_in('smi_col', df.columns)
 
     df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'),
+                      molecule_column=None,
+                      molecule_name_column=None,
+                      usecols=['name'])
+    assert_not_in('mol', df.columns)
+    assert_not_in('mol_name', df.columns)
+    assert_equal(len(df.columns), 1)
+
+    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'),
                       usecols=['name', 'uniprot_id', 'act'])
     assert_equal(len(df.columns), 5)  # 3 from use_cols + 1 'mol' + 1 'mol_name'
     assert_in('uniprot_id', df.columns)
