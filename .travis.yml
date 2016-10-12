@@ -45,7 +45,7 @@ install:
     - conda info -a
     - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION nose numpydoc six scipy numpy scipy scikit-learn joblib pandas coverage pillow
     - source activate test-environment
-    - conda install -q -c mwojcikowski openbabel
+    - conda install -q -c openbabel openbabel
     - conda install -q -c rdkit rdkit
     - pip install coveralls
     - python setup.py install
