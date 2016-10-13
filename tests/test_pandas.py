@@ -68,6 +68,12 @@ def test_writing_mol2():
             df.to_mol2(f.name)
             df2 = opd.read_mol2(f.name)
             assert_equal(df.shape, df2.shape)
+            chunks = []
+            for chunk in opd.read_mol2(f.name, chunksize=10):
+                assert_equal(len(chunk), 10)
+                chunks.append(chunk)
+            df3 = pd.concat(chunks)
+            assert_equal(df.shape, df3.shape)
         with NamedTemporaryFile(suffix='.mol2') as f:
             df.to_mol2(f.name, columns=['name', 'uniprot_id', 'act'])
             df2 = opd.read_mol2(f.name)
