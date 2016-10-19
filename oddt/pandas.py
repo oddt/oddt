@@ -18,7 +18,43 @@ def _mol_reader(fmt='sdf',
                 skip_bad_mols=False,
                 chunksize=None,
                 **kwargs):
+    """Universal reading function for private use.
 
+    Parameters
+    ----------
+        fmt : string
+            The format of molecular file
+
+        filepath_or_buffer : string or None
+            File path
+
+        usecols : list or None, optional (default=None)
+            A list of columns to read from file. If None then all available
+            fields are read.
+
+        molecule_column : string or None, optional (default='mol')
+            Name of molecule column. If None the molecules will be skipped and
+            the reading will be speed up significantly.
+
+        molecule_name_column : string or None, optional (default='mol_name')
+            Column name which will contain molecules' title/name. Column is
+            skipped when set to None.
+
+        smiles_column  : string or None, optional (default=None)
+            Column name containg molecules' SMILES, by default it is disabled.
+
+        skip_bad_mols : bool, optional (default=False)
+            Switch to skip empty (bad) molecules. Useful for RDKit, which Returns
+            None if molecule can not sanitize.
+
+        chunksize : int or None, optional (default=None)
+            Size of chunk to return. If set to None whole set is returned.
+
+    Returns
+    -------
+        chunk :
+            A `ChemDataFrame` containg `chunksize` molecules.
+    """
     # capture options for reader
     reader_kwargs = {}
     if 'opt' in kwargs:
