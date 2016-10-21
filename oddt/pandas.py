@@ -20,6 +20,8 @@ def _mol_reader(fmt='sdf',
                 **kwargs):
     """Universal reading function for private use.
 
+    .. versionadded:: 0.3
+
     Parameters
     ----------
         fmt : string
@@ -54,6 +56,7 @@ def _mol_reader(fmt='sdf',
     -------
         chunk :
             A `ChemDataFrame` containg `chunksize` molecules.
+
     """
     # capture options for reader
     reader_kwargs = {}
@@ -76,10 +79,11 @@ def _mol_reader(fmt='sdf',
     for n, mol in enumerate(oddt.toolkit.readfile(fmt, filepath_or_buffer, **reader_kwargs)):
         if skip_bad_mols and mol is None:
             continue  # add warning with number of skipped molecules
-        if usecols:
-            mol_data = dict((k, mol.data[k]) for k in usecols)
-        else:
+        if usecols is None:
             mol_data = mol.data.to_dict()
+        else:
+            mol_data = dict((k, mol.data[k]) for k in usecols)
+
         if molecule_column:
             mol_data[molecule_column] = mol
         if molecule_name_column:
@@ -123,6 +127,44 @@ def read_sdf(filepath_or_buffer=None,
              skip_bad_mols=False,
              chunksize=None,
              **kwargs):
+    """Read SDF/MDL multi molecular file to ChemDataFrame
+
+    .. versionadded:: 0.3
+
+    Parameters
+    ----------
+        filepath_or_buffer : string or None
+            File path
+
+        usecols : list or None, optional (default=None)
+            A list of columns to read from file. If None then all available
+            fields are read.
+
+        molecule_column : string or None, optional (default='mol')
+            Name of molecule column. If None the molecules will be skipped and
+            the reading will be speed up significantly.
+
+        molecule_name_column : string or None, optional (default='mol_name')
+            Column name which will contain molecules' title/name. Column is
+            skipped when set to None.
+
+        smiles_column  : string or None, optional (default=None)
+            Column name containg molecules' SMILES, by default it is disabled.
+
+        skip_bad_mols : bool, optional (default=False)
+            Switch to skip empty (bad) molecules. Useful for RDKit, which Returns
+            None if molecule can not sanitize.
+
+        chunksize : int or None, optional (default=None)
+            Size of chunk to return. If set to None whole set is returned.
+
+    Returns
+    -------
+        result :
+            A `ChemDataFrame` containg all molecules if `chunksize` is None
+            or genrerator of `ChemDataFrame` with `chunksize` molecules.
+
+    """
     result = _mol_reader(fmt='sdf',
                          filepath_or_buffer=filepath_or_buffer,
                          usecols=usecols,
@@ -146,6 +188,45 @@ def read_mol2(filepath_or_buffer=None,
               skip_bad_mols=False,
               chunksize=None,
               **kwargs):
+    """Read Mol2 multi molecular file to ChemDataFrame. UCSF Dock 6 comments
+    style is supported, i.e. `#### var_name: value` before molecular block.
+
+    .. versionadded:: 0.3
+
+    Parameters
+    ----------
+        filepath_or_buffer : string or None
+            File path
+
+        usecols : list or None, optional (default=None)
+            A list of columns to read from file. If None then all available
+            fields are read.
+
+        molecule_column : string or None, optional (default='mol')
+            Name of molecule column. If None the molecules will be skipped and
+            the reading will be speed up significantly.
+
+        molecule_name_column : string or None, optional (default='mol_name')
+            Column name which will contain molecules' title/name. Column is
+            skipped when set to None.
+
+        smiles_column  : string or None, optional (default=None)
+            Column name containg molecules' SMILES, by default it is disabled.
+
+        skip_bad_mols : bool, optional (default=False)
+            Switch to skip empty (bad) molecules. Useful for RDKit, which Returns
+            None if molecule can not sanitize.
+
+        chunksize : int or None, optional (default=None)
+            Size of chunk to return. If set to None whole set is returned.
+
+    Returns
+    -------
+        result :
+            A `ChemDataFrame` containg all molecules if `chunksize` is None
+            or genrerator of `ChemDataFrame` with `chunksize` molecules.
+
+    """
     result = _mol_reader(fmt='mol2',
                          filepath_or_buffer=filepath_or_buffer,
                          usecols=usecols,
