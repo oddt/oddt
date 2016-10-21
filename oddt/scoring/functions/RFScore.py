@@ -145,8 +145,12 @@ class rfscore(scorer):
 
         # compile trees
         if compiledtrees is not None:
-            print("Compiling Random Forest using sklearn-compiledtrees", file=sys.stderr)
-            self.model = compiledtrees.CompiledRegressionPredictor(self.model, n_jobs=self.n_jobs)
+            try:
+                print("Compiling Random Forest using sklearn-compiledtrees", file=sys.stderr)
+                self.model = compiledtrees.CompiledRegressionPredictor(self.model, n_jobs=self.n_jobs)
+            except Exception as e:
+                print("Failed to compile Random Forest with exception: %s" % e, file=sys.stderr)
+                print("Continuing without compiled RF.", file=sys.stderr)
 
         if sf_pickle:
             return self.save(sf_pickle)
