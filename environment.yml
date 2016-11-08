@@ -1,6 +1,6 @@
 name: oddt_env
 channels:
-- mwojcikowski
+- openbabel
 - rdkit
 dependencies:
 - numpydoc
