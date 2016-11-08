@@ -243,17 +243,31 @@ def read_mol2(filepath_or_buffer=None,
 
 
 class ChemSeries(pd.Series):
+    """Pandas Series modified to adapt `oddt.toolkit.Molecule` objects and apply
+    molecular methods easily.
+    """
+
     @property
     def _constructor(self):
+        """ Force new class to be usead as constructor """
         return ChemSeries
+
+    @property
+    def _constructor_expanddim(self):
+        """ Force new class to be usead as constructor when expandig dims """
+        return ChemDataFrame
 
 
 class ChemDataFrame(pd.DataFrame):
-    """
+    """Chemical DataFrame object, which contains molecules column of
+    `oddt.toolkit.Molecule` objects. Rich display of moleucles (2D) is available
+    in iPython Notebook. Additional `to_sdf` and `to_mol2` methods make writing
+    to molecular formats easy.
 
     Note:
     Thanks to: http://blog.snapdragon.cc/2015/05/05/subclass-pandas-dataframe-to-save-custom-attributes/
     """
+
     def to_sdf(self,
                filepath_or_buffer=None,
                update_properties=True,
@@ -284,7 +298,33 @@ class ChemDataFrame(pd.DataFrame):
 
     @property
     def _constructor(self):
-        """ Force new class to be usead as sconstructor when slicing """
+        """ Force new class to be usead as constructor """
         return ChemDataFrame
 
-    _constructor_sliced = ChemSeries
+    @property
+    def _constructor_sliced(self):
+        """ Force new class to be usead as constructor when slicing """
+        return ChemSeries
+
+    @property
+    def _constructor_expanddim(self):
+        """ Force new class to be usead as constructor when expandig dims """
+        return ChemPanel
+
+
+class ChemPanel(pd.Panel):
+    """Modified `pandas.Panel` to adopt higher dimension data than
+    `ChemDataFrame`. Main purpose is to store molecular fingerprints in one
+    column and keep 2D numpy array underneath.
+
+    """
+
+    @property
+    def _constructor(self):
+        """ Force new class to be usead as constructor """
+        return ChemPanel
+
+    @property
+    def _constructor_sliced(self):
+        """ Force new class to be usead as constructor when slicing """
+        return ChemDataFrame
