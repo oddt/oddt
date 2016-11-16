@@ -10,8 +10,22 @@ import re
 from random import random
 from oddt import toolkit
 
+
 class autodock_vina(object):
-    def __init__(self, protein=None, auto_ligand=None, size=(10,10,10), center=(0,0,0), exhaustiveness=8, num_modes=9, energy_range=3, seed=None, prefix_dir='/tmp', n_cpu=1, executable=None, autocleanup=True):
+    def __init__(self,
+                 protein=None,
+                 auto_ligand=None,
+                 size=(10, 10, 10),
+                 center=(0, 0, 0),
+                 exhaustiveness=8,
+                 num_modes=9,
+                 energy_range=3,
+                 seed=None,
+                 prefix_dir='/tmp',
+                 n_cpu=1,
+                 executable=None,
+                 autocleanup=True,
+                 skip_bad_mols=True):
         """Autodock Vina docking engine, which extends it's capabilities: automatic box (autocentering on ligand).
 
         Parameters
@@ -48,6 +62,9 @@ class autodock_vina(object):
 
             autocleanup: bool (default=True)
                 Should the docking engine clean up after execution?
+
+            skip_bad_mols: bool (default=True)
+                Should molecules that crash Autodock Vina be skipped.
         """
         self.dir = prefix_dir
         self._tmp_dir = None
@@ -63,13 +80,13 @@ class autodock_vina(object):
         # autodetect Vina executable
         if not executable:
             try:
-                self.executable = subprocess.check_output(['which', 'vina']).split('\n')[0]
+                self.executable = subprocess.check_output(['which', 'vina']).decode('ascii').split('\n')[0]
             except subprocess.CalledProcessError:
                 raise Exception('Could not find Autodock Vina binary. You have to install it globaly or supply binary full directory via `executable` parameter.')
         else:
             self.executable = executable
         # detect version
-        self.version = subprocess.check_output([self.executable, '--version']).split(' ')[2]
+        self.version = subprocess.check_output([self.executable, '--version']).decode('ascii').split(' ')[2]
         self.autocleanup = autocleanup
         self.cleanup_dirs = set()
 
@@ -78,15 +95,16 @@ class autodock_vina(object):
         self.protein_file = None
         if protein:
             self.set_protein(protein)
+        self.skip_bad_mols = skip_bad_mols
 
-        #pregenerate common Vina parameters
+        # pregenerate common Vina parameters
         self.params = []
         self.params += ['--center_x', str(self.center[0]), '--center_y', str(self.center[1]), '--center_z', str(self.center[2])]
         self.params += ['--size_x', str(self.size[0]), '--size_y', str(self.size[1]), '--size_z', str(self.size[2])]
         if n_cpu > 0:
             self.params += ['--cpu', str(n_cpu)]
         self.params += ['--exhaustiveness', str(exhaustiveness)]
-        if not seed is None:
+        if seed is not None:
             self.params += ['--seed', str(seed)]
         self.params += ['--num_modes', str(num_modes)]
         self.params += ['--energy_range', str(energy_range)]
@@ -94,7 +112,7 @@ class autodock_vina(object):
     @property
     def tmp_dir(self):
         if not self._tmp_dir:
-            self._tmp_dir = mkdtemp(dir = self.dir, prefix='autodock_vina_')
+            self._tmp_dir = mkdtemp(dir=self.dir, prefix='autodock_vina_')
             self.cleanup_dirs.add(self._tmp_dir)
         return self._tmp_dir
 
@@ -122,14 +140,14 @@ class autodock_vina(object):
                 else:
                     self.protein = six.next(toolkit.readfile(extension, protein))
                     self.protein.protein = True
-                    self.protein_file = self.tmp_dir  + '/protein.pdbqt'
-                    self.protein.write('pdbqt', self.protein_file, opt={'r':None, 'c':None}, overwrite=True)
+                    self.protein_file = self.tmp_dir + '/protein.pdbqt'
+                    self.protein.write('pdbqt', self.protein_file, opt={'r': None, 'c': None}, overwrite=True)
             else:
                 # write protein to file
-                self.protein_file = self.tmp_dir  + '/protein.pdbqt'
-                self.protein.write('pdbqt', self.protein_file, opt={'r':None, 'c':None}, overwrite=True)
+                self.protein_file = self.tmp_dir + '/protein.pdbqt'
+                self.protein.write('pdbqt', self.protein_file, opt={'r': None, 'c': None}, overwrite=True)
 
-    def score(self, ligands, protein = None, single = False):
+    def score(self, ligands, protein=None, single=False):
         """Automated scoring procedure.
 
         Parameters
@@ -154,24 +172,26 @@ class autodock_vina(object):
             raise IOError("No receptor.")
         if single:
             ligands = [ligands]
-        ligand_dir = mkdtemp(dir = self.tmp_dir, prefix='ligands_')
+        ligand_dir = mkdtemp(dir=self.tmp_dir, prefix='ligands_')
         output_array = []
         for n, ligand in enumerate(ligands):
             # write ligand to file
             ligand_file = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '.pdbqt'
-            ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b':None})
+            ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b': None})
             try:
                 scores = parse_vina_scoring_output(subprocess.check_output([self.executable, '--score_only', '--receptor', self.protein_file, '--ligand', ligand_file] + self.params))
             except subprocess.CalledProcessError as e:
-                 sys.stderr.write(e.output)
-                 raise Exception('Autodock Vina failed. Command: "%s"' % ' '.join(e.cmd))
-
+                sys.stderr.write(e.output)
+                if self.skip_bad_mols:
+                    continue
+                else:
+                    raise Exception('Autodock Vina failed. Command: "%s"' % ' '.join(e.cmd))
             ligand.data.update(scores)
             output_array.append(ligand)
         rmtree(ligand_dir)
         return output_array
 
-    def dock(self, ligands, protein = None, single = False):
+    def dock(self, ligands, protein=None, single=False):
         """Automated docking procedure.
 
         Parameters
@@ -196,22 +216,25 @@ class autodock_vina(object):
             raise IOError("No receptor.")
         if single:
             ligands = [ligands]
-        ligand_dir = mkdtemp(dir = self.tmp_dir, prefix='ligands_')
+        ligand_dir = mkdtemp(dir=self.tmp_dir, prefix='ligands_')
         output_array = []
         for n, ligand in enumerate(ligands):
             # write ligand to file
             ligand_file = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '.pdbqt'
             ligand_outfile = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '_out.pdbqt'
-            ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b':None})
+            ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b': None})
             try:
                 vina = parse_vina_docking_output(subprocess.check_output([self.executable, '--receptor', self.protein_file, '--ligand', ligand_file, '--out', ligand_outfile] + self.params, stderr=subprocess.STDOUT))
             except subprocess.CalledProcessError as e:
-                 sys.stderr.write(e.output)
-                 raise Exception('Autodock Vina failed. Command: "%s"' % ' '.join(e.cmd))
-            ### HACK # overcome connectivity problems in obabel
+                sys.stderr.write(e.output.decode('ascii'))
+                if self.skip_bad_mols:
+                    continue
+                else:
+                    raise Exception('Autodock Vina failed. Command: "%s"' % ' '.join(e.cmd))
+            # HACK # overcome connectivity problems in obabel
             source_ligand = six.next(toolkit.readfile('pdbqt', ligand_file))
             for lig, scores in zip([lig for lig in toolkit.readfile('pdbqt', ligand_outfile, opt={'b': None})], vina):
-                ### HACK # copy data from source
+                # HACK # copy data from source
                 clone = source_ligand.clone
                 clone.clone_coords(lig)
                 clone.data.update(scores)
@@ -253,6 +276,7 @@ class autodock_vina(object):
         """
         return self.score(ligands)
 
+
 def parse_vina_scoring_output(output):
     """Function parsing Autodock Vina scoring output to a dictionary
 
@@ -268,13 +292,14 @@ def parse_vina_scoring_output(output):
     """
     out = {}
     r = re.compile('^(Affinity:|\s{4})')
-    for line in output.split('\n')[13:]: # skip some output
+    for line in output.split('\n')[13:]:  # skip some output
         if r.match(line):
-            m = line.replace(' ','').split(':')
+            m = line.replace(' ', '').split(':')
             if m[0] == 'Affinity':
-                m[1] = m[1].replace('(kcal/mol)','')
-            out['vina_'+m[0].lower()] = float(m[1])
+                m[1] = m[1].replace('(kcal/mol)', '')
+            out['vina_' + m[0].lower()] = float(m[1])
     return out
+
 
 def parse_vina_docking_output(output):
     """Function parsing Autodock Vina docking output to a dictionary
@@ -291,7 +316,7 @@ def parse_vina_docking_output(output):
     """
     out = []
     r = re.compile('^\s+\d\s+')
-    for line in output.split('\n')[13:]: # skip some output
+    for line in output.decode('ascii').split('\n')[13:]:  # skip some output
         if r.match(line):
             s = line.split()
             out.append({'vina_affinity': s[1], 'vina_rmsd_lb': s[2], 'vina_rmsd_ub': s[3]})
