@@ -43,9 +43,9 @@ import six
 from os.path import isfile
 from ast import literal_eval
 import argparse
-import joblib
 
 import oddt
+from oddt.scoring import scorer
 
 
 def main():
@@ -189,7 +189,7 @@ def main():
 
     for score_file in args.score_file:
         if isfile(score_file):  # load pickle
-            sf = joblib.load(score_file)
+            sf = scorer.load(score_file)
             pipeline.score(sf, receptor)
         else:
             raise IOError('Could not read pickle file %s' % score_file)
