@@ -310,6 +310,8 @@ class ChemDataFrame(pd.DataFrame):
     def _constructor_expanddim(self):
         """ Force new class to be usead as constructor when expandig dims """
         return ChemPanel
+# Copy some docscrings from upstream classes
+ChemDataFrame.to_html.__doc__ = pd.DataFrame.to_html.__doc__
 
 
 class ChemPanel(pd.Panel):
