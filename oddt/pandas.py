@@ -311,7 +311,10 @@ class ChemDataFrame(pd.DataFrame):
         """ Force new class to be usead as constructor when expandig dims """
         return ChemPanel
 # Copy some docscrings from upstream classes
-ChemDataFrame.to_html.__doc__ = pd.DataFrame.to_html.__doc__
+try:
+    ChemDataFrame.to_html.__doc__ = pd.DataFrame.to_html.__doc__
+except AttributeError:
+    ChemDataFrame.to_html.__func__.__doc__ = pd.DataFrame.to_html.__func__.__doc__
 
 
 class ChemPanel(pd.Panel):
