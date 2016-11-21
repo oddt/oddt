@@ -160,6 +160,8 @@ class Molecule(pybel.Molecule):
 
     def write(self, format="smi", filename=None, overwrite=False, opt=None):
         format = format.lower()
+        if format == 'png':
+            format = '_png2'
         # Use lazy molecule if possible
         if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
             return self._source['string']

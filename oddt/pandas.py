@@ -1,6 +1,7 @@
 """ Pandas extension for chemical analysis """
 from __future__ import absolute_import
 from collections import deque
+from six import BytesIO
 import pandas as pd
 
 import oddt
@@ -296,6 +297,32 @@ class ChemDataFrame(pd.DataFrame):
         kwargs['escape'] = False
         return super(ChemDataFrame, self).to_html(*args, **kwargs)
 
+    def to_excel(self, *args, **kwargs):
+        columns = kwargs['columns'] if 'columns' in kwargs else self.columns.tolist()
+        molecule_column = 'mol'  # TODO: Get appropriate molecule_column
+        molecule_column_idx = columns.index(molecule_column)
+        size = (200, 200)
+        excel_writer = pd.ExcelWriter(args[0], engine='xlsxwriter')
+
+        super(ChemDataFrame, self).to_excel(excel_writer, *args[1:], **kwargs)
+
+        sheet = excel_writer.sheets['Sheet1']  # TODO: Get appropriate sheet name
+        sheet.set_column(molecule_column_idx + 1, molecule_column_idx + 1, width=size[1] / 4.5)
+        for i, mol in enumerate(self[molecule_column]):
+            img = BytesIO()
+            img.write(mol.write('png').encode('utf-8', errors='surrogateescape'))
+            mol.write('png', 'tmp.png', overwrite=True)
+            sheet.write_string(i + 1, molecule_column_idx + 1, "")
+            sheet.insert_image(i + 1,
+                               molecule_column_idx + 1,
+                               'tmp.png',
+                               {'image_data': img,
+                                'positioning': 2,
+                                'x_offset': 1,
+                                'y_offset': 1})
+            sheet.set_row(i + 1, height=size[0] * (1.15))  # TODO: get actual size
+        excel_writer.save()
+
     @property
     def _constructor(self):
         """ Force new class to be usead as constructor """
@@ -311,10 +338,11 @@ class ChemDataFrame(pd.DataFrame):
         """ Force new class to be usead as constructor when expandig dims """
         return ChemPanel
 # Copy some docscrings from upstream classes
-try:
-    ChemDataFrame.to_html.__doc__ = pd.DataFrame.to_html.__doc__
-except AttributeError:
-    ChemDataFrame.to_html.__func__.__doc__ = pd.DataFrame.to_html.__func__.__doc__
+for method in ['to_html', 'to_excel']:
+    try:
+        getattr(ChemDataFrame, method).__doc__ = getattr(pd.DataFrame, method).__doc__
+    except AttributeError:  # Python 2 compatible
+        getattr(ChemDataFrame, method).__func__.__doc__ = getattr(pd.DataFrame, method).__func__.__doc__
 
 
 class ChemPanel(pd.Panel):
