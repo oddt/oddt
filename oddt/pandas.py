@@ -331,6 +331,14 @@ class ChemDataFrame(pd.DataFrame):
         kwargs['escape'] = False
         return super(ChemDataFrame, self).to_html(*args, **kwargs)
 
+    def to_csv(self, *args, **kwargs):
+        if self._molecule_column:
+            frm_copy = self.copy(deep=False)
+            frm_copy[self._molecule_column] = frm_copy[self._molecule_column].map(lambda x: x.write('smi').split()[0]).values
+            return super(ChemDataFrame, frm_copy).to_csv(*args, **kwargs)
+        else:
+            return super(ChemDataFrame, self).to_csv(*args, **kwargs)
+
     def to_excel(self, *args, **kwargs):
         columns = kwargs['columns'] if 'columns' in kwargs else self.columns.tolist()
         if 'molecule_column' in kwargs:
@@ -377,7 +385,7 @@ class ChemDataFrame(pd.DataFrame):
         """ Force new class to be usead as constructor when expandig dims """
         return ChemPanel
 # Copy some docscrings from upstream classes
-for method in ['to_html', 'to_excel']:
+for method in ['to_html', 'to_csv', 'to_excel']:
     try:
         getattr(ChemDataFrame, method).__doc__ = getattr(pd.DataFrame, method).__doc__
     except AttributeError:  # Python 2 compatible
