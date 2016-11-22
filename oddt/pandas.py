@@ -1,7 +1,7 @@
 """ Pandas extension for chemical analysis """
 from __future__ import absolute_import
 from collections import deque
-from six import BytesIO
+from six import BytesIO, StringIO
 import pandas as pd
 
 import oddt
@@ -93,31 +93,54 @@ def _mol_reader(fmt='sdf',
             mol_data[smiles_column] = mol.write('smi').split()[0]
         chunk.append(mol_data)
         if chunksize and (n + 1) % chunksize == 0:
-            yield ChemDataFrame(chunk, **kwargs)
+            chunk_frm = ChemDataFrame(chunk, **kwargs)
+            chunk_frm._molecule_column = molecule_column
+            yield chunk_frm
             chunk = []
     if chunk or chunksize is None:
-        yield ChemDataFrame(chunk, **kwargs)
+        chunk_frm = ChemDataFrame(chunk, **kwargs)
+        chunk_frm._molecule_column = molecule_column
+        yield chunk_frm
 
 
-def _mol_writer(dataframe,
+def _mol_writer(data,
                 fmt='sdf',
                 filepath_or_buffer=None,
                 update_properties=True,
-                molecule_column='mol',
+                molecule_column=None,
                 columns=None):
-    out = oddt.toolkit.Outputfile(fmt, filepath_or_buffer, overwrite=True)
-    for ix, row in dataframe.iterrows():
-        mol = row[molecule_column].clone
-        if update_properties:
-            new_data = row.to_dict()
-            del new_data[molecule_column]
-            mol.data.update(new_data)
-        if columns:
-            for k in mol.data.keys():
-                if k not in columns:
-                    del mol.data[k]
-        out.write(mol)
-    out.close()
+    molecule_column = molecule_column or data._molecule_column
+    if filepath_or_buffer is None:
+        out = StringIO()
+    elif hasattr(filepath_or_buffer, 'write'):
+        out = filepath_or_buffer
+    else:
+        out = oddt.toolkit.Outputfile(fmt, filepath_or_buffer, overwrite=True)
+    if isinstance(data, pd.DataFrame):
+        for ix, row in data.iterrows():
+            mol = row[molecule_column].clone
+            if update_properties:
+                new_data = row.to_dict()
+                del new_data[molecule_column]
+                mol.data.update(new_data)
+            if columns:
+                for k in mol.data.keys():
+                    if k not in columns:
+                        del mol.data[k]
+            if filepath_or_buffer is None or hasattr(filepath_or_buffer, 'write'):
+                out.write(mol.write(fmt))
+            else:
+                out.write(mol)
+    elif isinstance(data, pd.Series):
+        for mol in data:
+            if filepath_or_buffer is None or hasattr(filepath_or_buffer, 'write'):
+                out.write(mol.write(fmt))
+            else:
+                out.write(mol)
+    if filepath_or_buffer is None:
+        return out.getvalue()
+    elif not hasattr(filepath_or_buffer, 'write'):  # dont close foreign buffer
+        out.close()
 
 
 def read_sdf(filepath_or_buffer=None,
@@ -247,6 +270,14 @@ class ChemSeries(pd.Series):
     """Pandas Series modified to adapt `oddt.toolkit.Molecule` objects and apply
     molecular methods easily.
     """
+    def to_smiles(self, filepath_or_buffer=None):
+        return _mol_writer(self, fmt='smi', filepath_or_buffer=filepath_or_buffer)
+
+    def to_sdf(self, filepath_or_buffer=None):
+        return _mol_writer(self, fmt='sdf', filepath_or_buffer=filepath_or_buffer)
+
+    def to_mol2(self, filepath_or_buffer=None):
+        return _mol_writer(self, fmt='mol2', filepath_or_buffer=filepath_or_buffer)
 
     @property
     def _constructor(self):
@@ -268,30 +299,33 @@ class ChemDataFrame(pd.DataFrame):
     Note:
     Thanks to: http://blog.snapdragon.cc/2015/05/05/subclass-pandas-dataframe-to-save-custom-attributes/
     """
+    _molecule_column = None
 
     def to_sdf(self,
                filepath_or_buffer=None,
                update_properties=True,
-               molecule_column='mol',
+               molecule_column=None,
                columns=None):
-        _mol_writer(self,
-                    fmt='sdf',
-                    filepath_or_buffer=filepath_or_buffer,
-                    update_properties=update_properties,
-                    molecule_column=molecule_column,
-                    columns=columns)
+        molecule_column = molecule_column or self._molecule_column
+        return _mol_writer(self,
+                           filepath_or_buffer=filepath_or_buffer,
+                           update_properties=update_properties,
+                           fmt='sdf',
+                           molecule_column=molecule_column,
+                           columns=columns)
 
     def to_mol2(self,
                 filepath_or_buffer=None,
                 update_properties=True,
                 molecule_column='mol',
                 columns=None):
-        _mol_writer(self,
-                    fmt='mol2',
-                    filepath_or_buffer=filepath_or_buffer,
-                    update_properties=update_properties,
-                    molecule_column=molecule_column,
-                    columns=columns)
+        molecule_column = molecule_column or self._molecule_column
+        return _mol_writer(self,
+                           fmt='mol2',
+                           filepath_or_buffer=filepath_or_buffer,
+                           update_properties=update_properties,
+                           molecule_column=molecule_column,
+                           columns=columns)
 
     def to_html(self, *args, **kwargs):
         kwargs['escape'] = False
@@ -299,7 +333,10 @@ class ChemDataFrame(pd.DataFrame):
 
     def to_excel(self, *args, **kwargs):
         columns = kwargs['columns'] if 'columns' in kwargs else self.columns.tolist()
-        molecule_column = 'mol'  # TODO: Get appropriate molecule_column
+        if 'molecule_column' in kwargs:
+            molecule_column = kwargs['molecule_column']
+        else:
+            molecule_column = self._molecule_column
         molecule_column_idx = columns.index(molecule_column)
         size = kwargs.pop('size') if 'size' in kwargs else (200, 200)
         excel_writer = pd.ExcelWriter(args[0], engine='xlsxwriter')
@@ -322,7 +359,7 @@ class ChemDataFrame(pd.DataFrame):
                                 'positioning': 2,
                                 'x_offset': 1,
                                 'y_offset': 1})
-            sheet.set_row(i + 1, height=size[0])  # TODO: get actual size
+            sheet.set_row(i + 1, height=size[0])
         excel_writer.save()
 
     @property
