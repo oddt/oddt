@@ -109,7 +109,6 @@ def _mol_writer(data,
                 update_properties=True,
                 molecule_column=None,
                 columns=None):
-    molecule_column = molecule_column or data._molecule_column
     if filepath_or_buffer is None:
         out = StringIO()
     elif hasattr(filepath_or_buffer, 'write'):
@@ -117,6 +116,7 @@ def _mol_writer(data,
     else:
         out = oddt.toolkit.Outputfile(fmt, filepath_or_buffer, overwrite=True)
     if isinstance(data, pd.DataFrame):
+        molecule_column = molecule_column or data._molecule_column
         for ix, row in data.iterrows():
             mol = row[molecule_column].clone
             if update_properties:
