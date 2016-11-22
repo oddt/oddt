@@ -301,26 +301,28 @@ class ChemDataFrame(pd.DataFrame):
         columns = kwargs['columns'] if 'columns' in kwargs else self.columns.tolist()
         molecule_column = 'mol'  # TODO: Get appropriate molecule_column
         molecule_column_idx = columns.index(molecule_column)
-        size = (200, 200)
+        size = kwargs.pop('size') if 'size' in kwargs else (200, 200)
         excel_writer = pd.ExcelWriter(args[0], engine='xlsxwriter')
 
         super(ChemDataFrame, self).to_excel(excel_writer, *args[1:], **kwargs)
 
         sheet = excel_writer.sheets['Sheet1']  # TODO: Get appropriate sheet name
-        sheet.set_column(molecule_column_idx + 1, molecule_column_idx + 1, width=size[1] / 4.5)
+        sheet.set_column(molecule_column_idx + 1, molecule_column_idx + 1, width=size[1] / 6.)
         for i, mol in enumerate(self[molecule_column]):
             img = BytesIO()
-            img.write(mol.write('png').encode('utf-8', errors='surrogateescape'))
-            mol.write('png', 'tmp.png', overwrite=True)
+            png = mol.clone.write('png', size=size)
+            if type(png) is str:
+                png = png.encode('utf-8', errors='surrogateescape')
+            img.write(png)
             sheet.write_string(i + 1, molecule_column_idx + 1, "")
             sheet.insert_image(i + 1,
                                molecule_column_idx + 1,
-                               'tmp.png',
+                               'dummy',
                                {'image_data': img,
                                 'positioning': 2,
                                 'x_offset': 1,
                                 'y_offset': 1})
-            sheet.set_row(i + 1, height=size[0] * (1.15))  # TODO: get actual size
+            sheet.set_row(i + 1, height=size[0])  # TODO: get actual size
         excel_writer.save()
 
     @property

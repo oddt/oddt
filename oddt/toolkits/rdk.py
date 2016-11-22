@@ -729,7 +729,7 @@ class Molecule(object):
         """Remove hydrogens."""
         self.Mol = Chem.RemoveHs(self.Mol)
 
-    def write(self, format="smi", filename=None, overwrite=False, **kwargs):
+    def write(self, format="smi", filename=None, overwrite=False, size=None, **kwargs):
         """Write the molecule to a file or return a string.
 
         Optional parameters:
@@ -764,6 +764,20 @@ class Molecule(object):
             result = Chem.inchi.MolToInchi(self.Mol, **kwargs)
             if format == 'inchikey':
                 result = Chem.inchi.InchiToInchiKey(result, **kwargs)
+        elif format == "png":
+            size = size or (200, 200)  # TODO: determine actual sanitize
+            mc = Chem.Mol(self.Mol.ToBinary())
+            AllChem.Compute2DCoords(mc)
+            if hasattr(rdMolDraw2D, 'MolDraw2DCairo'):
+                drawer = rdMolDraw2D.MolDraw2DCairo(*size)
+                drawer.DrawMolecule(mc)
+                drawer.FinishDrawing()
+                return drawer.GetDrawingText().decode('ascii')
+            else:
+                bio = BytesIO()
+                img = Draw.MolToImage(mc, size=size)
+                img.save(bio, format='PNG')
+                return bio.getvalue()
         else:
             raise ValueError("%s is not a recognised RDKit format" % format)
         if filename:

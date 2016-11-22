@@ -158,10 +158,14 @@ class Molecule(pybel.Molecule):
             self._charges = np.array([atom.partialcharge for atom in self.atoms])
         return self._charges
 
-    def write(self, format="smi", filename=None, overwrite=False, opt=None):
+    def write(self, format="smi", filename=None, overwrite=False, opt=None, size=None):
         format = format.lower()
         if format == 'png':
+            size = size or (200, 200)
             format = '_png2'
+            opt = opt or {}
+            opt['w'] = size[0]
+            opt['h'] = size[1]
         # Use lazy molecule if possible
         if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
             return self._source['string']
