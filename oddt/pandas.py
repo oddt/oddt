@@ -299,6 +299,7 @@ class ChemDataFrame(pd.DataFrame):
     Note:
     Thanks to: http://blog.snapdragon.cc/2015/05/05/subclass-pandas-dataframe-to-save-custom-attributes/
     """
+    _metadata = ['_molecule_column']
     _molecule_column = None
 
     def to_sdf(self,
