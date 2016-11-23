@@ -11,8 +11,8 @@ import oddt.pandas as opd
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
 
-def test_reading():
-    """ Test reading molecule files to ChemDataFrame """
+def test_classes():
+    """ Test oddt.pandas classes behavior """
     df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
 
     # Check classes inheritance
@@ -22,9 +22,19 @@ def test_reading():
     assert_true(isinstance(df['mol'], pd.Series))
     assert_true(isinstance(df, pd.DataFrame))
 
+    # Check custom metadata
+    assert_true(hasattr(df, '_molecule_column'))
+    assert_true(hasattr(df[['mol']], '_molecule_column'))
+    assert_equal(df._molecule_column, df[['mol']]._molecule_column)
+
     # Check if slicing perserve classes
     assert_true(isinstance(df.head(1), opd.ChemDataFrame))
     assert_true(isinstance(df['mol'].head(1), opd.ChemSeries))
+
+
+def test_reading():
+    """ Test reading molecule files to ChemDataFrame """
+    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
 
     # Check dimensions
     assert_equal(len(df), 100)
@@ -60,7 +70,7 @@ def test_reading():
     assert_equal(len(df), 100)
 
 
-def test_writing_mol2():
+def test_mol2():
     """Writing and reading of mol2 fils to/from ChemDataFrame"""
     if oddt.toolkit.backend == 'ob':  # RDKit does not support mol2 writing yet
         df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
@@ -80,8 +90,8 @@ def test_writing_mol2():
             assert_equal(len(df2.columns), 5)
 
 
-def test_writing():
-    """Writing ChemDataFrame to molecular files"""
+def test_sdf():
+    """Writing ChemDataFrame to SDF molecular files"""
     df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
     with NamedTemporaryFile(suffix='.sdf') as f:
         df.to_sdf(f.name)
@@ -91,6 +101,20 @@ def test_writing():
         df.to_sdf(f.name, columns=['name', 'uniprot_id', 'act'])
         df2 = opd.read_sdf(f.name)
     assert_equal(len(df2.columns), 5)
+
+
+def test_csv():
+    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'),
+                      columns=['mol', 'name', 'chembl_id', 'dude_smiles', 'act'])
+    df['act'] = df['act'].astype(float)
+    df['name'] = df['name'].astype(int)
+    with NamedTemporaryFile(suffix='.csv', mode='w+') as f:
+        df.to_csv(f, index=False)
+        f.seek(0)
+        df2 = opd.read_csv(f, smiles_to_molecule='mol', molecule_column='mol')
+    assert_equal(df.shape, df2.shape)
+    assert_equal(df.columns.tolist(), df2.columns.tolist())
+    assert_equal(df.dtypes.tolist(), df2.dtypes.tolist())
 
 
 def test_ipython():

@@ -143,6 +143,16 @@ def _mol_writer(data,
         out.close()
 
 
+def read_csv(*args, **kwargs):
+    """ TODO: Support Chunks """
+    smiles_to_molecule = kwargs.pop('smiles_to_molecule', None)
+    molecule_column = kwargs.pop('molecule_column', 'mol')
+    data = pd.read_csv(*args, **kwargs)
+    if smiles_to_molecule is not None:
+        data[molecule_column] = data[smiles_to_molecule].map(lambda x: oddt.toolkit.readstring('smi', x))
+    return data
+
+
 def read_sdf(filepath_or_buffer=None,
              usecols=None,
              molecule_column='mol',
@@ -399,6 +409,8 @@ class ChemPanel(pd.Panel):
     column and keep 2D numpy array underneath.
 
     """
+    _metadata = ['_molecule_column']
+    _molecule_column = None
 
     @property
     def _constructor(self):
