@@ -280,22 +280,26 @@ class ChemSeries(pd.Series):
     """Pandas Series modified to adapt `oddt.toolkit.Molecule` objects and apply
     molecular methods easily.
     """
-    def __lt__(self, other):
+    def __le__(self, other):
         """ Substructure searching.
         `chemseries < mol`: are molecules in series substructures of a `mol`
         """
-        assert(isinstance(other, oddt.toolkit.Molecule))
-        assert(isinstance(self[0], oddt.toolkit.Molecule))
-        return self.map(lambda x: oddt.toolkit.Smarts(x.smiles).match(other))
+        if (isinstance(other, oddt.toolkit.Molecule) and
+           isinstance(self[0], oddt.toolkit.Molecule)):
+            return self.map(lambda x: oddt.toolkit.Smarts(x.smiles).match(other))
+        else:
+            return super(ChemSeries, self).__le__(other)
 
-    def __gt__(self, other):
+    def __ge__(self, other):
         """ Substructure searching.
         `chemseries > mol`: is `mol` a substructure of molecules in series
         """
-        assert(isinstance(other, oddt.toolkit.Molecule))
-        assert(isinstance(self[0], oddt.toolkit.Molecule))
-        smarts = oddt.toolkit.Smarts(other.smiles)
-        return self.map(lambda x: smarts.match(x))
+        if (isinstance(other, oddt.toolkit.Molecule) and
+           isinstance(self[0], oddt.toolkit.Molecule)):
+            smarts = oddt.toolkit.Smarts(other.smiles)
+            return self.map(lambda x: smarts.match(x))
+        else:
+            return super(ChemSeries, self).__ge__(other)
 
     def __or__(self, other):
         """ Tanimoto coefficient """
