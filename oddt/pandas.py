@@ -376,7 +376,9 @@ class ChemDataFrame(pd.DataFrame):
         return super(ChemDataFrame, self).to_html(*args, **kwargs)
 
     def to_csv(self, *args, **kwargs):
-        if self._molecule_column:
+        if self._molecule_column and ('columns' not in kwargs or
+                                      kwargs['columns'] is None or
+                                      self._molecule_column in kwargs['columns']):
             frm_copy = self.copy(deep=False)
             frm_copy[self._molecule_column] = frm_copy[self._molecule_column].map(lambda x: x.smiles).values
             return super(ChemDataFrame, frm_copy).to_csv(*args, **kwargs)
