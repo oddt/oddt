@@ -8,6 +8,7 @@ import oddt
 
 pd.set_option("display.max_colwidth", 999999)
 image_backend = 'png'  # png or svg
+image_size = (200, 200)
 
 
 def _mol_reader(fmt='sdf',

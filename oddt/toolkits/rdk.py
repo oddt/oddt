@@ -516,33 +516,14 @@ class Molecule(object):
         return Molecule(Chem.Mol(self.Mol.ToBinary()))
 
     def _repr_svg_(self, size=(200, 200)):
-        mc = Chem.Mol(self.Mol.ToBinary())
-        AllChem.Compute2DCoords(mc)
-        drawer = rdMolDraw2D.MolDraw2DSVG(*size)
-        drawer.DrawMolecule(mc)
-        drawer.FinishDrawing()
-        svg = drawer.GetDrawingText()
+        svg = self.write('svg', size=size)
         return svg.replace('svg:', '').replace('\n', '')
 
     def _repr_png_(self, size=(200, 200)):
-        bio = BytesIO()
-        mc = Chem.Mol(self.Mol.ToBinary())
-        AllChem.Compute2DCoords(mc)
-        if hasattr(rdMolDraw2D, 'MolDraw2DCairo'):
-            drawer = rdMolDraw2D.MolDraw2DCairo(*size)
-            drawer.DrawMolecule(mc)
-            drawer.FinishDrawing()
-            return '<img src="data:image/png;base64,%s" alt="%s">' % (
-                b64encode(drawer.GetDrawingText()).decode('ascii'),
-                self.title
-            )
-        else:
-            img = Draw.MolToImage(mc, size=size)
-            img.save(bio, format='PNG')
-            return '<img src="data:image/png;base64,%s" alt="%s">' % (
-                b64encode(bio.getvalue()).decode('ascii'),
-                self.title
-            )
+        png = self.write('png', size=size)
+        return '<img src="data:image/png;base64,%s" alt="%s">' % (
+            b64encode(png).decode('ascii'),
+            self.title)
 
     def __str__(self):
         return self.__repr__()
@@ -769,19 +750,40 @@ class Molecule(object):
             if format == 'inchikey':
                 result = Chem.inchi.InchiToInchiKey(result, **kwargs)
         elif format == "png":
-            size = size or (200, 200)  # TODO: determine actual sanitize
+            size = size or (200, 200)
             mc = Chem.Mol(self.Mol.ToBinary())
             AllChem.Compute2DCoords(mc)
             if hasattr(rdMolDraw2D, 'MolDraw2DCairo'):
                 drawer = rdMolDraw2D.MolDraw2DCairo(*size)
                 drawer.DrawMolecule(mc)
                 drawer.FinishDrawing()
-                return drawer.GetDrawingText().decode('ascii')
+                if filename:
+                    with open(filename, 'w+') as f:
+                        f.write(drawer.GetDrawingText().decode('ascii'))
+                else:
+                    return drawer.GetDrawingText().decode('ascii')
             else:
                 bio = BytesIO()
                 img = Draw.MolToImage(mc, size=size)
                 img.save(bio, format='PNG')
-                return bio.getvalue()
+                if filename:
+                    with open(filename, 'w+') as f:
+                        f.write(bio.getvalue())
+                else:
+                    return bio.getvalue()
+        elif format == "svg":
+            size = size or (200, 200)
+            mc = Chem.Mol(self.Mol.ToBinary())
+            AllChem.Compute2DCoords(mc)
+            drawer = rdMolDraw2D.MolDraw2DSVG(*size)
+            drawer.DrawMolecule(mc)
+            drawer.FinishDrawing()
+            svg = drawer.GetDrawingText()
+            if filename:
+                with open(filename, 'w+') as f:
+                    f.write(svg)
+            else:
+                return svg
         else:
             raise ValueError("%s is not a recognised RDKit format" % format)
         if filename:

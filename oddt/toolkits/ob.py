@@ -164,8 +164,8 @@ class Molecule(pybel.Molecule):
 
     def write(self, format="smi", filename=None, overwrite=False, opt=None, size=None):
         format = format.lower()
+        size = size or (200, 200)
         if format == 'png':
-            size = size or (200, 200)
             format = '_png2'
             opt = opt or {}
             opt['w'] = size[0]
@@ -205,13 +205,15 @@ class Molecule(pybel.Molecule):
         return self.OBMol.NumRotors()
 
     def _repr_svg_(self):
-        return self.clone.write('svg', opt={'d': None}).replace('\n', '')
+        return self.clone.write('svg',
+                                opt={'d': None},
+                                size=oddt.pandas.image_size).replace('\n', '')
 
-    def _repr_png_(self, size=200):
-        string = self.clone.write('_png2', opt={'p': size,
-                                                'd': None,
-                                                't': None}
-                                  )
+    def _repr_png_(self):
+        string = self.clone.write('png',
+                                  opt={'d': None,
+                                       't': None},
+                                  size=oddt.pandas.image_size)
         if six.PY3:  # bug in SWIG decoding
             string = string.encode('utf-8', errors='surrogateescape')
         return '<img src="data:image/png;base64,%s" alt="%s">' % (
