@@ -445,6 +445,10 @@ class Molecule(object):
             self._charges = np.array([atom.partialcharge for atom in self.atoms])
         return self._charges
 
+    @property
+    def smiles(self):
+        return Chem.MolToSmiles(self.Mol, isomericSmiles=True)
+
     # Custom ODDT properties #
     @property
     def residues(self):
@@ -1100,6 +1104,14 @@ class Smarts(object):
         self.rdksmarts = Chem.MolFromSmarts(smartspattern)
         if not self.rdksmarts:
             raise IOError("Invalid SMARTS pattern.")
+
+    def match(self, molecule):
+        """Find all matches of the SMARTS pattern to a particular molecule.
+
+        Required parameters:
+           molecule
+        """
+        return molecule.Mol.HasSubstructMatch(self.rdksmarts)
 
     def findall(self, molecule):
         """Find all matches of the SMARTS pattern to a particular molecule.

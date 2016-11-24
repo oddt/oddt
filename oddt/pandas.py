@@ -90,7 +90,7 @@ def _mol_reader(fmt='sdf',
         if molecule_name_column:
             mol_data[molecule_name_column] = mol.title
         if smiles_column:
-            mol_data[smiles_column] = mol.write('smi').split()[0]
+            mol_data[smiles_column] = mol.smiles
         chunk.append(mol_data)
         if chunksize and (n + 1) % chunksize == 0:
             chunk_frm = ChemDataFrame(chunk, **kwargs)
@@ -280,6 +280,35 @@ class ChemSeries(pd.Series):
     """Pandas Series modified to adapt `oddt.toolkit.Molecule` objects and apply
     molecular methods easily.
     """
+    def __lt__(self, other):
+        """ Substructure searching.
+        `chemseries < mol`: are molecules in series substructures of a `mol`
+        """
+        assert(isinstance(other, oddt.toolkit.Molecule))
+        assert(isinstance(self[0], oddt.toolkit.Molecule))
+        return self.map(lambda x: oddt.toolkit.Smarts(x.smiles).match(other))
+
+    def __gt__(self, other):
+        """ Substructure searching.
+        `chemseries > mol`: is `mol` a substructure of molecules in series
+        """
+        assert(isinstance(other, oddt.toolkit.Molecule))
+        assert(isinstance(self[0], oddt.toolkit.Molecule))
+        smarts = oddt.toolkit.Smarts(other.smiles)
+        return self.map(lambda x: smarts.match(x))
+
+    def __or__(self, other):
+        """ Tanimoto coefficient """
+        if (isinstance(self[0], oddt.toolkit.Fingerprint) and
+           isinstance(other, oddt.toolkit.Fingerprint)):
+            return self.map(lambda x: x | other)
+        else:
+            return super(ChemSeries, self).__or__(other)
+
+    def calcfp(self, *args, **kwargs):
+        assert(isinstance(self[0], oddt.toolkit.Molecule))
+        return self.map(lambda x: x.calcfp(*args, **kwargs))
+
     def to_smiles(self, filepath_or_buffer=None):
         return _mol_writer(self, fmt='smi', filepath_or_buffer=filepath_or_buffer)
 
@@ -345,7 +374,7 @@ class ChemDataFrame(pd.DataFrame):
     def to_csv(self, *args, **kwargs):
         if self._molecule_column:
             frm_copy = self.copy(deep=False)
-            frm_copy[self._molecule_column] = frm_copy[self._molecule_column].map(lambda x: x.write('smi').split()[0]).values
+            frm_copy[self._molecule_column] = frm_copy[self._molecule_column].map(lambda x: x.smiles).values
             return super(ChemDataFrame, frm_copy).to_csv(*args, **kwargs)
         else:
             return super(ChemDataFrame, self).to_csv(*args, **kwargs)

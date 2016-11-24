@@ -158,6 +158,10 @@ class Molecule(pybel.Molecule):
             self._charges = np.array([atom.partialcharge for atom in self.atoms])
         return self._charges
 
+    @property
+    def smiles(self):
+        return self.write('smi').split()[0]
+
     def write(self, format="smi", filename=None, overwrite=False, opt=None, size=None):
         format = format.lower()
         if format == 'png':
@@ -583,3 +587,9 @@ def _unrollbits(fp, bitsperint):
     return ans
 
 pybel.Fingerprint = Fingerprint
+
+
+class Smarts(pybel.Smarts):
+    def match(self, molecule):
+        """ Checks if there is any match. Returns True or False """
+        return self.obsmarts.HasMatch(molecule.OBMol)
