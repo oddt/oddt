@@ -759,9 +759,9 @@ class Molecule(object):
                 drawer.FinishDrawing()
                 if filename:
                     with open(filename, 'w+') as f:
-                        f.write(drawer.GetDrawingText().decode('ascii'))
+                        f.write(drawer.GetDrawingText())
                 else:
-                    return drawer.GetDrawingText().decode('ascii')
+                    return drawer.GetDrawingText()
             else:
                 bio = BytesIO()
                 img = Draw.MolToImage(mc, size=size)
