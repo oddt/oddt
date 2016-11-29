@@ -70,6 +70,22 @@ def test_reading():
     assert_equal(len(df), 100)
 
 
+def test_substruct_sim_search():
+    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')).head(20)
+    query = oddt.toolkit.readstring('smi', 'C(=O)(N1C[C@H](C[C@H]1C(=O)N[C@@H]1CCCc2c1cccc2)Oc1ccccc1)[C@@H](NC(=O)[C@H](C)NC)C1CCCCC1')
+
+    ge_answear = [True, True, True, False, True, False, False, False, False, False,
+                  False, False, True, False, False, True, False, False, False, False]
+    assert_equal((df.mol >= query).tolist(), ge_answear)
+
+    le_answear = [True, True, True, True, True, True, False, False, False, True,
+                  False, False, True, False, False, True, False, False, False, False]
+    assert_equal((df.mol <= query).tolist(), le_answear)
+
+    sim = df.mol.calcfp() | query.calcfp()
+    assert_equal(sim.dtype, 'float64')
+
+
 def test_mol2():
     """Writing and reading of mol2 fils to/from ChemDataFrame"""
     if oddt.toolkit.backend == 'ob':  # RDKit does not support mol2 writing yet
