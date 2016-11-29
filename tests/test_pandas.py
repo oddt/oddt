@@ -71,15 +71,13 @@ def test_reading():
 
 
 def test_substruct_sim_search():
-    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')).head(20)
+    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')).head(10)
     query = oddt.toolkit.readstring('smi', 'C(=O)(N1C[C@H](C[C@H]1C(=O)N[C@@H]1CCCc2c1cccc2)Oc1ccccc1)[C@@H](NC(=O)[C@H](C)NC)C1CCCCC1')
 
-    ge_answear = [True, True, True, False, True, False, False, False, False, False,
-                  False, False, True, False, False, True, False, False, False, False]
+    ge_answear = [True, True, True, False, True, False, False, False, False, False]
     assert_equal((df.mol >= query).tolist(), ge_answear)
 
-    le_answear = [True, True, True, True, True, True, False, False, False, True,
-                  False, False, True, False, False, True, False, False, False, False]
+    le_answear = [True, True, True, True, True, True, False, False, False, True]
     assert_equal((df.mol <= query).tolist(), le_answear)
 
     sim = df.mol.calcfp() | query.calcfp()
