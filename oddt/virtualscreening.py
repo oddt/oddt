@@ -10,6 +10,7 @@ from itertools import chain
 from functools import partial
 
 from oddt import toolkit
+from oddt.scoring import scorer
 
 def _parallel_helper(obj, methodname, kwargs):
     """Private helper to workaround Python 2 pickle limitations to paralelize methods"""
@@ -196,10 +197,13 @@ class virtualscreening:
                 from oddt.docking import autodock_vina
                 sf = autodock_vina(protein, *args, **kwargs)
                 sf.set_protein(protein)
+            elif isfile(function):
+                sf = scorer.load(function)
+                sf.set_protein(protein)
             else:
                 raise ValueError('Scoring Function %s was not implemented in ODDT' % function)
         else:
-            if hasattr(function, 'set_protein') and hasattr(function, 'predict_ligands') and hasattr(function, 'predict_ligand'):
+            if isinstance(function, scorer):
                 sf = function
                 sf.set_protein(protein)
             else:
