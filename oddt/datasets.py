@@ -5,15 +5,22 @@ from os.path import isfile
 
 from oddt import toolkit
 
+
 # skip comments and merge multiple spaces
 def _csv_file_filter(f):
-    for row in open(f, 'rb'):
+    for row in open(f, 'r'):
         if row[0] == '#':
             continue
         yield ' '.join(row.split())
 
+
 class pdbbind(object):
-    def __init__(self,home, version = None, default_set = None, data_file = None, opt = None):
+    def __init__(self,
+                 home,
+                 version=None,
+                 default_set=None,
+                 data_file=None,
+                 opt=None):
         self.home = home
         self.default_set = default_set if default_set else 'general' if str(version) == '2007' else 'general_PL'
         self.opt = opt or {}
@@ -31,7 +38,7 @@ class pdbbind(object):
                 elif str(version) == '2007':
                     csv_file = '%s/INDEX.%s.%s.data' % (self.home, version, pdbind_set)
                 else:
-                    csv_file = '%s/INDEX_%s_data.%s' % (self.home, pdbind_set , version)
+                    csv_file = '%s/INDEX_%s_data.%s' % (self.home, pdbind_set, version)
 
                 if isfile(csv_file):
                     self._set_ids[pdbind_set] = []
@@ -46,11 +53,11 @@ class pdbbind(object):
             if len(self.sets) == 0:
                 raise Exception('There is no PDBbind sets availabe')
         else:
-            pass # list directory, but no metadata then
+            pass  # list directory, but no metadata then
 
     @property
     def ids(self):
-        #return sorted(self.sets[self.default_set].keys())
+        # return sorted(self.sets[self.default_set].keys())
         return self._set_ids[self.default_set]
 
     @property
@@ -59,36 +66,40 @@ class pdbbind(object):
 
     def __iter__(self):
         for id in self.ids:
-            yield _pdbbind_id(self.home, id, opt = self.opt)
+            yield _pdbbind_id(self.home, id, opt=self.opt)
 
-    def __getitem__(self,id):
+    def __getitem__(self, id):
         if id in self.ids:
-            return _pdbbind_id(self.home, id, opt = self.opt)
+            return _pdbbind_id(self.home, id, opt=self.opt)
         else:
             if type(id) is int:
-                return _pdbbind_id(self.home + '', self.ids[id], opt = self.opt)
+                return _pdbbind_id(self.home + '', self.ids[id], opt=self.opt)
             return None
 
+
 class _pdbbind_id(object):
-    def __init__(self, home, id, opt = None):
+    def __init__(self, home, id, opt=None):
         self.home = home
         self.id = id
         self.opt = opt or {}
+
     @property
     def protein(self):
-        if isfile('%s/%s/%s_protein.pdb' % (self.home, self.id,self.id)):
-            return six.next(toolkit.readfile('pdb', '%s/%s/%s_protein.pdb' % (self.home, self.id,self.id), lazy=True, opt = self.opt))
+        if isfile('%s/%s/%s_protein.pdb' % (self.home, self.id, self.id)):
+            return six.next(toolkit.readfile('pdb', '%s/%s/%s_protein.pdb' % (self.home, self.id, self.id), lazy=True, opt=self.opt))
         else:
             return None
+
     @property
     def pocket(self):
-        if isfile('%s/%s/%s_pocket.pdb' % (self.home, self.id,self.id)):
-            return six.next(toolkit.readfile('pdb', '%s/%s/%s_pocket.pdb' % (self.home, self.id,self.id), lazy=True, opt = self.opt))
+        if isfile('%s/%s/%s_pocket.pdb' % (self.home, self.id, self.id)):
+            return six.next(toolkit.readfile('pdb', '%s/%s/%s_pocket.pdb' % (self.home, self.id, self.id), lazy=True, opt=self.opt))
         else:
             return None
+
     @property
     def ligand(self):
-        if isfile('%s/%s/%s_ligand.sdf' % (self.home, self.id,self.id)):
-            return six.next(toolkit.readfile('sdf', '%s/%s/%s_ligand.sdf' % (self.home, self.id,self.id), lazy=True, opt = self.opt))
+        if isfile('%s/%s/%s_ligand.sdf' % (self.home, self.id, self.id)):
+            return six.next(toolkit.readfile('sdf', '%s/%s/%s_ligand.sdf' % (self.home, self.id, self.id), lazy=True, opt=self.opt))
         else:
             return None
