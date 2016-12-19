@@ -4,43 +4,53 @@ import math
 from oddt import toolkit
 from oddt.spatial import distance, dihedral, angle_2v, rotate
 
+
 def get_children(molecule, mother, restricted):
     atoms = np.zeros(len(molecule.atoms), dtype=bool)
-    atoms[mother-1] = True
-    d = 1 # Pass first
+    atoms[mother - 1] = True
+    d = 1  # Pass first
     prev = 0
     while d > 0:
-        atoms[[n.idx-1 for i in np.nonzero(atoms)[0] if i != restricted-1 for n in molecule.atoms[i].neighbors if n.idx != restricted]] = True
+        atoms[[n.idx - 1 for i in np.nonzero(atoms)[0] if i != restricted - 1 for n in molecule.atoms[i].neighbors if n.idx != restricted]] = True
         d = atoms.sum() - prev
         prev = atoms.sum()
     return atoms
 
-def get_close_neighbors(molecule, a_idx, num_bonds = 1):
+
+def get_close_neighbors(molecule, a_idx, num_bonds=1):
     atoms = np.zeros(len(molecule.atoms), dtype=bool)
-    atoms[a_idx-1] = True
+    atoms[a_idx - 1] = True
     for i in range(num_bonds):
-        atoms[[n.idx-1 for i in np.nonzero(atoms)[0] for n in molecule.atoms[i].neighbors]] = True
+        atoms[[n.idx - 1 for i in np.nonzero(atoms)[0] for n in molecule.atoms[i].neighbors]] = True
     return atoms
+
 
 def change_dihedral(coords, a1, a2, a3, a4, target_angle, rot_mask):
     sin = math.sin(target_angle)
     cos = math.cos(target_angle)
     t = 1 - cos
     v0 = coords[a2] - coords[a3]
-    v = (v0)/np.linalg.norm(v0)
-    rot_matrix = np.array([[t*v[0]*v[0] + cos, t*v[0]*v[1] + sin*v[2], t*v[0]*v[2] - sin*v[1]],
-                           [t*v[0]*v[1] - sin*v[2], t*v[1]*v[1] + cos, t*v[1]*v[2] + sin*v[0]],
-                           [t*v[0]*v[2] + sin*v[1], t*v[1]*v[2] - sin*v[0], t*v[2]*v[2] + cos]])
+    v = (v0) / np.linalg.norm(v0)
+    rot_matrix = np.array([[t * v[0] * v[0] + cos,
+                            t * v[0] * v[1] + sin * v[2],
+                            t * v[0] * v[2] - sin * v[1]],
+                           [t * v[0] * v[1] - sin * v[2],
+                            t * v[1] * v[1] + cos,
+                            t * v[1] * v[2] + sin * v[0]],
+                           [t * v[0] * v[2] + sin * v[1],
+                            t * v[1] * v[2] - sin * v[0],
+                            t * v[2] * v[2] + cos]])
 
     centroid = coords[a3]
     coords = coords - centroid
     # Old and slower version
-    #coords[rot_mask] = (coords[rot_mask,np.newaxis,:] * rot_matrix).sum(axis=2)
+    # coords[rot_mask] = (coords[rot_mask,np.newaxis,:] * rot_matrix).sum(axis=2)
     coords[rot_mask] = np.einsum("ij,jk->ik", coords[rot_mask], rot_matrix)
     return coords + centroid
 
+
 def num_rotors_pdbqt(lig):
-    i=0
+    i = 0
     for atom in lig.atoms:
         num_local_rot = sum(b.isrotor for b in atom.bonds)
         if num_local_rot == 0:
@@ -53,9 +63,10 @@ def num_rotors_pdbqt(lig):
             i += 0.5
     return i
 
+
 class vina_docking(object):
-    def __init__(self, rec, lig = None, box = None, box_size = 1., weights = None):
-        self.box_size = box_size # TODO: Unify box
+    def __init__(self, rec, lig=None, box=None, box_size=1., weights=None):
+        self.box_size = box_size  # TODO: Unify box
         if rec:
             self.set_protein(rec)
         if lig:
@@ -67,15 +78,15 @@ class vina_docking(object):
         self.mask_inter = {}
         self.mask_intra = {}
 
-    def set_box(self,box):
-        if not box is None:
+    def set_box(self, box):
+        if box is not None:
             self.box = np.array(box)
             # delete unused atoms
             r = self.rec_dict['coords']
-            mask = (self.box[0][0] - 8 <= r[:,0]) & (r[:,0] <= self.box[1][0] + 8) # x within box and cutoff
-            mask *= (self.box[0][1] - 8 <= r[:,1]) & (r[:,1] <= self.box[1][1] + 8) # y within box and cutoff
-            mask *= (self.box[0][2] - 8 <= r[:,2]) & (r[:,2] <= self.box[1][2] + 8) # z within box and cutoff
-            self.rec_dict = self.rec_dict[mask]
+            mask = (self.box[0][0] - 8 <= r[:, 0]) & (r[:, 0] <= self.box[1][0] + 8)  # x within box and cutoff
+            mask *= (self.box[0][1] - 8 <= r[:, 1]) & (r[:, 1] <= self.box[1][1] + 8)  # y within box and cutoff
+            mask *= (self.box[0][2] - 8 <= r[:, 2]) & (r[:, 2] <= self.box[1][2] + 8)  # z within box and cutoff
+            self.rec_dict = self.rec_dict#[mask]
         else:
             self.box = box
 
@@ -98,7 +109,7 @@ class vina_docking(object):
 
         # Find distant members (min 3 consecutive bonds)
         mask = np.vstack([~get_close_neighbors(lig, a1.idx, num_bonds=3) for a1 in lig])
-        mask = mask[lig_hvy_mask[np.newaxis,:]*lig_hvy_mask[:,np.newaxis]]
+        mask = mask[lig_hvy_mask[np.newaxis, :] * lig_hvy_mask[:, np.newaxis]]
         self.lig_distant_members = mask.reshape(lig_hvy_mask.sum(), lig_hvy_mask.sum())
 
         # prepare rotors dictionary
@@ -115,7 +126,7 @@ class vina_docking(object):
                     if a2 != int(n.idx) and n.atomicnum != 1:
                         a4 = int(n.idx)
                         break
-                rot_mask = get_children(lig,a3,a2)[lig_hvy_mask]
+                rot_mask = get_children(lig, a3, a2)[lig_hvy_mask]
                 # translate atom indicies to lig_dict indicies (heavy only)
                 a1 = np.argwhere(self.lig_dict['id'] == a1).flatten()[0]
                 a2 = np.argwhere(self.lig_dict['id'] == a2).flatten()[0]
@@ -124,128 +135,129 @@ class vina_docking(object):
                 # rotate smaller part of the molecule
                 if rot_mask.sum() > len(rot_mask):
                     rot_mask = -rot_mask
-                    a4,a3,a2,a1 = a1,a2,a3,a4
-                self.rotors.append({'atoms':(a1,a2,a3,a4), 'mask':rot_mask})
+                    a4, a3, a2, a1 = a1, a2, a3, a4
+                self.rotors.append({'atoms': (a1, a2, a3, a4), 'mask': rot_mask})
 
         # Setup cached ligand coords
-        self.lig = vina_ligand(self.lig_dict['coords'].copy(), self.rotors, self, self.box_size)
+        self.lig = vina_ligand(self.lig_dict['coords'].copy(), len(self.rotors), self, self.box_size)
 
     def set_coords(self, coords):
         self.lig_dict['coords'] = coords
 
-    def score(self, coords = None):
-        return (self.score_inter(coords)*self.weights[:5]).sum()/(1+self.weights[5]*self.num_rotors)
-#         inter = (self.score_inter(coords)*self.weights[:5]).sum()
-#         total = (self.score_total(coords)*self.weights[:5]).sum()
+    def score(self, coords=None):
+        return (self.score_inter(coords) * self.weights[:5]).sum() / (1 + self.weights[5] * self.num_rotors)
+#         inter = (self.score_inter(coords) * self.weights[:5]).sum()
+#         total = (self.score_total(coords) * self.weights[:5]).sum()
 #         return total/(1+self.weights[5]*self.num_rotors)
 
-    def weighted_total(self, coords = None):
-        return (self.score_total(coords)*self.weights[:5]).sum()
+    def weighted_total(self, coords=None):
+        return (self.score_total(coords) * self.weights[:5]).sum()
 
-    def score_total(self, coords = None):
-        return self.score_inter(coords)+self.score_intra(coords)
+    def score_total(self, coords=None):
+        return self.score_inter(coords) + self.score_intra(coords)
 
-    def weighted_inter(self, coords = None):
-        return (self.score_inter(coords)*self.weights[:5]).sum()
+    def weighted_inter(self, coords=None):
+        return (self.score_inter(coords) * self.weights[:5]).sum()
 
-    def weighted_intra(self, coords = None):
-        return (self.score_intra(coords)*self.weights[:5]).sum()
+    def weighted_intra(self, coords=None):
+        return (self.score_intra(coords) * self.weights[:5]).sum()
 
-    def score_inter(self, coords = None):
+    def score_inter(self, coords=None):
         if coords is None:
             coords = self.lig_dict['coords']
 
         # Inter-molecular
         r = distance(self.rec_dict['coords'], coords)
-        d = (r - self.rec_dict['radius'][:,np.newaxis] - self.lig_dict['radius'][np.newaxis,:])
+        d = (r - self.rec_dict['radius'][:, np.newaxis] - self.lig_dict['radius'][np.newaxis, :])
         mask = r < 8
 
         inter = []
         # Gauss 1
-        inter.append(np.exp(-(d[mask]/0.5)**2).sum())
+        inter.append(np.exp(-(d[mask] / 0.5)**2).sum())
         # Gauss 2
-        inter.append(np.exp(-((d[mask]-3.)/2.)**2).sum())
+        inter.append(np.exp(-((d[mask] - 3.) / 2.)**2).sum())
         # Repiulsion
         inter.append((d[(d < 0) & mask]**2).sum())
 
         # Hydrophobic
-        if not 'hyd' in self.mask_inter:
-            self.mask_inter['hyd'] = (self.rec_dict['ishydrophobe'] | self.rec_dict['ishalogen'])[:,np.newaxis] * (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis,:]
+        if 'hyd' not in self.mask_inter:
+            self.mask_inter['hyd'] = (self.rec_dict['ishydrophobe'] | self.rec_dict['ishalogen'])[:, np.newaxis] * (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis, :]
         mask_hyd = mask & self.mask_inter['hyd']
         d_hyd = d[mask_hyd]
         inter.append((d_hyd <= 0.5).sum() + (1.5 - d_hyd[(0.5 < d_hyd) & (d_hyd < 1.5)]).sum())
 
         # H-Bonding
-        if not 'da' in self.mask_inter:
-            self.mask_inter['da'] = (self.rec_dict['isdonor'] | self.rec_dict['ismetal'])[:,np.newaxis] * self.lig_dict['isacceptor'][np.newaxis,:]
-        if not 'ad' in self.mask_inter:
-            self.mask_inter['ad'] = self.rec_dict['isacceptor'][:,np.newaxis] * (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis,:]
+        if 'da' not in self.mask_inter:
+            self.mask_inter['da'] = (self.rec_dict['isdonor'] | self.rec_dict['ismetal'])[:, np.newaxis] * self.lig_dict['isacceptor'][np.newaxis, :]
+        if 'ad' not in self.mask_inter:
+            self.mask_inter['ad'] = self.rec_dict['isacceptor'][:, np.newaxis] * (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, :]
         d_h = d[mask & (self.mask_inter['da'] | self.mask_inter['ad'])]
-        inter.append((d_h <= -0.7).sum() + (d_h[(-0.7 < d_h) & (d_h < 0)]/-0.7).sum())
+        inter.append((d_h <= -0.7).sum() + (d_h[(-0.7 < d_h) & (d_h < 0)] / -0.7).sum())
 
         return np.array(inter)
 
-    def score_intra(self, coords = None):
+    def score_intra(self, coords=None):
         if coords is None:
             coords = self.lig_dict['coords']
         # Intra-molceular
         r = distance(coords, coords)
-        d = (r - self.lig_dict['radius'][:,np.newaxis] - self.lig_dict['radius'][np.newaxis,:])
+        d = (r - self.lig_dict['radius'][:, np.newaxis] - self.lig_dict['radius'][np.newaxis, :])
 
         mask = self.lig_distant_members & (r < 8)
 
-        intra=[]
+        intra = []
         # Gauss 1
-        intra.append(np.exp(-(d[mask]/0.5)**2).sum())
+        intra.append(np.exp(-(d[mask] / 0.5)**2).sum())
         # Gauss 2
-        intra.append(np.exp(-((d[mask]-3.)/2.)**2).sum())
+        intra.append(np.exp(-((d[mask] - 3.) / 2.)**2).sum())
         # Repiulsion
         intra.append((d[(d < 0) & mask]**2).sum())
 
         # Hydrophobic
-        if not 'hyd' in self.mask_intra:
-            self.mask_intra['hyd'] = (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[:,np.newaxis] * (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis,:]
+        if 'hyd' not in self.mask_intra:
+            self.mask_intra['hyd'] = (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[:, np.newaxis] * (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis, :]
         mask_hyd = mask & self.mask_intra['hyd']
         d_hyd = d[mask_hyd]
         intra.append((d_hyd <= 0.5).sum() + (1.5 - d_hyd[(0.5 < d_hyd) & (d_hyd < 1.5)]).sum())
 
         # H-Bonding
-        if not 'da' in self.mask_intra:
-            self.mask_intra['da'] = (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[...,np.newaxis]*self.lig_dict['isacceptor'][np.newaxis,...]
-        if not 'ad' in self.mask_intra:
-            self.mask_intra['ad'] = self.lig_dict['isacceptor'][...,np.newaxis]*(self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis,...]
+        if 'da' not in self.mask_intra:
+            self.mask_intra['da'] = (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[..., np.newaxis] * self.lig_dict['isacceptor'][np.newaxis, ...]
+        if 'ad' not in self.mask_intra:
+            self.mask_intra['ad'] = self.lig_dict['isacceptor'][..., np.newaxis] * (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, ...]
         d_h = d[mask & (self.mask_intra['da'] | self.mask_intra['ad'])]
-        intra.append((d_h <= -0.7).sum() + (d_h[(-0.7 < d_h) & (d_h < 0)]/-0.7).sum())
+        intra.append((d_h <= -0.7).sum() + (d_h[(-0.7 < d_h) & (d_h < 0)] / -0.7).sum())
 
         return np.array(intra)
 
     def correct_radius(self, atom_dict):
         vina_r = {6: 1.9,
-              7: 1.8,
-              8: 1.7,
-              9: 1.5,
-              15: 2.1,
-              16: 2.0,
-              17: 1.8,
-              35: 2.0,
-              53: 2.2,
-              }
+                  7: 1.8,
+                  8: 1.7,
+                  9: 1.5,
+                  15: 2.1,
+                  16: 2.0,
+                  17: 1.8,
+                  35: 2.0,
+                  53: 2.2,
+                  }
         for a, r in vina_r.items():
             atom_dict['radius'][atom_dict['atomicnum'] == a] = r
         # metals - 1.2 A
         atom_dict['radius'][atom_dict['ismetal']] = 1.2
         return atom_dict
 
+
 class vina_ligand:
-    def __init__(self, c0, x0, engine, box_size=1):
+    def __init__(self, c0, num_rotors, engine, box_size=1):
         self.c0 = c0.copy()
-        self.x0 = np.zeros_like(x0)
+        self.x0 = np.zeros(6 + num_rotors)
         self.c1 = c0.copy()
-        self.x1 = np.zeros_like(x0)
+        self.x1 = np.zeros_like(self.x0)
         self.engine = engine
         self.box_size = box_size
 
-    def mutate(self, x2, force = False):
+    def mutate(self, x2, force=False):
         delta_x0 = x2 - self.x0
         delta_x1 = x2 - self.x1
         if not force and (delta_x1 != 0).sum() <= 3:
@@ -256,7 +268,6 @@ class vina_ligand:
             return self._full_mutate(x2)
 
     def _full_mutate(self, x):
-        #print "full"
         c = self.c0.copy()
         trans_vec = x[:3]
         rot_vec = x[3:6]
@@ -271,7 +282,6 @@ class vina_ligand:
         return c
 
     def _inc_mutate(self, x, c):
-        #print "partial"
         c = c.copy()
         trans_vec = x[:3]
         rot_vec = x[3:6]
