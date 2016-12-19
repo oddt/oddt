@@ -21,24 +21,28 @@ class pdbbind(object):
                  default_set=None,
                  data_file=None,
                  opt=None):
+        version = int(version)
         self.home = home
-        self.default_set = default_set if default_set else 'general' if str(version) == '2007' else 'general_PL'
+        self.default_set = default_set if default_set else 'general' if version == 2007 else 'general_PL'
         self.opt = opt or {}
         self.sets = {}
         self._set_ids = {}
         self._set_act = {}
+
         if version:
-            if str(version) == '2007':
+            if version == 2007:
                 pdbind_sets = ['core', 'refined', 'general']
             else:
                 pdbind_sets = ['core', 'refined', 'general_PL']
             for pdbind_set in pdbind_sets:
                 if data_file:
                     csv_file = data_file
-                elif str(version) == '2007':
-                    csv_file = '%s/INDEX.%s.%s.data' % (self.home, version, pdbind_set)
+                elif version == 2007:
+                    csv_file = '%s/INDEX.%i.%s.data' % (self.home, version, pdbind_set)
+                elif version == 2016:
+                    csv_file = '%s/index/INDEX_%s_data.%i' % (self.home, pdbind_set, version)
                 else:
-                    csv_file = '%s/INDEX_%s_data.%s' % (self.home, pdbind_set, version)
+                    csv_file = '%s/INDEX_%s_data.%i' % (self.home, pdbind_set, version)
 
                 if isfile(csv_file):
                     self._set_ids[pdbind_set] = []
@@ -51,7 +55,7 @@ class pdbbind(object):
                         self._set_act[pdbind_set].append(float(row[3]))
                     self.sets[pdbind_set] = dict(zip(self._set_ids[pdbind_set], self._set_act[pdbind_set]))
             if len(self.sets) == 0:
-                raise Exception('There is no PDBbind sets availabe')
+                raise Exception('There is no PDBbind set availabe')
         else:
             pass  # list directory, but no metadata then
 
