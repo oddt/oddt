@@ -292,7 +292,7 @@ def parse_vina_scoring_output(output):
     """
     out = {}
     r = re.compile('^(Affinity:|\s{4})')
-    for line in output.split('\n')[13:]:  # skip some output
+    for line in output.decode('ascii').split('\n')[13:]:  # skip some output
         if r.match(line):
             m = line.replace(' ', '').split(':')
             if m[0] == 'Affinity':
