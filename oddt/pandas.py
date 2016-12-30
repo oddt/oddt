@@ -110,6 +110,30 @@ def _mol_writer(data,
                 update_properties=True,
                 molecule_column=None,
                 columns=None):
+    """Universal writing function for private use.
+
+    .. versionadded:: 0.3
+
+    Parameters
+    ----------
+        fmt : string
+            The format of molecular file
+
+        filepath_or_buffer : string or None
+            File path
+
+        update_properties : bool, optional (default=True)
+            Switch to update properties from the DataFrames to the molecules
+            while writting.
+
+        molecule_column : string or None, optional (default='mol')
+            Name of molecule column. If None the molecules will be skipped.
+
+        columns : list or None, optional (default=None)
+            A list of columns to write to file. If None then all available
+            fields are written.
+
+    """
     if filepath_or_buffer is None:
         out = StringIO()
     elif hasattr(filepath_or_buffer, 'write'):
@@ -280,6 +304,8 @@ def read_mol2(filepath_or_buffer=None,
 class ChemSeries(pd.Series):
     """Pandas Series modified to adapt `oddt.toolkit.Molecule` objects and apply
     molecular methods easily.
+
+    .. versionadded:: 0.3
     """
     def __le__(self, other):
         """ Substructure searching.
@@ -311,6 +337,7 @@ class ChemSeries(pd.Series):
             return super(ChemSeries, self).__or__(other)
 
     def calcfp(self, *args, **kwargs):
+        """Helper function to map FP calculation throuugh the series"""
         assert(isinstance(self[0], oddt.toolkit.Molecule))
         return self.map(lambda x: x.calcfp(*args, **kwargs))
 
@@ -340,6 +367,8 @@ class ChemDataFrame(pd.DataFrame):
     in iPython Notebook. Additional `to_sdf` and `to_mol2` methods make writing
     to molecular formats easy.
 
+    .. versionadded:: 0.3
+
     Note:
     Thanks to: http://blog.snapdragon.cc/2015/05/05/subclass-pandas-dataframe-to-save-custom-attributes/
     """
@@ -351,6 +380,26 @@ class ChemDataFrame(pd.DataFrame):
                update_properties=True,
                molecule_column=None,
                columns=None):
+        """Write DataFrame to SDF file.
+
+        .. versionadded:: 0.3
+
+        Parameters
+        ----------
+            filepath_or_buffer : string or None
+                File path
+
+            update_properties : bool, optional (default=True)
+                Switch to update properties from the DataFrames to the molecules
+                while writting.
+
+            molecule_column : string or None, optional (default='mol')
+                Name of molecule column. If None the molecules will be skipped.
+
+            columns : list or None, optional (default=None)
+                A list of columns to write to file. If None then all available
+                fields are written.
+        """
         molecule_column = molecule_column or self._molecule_column
         return _mol_writer(self,
                            filepath_or_buffer=filepath_or_buffer,
@@ -364,6 +413,26 @@ class ChemDataFrame(pd.DataFrame):
                 update_properties=True,
                 molecule_column='mol',
                 columns=None):
+        """Write DataFrame to Mol2 file.
+
+        .. versionadded:: 0.3
+
+        Parameters
+        ----------
+            filepath_or_buffer : string or None
+                File path
+
+            update_properties : bool, optional (default=True)
+                Switch to update properties from the DataFrames to the molecules
+                while writting.
+
+            molecule_column : string or None, optional (default='mol')
+                Name of molecule column. If None the molecules will be skipped.
+
+            columns : list or None, optional (default=None)
+                A list of columns to write to file. If None then all available
+                fields are written.
+        """
         molecule_column = molecule_column or self._molecule_column
         return _mol_writer(self,
                            fmt='mol2',
@@ -373,10 +442,14 @@ class ChemDataFrame(pd.DataFrame):
                            columns=columns)
 
     def to_html(self, *args, **kwargs):
+        """Patched rendering in HTML - don't escape HTML inside the cells.
+        Docs are copied from parent
+        """
         kwargs['escape'] = False
         return super(ChemDataFrame, self).to_html(*args, **kwargs)
 
     def to_csv(self, *args, **kwargs):
+        """ Docs are copied from parent """
         if self._molecule_column and ('columns' not in kwargs or
                                       kwargs['columns'] is None or
                                       self._molecule_column in kwargs['columns']):
@@ -387,6 +460,7 @@ class ChemDataFrame(pd.DataFrame):
             return super(ChemDataFrame, self).to_csv(*args, **kwargs)
 
     def to_excel(self, *args, **kwargs):
+        """ Docs are copied from parent """
         columns = kwargs['columns'] if 'columns' in kwargs else self.columns.tolist()
         if 'molecule_column' in kwargs:
             molecule_column = kwargs['molecule_column']
@@ -444,6 +518,7 @@ class ChemPanel(pd.Panel):
     `ChemDataFrame`. Main purpose is to store molecular fingerprints in one
     column and keep 2D numpy array underneath.
 
+    .. versionadded:: 0.3
     """
     _metadata = ['_molecule_column']
     _molecule_column = None
