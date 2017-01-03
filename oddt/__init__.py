@@ -8,15 +8,15 @@ Universal and easy to use resource for various drug discovery tasks, ie docking,
         Toolkits backend module, currenlty OpenBabel [ob] and RDKit [rdk].
         This setting is toolkit-wide, and sets given toolkit as default
 """
-
+from __future__ import absolute_import
 import os
 import subprocess
 try:
-    from .toolkits import ob
+    from oddt.toolkits import ob
 except ImportError:
     ob = None
 try:
-    from .toolkits import rdk
+    from oddt.toolkits import rdk
 except ImportError:
     rdk = None
 
