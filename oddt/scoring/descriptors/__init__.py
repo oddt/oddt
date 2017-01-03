@@ -277,7 +277,7 @@ class oddt_vina_descriptor(object):
                 score = dict(zip(self.all_vina_scores, np.hstack((affinity, inter, intra, num_rotors)).flatten()))
                 mol.data.update(score)
             else:
-                score = dict(mol.data)
+                score = mol.data.to_dict()
             vec = np.array([score[s] for s in self.vina_scores], dtype=np.float32).flatten()
             if desc is None:
                 desc = vec

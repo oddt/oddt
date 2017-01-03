@@ -249,7 +249,7 @@ class virtualscreening:
             csv_file = None
         for mol in self.fetch():
             if csv_filename:
-                data = dict(mol.data)
+                data = mol.data.to_dict()
                 # filter some internal data
                 blacklist_keys = ['OpenBabel Symmetry Classes', 'MOL Chiral Flag', 'PartialCharges', 'TORSDO', 'REMARK']
                 for b in blacklist_keys:
@@ -294,7 +294,7 @@ class virtualscreening:
             f = open(csv_filename, 'w')
         csv_file = None
         for mol in self.fetch():
-            data = dict(mol.data)
+            data = mol.data.to_dict()
             #filter some internal data
             blacklist_keys = ['OpenBabel Symmetry Classes', 'MOL Chiral Flag', 'PartialCharges', 'TORSDO', 'REMARK']
             for b in blacklist_keys:

@@ -8,23 +8,36 @@ Universal and easy to use resource for various drug discovery tasks, ie docking,
         Toolkits backend module, currenlty OpenBabel [ob] and RDKit [rdk].
         This setting is toolkit-wide, and sets given toolkit as default
 """
-
+from __future__ import absolute_import
 import os
 import subprocess
 try:
-    from .toolkits import ob
+    from oddt.toolkits import ob
 except ImportError:
     ob = None
 try:
-    from .toolkits import rdk
+    from oddt.toolkits import rdk
 except ImportError:
     rdk = None
 
 toolkit = None
-if ob:
+if 'ODDT_TOOLKIT' in os.environ:
+    if os.environ['ODDT_TOOLKIT'] == 'ob':
+        toolkit = ob
+    elif os.environ['ODDT_TOOLKIT'] == 'rdk':
+        toolkit = rdk
+elif ob:
     toolkit = ob
 elif rdk:
     toolkit = rdk
+
+try:
+    if get_ipython().config:
+        ipython_notebook = True
+    else:
+        ipython_notebook = False
+except:
+    ipython_notebook = False
 
 
 def get_version():
