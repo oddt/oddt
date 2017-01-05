@@ -85,7 +85,7 @@ class nnscore(scorer):
                                                                protein=pdbbind_db[pid].pocket)
                                      for pid in df.index.values if pdbbind_db[pid].pocket is not None)
         descs = np.vstack(result)
-        for i in range(350):
+        for i in range(len(self.descriptor_generator)):
             df[str(i)] = descs[:, i]
         df.to_csv(home_dir + '/nnscore_descs.csv', float_format='%.5g')
 
@@ -96,10 +96,12 @@ class nnscore(scorer):
         # load precomputed descriptors and target values
         df = pd.read_csv(home_dir + '/nnscore_descs.csv', index_col='pdbid')
 
-        self.train_descs = df[df['%i_general' % pdbbind_version] & ~df['%i_core' % pdbbind_version]][list(map(str, range(350)))].values
-        self.train_target = df[df['%i_general' % pdbbind_version] & ~df['%i_core' % pdbbind_version]]['act'].values
-        self.test_descs = df[df['%i_core' % pdbbind_version]][list(map(str, range(350)))].values
-        self.test_target = df[df['%i_core' % pdbbind_version]]['act'].values
+        train_set = 'refined'
+        test_set = 'core'
+        self.train_descs = df[df['%i_%s' % (pdbbind_version, train_set)] & ~df['%i_%s' % (pdbbind_version, test_set)]][list(map(str, range(len(self.descriptor_generator))))].values
+        self.train_target = df[df['%i_%s' % (pdbbind_version, train_set)] & ~df['%i_%s' % (pdbbind_version, test_set)]]['act'].values
+        self.test_descs = df[df['%i_%s' % (pdbbind_version, test_set)]][list(map(str, range(len(self.descriptor_generator))))].values
+        self.test_target = df[df['%i_%s' % (pdbbind_version, test_set)]]['act'].values
 
         # number of network to sample; original implementation did 1000, but 100 give results good enough.
         n = 1000

@@ -291,5 +291,9 @@ class binana_descriptor(object):
 
         return desc[1:]
 
+    def __len__(self):
+        """ Returns the dimensions of descriptors """
+        return 350
+
     def __reduce__(self):
         return binana_descriptor, (self.protein,)

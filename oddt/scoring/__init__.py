@@ -6,6 +6,7 @@ import gzip
 import six
 from six.moves import cPickle as pickle
 
+
 def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
     """Perform cross validation of model using provided data
 
@@ -38,11 +39,12 @@ def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
         cv = KFold(len(cv_target), n_folds=n, shuffle=True)
     else:
         cv = n
-    return cross_val_score(model, cv_set, cv_target, cv = cv, n_jobs = n_jobs)
+    return cross_val_score(model, cv_set, cv_target, cv=cv, n_jobs=n_jobs)
 
-### FIX ### If possible make ensemble scorer lazy, for now it consumes all ligands
+
+# FIX ### If possible make ensemble scorer lazy, for now it consumes all ligands
 class scorer(object):
-    def __init__(self, model_instance, descriptor_generator_instance, score_title = 'score'):
+    def __init__(self, model_instance, descriptor_generator_instance, score_title='score'):
         """Scorer class is parent class for scoring functions.
 
         Parameters
@@ -72,7 +74,7 @@ class scorer(object):
                 Estimated target values.
         """
         self.train_descs = self.descriptor_generator.build(ligands)
-        return self.model.fit(self.train_descs,target, *args, **kwargs)
+        return self.model.fit(self.train_descs, target, *args, **kwargs)
 
     def predict(self, ligands, *args, **kwargs):
         """Predicts values (eg. affinity) for supplied ligands
@@ -161,7 +163,6 @@ class scorer(object):
         else:
             self.descriptor_generator.protein = protein
 
-
     def save(self, filename):
         """Saves scoring function to a pickle file.
 
@@ -219,6 +220,7 @@ class ensemble_model(object):
     def score(self, X, y, *args, **kwargs):
         return linregress(self.predict(X, *args, **kwargs).flatten(), y.flatten())[2]**2
 
+
 class ensemble_descriptor(object):
     def __init__(self, descriptor_generators):
         """Proxy class to build an ensemble of destriptors with an API as one
@@ -245,6 +247,10 @@ class ensemble_descriptor(object):
                 desc.set_protein(protein)
             else:
                 desc.protein = protein
+
+    def __len__(self):
+        """ Returns the dimensions of descriptors """
+        return sum(len(desc) for desc in self._desc_gens)
 
     def __reduce__(self):
         return ensemble_descriptor, (self._desc_gens,)

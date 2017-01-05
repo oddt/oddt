@@ -5,6 +5,7 @@ from os.path import dirname, isfile, isdir
 import numpy as np
 from joblib import Parallel, delayed
 import warnings
+import pandas as pd
 from sklearn.metrics import r2_score
 
 try:
@@ -78,47 +79,71 @@ class rfscore(scorer):
                              **kwargs)
         super(rfscore, self).__init__(model, descriptors, score_title='rfscore_v%i' % self.version)
 
-    def gen_training_data(self, pdbbind_dir, pdbbind_version=2007, home_dir=None, sf_pickle=''):
-        # build train and test
-        pdbbind_db = pdbbind(pdbbind_dir, pdbbind_version, opt={'b': None})
+    def gen_training_data(self,
+                          pdbbind_dir,
+                          pdbbind_versions=[2007, 2012, 2013, 2014, 2015, 2016],
+                          home_dir=None,
+                          sf_pickle=''):
+        pdbbind_versions = sorted(pdbbind_versions)
+
+        # generate metadata
+        df = []
+        for pdbbind_version in pdbbind_versions:
+            p = pdbbind('%s/v%i/' % (pdbbind_dir, pdbbind_version),
+                        version=pdbbind_version,
+                        opt={'b': None})
+            # Core set
+            tmp_df = pd.DataFrame({'pdbid': list(p.sets['core'].keys()),
+                                   '%i_core' % pdbbind_version: list(p.sets['core'].values())})
+            df = pd.merge(tmp_df, df, how='outer', on='pdbid') if len(df) else tmp_df
+
+            # Refined Set
+            tmp_df = pd.DataFrame({'pdbid': list(p.sets['refined'].keys()),
+                                   '%i_refined' % pdbbind_version: list(p.sets['refined'].values())})
+            df = pd.merge(tmp_df, df, how='outer', on='pdbid')
+
+            # General Set
+            general_name = 'general_PL' if pdbbind_version > 2007 else 'general'
+            tmp_df = pd.DataFrame({'pdbid': list(p.sets[general_name].keys()),
+                                   '%i_general' % pdbbind_version: list(p.sets[general_name].values())})
+            df = pd.merge(tmp_df, df, how='outer', on='pdbid')
+
+        df.sort_values('pdbid', inplace=True)
+        tmp_act = df['%i_general' % pdbbind_versions[-1]].values
+        df = df.set_index('pdbid').notnull()
+        df['act'] = tmp_act
+        # take non-empty and core + refined set
+        df = df[df['act'].notnull() & df.filter(regex='.*_[refined,core]').any(axis=1)]
+
+        # build descriptos
+        pdbbind_db = pdbbind('%s/v%i/' % (pdbbind_dir, pdbbind_versions[-1]), version=pdbbind_versions[-1])
         if not home_dir:
             home_dir = dirname(__file__) + '/RFScore'
 
-        pdbbind_db.default_set = 'core'
-        core_set = pdbbind_db.ids
-        core_act = np.array(pdbbind_db.activities)
-#         core_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.protein) for pid in pdbbind_db])
-        result = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket is not None)
-        core_desc = np.vstack(result)
+        result = Parallel(n_jobs=self.n_jobs,
+                          verbose=1)(delayed(_parallel_helper)(self.descriptor_generator,
+                                                               'build',
+                                                               [pdbbind_db[pid].ligand],
+                                                               protein=pdbbind_db[pid].pocket)
+                                     for pid in df.index.values if pdbbind_db[pid].pocket is not None)
+        descs = np.vstack(result)
+        for i in range(len(self.descriptor_generator)):
+            df[str(i)] = descs[:, i]
+        df.to_csv(home_dir + '/rfscore_descs_v%i.csv' % self.version, float_format='%.5g')
 
-        pdbbind_db.default_set = 'refined'
-        refined_set = [pid for pid in pdbbind_db.ids if pid not in core_set]
-        refined_act = np.array([pdbbind_db.sets[pdbbind_db.default_set][pid] for pid in refined_set])
-#         refined_desc = np.vstack([self.descriptor_generator.build([pid.ligand], protein=pid.protein) for pid in pdbbind_db])
-        result = Parallel(n_jobs=self.n_jobs)(delayed(_parallel_helper)(self.descriptor_generator, 'build', [pid.ligand], protein=pid.pocket) for pid in pdbbind_db if pid.pocket is not None and pid.id not in core_set)
-        refined_desc = np.vstack(result)
-
-        self.train_descs = refined_desc
-        self.train_target = refined_act
-        self.test_descs = core_desc
-        self.test_target = core_act
-
-        # save numpy arrays
-        header = 'RFScore data generated using PDBBind v%i' % pdbbind_version
-        np.savetxt(home_dir + '/train_descs_v%i_pdbbind%i.csv' % (self.version, pdbbind_version), self.train_descs, fmt='%g', delimiter=',', header=header)
-        np.savetxt(home_dir + '/train_target_pdbbind%i.csv' % pdbbind_version, self.train_target, fmt='%.2f', delimiter=',', header=header)
-        np.savetxt(home_dir + '/test_descs_v%i_pdbbind%i.csv' % (self.version, pdbbind_version), self.test_descs, fmt='%g', delimiter=',', header=header)
-        np.savetxt(home_dir + '/test_target_pdbbind%i.csv' % pdbbind_version, self.test_target, fmt='%.2f', delimiter=',', header=header)
-
-    def train(self, home_dir=None, sf_pickle='', pdbbind_version=2007):
+    def train(self, home_dir=None, sf_pickle='', pdbbind_version=2016):
         if not home_dir:
             home_dir = dirname(__file__) + '/RFScore'
+
         # load precomputed descriptors and target values
-        self.train_descs = np.loadtxt(home_dir + '/train_descs_v%i_pdbbind%i.csv' % (self.version, pdbbind_version), delimiter=',', dtype=float)
-        self.train_target = np.loadtxt(home_dir + '/train_target_pdbbind%i.csv' % (pdbbind_version), delimiter=',', dtype=float)
+        df = pd.read_csv(home_dir + '/nnscore_descs.csv', index_col='pdbid')
 
-        self.test_descs = np.loadtxt(home_dir + '/test_descs_v%i_pdbbind%i.csv' % (self.version, pdbbind_version), delimiter=',', dtype=float)
-        self.test_target = np.loadtxt(home_dir + '/test_target_pdbbind%i.csv' % (pdbbind_version), delimiter=',', dtype=float)
+        train_set = 'refined'
+        test_set = 'core'
+        self.train_descs = df[df['%i_%s' % (pdbbind_version, train_set)] & ~df['%i_%s' % (pdbbind_version, test_set)]][list(map(str, range(len(self.descriptor_generator))))].values
+        self.train_target = df[df['%i_%s' % (pdbbind_version, train_set)] & ~df['%i_%s' % (pdbbind_version, test_set)]]['act'].values
+        self.test_descs = df[df['%i_%s' % (pdbbind_version, test_set)]][list(map(str, range(len(self.descriptor_generator))))].values
+        self.test_target = df[df['%i_%s' % (pdbbind_version, test_set)]]['act'].values
 
         # remove sparse dimentions
         if self.spr > 0:
@@ -158,9 +183,10 @@ class rfscore(scorer):
             return self.save('RFScore_v%i_pdbbind%i.pickle' % (self.version, pdbbind_version))
 
     @classmethod
-    def load(self, filename='', version=1, pdbbind_version=2007):
+    def load(self, filename='', version=1, pdbbind_version=2016):
         if not filename:
-            for f in ['RFScore_v%i_pdbbind%i.pickle' % (version, pdbbind_version), dirname(__file__) + '/RFScore_v%i_pdbbind%i.pickle' % (version, pdbbind_version)]:
+            for f in ['RFScore_v%i_pdbbind%i.pickle' % (version, pdbbind_version),
+                      dirname(__file__) + '/RFScore_v%i_pdbbind%i.pickle' % (version, pdbbind_version)]:
                 if isfile(f):
                     filename = f
                     break

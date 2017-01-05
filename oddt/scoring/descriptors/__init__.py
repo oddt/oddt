@@ -4,11 +4,15 @@ from scipy.spatial.distance import cdist as distance
 from oddt.docking import autodock_vina
 from oddt.docking.internal import vina_docking
 
-__all__ = ['fingerprints', 'autodock_vina_descriptor', 'oddt_vina_descriptor']
+__all__ = ['close_contacts',
+           'fingerprints',
+           'autodock_vina_descriptor',
+           'oddt_vina_descriptor']
 
 
 def atoms_by_type(atom_dict, types, mode='atomic_nums'):
-    """Returns atom dictionaries based on given criteria. Currently we have 3 types of atom selection criteria:
+    """Returns atom dictionaries based on given criteria.
+    Currently we have 3 types of atom selection criteria:
         * atomic numbers ['atomic_nums']
         * Sybyl Atom Types ['atom_types_sybyl']
         * AutoDock4 atom types ['atom_types_ad4'] (http://autodock.scripps.edu/faqs-help/faq/where-do-i-set-the-autodock-4-force-field-parameters)
@@ -24,7 +28,8 @@ def atoms_by_type(atom_dict, types, mode='atomic_nums'):
     Returns
     -------
         out: dictionary of shape=[len(types)]
-            A dictionary of queried atom types (types are keys of the dictionary). Values are of oddt.toolkit.Molecule.atom_dict type.
+            A dictionary of queried atom types (types are keys of the dictionary).
+            Values are of oddt.toolkit.Molecule.atom_dict type.
     """
     if mode == 'atomic_nums':
         return {num: atom_dict[atom_dict['atomicnum'] == num] for num in set(types)}
@@ -96,7 +101,8 @@ class close_contacts(object):
                 Default protein to use as reference
 
             cutoff: int or list, shape=[n,] or shape=[n,2] (default=4)
-                Cutoff for atoms in Angstroms given as an integer or a list of ranges, eg. [0, 4, 8, 12] or [[0,4],[4,8],[8,12]].
+                Cutoff for atoms in Angstroms given as an integer or a list of ranges,
+                eg. [0, 4, 8, 12] or [[0,4],[4,8],[8,12]].
                 Upper bound is always inclusive, lower exclusive.
 
             mode: string (default='atomic_nums')
@@ -109,7 +115,8 @@ class close_contacts(object):
                 List of protein atom types to use
 
             aligned_pairs: bool (default=False)
-                Flag indicating should permutation of types should be done, otherwise the atoms are treated as aligned pairs.
+                Flag indicating should permutation of types should be done,
+                otherwise the atoms are treated as aligned pairs.
         """
         if type(cutoff) in [int, float]:
             self.cutoff = np.array([cutoff])
@@ -157,8 +164,7 @@ class close_contacts(object):
             self.protein = protein
         if single and type(ligands) is not list:
             ligands = [ligands]
-        desc_size = len(self.ligand_types) * self.cutoff.shape[0] if self.aligned_pairs else len(self.ligand_types) * len(self.protein_types) * self.cutoff.shape[0]
-        out = np.zeros(desc_size, dtype=int)
+        out = np.zeros(len(self), dtype=int)
         for mol in ligands:
             mol_dict = atoms_by_type(mol.atom_dict, self.ligand_types, self.mode)
             if self.aligned_pairs:
@@ -181,6 +187,13 @@ class close_contacts(object):
             desc = np.array(desc, dtype=int).flatten()
             out = np.vstack((out, desc))
         return out[1:]
+
+    def __len__(self):
+        """ Returns the dimensions of descriptors """
+        if self.aligned_pairs:
+            return len(self.ligand_types) * self.cutoff.shape[0]
+        else:
+            return len(self.ligand_types) * len(self.protein_types) * self.cutoff.shape[0]
 
     def __reduce__(self):
         return close_contacts, (self.protein,
@@ -260,6 +273,10 @@ class autodock_vina_descriptor(object):
             desc = desc.reshape(1, -1)
         return desc
 
+    def __len__(self):
+        """ Returns the dimensions of descriptors """
+        return len(self.vina_scores)
+
     def __reduce__(self):
         return autodock_vina_descriptor, (self.protein, self.vina_scores)
 
@@ -326,6 +343,10 @@ class oddt_vina_descriptor(object):
         if len(desc.shape) == 1:
             desc = desc.reshape(1, -1)
         return desc
+
+    def __len__(self):
+        """ Returns the dimensions of descriptors """
+        return len(self.vina_scores)
 
     def __reduce__(self):
         return oddt_vina_descriptor, (self.protein, self.vina_scores)
