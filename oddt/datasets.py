@@ -8,7 +8,8 @@ from oddt import toolkit
 
 # skip comments and merge multiple spaces
 def _csv_file_filter(f):
-    for row in open(f, 'r'):
+    for row in open(f, 'rb'):
+        row = row.decode('utf-8', 'ignore')
         if row[0] == '#':
             continue
         yield ' '.join(row.split())
