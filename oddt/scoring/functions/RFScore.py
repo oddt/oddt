@@ -136,7 +136,7 @@ class rfscore(scorer):
             home_dir = dirname(__file__) + '/RFScore'
 
         # load precomputed descriptors and target values
-        df = pd.read_csv(home_dir + '/nnscore_descs.csv', index_col='pdbid')
+        df = pd.read_csv(home_dir + '/rfscore_descs_v%i.csv' % self.version, index_col='pdbid')
 
         train_set = 'refined'
         test_set = 'core'
@@ -161,12 +161,22 @@ class rfscore(scorer):
         error = rmse(self.model.predict(self.test_descs), self.test_target)
         r2 = self.model.score(self.test_descs, self.test_target)
         r = np.sqrt(r2)
-        print('Test set: R**2:', r2, ' R:', r, 'RMSE:', error, file=sys.stderr)
+        print('Test set:',
+              'R**2: %.4f' % r2,
+              'R: %.4f' % r,
+              'RMSE: %.4f' % error,
+              sep='\t', file=sys.stderr)
 
         error = rmse(self.model.predict(self.train_descs), self.train_target)
+        oob_error = rmse(self.model.oob_prediction_, self.train_target)
         r2 = self.model.score(self.train_descs, self.train_target)
         r = np.sqrt(r2)
-        print('Train set: R**2:', r2, ' R:', r, 'RMSE:', error, file=sys.stderr)
+        print('Train set:',
+              'R**2: %.4f' % r2,
+              'R: %.4f' % r,
+              'RMSE: %.4f' % error,
+              'OOB RMSE: %.4f' % oob_error,
+              sep='\t', file=sys.stderr)
 
         # compile trees
         if compiledtrees is not None:

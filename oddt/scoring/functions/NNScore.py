@@ -9,6 +9,7 @@ from joblib import Parallel, delayed
 import pandas as pd
 
 from oddt import toolkit, random_seed
+from oddt.metrics import rmse
 from oddt.scoring import scorer, ensemble_model
 from oddt.scoring.descriptors.binana import binana_descriptor
 from oddt.scoring.models.regressors import neuralnetwork
@@ -122,13 +123,23 @@ class nnscore(scorer):
         best_idx = np.array([net.score(self.test_descs, self.test_target.flatten()) for net in trained_nets]).argsort()[::-1][:20]
         self.model = ensemble_model([trained_nets[i] for i in best_idx])
 
+        error = rmse(self.model.predict(self.test_descs), self.test_target)
         r2 = self.model.score(self.test_descs, self.test_target)
         r = np.sqrt(r2)
-        print('Test set: R**2:', r2, ' R:', r, file=sys.stderr)
+        print('Test set:',
+              'R**2: %.4f' % r2,
+              'R: %.4f' % r,
+              'RMSE: %.4f' % error,
+              sep='\t', file=sys.stderr)
 
+        error = rmse(self.model.predict(self.train_descs), self.train_target)
         r2 = self.model.score(self.train_descs, self.train_target)
         r = np.sqrt(r2)
-        print('Train set: R**2:', r2, ' R:', r, file=sys.stderr)
+        print('Train set:',
+              'R**2: %.4f' % r2,
+              'R: %.4f' % r,
+              'RMSE: %.4f' % error,
+              sep='\t', file=sys.stderr)
 
         if sf_pickle:
             return self.save(sf_pickle)
