@@ -231,10 +231,10 @@ class ensemble_descriptor(object):
         self._desc_gens = descriptor_generators if len(descriptor_generators) else None
 
     def build(self, mols, *args, **kwargs):
-        out = None
+        out = []
         for mol in mols:
             desc = np.hstack(desc_gen.build([mol], *args, **kwargs) for desc_gen in self._desc_gens)
-            if not out:
+            if len(out) == 0:
                 out = np.zeros_like(desc)
             out = np.vstack((out, desc))
         return out[1:]
