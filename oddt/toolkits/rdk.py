@@ -926,7 +926,7 @@ class AtomStack(object):
 
     def __getitem__(self, i):
         if 0 <= i < self.Mol.GetNumAtoms():
-            return Atom(self.Mol.GetAtomWithIdx(i))
+            return Atom(self.Mol.GetAtomWithIdx(int(i)))
         else:
             raise AttributeError("There is no atom with ID %i" % i)
 
@@ -1028,7 +1028,14 @@ class Bond(object):
 
     @property
     def isrotor(self):
-        return self.Bond.Match(SMARTS_DEF['rot_bond'])
+        if not self.Bond.IsInRing() and self.Bond.Match(SMARTS_DEF['rot_bond']):
+            a1, a2 = self.atoms
+            if a1.atomicnum > 1 and a2.atomicnum > 1:
+                a1_n = sum(n.atomicnum > 1 for n in a1.neighbors)
+                a2_n = sum(n.atomicnum > 1 for n in a2.neighbors)
+                if a1_n > 1 and a2_n > 1:
+                    return True
+        return False
 
 
 class Residue(object):

@@ -52,6 +52,8 @@ def change_dihedral(coords, a1, a2, a3, a4, target_angle, rot_mask):
 def num_rotors_pdbqt(lig):
     i = 0
     for atom in lig.atoms:
+        if atom.atomicnum == 1:
+            continue
         num_local_rot = sum(b.isrotor for b in atom.bonds)
         if num_local_rot == 0:
             pass
