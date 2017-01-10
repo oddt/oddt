@@ -59,7 +59,18 @@ BOND_ORDERS = {Chem.BondType.SINGLE: 1.0,
                Chem.BondType.AROMATIC: 1.5,
                Chem.BondType.UNSPECIFIED: 0.0}
 SMARTS_DEF = {
-    'rot_bond': Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&!$(C(Cl)(Cl)Cl)&!$(C(Br)(Br)Br)&!$(C([CH3])([CH3])[CH3])&!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&!$([CD3](=[N+])-!@[#7!D1])&!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&!D1&!$(C(F)(F)F)&!$(C(Cl)(Cl)Cl)&!$(C(Br)(Br)Br)&!$(C([CH3])([CH3])[CH3])]').GetBonds()[0]
+    'rot_bond': Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
+                                   '!$(C(Cl)(Cl)Cl)&'
+                                   '!$(C(Br)(Br)Br)&'
+                                   '!$(C([CH3])([CH3])[CH3])&'
+                                   '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&'
+                                   '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&'
+                                   '!$([CD3](=[N+])-!@[#7!D1])&'
+                                   '!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&'
+                                   '!D1&!$(C(F)(F)F)&'
+                                   '!$(C(Cl)(Cl)Cl)&'
+                                   '!$(C(Br)(Br)Br)&'
+                                   '!$(C([CH3])([CH3])[CH3])]').GetBonds()[0]
 }
 # trap errors since it's still new feature
 try:

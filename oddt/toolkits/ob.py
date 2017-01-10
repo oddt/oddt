@@ -202,7 +202,20 @@ class Molecule(pybel.Molecule):
 
     @property
     def num_rotors(self):
-        return self.OBMol.NumRotors()
+        """Number of strict rotatable """
+        rot_bond = Smarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
+                          '!$(C(Cl)(Cl)Cl)&'
+                          '!$(C(Br)(Br)Br)&'
+                          '!$(C([CH3])([CH3])[CH3])&'
+                          '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&'
+                          '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&'
+                          '!$([CD3](=[N+])-!@[#7!D1])&'
+                          '!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&'
+                          '!D1&!$(C(F)(F)F)&'
+                          '!$(C(Cl)(Cl)Cl)&'
+                          '!$(C(Br)(Br)Br)&'
+                          '!$(C([CH3])([CH3])[CH3])]')
+        return len(rot_bond.findall(self))
 
     def _repr_svg_(self):
         return self.clone.write('svg',
