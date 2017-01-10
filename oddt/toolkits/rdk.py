@@ -551,7 +551,7 @@ class Molecule(object):
                  ('radius', 'float32'),
                  ('charge', 'float32'),
                  ('atomicnum', 'int8'),
-                 ('atomtype','a4'),
+                 ('atomtype', 'a4'),
                  ('hybridization', 'int8'),
                  ('neighbors', 'float32', (4, 3)),  # non-H neighbors coordinates for angles (max of 6 neighbors should be enough)
                  # residue info
@@ -634,11 +634,21 @@ class Molecule(object):
         # build residue dictionary
         if self.protein:
             # for protein finding features per residue is much faster
-            if self.protein:
-                for res in self.residues:
-                    for f, field in translate_feats.items():
-                        feats = base_feature_factory.GetFeaturesForMol(res.Residue, includeOnly=f)
-                        atom_dict[field][[res.atommap[idx] for f in feats for idx in f.GetAtomIds()]] = True
+            for res in self.residues:
+                for f, field in translate_feats.items():
+                    feats = base_feature_factory.GetFeaturesForMol(res.Residue, includeOnly=f)
+                    atom_dict[field][[res.atommap[idx]
+                                      for feat in feats
+                                      for idx in feat.GetAtomIds()
+                                      if atom_dict['atomicnum'][idx] > 1]] = True
+                    # Mark donor Hs
+                    if field == 'isdonor':
+                        atom_dict['isdonorh'][[n.GetIdx()
+                                               for feat in feats
+                                               for idx in feat.GetAtomIds()
+                                               for n in res.Residue.GetAtomWithIdx(idx).GetNeighbors()
+                                               if n.GetAtomicNum() == 1]] = True
+
             res_dict = None
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', 'int16'),
@@ -676,7 +686,16 @@ class Molecule(object):
             # find features for ligands
             for f, field in translate_feats.items():
                 feats = base_feature_factory.GetFeaturesForMol(self.Mol, includeOnly=f)
-                atom_dict[field][[idx for f in feats for idx in f.GetAtomIds()]] = True
+                atom_dict[field][[idx
+                                  for f in feats
+                                  for idx in f.GetAtomIds()
+                                  if atom_dict['atomicnum'][idx] > 1]] = True
+                if field == 'isdonor':
+                    atom_dict['isdonorh'][[n.GetIdx()
+                                           for f in feats
+                                           for idx in f.GetAtomIds()
+                                           for n in self.Mol.GetAtomWithIdx(idx).GetNeighbors()
+                                           if n.GetAtomicNum() == 1]] = True
 
         # FIX: remove acidic carbons from isminus group (they are part of smarts)
         atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
@@ -706,13 +725,13 @@ class Molecule(object):
             self._res_dict = res_dict
             # self._res_dict.setflags(write=False)
 
-    def addh(self):
+    def addh(self, **kwargs):
         """Add hydrogens."""
-        self.Mol = Chem.AddHs(self.Mol)
+        self.Mol = Chem.AddHs(self.Mol, addCoords=True, **kwargs)
 
-    def removeh(self):
+    def removeh(self, **kwargs):
         """Remove hydrogens."""
-        self.Mol = Chem.RemoveHs(self.Mol)
+        self.Mol = Chem.RemoveHs(self.Mol, **kwargs)
 
     def write(self, format="smi", filename=None, overwrite=False, size=None, **kwargs):
         """Write the molecule to a file or return a string.
