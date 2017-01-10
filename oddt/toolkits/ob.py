@@ -382,7 +382,13 @@ class Molecule(pybel.Molecule):
                             else:
                                 backbone['C'] = atom.coords
                 if len(backbone.keys()) == 3:
-                    b.append((residue.idx, residue.name, backbone['N'], backbone['CA'], backbone['C'], False, False))
+                    b.append((residue.idx,
+                              residue.name,
+                              backbone['N'],
+                              backbone['CA'],
+                              backbone['C'],
+                              False,
+                              False))
             res_dict = np.array(b, dtype=res_dtype)
 
             # detect secondary structure by phi and psi angles
@@ -390,13 +396,18 @@ class Molecule(pybel.Molecule):
             second = res_dict[1:]
             psi = dihedral(first['N'], first['CA'], first['C'], second['N'])
             phi = dihedral(first['C'], second['N'], second['CA'], second['C'])
+            d = second['id'] - first['id']
             # mark atoms belonging to alpha and beta
-            res_mask_alpha = np.where(((phi > -145) & (phi < -35) & (psi > -70) & (psi < 50)))  # alpha
+            res_mask_alpha = np.where(((phi > -145) & (phi < -35) & (psi > -70) &
+                                       (psi < 50) & (d == 1)))  # alpha
             res_dict['isalpha'][res_mask_alpha] = True
             for i in res_dict[res_mask_alpha]['id']:
                 atom_dict['isalpha'][atom_dict['resid'] == i] = True
 
-            res_mask_beta = np.where(((phi >= -180) & (phi < -40) & (psi <= 180) & (psi > 90)) | ((phi >= -180) & (phi < -70) & (psi <= -165)))  # beta
+            res_mask_beta = np.where(((phi >= -180) & (phi < -40) &
+                                      (psi <= 180) & (psi > 90) & (d == 1)) |
+                                     ((phi >= -180) & (phi < -70) &
+                                      (psi <= -165) & (d == 1)))  # beta
             res_dict['isbeta'][res_mask_beta] = True
             atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_mask_beta]['id'])] = True
 

@@ -54,7 +54,7 @@ def num_rotors_pdbqt(lig):
     for atom in lig.atoms:
         if atom.atomicnum == 1:
             continue
-        num_local_rot = sum(b.isrotor for b in atom.bonds)
+        num_local_rot = sum(int(b.isrotor) for b in atom.bonds)
         if num_local_rot == 0:
             pass
         elif num_local_rot == 1:
