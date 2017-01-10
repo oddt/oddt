@@ -1,3 +1,5 @@
+from itertools import chain
+
 import numpy as np
 from scipy.stats import linregress
 from sklearn.model_selection import cross_val_score, KFold, train_test_split
@@ -231,6 +233,7 @@ class ensemble_descriptor(object):
                 An array of models
         """
         self._desc_gens = descriptor_generators if len(descriptor_generators) else None
+        self.titles = list(chain(desc_gen.titles for desc_gen in self._desc_gens))
 
     def build(self, mols, *args, **kwargs):
         out = []

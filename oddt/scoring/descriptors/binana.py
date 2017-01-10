@@ -21,11 +21,13 @@ class binana_descriptor(object):
                 Protein object to be used while generating descriptors.
         """
         self.protein = protein
+        self.titles = []
         self.vina = oddt_vina_descriptor(protein, vina_scores=['vina_gauss1',
                                                                'vina_gauss2',
                                                                'vina_repulsion',
                                                                'vina_hydrophobic',
                                                                'vina_hydrogen'])
+        self.titles += self.vina.titles
         # Close contacts descriptor generators
         cc_4_types = (('A', 'A'), ('A', 'C'), ('A', 'CL'), ('A', 'F'),
                       ('A', 'FE'), ('A', 'HD'), ('A', 'MG'), ('A', 'MN'),
@@ -56,12 +58,47 @@ class binana_descriptor(object):
                       ('P', 'SA'), ('P', 'ZN'), ('S', 'SA'), ('SA', 'SA'),
                       ('A', 'CU'), ('C', 'CD'))
         cc_4_rec_types, cc_4_lig_types = zip(*cc_4_types)
+        self.titles += ['cc_%s.%s_4' % (t1, t2) for t1, t2 in cc_4_types]
         self.cc_4 = cc_4_nn = close_contacts(protein,
                                              cutoff=4,
                                              protein_types=cc_4_rec_types,
                                              ligand_types=cc_4_lig_types,
                                              mode='atom_types_ad4',
                                              aligned_pairs=True)
+
+        self.ele_types = (('A', 'A'), ('A', 'C'), ('A', 'CL'), ('A', 'F'),
+                          ('A', 'FE'), ('A', 'HD'), ('A', 'MG'), ('A', 'MN'),
+                          ('A', 'N'), ('A', 'NA'), ('A', 'OA'), ('A', 'SA'),
+                          ('A', 'ZN'), ('BR', 'C'), ('BR', 'HD'), ('BR', 'OA'),
+                          ('C', 'C'), ('C', 'CL'), ('C', 'F'), ('C', 'HD'),
+                          ('C', 'MG'), ('C', 'MN'), ('C', 'N'), ('C', 'NA'),
+                          ('C', 'OA'), ('C', 'SA'), ('C', 'ZN'), ('CL', 'FE'),
+                          ('CL', 'HD'), ('CL', 'MG'), ('CL', 'N'), ('CL', 'OA'),
+                          ('CL', 'ZN'), ('F', 'HD'), ('F', 'N'), ('F', 'OA'),
+                          ('F', 'SA'), ('F', 'ZN'), ('FE', 'HD'), ('FE', 'N'),
+                          ('FE', 'OA'), ('HD', 'HD'), ('HD', 'I'), ('HD', 'MG'),
+                          ('HD', 'MN'), ('HD', 'N'), ('HD', 'NA'), ('HD', 'OA'),
+                          ('HD', 'P'), ('HD', 'S'), ('HD', 'SA'), ('HD', 'ZN'),
+                          ('MG', 'NA'), ('MG', 'OA'), ('MN', 'N'), ('MN', 'OA'),
+                          ('N', 'N'), ('N', 'NA'), ('N', 'OA'), ('N', 'SA'),
+                          ('N', 'ZN'), ('NA', 'OA'), ('NA', 'SA'), ('NA', 'ZN'),
+                          ('OA', 'OA'), ('OA', 'SA'), ('OA', 'ZN'), ('S', 'ZN'),
+                          ('SA', 'ZN'), ('A', 'BR'), ('A', 'I'), ('A', 'P'),
+                          ('A', 'S'), ('BR', 'N'), ('BR', 'SA'), ('C', 'FE'),
+                          ('C', 'I'), ('C', 'P'), ('C', 'S'), ('CL', 'MN'),
+                          ('CL', 'NA'), ('CL', 'P'), ('CL', 'S'), ('CL', 'SA'),
+                          ('CU', 'HD'), ('CU', 'N'), ('FE', 'NA'), ('FE', 'SA'),
+                          ('I', 'N'), ('I', 'OA'), ('MG', 'N'), ('MG', 'P'),
+                          ('MG', 'S'), ('MG', 'SA'), ('MN', 'NA'), ('MN', 'P'),
+                          ('MN', 'S'), ('MN', 'SA'), ('N', 'P'), ('N', 'S'),
+                          ('NA', 'P'), ('NA', 'S'), ('OA', 'P'), ('OA', 'S'),
+                          ('P', 'S'), ('P', 'SA'), ('P', 'ZN'), ('S', 'SA'),
+                          ('SA', 'SA'))
+        self.titles += ['ele_%s.%s_4' % (t1, t2) for t1, t2 in self.ele_types]
+
+        self.ligand_atom_types = ['A', 'BR', 'C', 'CL', 'F', 'HD', 'I', 'N', 'NA', 'OA', 'P', 'S', 'SA']
+        self.titles += ['lig_%s' % t1 for t1 in self.ligand_atom_types]
+
         cc_25_types = [('A', 'A'), ('A', 'C'), ('A', 'CL'), ('A', 'F'),
                        ('A', 'FE'), ('A', 'HD'), ('A', 'MG'), ('A', 'MN'),
                        ('A', 'N'), ('A', 'NA'), ('A', 'OA'), ('A', 'SA'),
@@ -87,6 +124,60 @@ class binana_descriptor(object):
                                     ligand_types=cc_25_lig_types,
                                     mode='atom_types_ad4',
                                     aligned_pairs=True)
+        self.titles += ['cc_%s.%s_2.5' % (t1, t2) for t1, t2 in cc_25_types]
+        # H-Bonds (<4A)
+        self.titles += ['hb_4_mol_backbone_alpha',
+                        'hb_4_mol_backbone_beta',
+                        'hb_4_mol_backbone_other',
+                        'hb_4_mol_sidechain_alpha',
+                        'hb_4_mol_sidechain_beta',
+                        'hb_4_mol_sidechain_other',
+                        'hb_4_rec_backbone_alpha',
+                        'hb_4_rec_backbone_beta',
+                        'hb_4_rec_backbone_other',
+                        'hb_4_rec_sidechain_alpha',
+                        'hb_4_rec_sidechain_beta',
+                        'hb_4_rec_sidechain_other']
+        # Hydrophobic Contact <4A
+        self.titles += ['hyd_4_backbone_alpha',
+                        'hyd_4_backbone_beta',
+                        'hyd_4_backbone_other',
+                        'hyd_4_sidechain_alpha',
+                        'hyd_4_sidechain_beta',
+                        'hyd_4_sidechain_other',
+                        'hyd_4_all']
+        # Pi-stacking (<7.5A)
+        self.titles += ['pi_stack_7.5_alpha',
+                        'pi_stack_7.5_beta',
+                        'pi_stack_7.5_other']
+        # T-shaped Pi-Pi interaction
+        self.titles += ['pi_t_7.5_alpha',
+                        'pi_t_7.5_beta',
+                        'pi_t_7.5_other']
+        # Pi-cation (<6A)
+        self.titles += ['pi_cat_mol_6_alpha',
+                        'pi_cat_mol_6_beta',
+                        'pi_cat_mol_6_other',
+                        'pi_cat_rec_6_alpha',
+                        'pi_cat_rec_6_beta',
+                        'pi_cat_rec_6_other']
+        # Active site flexibility (<4A)
+        self.titles += ['as_flex_backbone_alpha',
+                        'as_flex_backbone_beta',
+                        'as_flex_backbone_other',
+                        'as_flex_sidechain_alpha',
+                        'as_flex_sidechain_beta',
+                        'as_flex_sidechain_other',
+                        'as_flex_all']
+        # Salt bridges (<5.5)
+        self.titles += ['salt_bridge_5.5_alpha',
+                        'salt_bridge_5.5_beta',
+                        'salt_bridge_5.5_other',
+                        'salt_bridge_5.5_all']
+        # Rotatable bonds
+        self.titles += ['num_rotors']
+
+        assert len(self.titles) == len(self)
 
     def set_protein(self, protein):
         """ One function to change all relevant proteins
@@ -139,39 +230,11 @@ class binana_descriptor(object):
             vec += tuple(self.cc_4.build(mol, single=True).flatten())
 
             # Electrostatics (<4A)
-            ele_types = (('A', 'A'), ('A', 'C'), ('A', 'CL'), ('A', 'F'),
-                         ('A', 'FE'), ('A', 'HD'), ('A', 'MG'), ('A', 'MN'),
-                         ('A', 'N'), ('A', 'NA'), ('A', 'OA'), ('A', 'SA'),
-                         ('A', 'ZN'), ('BR', 'C'), ('BR', 'HD'), ('BR', 'OA'),
-                         ('C', 'C'), ('C', 'CL'), ('C', 'F'), ('C', 'HD'),
-                         ('C', 'MG'), ('C', 'MN'), ('C', 'N'), ('C', 'NA'),
-                         ('C', 'OA'), ('C', 'SA'), ('C', 'ZN'), ('CL', 'FE'),
-                         ('CL', 'HD'), ('CL', 'MG'), ('CL', 'N'), ('CL', 'OA'),
-                         ('CL', 'ZN'), ('F', 'HD'), ('F', 'N'), ('F', 'OA'),
-                         ('F', 'SA'), ('F', 'ZN'), ('FE', 'HD'), ('FE', 'N'),
-                         ('FE', 'OA'), ('HD', 'HD'), ('HD', 'I'), ('HD', 'MG'),
-                         ('HD', 'MN'), ('HD', 'N'), ('HD', 'NA'), ('HD', 'OA'),
-                         ('HD', 'P'), ('HD', 'S'), ('HD', 'SA'), ('HD', 'ZN'),
-                         ('MG', 'NA'), ('MG', 'OA'), ('MN', 'N'), ('MN', 'OA'),
-                         ('N', 'N'), ('N', 'NA'), ('N', 'OA'), ('N', 'SA'),
-                         ('N', 'ZN'), ('NA', 'OA'), ('NA', 'SA'), ('NA', 'ZN'),
-                         ('OA', 'OA'), ('OA', 'SA'), ('OA', 'ZN'), ('S', 'ZN'),
-                         ('SA', 'ZN'), ('A', 'BR'), ('A', 'I'), ('A', 'P'),
-                         ('A', 'S'), ('BR', 'N'), ('BR', 'SA'), ('C', 'FE'),
-                         ('C', 'I'), ('C', 'P'), ('C', 'S'), ('CL', 'MN'),
-                         ('CL', 'NA'), ('CL', 'P'), ('CL', 'S'), ('CL', 'SA'),
-                         ('CU', 'HD'), ('CU', 'N'), ('FE', 'NA'), ('FE', 'SA'),
-                         ('I', 'N'), ('I', 'OA'), ('MG', 'N'), ('MG', 'P'),
-                         ('MG', 'S'), ('MG', 'SA'), ('MN', 'NA'), ('MN', 'P'),
-                         ('MN', 'S'), ('MN', 'SA'), ('N', 'P'), ('N', 'S'),
-                         ('NA', 'P'), ('NA', 'S'), ('OA', 'P'), ('OA', 'S'),
-                         ('P', 'S'), ('P', 'SA'), ('P', 'ZN'), ('S', 'SA'),
-                         ('SA', 'SA'))
-            ele_rec_types, ele_lig_types = zip(*ele_types)
+            ele_rec_types, ele_lig_types = zip(*self.ele_types)
             ele_mol_atoms = atoms_by_type(mol_dict, ele_lig_types, 'atom_types_ad4')
             ele_rec_atoms = atoms_by_type(protein_dict, ele_rec_types, 'atom_types_ad4')
             ele = tuple()
-            for r_t, m_t in ele_types:
+            for r_t, m_t in self.ele_types:
                 mol_ele_dict, rec_ele_dict = interactions.close_contacts(ele_mol_atoms[m_t], ele_rec_atoms[r_t], 4)
                 if len(mol_ele_dict) and len(rec_ele_dict):
                     ele += (mol_ele_dict['charge'] * rec_ele_dict['charge'] / np.sqrt((mol_ele_dict['coords'] - rec_ele_dict['coords'])**2).sum(axis=-1) * 138.94238460104697e4).sum(),  # convert to J/mol
@@ -180,10 +243,8 @@ class binana_descriptor(object):
             vec += tuple(ele)
 
             # Ligand Atom Types
-            ligand_atom_types = ['A', 'BR', 'C', 'CL', 'F', 'HD', 'I', 'N', 'NA', 'OA', 'P', 'S', 'SA']
-            atoms = atoms_by_type(mol_dict, ligand_atom_types, 'atom_types_ad4')
-            atoms_counts = [len(atoms[t]) for t in ligand_atom_types]
-            vec += tuple(atoms_counts)
+            atoms = atoms_by_type(mol_dict, self.ligand_atom_types, 'atom_types_ad4')
+            vec += tuple([len(atoms[t]) for t in self.ligand_atom_types])
 
             # Close Contacts (<2.5A)
             vec += tuple(self.cc_25.build(mol, single=True).flatten())
@@ -236,7 +297,7 @@ class binana_descriptor(object):
             pi_vec = (alpha.sum(), beta.sum(), other.sum())
             vec += tuple(pi_vec)
 
-            # count T-shaped Pi-Pi interaction
+            # T-shaped Pi-Pi interaction
             alpha = pi_rec['isalpha'] & pi_tshaped
             beta = pi_rec['isbeta'] & pi_tshaped
             other = ~alpha & ~beta & pi_tshaped
