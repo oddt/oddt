@@ -671,7 +671,7 @@ class Molecule(object):
                          ('isbeta', 'bool')
                          ]  # N, CA, C
             b = []
-            aa = Chem.MolFromSmarts('[NX3,NX4+][CX4H,CX4H2][CX3](=[OX1])[O,N]')  # amino backbone SMARTS
+            aa = Chem.MolFromSmarts('NCC(-,=O)[N,O]')#[NX3,NX4+][CX4H,CX4H2][CX3](=[OX1])[O,N]')  # amino backbone SMARTS
             conf = self.Mol.GetConformer()
             for path in self.Mol.GetSubstructMatches(aa):
                 atom_dict['isbackbone'][np.array(path)] = True
@@ -692,18 +692,26 @@ class Molecule(object):
             phi = dihedral(first['C'], second['N'], second['CA'], second['C'])
             d = second['id'] - first['id']
             # mark atoms belonging to alpha and beta
-            res_mask_alpha = np.where(((phi > -145) & (phi < -35) & (psi > -70) &
-                                       (psi < 50) & (d == 1)))  # alpha
-            res_dict['isalpha'][res_mask_alpha] = True
-            for i in res_dict[res_mask_alpha]['id']:
-                atom_dict['isalpha'][atom_dict['resid'] == i] = True
+            res_mask_alpha = (((phi > -145) & (phi < -35) &
+                               (psi > -70) & (psi < 50) & (d == 1)))  # alpha
 
-            res_mask_beta = np.where(((phi >= -180) & (phi < -40) &
-                                      (psi <= 180) & (psi > 90) & (d == 1)) |
-                                     ((phi >= -180) & (phi < -70) &
-                                      (psi <= -165) & (d == 1)))  # beta
-            res_dict['isbeta'][res_mask_beta] = True
-            atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_mask_beta]['id'])] = True
+            res_mask_alpha = (np.argwhere(res_mask_alpha[:-1]) + 1).flatten()  # first and last residue are ommited
+            # Ignore groups smaller than 3
+            for mask_group in np.split(res_mask_alpha, np.argwhere(np.diff(res_mask_alpha) != 1).flatten() + 1):
+                if len(mask_group) >= 3:
+                    res_dict['isalpha'][mask_group] = True
+                    atom_dict['isalpha'][np.in1d(atom_dict['resid'], res_dict[mask_group]['id'])] = True
+
+            res_mask_beta = (((phi >= -180) & (phi < -40) &
+                              (psi <= 180) & (psi > 90) & (d == 1)) |
+                             ((phi >= -180) & (phi < -70) &
+                              (psi <= -165) & (d == 1)))  # beta
+            res_mask_beta = (np.argwhere(res_mask_beta[:-1]) + 1).flatten()  # first and last residue are ommited
+            # Ignore groups smaller than 3
+            for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
+                if len(mask_group) >= 3:
+                    res_dict['isbeta'][mask_group] = True
+                    atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[mask_group]['id'])] = True
         else:
             # find features for ligands
             for f, field in translate_feats.items():
