@@ -24,6 +24,7 @@ from copy import copy
 import gzip
 from base64 import b64encode
 from itertools import combinations
+from collections import OrderedDict
 
 from six import next, BytesIO
 import numpy as np
@@ -45,7 +46,7 @@ from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D, Generate
 
 import oddt
-from oddt.spatial import dihedral
+from oddt.spatial import dihedral, distance
 
 _descDict = dict(Descriptors.descList)
 
@@ -464,7 +465,7 @@ class Molecule(object):
     @property
     def residues(self):
         if self._residues is None:
-            residues = {}
+            residues = OrderedDict()
             for aid in range(self.Mol.GetNumAtoms()):
                 res = self.Mol.GetAtomWithIdx(aid).GetMonomerInfo()
                 # trap ligands with no monomer info
@@ -667,22 +668,26 @@ class Molecule(object):
                          ('N', 'float32', 3),
                          ('CA', 'float32', 3),
                          ('C', 'float32', 3),
+                         ('O', 'float32', 3),
                          ('isalpha', 'bool'),
                          ('isbeta', 'bool')
                          ]  # N, CA, C
             b = []
-            aa = Chem.MolFromSmarts('NCC(-,=O)[N,O]')#[NX3,NX4+][CX4H,CX4H2][CX3](=[OX1])[O,N]')  # amino backbone SMARTS
+            aa = Chem.MolFromSmarts('NCC(-,=O)')  # amino backbone SMARTS
             conf = self.Mol.GetConformer()
-            for path in self.Mol.GetSubstructMatches(aa):
-                atom_dict['isbackbone'][np.array(path)] = True
-                residue = self.Mol.GetAtomWithIdx(path[0]).GetMonomerInfo()
-                b.append((residue.GetResidueNumber(),
-                          residue.GetResidueName(),
-                          conf.GetAtomPosition(path[0]),
-                          conf.GetAtomPosition(path[1]),
-                          conf.GetAtomPosition(path[2]),
-                          False,
-                          False))
+            for residue in self.residues:
+                path = residue.Residue.GetSubstructMatch(aa)
+                if path:
+
+                    atom_dict['isbackbone'][np.array([residue.atommap[i] for i in path])] = True
+                    b.append((residue.MonomerInfo.GetResidueNumber(),
+                              residue.MonomerInfo.GetResidueName(),
+                              conf.GetAtomPosition(residue.atommap[path[0]]),
+                              conf.GetAtomPosition(residue.atommap[path[1]]),
+                              conf.GetAtomPosition(residue.atommap[path[2]]),
+                              conf.GetAtomPosition(residue.atommap[path[3]]),
+                              False,
+                              False))
             res_dict = np.array(b, dtype=res_dtype)
 
             # detect secondary structure by phi and psi angles
@@ -695,7 +700,7 @@ class Molecule(object):
             res_mask_alpha = (((phi > -145) & (phi < -35) &
                                (psi > -70) & (psi < 50) & (d == 1)))  # alpha
 
-            res_mask_alpha = (np.argwhere(res_mask_alpha[:-1]) + 1).flatten()  # first and last residue are ommited
+            res_mask_alpha = (np.argwhere(res_mask_alpha[:-1])).flatten()  # first and last residue are ommited
             # Ignore groups smaller than 3
             for mask_group in np.split(res_mask_alpha, np.argwhere(np.diff(res_mask_alpha) != 1).flatten() + 1):
                 if len(mask_group) >= 3:
@@ -706,12 +711,26 @@ class Molecule(object):
                               (psi <= 180) & (psi > 90) & (d == 1)) |
                              ((phi >= -180) & (phi < -70) &
                               (psi <= -165) & (d == 1)))  # beta
-            res_mask_beta = (np.argwhere(res_mask_beta[:-1]) + 1).flatten()  # first and last residue are ommited
+            res_mask_beta = (np.argwhere(res_mask_beta)).flatten()  # first and last residue are ommited
             # Ignore groups smaller than 3
             for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
                 if len(mask_group) >= 3:
                     res_dict['isbeta'][mask_group] = True
-                    atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[mask_group]['id'])] = True
+            # Beta strands have to be alongside eachother
+            p_mask = (((distance(res_dict[res_dict['isbeta']]['CA'],
+                                 res_dict[res_dict['isbeta']]['CA']) < 4.5) |
+                       (distance(res_dict[res_dict['isbeta']]['N'],
+                                 res_dict[res_dict['isbeta']]['O']) < 3.5)) &
+                      (np.abs(res_dict[res_dict['isbeta']]['id'] -
+                              res_dict[res_dict['isbeta']]['id'][:, np.newaxis]) > 4)
+                      ).any(axis=1)
+            res_dict['isbeta'][np.argwhere(res_dict['isbeta']).flatten()[~p_mask]] = False
+            # Ignore groups smaller than 3
+            res_mask_beta = np.argwhere(res_dict['isbeta']).flatten()
+            for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
+                if len(mask_group) < 3:
+                    res_dict['isbeta'][mask_group] = False
+            atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_dict['isbeta']]['id'])] = True
         else:
             # find features for ligands
             for f, field in translate_feats.items():
@@ -1077,7 +1096,19 @@ class Bond(object):
 
     @property
     def isrotor(self):
-        if not self.Bond.IsInRing() and self.Bond.Match(SMARTS_DEF['rot_bond']):
+        if (not self.Bond.IsInRing() and
+            self.Bond.Match(Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
+                                               '!$(C(Cl)(Cl)Cl)&'
+                                               '!$(C(Br)(Br)Br)&'
+                                               '!$(C([CH3])([CH3])[CH3])&'
+                                               '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&'
+                                               '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&'
+                                               '!$([CD3](=[N+])-!@[#7!D1])&'
+                                               '!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&'
+                                               '!D1&!$(C(F)(F)F)&'
+                                               '!$(C(Cl)(Cl)Cl)&'
+                                               '!$(C(Br)(Br)Br)&'
+                                               '!$(C([CH3])([CH3])[CH3])]').GetBondWithIdx(0))):
             a1, a2 = self.atoms
             if a1.atomicnum > 1 and a2.atomicnum > 1:
                 a1_n = sum(n.atomicnum > 1 for n in a1.neighbors)

@@ -19,10 +19,9 @@ def test_ss():
     protein = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/pdb/1cos_helix.pdb')))
     protein.protein = True
 
-    protein._dicts()
-    print(protein.res_dict['resname'])
-    print(protein.res_dict['isalpha'])
-    print(protein.res_dict['isbeta'])
+    # print(protein.res_dict['resname'])
+    # print(protein.res_dict['isalpha'])
+    # print(protein.res_dict['isbeta'])
 
     assert_equal(len(protein.res_dict), 29)
     assert_equal(protein.res_dict['isalpha'].sum(), 27)
@@ -33,28 +32,38 @@ def test_ss():
     protein = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/pdb/1icl_sheet.pdb')))
     protein.protein = True
 
-    print(protein.res_dict['resname'])
-    print(protein.res_dict['isalpha'])
-    print(protein.res_dict['isbeta'])
+    # print(protein.res_dict['resname'])
+    # print(protein.res_dict['isalpha'])
+    # print(protein.res_dict['isbeta'])
+    # print(protein.res_dict['isbeta'])
+    # for mask_group in np.split(np.argwhere(protein.res_dict['isbeta']).flatten(),
+    #                            np.argwhere(np.diff(np.argwhere(protein.res_dict['isbeta']).flatten()) != 1).flatten() + 1):
+    #         print(mask_group + 1, protein.res_dict[mask_group]['resname'])
 
     assert_equal(len(protein.res_dict), 29)
-    assert_equal(protein.res_dict['isbeta'].sum(), 10)
-    assert_equal((~protein.res_dict['isbeta']).sum(), 19)
+    assert_equal(protein.res_dict['isbeta'].sum(), 8)
+    assert_equal((~protein.res_dict['isbeta']).sum(), 21)
     assert_equal(protein.res_dict['isalpha'].sum(), 0)
 
     # Protein test
     protein = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
     protein.protein = True
 
-    print(protein.res_dict['resname'])
-    print(protein.res_dict['isalpha'])
-    print(protein.res_dict['isbeta'])
-    print(protein.res_dict)
+    # print(protein.res_dict['resname'])
+    # print(protein.res_dict['isalpha'])
+    # for mask_group in np.split(np.argwhere(protein.res_dict['isalpha']).flatten(),
+    #                            np.argwhere(np.diff(np.argwhere(protein.res_dict['isalpha']).flatten()) != 1).flatten() + 1):
+    #         print(mask_group + 1, protein.res_dict[mask_group]['resname'])
+
+    # print(protein.res_dict['isbeta'])
+    # for mask_group in np.split(np.argwhere(protein.res_dict['isbeta']).flatten(),
+    #                            np.argwhere(np.diff(np.argwhere(protein.res_dict['isbeta']).flatten()) != 1).flatten() + 1):
+    #         print(mask_group + 1, protein.res_dict[mask_group]['resname'])
 
     assert_equal(len(protein.res_dict), 136)
     assert_equal(protein.res_dict['isalpha'].sum(), 52)
     assert_equal((~protein.res_dict['isalpha']).sum(), 84)
-    assert_equal(protein.res_dict['isbeta'].sum(), 16)
-    assert_equal((~protein.res_dict['isbeta']).sum(), 120)
+    assert_equal(protein.res_dict['isbeta'].sum(), 6)
+    assert_equal((~protein.res_dict['isbeta']).sum(), 130)
     assert_equal((protein.res_dict['isalpha'] & protein.res_dict['isbeta']).sum(), 0)  # Must be zero!
-    assert_equal((~protein.res_dict['isalpha'] & ~protein.res_dict['isbeta']).sum(), 68)
+    assert_equal((~protein.res_dict['isalpha'] & ~protein.res_dict['isbeta']).sum(), 78)

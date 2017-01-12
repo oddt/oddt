@@ -16,7 +16,7 @@ import openbabel as ob
 from openbabel import OBAtomAtomIter, OBTypeTable
 
 import oddt
-from oddt.spatial import angle, angle_2v, dihedral
+from oddt.spatial import angle, angle_2v, dihedral, distance
 
 backend = 'ob'
 # setup typetable to translate atom types
@@ -365,6 +365,7 @@ class Molecule(pybel.Molecule):
                          ('N', 'float32', 3),
                          ('CA', 'float32', 3),
                          ('C', 'float32', 3),
+                         ('O', 'float32', 3),
                          ('isalpha', 'bool'),
                          ('isbeta', 'bool')
                          ]  # N, CA, C
@@ -381,12 +382,15 @@ class Molecule(pybel.Molecule):
                                 backbone['CA'] = atom.coords
                             else:
                                 backbone['C'] = atom.coords
-                if len(backbone.keys()) == 3:
+                        elif atom.atomicnum == 8:
+                            backbone['O'] = atom.coords
+                if len(backbone.keys()) == 4:
                     b.append((residue.idx,
                               residue.name,
                               backbone['N'],
                               backbone['CA'],
                               backbone['C'],
+                              backbone['O'],
                               False,
                               False))
             res_dict = np.array(b, dtype=res_dtype)
@@ -400,23 +404,37 @@ class Molecule(pybel.Molecule):
             # mark atoms belonging to alpha and beta
             res_mask_alpha = (((phi > -145) & (phi < -35) &
                                (psi > -70) & (psi < 50) & (d == 1)))  # alpha
-            res_mask_alpha = (np.argwhere(res_mask_alpha[:-1]) + 1).flatten()  # first and last residue are ommited
+            res_mask_alpha = (np.argwhere(res_mask_alpha)).flatten()  # first and last residue are ommited
             # Ignore groups smaller than 3
             for mask_group in np.split(res_mask_alpha, np.argwhere(np.diff(res_mask_alpha) != 1).flatten() + 1):
                 if len(mask_group) >= 3:
                     res_dict['isalpha'][mask_group] = True
-                    atom_dict['isalpha'][np.in1d(atom_dict['resid'], res_dict[mask_group]['id'])] = True
+            atom_dict['isalpha'][np.in1d(atom_dict['resid'], res_dict[res_dict['isalpha']]['id'])] = True
 
             res_mask_beta = (((phi >= -180) & (phi < -40) &
                               (psi <= 180) & (psi > 90) & (d == 1)) |
                              ((phi >= -180) & (phi < -70) &
                               (psi <= -165) & (d == 1)))  # beta
-            res_mask_beta = (np.argwhere(res_mask_beta[:-1]) + 1).flatten()  # first and last residue are ommited
+            res_mask_beta = (np.argwhere(res_mask_beta)).flatten()  # first and last residue are ommited
             # Ignore groups smaller than 3
             for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
                 if len(mask_group) >= 3:
                     res_dict['isbeta'][mask_group] = True
-                    atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[mask_group]['id'])] = True
+            # Beta strands have to be alongside eachother
+            p_mask = (((distance(res_dict[res_dict['isbeta']]['CA'],
+                                 res_dict[res_dict['isbeta']]['CA']) < 4.5) |
+                       (distance(res_dict[res_dict['isbeta']]['N'],
+                                 res_dict[res_dict['isbeta']]['O']) < 3.5)) &
+                      (np.abs(res_dict[res_dict['isbeta']]['id'] -
+                              res_dict[res_dict['isbeta']]['id'][:, np.newaxis]) > 4)
+                      ).any(axis=1)
+            res_dict['isbeta'][np.argwhere(res_dict['isbeta']).flatten()[~p_mask]] = False
+            # Ignore groups smaller than 3
+            res_mask_beta = np.argwhere(res_dict['isbeta']).flatten()
+            for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
+                if len(mask_group) < 3:
+                    res_dict['isbeta'][mask_group] = False
+            atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_dict['isbeta']]['id'])] = True
 
         # Aromatic Rings
         r = []
