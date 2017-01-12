@@ -1,7 +1,6 @@
 import os
 from tempfile import NamedTemporaryFile
 
-from scipy.spatial.distance import pdist
 import numpy as np
 
 from nose.tools import assert_in, assert_not_in, assert_equal
@@ -39,9 +38,9 @@ def test_ss():
     print(protein.res_dict['isbeta'])
 
     assert_equal(len(protein.res_dict), 29)
-    assert_equal(protein.res_dict['isbeta'].sum(), 16)
-    assert_equal((~protein.res_dict['isbeta']).sum(), 13)
-    assert_equal(protein.res_dict['isalpha'].sum(), 3)  # TODO: Remove singletons for 0!!!!
+    assert_equal(protein.res_dict['isbeta'].sum(), 10)
+    assert_equal((~protein.res_dict['isbeta']).sum(), 19)
+    assert_equal(protein.res_dict['isalpha'].sum(), 0)
 
     # Protein test
     protein = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
@@ -50,11 +49,12 @@ def test_ss():
     print(protein.res_dict['resname'])
     print(protein.res_dict['isalpha'])
     print(protein.res_dict['isbeta'])
+    print(protein.res_dict)
 
     assert_equal(len(protein.res_dict), 136)
-    assert_equal(protein.res_dict['isalpha'].sum(), 74)
-    assert_equal((~protein.res_dict['isalpha']).sum(), 62)
-    assert_equal(protein.res_dict['isbeta'].sum(), 36)
-    assert_equal((~protein.res_dict['isbeta']).sum(), 100)
+    assert_equal(protein.res_dict['isalpha'].sum(), 52)
+    assert_equal((~protein.res_dict['isalpha']).sum(), 84)
+    assert_equal(protein.res_dict['isbeta'].sum(), 16)
+    assert_equal((~protein.res_dict['isbeta']).sum(), 120)
     assert_equal((protein.res_dict['isalpha'] & protein.res_dict['isbeta']).sum(), 0)  # Must be zero!
-    assert_equal((~protein.res_dict['isalpha'] & ~protein.res_dict['isbeta']).sum(), 26)
+    assert_equal((~protein.res_dict['isalpha'] & ~protein.res_dict['isbeta']).sum(), 68)
