@@ -557,33 +557,33 @@ class Molecule(object):
 
     def _dicts(self):
         # Atoms
-        atom_dtype = [('id', 'int16'),
-                 # atom info
-                 ('coords', 'float32', 3),
-                 ('radius', 'float32'),
-                 ('charge', 'float32'),
-                 ('atomicnum', 'int8'),
-                 ('atomtype', 'a4'),
-                 ('hybridization', 'int8'),
-                 ('neighbors', 'float32', (4, 3)),  # non-H neighbors coordinates for angles (max of 6 neighbors should be enough)
-                 # residue info
-                 ('resid', 'int16'),
-                 ('resname', 'a3'),
-                 ('isbackbone', 'bool'),
-                 # atom properties
-                 ('isacceptor', 'bool'),
-                 ('isdonor', 'bool'),
-                 ('isdonorh', 'bool'),
-                 ('ismetal', 'bool'),
-                 ('ishydrophobe', 'bool'),
-                 ('isaromatic', 'bool'),
-                 ('isminus', 'bool'),
-                 ('isplus', 'bool'),
-                 ('ishalogen', 'bool'),
-                 # secondary structure
-                 ('isalpha', 'bool'),
-                 ('isbeta', 'bool')
-                 ]
+        atom_dtype = [('id', np.int16),
+                      # atom info
+                      ('coords', np.float32, 3),
+                      ('radius', np.float32),
+                      ('charge', np.float32),
+                      ('atomicnum', np.int8),
+                      ('atomtype', 'a4'),
+                      ('hybridization', np.int8),
+                      ('neighbors', np.float32, (4, 3)),  # non-H neighbors coordinates for angles (max of 6 neighbors should be enough)
+                      # residue info
+                      ('resid', np.int16),
+                      ('resname', 'a3'),
+                      ('isbackbone', bool),
+                      # atom properties
+                      ('isacceptor', bool),
+                      ('isdonor', bool),
+                      ('isdonorh', bool),
+                      ('ismetal', bool),
+                      ('ishydrophobe', bool),
+                      ('isaromatic', bool),
+                      ('isminus', bool),
+                      ('isplus', bool),
+                      ('ishalogen', bool),
+                      # secondary structure
+                      ('isalpha', bool),
+                      ('isbeta', bool),
+                      ]
 
         a = []
         atom_dict = np.empty(self.Mol.GetNumAtoms(), dtype=atom_dtype)
@@ -605,8 +605,8 @@ class Molecule(object):
                 residue = False
 
             # get neighbors, but only for those atoms which realy need them
-            neighbors = np.zeros(4, dtype=[('coords', 'float32', 3),
-                                           ('atomicnum', 'int8')])
+            neighbors = np.zeros(4, dtype=[('coords', np.float32, 3),
+                                           ('atomicnum', np.int8)])
             neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
                 neighbors[n] = (nbr_atom.coords, nbr_atom.atomicnum)
@@ -663,22 +663,21 @@ class Molecule(object):
 
             res_dict = None
             # Protein Residues (alpha helix and beta sheet)
-            res_dtype = [('id', 'int16'),
+            res_dtype = [('id', np.int16),
                          ('resname', 'a3'),
-                         ('N', 'float32', 3),
-                         ('CA', 'float32', 3),
-                         ('C', 'float32', 3),
-                         ('O', 'float32', 3),
-                         ('isalpha', 'bool'),
-                         ('isbeta', 'bool')
-                         ]  # N, CA, C
+                         ('N', np.float32, 3),
+                         ('CA', np.float32, 3),
+                         ('C', np.float32, 3),
+                         ('O', np.float32, 3),
+                         ('isalpha', bool),
+                         ('isbeta', bool)
+                         ]  # N, CA, C, O
             b = []
             aa = Chem.MolFromSmarts('NCC(-,=O)')  # amino backbone SMARTS
             conf = self.Mol.GetConformer()
             for residue in self.residues:
                 path = residue.Residue.GetSubstructMatch(aa)
                 if path:
-
                     atom_dict['isbackbone'][np.array([residue.atommap[i] for i in path])] = True
                     b.append((residue.MonomerInfo.GetResidueNumber(),
                               residue.MonomerInfo.GetResidueName(),
@@ -761,10 +760,10 @@ class Molecule(object):
                     # get vector perpendicular to ring
                     vector = np.cross(coords - np.vstack((coords[1:], coords[:1])), np.vstack((coords[1:], coords[:1])) - np.vstack((coords[2:], coords[:2]))).mean(axis=0) - centroid
                     r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
-        ring_dict = np.array(r, dtype=[('centroid', 'float32', 3),
-                                       ('vector', 'float32', 3),
-                                       ('isalpha', 'bool'),
-                                       ('isbeta', 'bool')])
+        ring_dict = np.array(r, dtype=[('centroid', np.float32, 3),
+                                       ('vector', np.float32, 3),
+                                       ('isalpha', bool),
+                                       ('isbeta', bool)])
 
         self._atom_dict = atom_dict
         self._atom_dict.setflags(write=False)

@@ -272,32 +272,32 @@ class Molecule(pybel.Molecule):
 
     def _dicts(self):
         # Atoms
-        atom_dtype = [('id', 'int16'),
+        atom_dtype = [('id', np.int16),
                       # atom info
-                      ('coords', 'float32', 3),
-                      ('radius', 'float32'),
-                      ('charge', 'float32'),
-                      ('atomicnum', 'int8'),
+                      ('coords', np.float32, 3),
+                      ('radius', np.float32),
+                      ('charge', np.float32),
+                      ('atomicnum', np.int8),
                       ('atomtype', 'a4'),
-                      ('hybridization', 'int8'),
-                      ('neighbors', 'float32', (4, 3)),  # max of 4 neighbors should be enough
+                      ('hybridization', np.int8),
+                      ('neighbors', np.float32, (4, 3)),  # max of 4 neighbors should be enough
                       # residue info
-                      ('resid', 'int16'),
+                      ('resid', np.int16),
                       ('resname', 'a3'),
-                      ('isbackbone', 'bool'),
+                      ('isbackbone', bool),
                       # atom properties
-                      ('isacceptor', 'bool'),
-                      ('isdonor', 'bool'),
-                      ('isdonorh', 'bool'),
-                      ('ismetal', 'bool'),
-                      ('ishydrophobe', 'bool'),
-                      ('isaromatic', 'bool'),
-                      ('isminus', 'bool'),
-                      ('isplus', 'bool'),
-                      ('ishalogen', 'bool'),
+                      ('isacceptor', bool),
+                      ('isdonor', bool),
+                      ('isdonorh', bool),
+                      ('ismetal', bool),
+                      ('ishydrophobe', bool),
+                      ('isaromatic', bool),
+                      ('isminus', bool),
+                      ('isplus', bool),
+                      ('ishalogen', bool),
                       # secondary structure
-                      ('isalpha', 'bool'),
-                      ('isbeta', 'bool')
+                      ('isalpha', bool),
+                      ('isbeta', bool)
                       ]
 
         a = []
@@ -324,7 +324,7 @@ class Molecule(pybel.Molecule):
                 residue = False
 
             # get neighbors, but only for those atoms which realy need them
-            neighbors = np.zeros(4, dtype=[('coords', 'float32', 3), ('atomicnum', 'int8')])
+            neighbors = np.zeros(4, dtype=[('coords', np.float32, 3), ('atomicnum', np.int8)])
             neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
                 # concider raising neighbors list to 6, but must do some benchmarks
@@ -360,15 +360,15 @@ class Molecule(pybel.Molecule):
 
         if self.protein:
             # Protein Residues (alpha helix and beta sheet)
-            res_dtype = [('id', 'int16'),
+            res_dtype = [('id', np.int16),
                          ('resname', 'a3'),
-                         ('N', 'float32', 3),
-                         ('CA', 'float32', 3),
-                         ('C', 'float32', 3),
-                         ('O', 'float32', 3),
-                         ('isalpha', 'bool'),
-                         ('isbeta', 'bool')
-                         ]  # N, CA, C
+                         ('N', np.float32, 3),
+                         ('CA', np.float32, 3),
+                         ('C', np.float32, 3),
+                         ('O', np.float32, 3),
+                         ('isalpha', bool),
+                         ('isbeta', bool)
+                         ]  # N, CA, C, O
 
             b = []
             for residue in self.residues:
@@ -451,10 +451,10 @@ class Molecule(pybel.Molecule):
                                       np.vstack((coords[1:], coords[:1])) - np.vstack((coords[2:], coords[:2]))
                                       ).mean(axis=0) - centroid
                     r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
-        ring_dict = np.array(r, dtype=[('centroid', 'float32', 3),
-                                       ('vector', 'float32', 3),
-                                       ('isalpha', 'bool'),
-                                       ('isbeta', 'bool')])
+        ring_dict = np.array(r, dtype=[('centroid', np.float32, 3),
+                                       ('vector', np.float32, 3),
+                                       ('isalpha', bool),
+                                       ('isbeta', bool)])
 
         self._atom_dict = atom_dict
         self._atom_dict.setflags(write=False)
