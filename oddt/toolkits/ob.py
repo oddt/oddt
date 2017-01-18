@@ -16,7 +16,7 @@ import openbabel as ob
 from openbabel import OBAtomAtomIter, OBTypeTable
 
 import oddt
-from oddt.spatial import angle, angle_2v, dihedral, distance
+from oddt.toolkits.common import detect_secondary_structure
 
 backend = 'ob'
 # setup typetable to translate atom types
@@ -394,46 +394,8 @@ class Molecule(pybel.Molecule):
                               False,
                               False))
             res_dict = np.array(b, dtype=res_dtype)
-
-            # detect secondary structure by phi and psi angles
-            first = res_dict[:-1]
-            second = res_dict[1:]
-            psi = dihedral(first['N'], first['CA'], first['C'], second['N'])
-            phi = dihedral(first['C'], second['N'], second['CA'], second['C'])
-            d = second['id'] - first['id']
-            # mark atoms belonging to alpha and beta
-            res_mask_alpha = (((phi > -145) & (phi < -35) &
-                               (psi > -70) & (psi < 50) & (d == 1)))  # alpha
-            res_mask_alpha = (np.argwhere(res_mask_alpha)).flatten()  # first and last residue are ommited
-            # Ignore groups smaller than 3
-            for mask_group in np.split(res_mask_alpha, np.argwhere(np.diff(res_mask_alpha) != 1).flatten() + 1):
-                if len(mask_group) >= 3:
-                    res_dict['isalpha'][mask_group] = True
+            res_dict = detect_secondary_structure(res_dict)
             atom_dict['isalpha'][np.in1d(atom_dict['resid'], res_dict[res_dict['isalpha']]['id'])] = True
-
-            res_mask_beta = (((phi >= -180) & (phi < -40) &
-                              (psi <= 180) & (psi > 90) & (d == 1)) |
-                             ((phi >= -180) & (phi < -70) &
-                              (psi <= -165) & (d == 1)))  # beta
-            res_mask_beta = (np.argwhere(res_mask_beta)).flatten()  # first and last residue are ommited
-            # Ignore groups smaller than 3
-            for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
-                if len(mask_group) >= 3:
-                    res_dict['isbeta'][mask_group] = True
-            # Beta strands have to be alongside eachother
-            p_mask = (((distance(res_dict[res_dict['isbeta']]['CA'],
-                                 res_dict[res_dict['isbeta']]['CA']) < 4.5) |
-                       (distance(res_dict[res_dict['isbeta']]['N'],
-                                 res_dict[res_dict['isbeta']]['O']) < 3.5)) &
-                      (np.abs(res_dict[res_dict['isbeta']]['id'] -
-                              res_dict[res_dict['isbeta']]['id'][:, np.newaxis]) > 4)
-                      ).any(axis=1)
-            res_dict['isbeta'][np.argwhere(res_dict['isbeta']).flatten()[~p_mask]] = False
-            # Ignore groups smaller than 3
-            res_mask_beta = np.argwhere(res_dict['isbeta']).flatten()
-            for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
-                if len(mask_group) < 3:
-                    res_dict['isbeta'][mask_group] = False
             atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_dict['isbeta']]['id'])] = True
 
         # Aromatic Rings

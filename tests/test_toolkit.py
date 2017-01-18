@@ -25,7 +25,6 @@ def test_ss():
 
     assert_equal(len(protein.res_dict), 29)
     assert_equal(protein.res_dict['isalpha'].sum(), 27)
-    assert_equal((~protein.res_dict['isalpha']).sum(), 2)
     assert_equal(protein.res_dict['isbeta'].sum(), 0)
 
     # Beta Sheet
@@ -42,7 +41,6 @@ def test_ss():
 
     assert_equal(len(protein.res_dict), 29)
     assert_equal(protein.res_dict['isbeta'].sum(), 8)
-    assert_equal((~protein.res_dict['isbeta']).sum(), 21)
     assert_equal(protein.res_dict['isalpha'].sum(), 0)
 
     # Protein test
@@ -61,9 +59,7 @@ def test_ss():
     #         print(mask_group + 1, protein.res_dict[mask_group]['resname'])
 
     assert_equal(len(protein.res_dict), 136)
-    assert_equal(protein.res_dict['isalpha'].sum(), 52)
-    assert_equal((~protein.res_dict['isalpha']).sum(), 84)
-    assert_equal(protein.res_dict['isbeta'].sum(), 6)
-    assert_equal((~protein.res_dict['isbeta']).sum(), 130)
+    assert_equal(protein.res_dict['isalpha'].sum(), 43)
+    assert_equal(protein.res_dict['isbeta'].sum(), 9)
     assert_equal((protein.res_dict['isalpha'] & protein.res_dict['isbeta']).sum(), 0)  # Must be zero!
-    assert_equal((~protein.res_dict['isalpha'] & ~protein.res_dict['isbeta']).sum(), 78)
+    assert_equal((~protein.res_dict['isalpha'] & ~protein.res_dict['isbeta']).sum(), 84)
