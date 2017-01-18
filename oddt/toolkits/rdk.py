@@ -467,19 +467,20 @@ class Molecule(object):
         if self._residues is None:
             residues = OrderedDict()
             for aid in range(self.Mol.GetNumAtoms()):
-                res = self.Mol.GetAtomWithIdx(aid).GetMonomerInfo()
-                # trap ligands with no monomer info
-                if res is None:
-                    return [Residue(self.Mol, list(range(self.Mol.GetNumAtoms())))]
-                resid = res.GetResidueNumber()
-                resname = res.GetResidueName()
-                reschain = res.GetChainId()
-                k = '%i_%s' % (resid, reschain.strip())
-                if k in residues:
-                    residues[k]['path'].append(aid)
-                else:
-                    residues[k] = {'res': res, 'path': [aid]}
-            self._residues = [res['path'] for res in residues.values()]
+                res = self.Mol.GetAtomWithIdx(aid).GetPDBResidueInfo()
+                if res is not None:
+                    resid = res.GetResidueNumber()
+                    resname = res.GetResidueName()
+                    reschain = res.GetChainId()
+                    k = '%i_%s' % (resid, reschain.strip())
+                    if k in residues:
+                        residues[k]['path'].append(aid)
+                    else:
+                        residues[k] = {'res': res, 'path': [aid]}
+            if len(residues) > 0:
+                self._residues = [res['path'] for res in residues.values()]
+            else:
+                self._residues = [tuple(range(self.Mol.GetNumAtoms()))]
 
         return [Residue(self.Mol, path) for path in self._residues]
 
@@ -652,10 +653,10 @@ class Molecule(object):
                     atom_dict[field][[res.atommap[idx]
                                       for feat in feats
                                       for idx in feat.GetAtomIds()
-                                      if atom_dict['atomicnum'][idx] > 1]] = True
+                                      if atom_dict['atomicnum'][res.atommap[idx]] > 1]] = True
                     # Mark donor Hs
                     if field == 'isdonor':
-                        atom_dict['isdonorh'][[n.GetIdx()
+                        atom_dict['isdonorh'][[res.atommap[n.GetIdx()]
                                                for feat in feats
                                                for idx in feat.GetAtomIds()
                                                for n in res.Residue.GetAtomWithIdx(idx).GetNeighbors()
@@ -737,6 +738,25 @@ class Molecule(object):
     def addh(self, **kwargs):
         """Add hydrogens."""
         self.Mol = Chem.AddHs(self.Mol, addCoords=True, **kwargs)
+        # merge Hs to residues
+        if self.protein:
+            for atom in self.Mol.GetAtoms():
+                if atom.GetAtomicNum() == 1:
+                    assert atom.GetDegree() == 1
+                    neighbor_atom = atom.GetNeighbors()[0]
+                    res = neighbor_atom.GetPDBResidueInfo()
+                    if res is not None:
+                        resid = res.GetResidueNumber()
+                        resname = res.GetResidueName()
+                        reschain = res.GetChainId()
+                        atom.SetMonomerInfo(
+                            Chem.AtomPDBResidueInfo(atomName=' H  ',
+                                                    serialNumber=res.GetSerialNumber(),
+                                                    residueName=res.GetResidueName(),
+                                                    residueNumber=res.GetResidueNumber(),
+                                                    chainId=res.GetChainId(),
+                                                    insertionCode="",
+                                                    isHeteroAtom=res.GetIsHeteroAtom()))
 
     def removeh(self, **kwargs):
         """Remove hydrogens."""
