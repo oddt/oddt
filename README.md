@@ -3,8 +3,11 @@
 Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use in cheminformatics, molecular modeling etc. ODDT is written in Python, and make extensive use of Numpy/Scipy
 
 [![Documentation Status](https://readthedocs.org/projects/oddt/badge/?version=latest)](http://oddt.readthedocs.org/en/latest/)
+[![Build Status](https://travis-ci.org/oddt/oddt.svg?branch=master)](https://travis-ci.org/oddt/oddt)
+[![Coverage Status](https://coveralls.io/repos/github/oddt/oddt/badge.svg?branch=master)](https://coveralls.io/github/oddt/oddt?branch=master)
+[![Code Health](https://landscape.io/github/oddt/oddt/master/landscape.svg?style=flat)](https://landscape.io/github/oddt/oddt/master)
+[![Conda packages](https://anaconda.org/mwojcikowski/oddt/badges/version.svg?style=flat)](https://anaconda.org/mwojcikowski/oddt)
 [![Latest Version](https://img.shields.io/pypi/v/oddt.svg)](https://pypi.python.org/pypi/oddt/)
-[![Downloads](https://img.shields.io/pypi/dm/oddt.svg)](https://pypi.python.org/pypi/oddt/)
 
 ## Documentation, Discussion and Contribution:
   * Documentation: http://oddt.readthedocs.org/en/latest
