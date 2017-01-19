@@ -13,6 +13,17 @@ import oddt
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
 
+def test_mol():
+    """Test common molecule operations"""
+    # Hydrogen manipulation
+    mol = oddt.toolkit.readstring('smi', 'c1ccccc1')
+    assert_equal(len(mol.atoms), 6)
+    mol.addh()
+    assert_equal(len(mol.atoms), 12)
+    mol.removeh()
+    assert_equal(len(mol.atoms), 6)
+
+
 def test_ss():
     """Secondary structure assignment"""
     # Alpha Helix
