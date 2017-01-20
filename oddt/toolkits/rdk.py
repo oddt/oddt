@@ -466,25 +466,16 @@ class Molecule(object):
     @property
     def residues(self):
         if self._residues is None:
-            residues = OrderedDict()
-            for atom in self.Mol.GetAtoms():
-                res = atom.GetPDBResidueInfo()
-                if res is not None:
-                    aid = atom.GetIdx()
-                    resid = res.GetResidueNumber()
-                    resname = res.GetResidueName()
-                    reschain = res.GetChainId()
-                    k = '%i_%s' % (resid, reschain.strip())
-                    if k in residues:
-                        residues[k]['path'].append(aid)
-                    else:
-                        residues[k] = {'res': res, 'path': [aid]}
-            if len(residues) > 0:
-                self._residues = [res['path'] for res in residues.values()]
+            res_idx = np.array([atom.GetPDBResidueInfo().GetResidueNumber()
+                                if atom.GetPDBResidueInfo() is not None else 0
+                                for atom in self.Mol.GetAtoms()])
+            if len(np.unique(res_idx)) > 1:
+                self._residues = np.split(np.argsort(res_idx, kind='mergesort'),
+                                          (np.argwhere(np.diff(np.sort(res_idx)) != 0)
+                                          .flatten() + 1))
             else:
                 self._residues = [tuple(range(self.Mol.GetNumAtoms()))]
-
-        return [Residue(self.Mol, path) for path in self._residues]
+        return ResidueStack(self.Mol, self._residues)
 
     @property
     def sssr(self):
@@ -1132,7 +1123,8 @@ class Residue(object):
 
     def __init__(self, ParentMol, atom_path):
         self.ParentMol = ParentMol
-        self.atom_path = atom_path
+        self.atom_path = tuple(map(int, atom_path))
+        assert len(self.atom_path) > 0
         self.atommap = {}
         self.bonds = []
         for i, j in combinations(self.atom_path, 2):
@@ -1140,12 +1132,15 @@ class Residue(object):
             if b:
                 self.bonds.append(b.GetIdx())
         self.Residue = Chem.PathToSubmol(self.ParentMol, self.bonds, atomMap=self.atommap)
-        self.MonomerInfo = self.ParentMol.GetAtomWithIdx(atom_path[0]).GetMonomerInfo()
+        self.MonomerInfo = self.ParentMol.GetAtomWithIdx(self.atom_path[0]).GetMonomerInfo()
         self.atommap = dict((v, k) for k, v in self.atommap.items())
 
     @property
     def atoms(self):
-        return [Atom(self.ParentMol.GetAtomWithIdx(idx)) for idx in self.atom_path]
+        if len(self.atom_path) == 1:
+            return [Atom(self.ParentMol.GetAtomWithIdx(self.atom_path[0]))]
+        else:
+            return AtomStack(self.Residue)
 
     @property
     def idx(self):
@@ -1163,6 +1158,25 @@ class Residue(object):
                print(atom)
         """
         return iter(self.atoms)
+
+
+class ResidueStack(object):
+    def __init__(self, Mol, paths):
+        self.Mol = Mol
+        self.paths = paths
+
+    def __iter__(self):
+        for i in range(len(self.paths)):
+            yield Residue(self.Mol, self.paths[i])
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, i):
+        if 0 <= i < len(self.paths):
+            return Residue(self.Mol, self.paths[i])
+        else:
+            raise AttributeError("There is no residue with ID %i" % i)
 
 
 class Smarts(object):

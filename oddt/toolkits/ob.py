@@ -179,7 +179,7 @@ class Molecule(pybel.Molecule):
     # Backport code implementing resudues (by me) to support older versions of OB (aka 'stable')
     @property
     def residues(self):
-        return [Residue(res) for res in ob.OBResidueIter(self.OBMol)]
+        return ResidueStack(self.OBMol)
 
     def __str__(self):
         return self.__repr__()
@@ -562,6 +562,24 @@ class Residue(object):
                print(atom)
         """
         return iter(self.atoms)
+
+
+class ResidueStack(object):
+    def __init__(self, OBMol):
+        self.OBMol = OBMol
+
+    def __iter__(self):
+        for i in range(self.OBMol.NumResidues()):
+            yield Residue(self.OBMol.GetResidue(i))
+
+    def __len__(self):
+        return self.OBMol.NumResidues()
+
+    def __getitem__(self, i):
+        if 0 <= i < self.OBMol.NumResidues():
+            return Residue(self.OBMol.GetResidue(i))
+        else:
+            raise AttributeError("There is no residue with Idx %i" % i)
 
 
 class MoleculeData(pybel.MoleculeData):
