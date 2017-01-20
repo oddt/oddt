@@ -16,12 +16,15 @@ test_data_dir = os.path.dirname(os.path.abspath(__file__))
 def test_mol():
     """Test common molecule operations"""
     # Hydrogen manipulation in small molecules
-    mol = oddt.toolkit.readstring('smi', 'c1ccccc1')
-    assert_equal(len(mol.atoms), 6)
+    mol = oddt.toolkit.readstring('smi', 'c1ccccc1O')
+    assert_equal(len(mol.atoms), 7)
     mol.addh()
-    assert_equal(len(mol.atoms), 12)
+    assert_equal(len(mol.atoms), 13)
     mol.removeh()
-    assert_equal(len(mol.atoms), 6)
+    mol.addh(only_polar=True)
+    assert_equal(len(mol.atoms), 8)
+    mol.removeh()
+    assert_equal(len(mol.atoms), 7)
 
     # Hydrogen manipulation in proteins
     protein = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
@@ -69,16 +72,16 @@ def test_mol():
                             16, 21, 13, 13, 7, 7, 7, 19, 14, 13, 24, 21, 14,
                             11, 16, 13, 14, 24, 16, 17, 22, 10, 21, 24, 21, 14,
                             8, 20, 23, 19, 15, 1, 1]
-        res_atoms_n_polarh = [7, 10, 9, 9, 8, 12, 9, 8, 7, 9, 6, 9, 13, 10, 6,
-                              12, 10, 12, 9, 12, 4, 9, 16, 10, 13, 7, 8, 9, 10,
-                              10, 10, 9, 6, 12, 6, 4, 12, 13, 6, 9, 4, 10, 4,
-                              9, 10, 8, 10, 6, 12, 10, 6, 4, 4, 4, 9, 9, 9, 16,
-                              10, 8, 7, 10, 9, 8, 16, 10, 10, 10, 6, 10, 16,
-                              13, 8, 4, 6, 10, 13, 9, 9, 10, 10, 10, 4, 10, 10,
-                              13, 10, 9, 9, 10, 10, 9, 9, 10, 12, 13, 7, 8, 9,
-                              12, 9, 10, 4, 9, 10, 8, 10, 6, 6, 4, 4, 4, 9, 9,
-                              9, 16, 10, 8, 7, 10, 9, 8, 16, 10, 10, 10, 6, 10,
-                              16, 13, 8, 4, 10, 10, 9, 9, 1, 1]
+        res_atoms_n_polarh = [9, 14, 9, 9, 7, 16, 11, 7, 8, 9, 6, 10, 14, 11,
+                              6, 16, 9, 12, 9, 12, 5, 9, 16, 9, 14, 8, 8, 11,
+                              12, 11, 12, 9, 6, 16, 6, 5, 12, 14, 6, 9, 5, 11,
+                              5, 10, 12, 8, 12, 8, 12, 14, 8, 5, 5, 5, 9, 9,
+                              10, 16, 12, 7, 8, 11, 10, 7, 16, 11, 12, 13, 6,
+                              12, 16, 14, 7, 5, 8, 12, 14, 9, 9, 11, 12, 12, 5,
+                              12, 11, 14, 9, 11, 11, 9, 14, 9, 9, 14, 17, 15,
+                              8, 8, 10, 13, 10, 12, 5, 10, 12, 8, 12, 8, 9, 5,
+                              5, 5, 9, 9, 10, 16, 12, 7, 8, 11, 10, 7, 16, 11,
+                              12, 13, 6, 12, 16, 14, 7, 5, 10, 14, 9, 9, 1, 1]
     assert_equal(len(protein.atoms), 1114)
     assert_equal(len(protein.residues), 138)
     assert_array_equal([len(res.atoms) for res in protein.residues], res_atoms_n)
@@ -98,7 +101,7 @@ def test_mol():
     if oddt.toolkit.backend == 'ob':
         assert_equal(len(protein.atoms), 1356)
     elif oddt.toolkit.backend == 'rdk':
-        assert_equal(len(protein.atoms), 1242)
+        assert_equal(len(protein.atoms), 1375)
     else:
         raise Exception('There is no supported toolkit')
     assert_equal(len(protein.residues), 138)

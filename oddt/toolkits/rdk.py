@@ -730,7 +730,14 @@ class Molecule(object):
 
     def addh(self, only_polar=False, **kwargs):
         """Add hydrogens."""
-        self.Mol = Chem.AddHs(self.Mol, addCoords=True, explicitOnly=only_polar, **kwargs)
+        if only_polar:
+            polar_atoms = [atom.GetIdx()
+                           for atom in self.Mol.GetAtoms()
+                           if atom.GetAtomicNum() != 6]
+        else:
+            polar_atoms = None
+
+        self.Mol = Chem.AddHs(self.Mol, addCoords=True, onlyOnAtoms=polar_atoms, **kwargs)
         # clear caches
         self._atom_dict = None
         self._res_dict = None
