@@ -1,19 +1,17 @@
 from __future__ import print_function
 import sys
-import csv
-from os.path import dirname, isfile, isdir
+from os.path import dirname, isfile
 import numpy as np
 from joblib import Parallel, delayed
 import warnings
 import pandas as pd
-from sklearn.metrics import r2_score
 
 try:
     import compiledtrees
 except ImportError:
     compiledtrees = None
 
-from oddt import toolkit, random_seed
+from oddt import random_seed
 from oddt.metrics import rmse
 from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
@@ -37,14 +35,6 @@ def _parallel_helper(*args, **kwargs):
     return getattr(obj, methodname)(*new_args, **kwargs)
 
 
-# skip comments and merge multiple spaces
-def _csv_file_filter(f):
-    for row in open(f, 'rb'):
-        if row[0] == '#':
-            continue
-        yield ' '.join(row.split())
-
-
 class rfscore(scorer):
     def __init__(self, protein=None, n_jobs=-1, version=1, spr=0, **kwargs):
         self.protein = protein
@@ -54,15 +44,24 @@ class rfscore(scorer):
         if version == 1:
             cutoff = 12
             mtry = 6
-            descriptors = close_contacts(protein, cutoff=cutoff, protein_types=protein_atomic_nums, ligand_types=ligand_atomic_nums)
+            descriptors = close_contacts(protein,
+                                         cutoff=cutoff,
+                                         protein_types=protein_atomic_nums,
+                                         ligand_types=ligand_atomic_nums)
         elif version == 2:
             cutoff = np.array([0, 2, 4, 6, 8, 10, 12])
             mtry = 14
-            descriptors = close_contacts(protein, cutoff=cutoff, protein_types=protein_atomic_nums, ligand_types=ligand_atomic_nums)
+            descriptors = close_contacts(protein,
+                                         cutoff=cutoff,
+                                         protein_types=protein_atomic_nums,
+                                         ligand_types=ligand_atomic_nums)
         elif version == 3:
             cutoff = 12
             mtry = 6
-            cc = close_contacts(protein, cutoff=cutoff, protein_types=protein_atomic_nums, ligand_types=ligand_atomic_nums)
+            cc = close_contacts(protein,
+                                cutoff=cutoff,
+                                protein_types=protein_atomic_nums,
+                                ligand_types=ligand_atomic_nums)
             vina_scores = ['vina_gauss1',
                            'vina_gauss2',
                            'vina_repulsion',
@@ -81,9 +80,8 @@ class rfscore(scorer):
 
     def gen_training_data(self,
                           pdbbind_dir,
-                          pdbbind_versions=[2007, 2012, 2013, 2014, 2015, 2016],
-                          home_dir=None,
-                          sf_pickle=''):
+                          pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
+                          home_dir=None):
         pdbbind_versions = sorted(pdbbind_versions)
 
         # generate metadata

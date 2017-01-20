@@ -1,14 +1,12 @@
 from __future__ import print_function
 import sys
-import csv
 from os.path import dirname, isfile
 import numpy as np
-from multiprocessing import Pool
 import warnings
 from joblib import Parallel, delayed
 import pandas as pd
 
-from oddt import toolkit, random_seed
+from oddt import random_seed
 from oddt.metrics import rmse
 from oddt.scoring import scorer, ensemble_model
 from oddt.scoring.descriptors.binana import binana_descriptor
@@ -19,21 +17,13 @@ from oddt.datasets import pdbbind
 warnings.simplefilter("ignore", RuntimeWarning)
 
 
-# skip comments and merge multiple spaces
-def _csv_file_filter(f):
-    for row in open(f, 'rb'):
-        if row[0] == '#':
-            continue
-        yield ' '.join(row.split())
-
-
 def _parallel_helper(obj, methodname, *args, **kwargs):
     """Private helper to workaround Python 2 pickle limitations"""
     return getattr(obj, methodname)(*args, **kwargs)
 
 
 class nnscore(scorer):
-    def __init__(self, protein=None, n_jobs=-1, **kwargs):
+    def __init__(self, protein=None, n_jobs=-1):
         self.protein = protein
         self.n_jobs = n_jobs
         model = None
@@ -42,9 +32,8 @@ class nnscore(scorer):
 
     def gen_training_data(self,
                           pdbbind_dir,
-                          pdbbind_versions=[2007, 2012, 2013, 2014, 2015, 2016],
-                          home_dir=None,
-                          sf_pickle=''):
+                          pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
+                          home_dir=None):
         pdbbind_versions = sorted(pdbbind_versions)
 
         # generate metadata
@@ -109,18 +98,20 @@ class nnscore(scorer):
         # make nets reproducible
         random_seed(1)
         seeds = np.random.randint(123456789, size=n)
-        trained_nets = Parallel(n_jobs=self.n_jobs, verbose=10)(delayed(_parallel_helper)(neuralnetwork((5,),
-                                                                                                        random_state=seeds[i],
-                                                                                                        activation='logistic',
-                                                                                                        solver='lbfgs',
-                                                                                                        max_iter=10000,
-                                                                                                        ),
-                                                                                          'fit',
-                                                                                          self.train_descs,
-                                                                                          self.train_target)
-                                                                for i in range(n))
+        trained_nets = (Parallel(n_jobs=self.n_jobs, verbose=10)
+                        (delayed(_parallel_helper)(neuralnetwork((5,),
+                                                                 random_state=seeds[i],
+                                                                 activation='logistic',
+                                                                 solver='lbfgs',
+                                                                 max_iter=10000,
+                                                                 ),
+                                                   'fit',
+                                                   self.train_descs,
+                                                   self.train_target)
+                        for i in range(n)))
         # get 20 best
-        best_idx = np.array([net.score(self.test_descs, self.test_target.flatten()) for net in trained_nets]).argsort()[::-1][:20]
+        best_idx = np.array([net.score(self.test_descs, self.test_target.flatten())
+                             for net in trained_nets]).argsort()[::-1][:20]
         self.model = ensemble_model([trained_nets[i] for i in best_idx])
 
         error = rmse(self.model.predict(self.test_descs), self.test_target)
@@ -149,7 +140,8 @@ class nnscore(scorer):
     @classmethod
     def load(self, filename='', pdbbind_version=2016):
         if not filename:
-            for f in ['NNScore_pdbbind%i.pickle' % (pdbbind_version), dirname(__file__) + '/NNScore_pdbbind%i.pickle' % (pdbbind_version)]:
+            for f in ['NNScore_pdbbind%i.pickle' % (pdbbind_version),
+                      dirname(__file__) + '/NNScore_pdbbind%i.pickle' % (pdbbind_version)]:
                 if isfile(f):
                     filename = f
                     break
