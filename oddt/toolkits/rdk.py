@@ -366,6 +366,7 @@ class Molecule(object):
         self.Mol = Mol
         # ODDT #
         self.protein = protein
+        # caches
         self._atom_dict = None
         self._res_dict = None
         self._ring_dict = None
@@ -466,9 +467,10 @@ class Molecule(object):
     def residues(self):
         if self._residues is None:
             residues = OrderedDict()
-            for aid in range(self.Mol.GetNumAtoms()):
-                res = self.Mol.GetAtomWithIdx(aid).GetPDBResidueInfo()
+            for atom in self.Mol.GetAtoms():
+                res = atom.GetPDBResidueInfo()
                 if res is not None:
+                    aid = atom.GetIdx()
                     resid = res.GetResidueNumber()
                     resname = res.GetResidueName()
                     reschain = res.GetChainId()
@@ -738,6 +740,13 @@ class Molecule(object):
     def addh(self, **kwargs):
         """Add hydrogens."""
         self.Mol = Chem.AddHs(self.Mol, addCoords=True, **kwargs)
+        # clear caches
+        self._atom_dict = None
+        self._res_dict = None
+        self._ring_dict = None
+        self._coords = None
+        self._charges = None
+        self._residues = None
         # merge Hs to residues
         if self.protein:
             for atom in self.Mol.GetAtoms():
@@ -761,6 +770,13 @@ class Molecule(object):
     def removeh(self, **kwargs):
         """Remove hydrogens."""
         self.Mol = Chem.RemoveHs(self.Mol, **kwargs)
+        # clear caches
+        self._atom_dict = None
+        self._res_dict = None
+        self._ring_dict = None
+        self._coords = None
+        self._charges = None
+        self._residues = None
 
     def write(self, format="smi", filename=None, overwrite=False, size=None, **kwargs):
         """Write the molecule to a file or return a string.
@@ -1129,7 +1145,7 @@ class Residue(object):
 
     @property
     def atoms(self):
-        return [Atom(self.ParentMol.GetAtomWithIdx(idx)) for idx in self.path]
+        return [Atom(self.ParentMol.GetAtomWithIdx(idx)) for idx in self.atom_path]
 
     @property
     def idx(self):
