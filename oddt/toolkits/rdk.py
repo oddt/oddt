@@ -958,6 +958,10 @@ class Molecule(object):
 
         self.localopt(forcefield, steps)
 
+    def make2D(self):
+        """Generate 2D coordinates for molecule"""
+        AllChem.Compute2DCoords(self.Mol)
+
     def __getstate__(self):
         return {'Mol': self.Mol,
                 'data': dict([(k, self.Mol.GetProp(k)) for k in self.Mol.GetPropNames(includePrivate=True)]),

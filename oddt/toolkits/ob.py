@@ -200,6 +200,10 @@ class Molecule(pybel.Molecule):
         else:
             self.OBMol.AddHydrogens()
 
+    def make2D(self):
+        """Generate 2D coordinates for molecule"""
+        pybel._operations['gen2D'].Do(self.OBMol)
+
     # Custom ODDT properties #
     def __getattr__(self, attr):
         for desc in pybel._descdict.keys():
