@@ -737,9 +737,9 @@ class Molecule(object):
             self._res_dict = res_dict
             # self._res_dict.setflags(write=False)
 
-    def addh(self, **kwargs):
+    def addh(self, only_polar=False, **kwargs):
         """Add hydrogens."""
-        self.Mol = Chem.AddHs(self.Mol, addCoords=True, **kwargs)
+        self.Mol = Chem.AddHs(self.Mol, addCoords=True, explicitOnly=only_polar, **kwargs)
         # clear caches
         self._atom_dict = None
         self._res_dict = None

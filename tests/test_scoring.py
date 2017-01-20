@@ -10,9 +10,46 @@ from sklearn.utils.testing import (assert_true,
                                    assert_array_almost_equal)
 
 import oddt
+from oddt.scoring.descriptors import (autodock_vina_descriptor,
+                                      oddt_vina_descriptor)
 from oddt.scoring.functions import rfscore, nnscore
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
+
+
+def test_internal_vina():
+    """Compare internal vs orignal Vina partial scores"""
+    mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+    list(map(lambda x: x.addh(), mols))
+
+    rec = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    rec.protein = True
+    rec.addh()
+
+    # Delete molecule which has differences in Acceptor-Donor def in RDK and OB
+    del mols[65]
+
+    vina_scores = ['vina_gauss1',
+                   'vina_gauss2',
+                   'vina_repulsion',
+                   'vina_hydrophobic',
+                   'vina_hydrogen']
+
+    # save correct results (for future use)
+    # np.savetxt(os.path.join(test_data_dir,
+    #                         'data/results/xiap/autodock_vina_scores.csv'),
+    #            autodock_vina_descriptor(protein=rec,
+    #                                     vina_scores=vina_scores).build(mols),
+    #            fmt='%.16g',
+    #            delimiter=',')
+    autodock_vina_results = np.loadtxt(os.path.join(test_data_dir,
+                                                    'data/results/xiap/autodock_vina_scores.csv'
+                                                    ),
+                                       delimiter=',',
+                                       dtype=np.float64)
+    oddt_vina_results = oddt_vina_descriptor(protein=rec,
+                                             vina_scores=vina_scores).build(mols)
+    assert_array_almost_equal(oddt_vina_results, autodock_vina_results, decimal=4)
 
 
 def test_rfscore():

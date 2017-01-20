@@ -193,6 +193,13 @@ class Molecule(pybel.Molecule):
         else:
             return super(Molecule, self).__repr__()
 
+    def addh(self, only_polar=False):
+        """Add hydrogens"""
+        if only_polar:
+            self.OBMol.AddPolarHydrogens()
+        else:
+            self.OBMol.AddHydrogens()
+
     # Custom ODDT properties #
     def __getattr__(self, attr):
         for desc in pybel._descdict.keys():
