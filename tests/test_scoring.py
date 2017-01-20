@@ -87,11 +87,11 @@ def test_rfscore():
 def test_nnscore():
     """Test NNScore descriptors generators"""
     mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
-    list(map(lambda x: x.addh(), mols))
+    list(map(lambda x: x.addh(only_polar=True), mols))
 
     rec = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
     rec.protein = True
-    rec.addh()
+    rec.addh(only_polar=True)
 
     # Delete molecule which has differences in Acceptor-Donor def in RDK and OB
     del mols[65]
