@@ -1,6 +1,7 @@
 """Open Drug Discovery Toolkit
 ==============================
-Universal and easy to use resource for various drug discovery tasks, ie docking, virutal screening, rescoring.
+Universal and easy to use resource for various drug discovery tasks,
+ie docking, virutal screening, rescoring.
 
     Attributes
     ----------
@@ -36,7 +37,7 @@ try:
         ipython_notebook = True
     else:
         ipython_notebook = False
-except:
+except NameError:
     ipython_notebook = False
 
 
@@ -46,7 +47,9 @@ def get_version():
     v = '0.2.0'
     if os.path.isdir(home + '/../.git'):
         try:
-            git_v = str(subprocess.check_output(['git', 'describe', '--tags'], cwd=home).strip())
+            git_v = str(subprocess.check_output(['git',
+                                                 'describe',
+                                                 '--tags'], cwd=home).strip())
         except subprocess.CalledProcessError:  # catch errors, eg. no git installed
             pass
     if git_v:
@@ -59,7 +62,8 @@ __all__ = ['toolkit']
 
 def random_seed(i):
     """
-    Set global random seed for all underlying components. Use 'brute-force' approach, by setting undelying libraries' seeds.
+    Set global random seed for all underlying components.
+    Use 'brute-force' approach, by setting undelying libraries' seeds.
 
     Parameters
     ----------
