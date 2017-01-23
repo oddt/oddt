@@ -24,13 +24,21 @@ except ImportError:
 toolkit = None
 if 'ODDT_TOOLKIT' in os.environ:
     if os.environ['ODDT_TOOLKIT'] == 'ob':
+        if ob is None:
+            raise Exception('OpenBabel toolkit is forced by ODDT_TOOLKIT, '
+                            'but can\'t be imported')
         toolkit = ob
     elif os.environ['ODDT_TOOLKIT'] == 'rdk':
+        if rdk is None:
+            raise Exception('RDKit toolkit is forced by ODDT_TOOLKIT, '
+                            'but can\'t be imported')
         toolkit = rdk
 elif ob:
     toolkit = ob
 elif rdk:
     toolkit = rdk
+else:
+    raise Exception('No toolkit is present. Install OpenBabel or RDKit')
 
 try:
     if get_ipython().config:
