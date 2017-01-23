@@ -47,6 +47,7 @@ from rdkit.Chem.Pharm2D import Gobbi_Pharm2D, Generate
 
 import oddt
 from oddt.toolkits.common import detect_secondary_structure
+from oddt.toolkits.extras.rdkit import _sybyl_atom_type
 
 _descDict = dict(Descriptors.descList)
 
@@ -592,7 +593,9 @@ class Molecule(object):
             atomicnum = atom.atomicnum
             partialcharge = atom.partialcharge
             coords = atom.coords
-            atomtype = atom.Atom.GetProp("_TriposAtomType") if atom.Atom.HasProp("_TriposAtomType") else atom.Atom.GetSymbol()
+            atomtype = (atom.Atom.GetProp("_TriposAtomType")
+                        if atom.Atom.HasProp("_TriposAtomType")
+                        else _sybyl_atom_type(atom.Atom))
             if self.protein:
                 residue = atom.Atom.GetMonomerInfo()
             else:
@@ -1033,7 +1036,8 @@ class Atom(object):
     # ODDT #
     @property
     def idx(self):
-        """ Note that this index is 1-based and RDKit's internal index in 0-based. Changed to be compatible with OpenBabel"""
+        """ Note that this index is 1-based and RDKit's internal index in 0-based.
+        Changed to be compatible with OpenBabel"""
         return self.Atom.GetIdx() + 1
 
     @property

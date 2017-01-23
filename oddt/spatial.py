@@ -3,6 +3,7 @@ Mainly used by other modules, but can be accessed directly.
 """
 
 from math import sin, cos
+from six import PY3
 import numpy as np
 from scipy.spatial.distance import cdist as distance
 # for Hungarian algorithm, in future use scipy.optimize.linear_sum_assignment (in scipy 0.17+)
@@ -130,7 +131,7 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         mol_map = []
         ref_map = []
         for a_type in np.unique(mol.atom_dict['atomtype']):
-            if a_type != 'H' or not ignore_h:
+            if a_type != b'H' or not ignore_h:
                 mol_idx = np.argwhere(mol.atom_dict['atomtype'] == a_type).flatten()
                 ref_idx = np.argwhere(ref.atom_dict['atomtype'] == a_type).flatten()
                 if len(mol_idx) == 1:
