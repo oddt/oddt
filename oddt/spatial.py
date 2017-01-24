@@ -131,7 +131,7 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         mol_map = []
         ref_map = []
         for a_type in np.unique(mol.atom_dict['atomtype']):
-            if a_type != b'H' or not ignore_h:
+            if a_type != 'H' or not ignore_h:
                 mol_idx = np.argwhere(mol.atom_dict['atomtype'] == a_type).flatten()
                 ref_idx = np.argwhere(ref.atom_dict['atomtype'] == a_type).flatten()
                 if len(mol_idx) == 1:

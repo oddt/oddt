@@ -289,12 +289,12 @@ class Molecule(pybel.Molecule):
                       ('radius', np.float32),
                       ('charge', np.float32),
                       ('atomicnum', np.int8),
-                      ('atomtype', 'a4'),
+                      ('atomtype', 'U4' if six.PY3 else 'a4'),
                       ('hybridization', np.int8),
                       ('neighbors', np.float32, (4, 3)),  # max of 4 neighbors should be enough
                       # residue info
                       ('resid', np.int16),
-                      ('resname', 'a3'),
+                      ('resname', 'U3' if six.PY3 else 'a3'),
                       ('isbackbone', bool),
                       # atom properties
                       ('isacceptor', bool),
@@ -372,7 +372,7 @@ class Molecule(pybel.Molecule):
         if self.protein:
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', np.int16),
-                         ('resname', 'a3'),
+                         ('resname', 'U3' if six.PY3 else 'a3'),
                          ('N', np.float32, 3),
                          ('CA', np.float32, 3),
                          ('C', np.float32, 3),

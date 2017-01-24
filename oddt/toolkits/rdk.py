@@ -26,7 +26,7 @@ from base64 import b64encode
 from itertools import combinations
 from collections import OrderedDict
 
-from six import next, BytesIO
+from six import next, BytesIO, PY3
 import numpy as np
 
 import rdkit
@@ -558,12 +558,12 @@ class Molecule(object):
                       ('radius', np.float32),
                       ('charge', np.float32),
                       ('atomicnum', np.int8),
-                      ('atomtype', 'a4'),
+                      ('atomtype', 'U4' if PY3 else 'a4'),
                       ('hybridization', np.int8),
                       ('neighbors', np.float32, (4, 3)),  # non-H neighbors coordinates for angles (max of 6 neighbors should be enough)
                       # residue info
                       ('resid', np.int16),
-                      ('resname', 'a3'),
+                      ('resname', 'U3' if PY3 else 'a3'),
                       ('isbackbone', bool),
                       # atom properties
                       ('isacceptor', bool),
@@ -661,7 +661,7 @@ class Molecule(object):
             res_dict = None
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', np.int16),
-                         ('resname', 'a3'),
+                         ('resname', 'U3' if PY3 else 'a3'),
                          ('N', np.float32, 3),
                          ('CA', np.float32, 3),
                          ('C', np.float32, 3),

@@ -16,9 +16,9 @@ from oddt.spatial import dihedral, angle, angle_2v, distance
 
 __all__ = ['close_contacts',
            'hbond_acceptor_donor',
-           'hbond',
+           'hbonds',
            'halogenbond_acceptor_halogen',
-           'halogenbond',
+           'halogenbonds',
            'pi_stacking',
            'salt_bridge_plus_minus',
            'salt_bridges',
@@ -108,7 +108,7 @@ def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, base_angle=120, tolerance=30):
         return a, d, np.array([], dtype=bool)
 
 
-def hbond(mol1, mol2, *args, **kwargs):
+def hbonds(mol1, mol2, *args, **kwargs):
     """Calculates H-bonds between molecules
 
     Parameters
@@ -203,7 +203,7 @@ def halogenbond_acceptor_halogen(mol1,
         return a, h, np.array([], dtype=bool)
 
 
-def halogenbond(mol1, mol2, **kwargs):
+def halogenbonds(mol1, mol2, **kwargs):
     """Calculates halogen bonds between molecules
 
     Parameters

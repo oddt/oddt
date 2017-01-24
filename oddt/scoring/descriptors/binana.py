@@ -250,7 +250,7 @@ class binana_descriptor(object):
             vec += tuple(self.cc_25.build(mol, single=True).flatten())
 
             # H-Bonds (<4A)
-            hbond_mol, hbond_rec, strict = interactions.hbond(mol, protein, 4)
+            hbond_mol, hbond_rec, strict = interactions.hbonds(mol, protein, 4)
             # Retain only strict hbonds
             hbond_mol = hbond_mol[strict]
             hbond_rec = hbond_rec[strict]
