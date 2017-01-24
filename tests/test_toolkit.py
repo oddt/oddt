@@ -2,8 +2,9 @@ import os
 from tempfile import NamedTemporaryFile
 
 import numpy as np
+import pandas as pd
 
-from nose.tools import assert_in, assert_not_in, assert_equal
+from nose.tools import nottest, assert_in, assert_not_in, assert_equal
 from sklearn.utils.testing import (assert_true,
                                    assert_array_equal,
                                    assert_array_almost_equal)
@@ -111,6 +112,55 @@ def test_mol():
     assert_equal(len(protein.atoms), 1114)
     assert_equal(len(protein.residues), 138)
     assert_array_equal([len(res.atoms) for res in protein.residues], res_atoms_n)
+
+
+@nottest
+def test_dicts():
+    """Test ODDT numpy structures, aka. dicts"""
+    mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+    list(map(lambda x: x.addh(only_polar=True), mols))
+
+    rec = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    rec.protein = True
+    rec.addh(only_polar=True)
+
+    skip_cols = ['coords', 'neighbors', 'radius', 'charge']
+    distinct_cols = []
+    common_cols = [name for name in mols[0].atom_dict.dtype.names if name not in skip_cols]
+    all_dicts = np.hstack([mol.atom_dict for mol in mols])
+
+    # remove Hs
+    all_dicts = all_dicts[all_dicts['atomicnum'] != 1]
+
+    data = pd.DataFrame({name: all_dicts[name] for name in common_cols})
+    data['mol_idx'] = [i
+                       for i, mol in enumerate(mols)
+                       for atom in mol
+                       if atom.atomicnum != 1]
+
+    # Save correct results
+    # data.to_csv(os.path.join(test_data_dir, 'data/results/xiap/atom_dict.csv'),
+    #             index=False)
+
+    corr_data = pd.read_csv(os.path.join(test_data_dir, 'data/results/xiap/atom_dict.csv')).fillna('')
+
+    for name in common_cols:
+        if issubclass(np.dtype(data[name].dtype).type, np.number):
+            mask = data[name] - corr_data[name] > 1e-6
+            for i in np.argwhere(mask):
+                print(i, data[name][i].values,
+                      mols[data['mol_idx'][int(i)]].write('smi'))
+            assert_array_almost_equal(data[name],
+                                      corr_data[name],
+                                      err_msg='atom_dict\'s collumn: "%s" is not equal' % name)
+        else:
+            mask = data[name] != corr_data[name]
+            for i in np.argwhere(mask):
+                print(i, data[name][i].values,
+                      mols[data['mol_idx'][int(i)]].write('smi'))
+            assert_array_equal(data[name],
+                               corr_data[name],
+                               err_msg='atom_dict\'s collumn: "%s" is not equal' % name)
 
 
 def test_ss():
