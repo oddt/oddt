@@ -12,9 +12,11 @@ from functools import partial
 from oddt import toolkit
 from oddt.scoring import scorer
 
+
 def _parallel_helper(obj, methodname, kwargs):
     """Private helper to workaround Python 2 pickle limitations to paralelize methods"""
     return getattr(obj, methodname)(**kwargs)
+
 
 class virtualscreening:
     def __init__(self, n_cpu=-1, verbose=False):
@@ -60,8 +62,9 @@ class virtualscreening:
                 self.num_input += 1
                 yield mol
 
-    def apply_filter(self, expression, soft_fail = 0):
-        """Filtering method, can use raw expressions (strings to be evaled in if statement, can use oddt.toolkit.Molecule methods, eg. 'mol.molwt < 500')
+    def apply_filter(self, expression, soft_fail=0):
+        """Filtering method, can use raw expressions (strings to be evaled
+        in if statement, can use oddt.toolkit.Molecule methods, eg. 'mol.molwt < 500')
         Currently supported presets:
             * Lipinski Rule of 5 ('ro5' or 'l5')
             * Fragment Rule of 3 ('ro3')
@@ -80,10 +83,20 @@ class virtualscreening:
             # TODO: move presets to another config file
             # Lipinski rule of 5's
             if expression.lower() in ['l5', 'ro5']:
-                self._pipe = self._filter(self._pipe, ['mol.molwt < 500', 'mol.calcdesc(["HBA1"])["HBA1"] <= 10', 'mol.calcdesc(["HBD"])["HBD"] <= 5', 'mol.calcdesc(["logP"])["logP"] <= 5'], soft_fail = soft_fail)
+                self._pipe = self._filter(self._pipe,
+                                          ['mol.molwt < 500',
+                                           'mol.HBA1 <= 10',
+                                           'mol.HBD <= 5',
+                                           'mol.logP <= 5'],
+                                          soft_fail=soft_fail)
             # Rule of three
             elif expression.lower() in ['ro3']:
-                self._pipe = self._filter(self._pipe, ['mol.molwt < 300', 'mol.calcdesc(["HBA1"])["HBA1"] <= 3', 'mol.calcdesc(["HBD"])["HBD"] <= 3', 'mol.calcdesc(["logP"])["logP"] <= 3'], soft_fail = soft_fail)
+                self._pipe = self._filter(self._pipe,
+                                          ['mol.molwt < 300',
+                                           'mol.HBA1 <= 3',
+                                           'mol.HBD <= 3',
+                                           'mol.logP <= 3'],
+                                          soft_fail=soft_fail)
             # PAINS filter
             elif expression.lower() in ['pains']:
                 pains_smarts = {}
@@ -92,13 +105,19 @@ class virtualscreening:
                     for line in csv_reader:
                         if len(line) > 1:
                             pains_smarts[line[1][8:-2]] = line[0]
-                self._pipe = self._filter_smarts(self._pipe, pains_smarts.values(), soft_fail = soft_fail)
+                self._pipe = self._filter_smarts(self._pipe,
+                                                 pains_smarts.values(),
+                                                 soft_fail=soft_fail)
         else:
-            self._pipe = self._filter(self._pipe, expression, soft_fail = soft_fail)
+            self._pipe = self._filter(self._pipe, expression, soft_fail=soft_fail)
 
-    def _filter_smarts(self, pipe, smarts, soft_fail = 0):
+    def _filter_smarts(self, pipe, smarts, soft_fail=0):
         for mol in pipe:
-            if type(smarts) is list:
+            if type(smarts) in six.string_types:
+                compiled_smarts = toolkit.Smarts(smarts)
+                if len(compiled_smarts.findall(mol)) == 0:
+                    yield mol
+            else:
                 compiled_smarts = [toolkit.Smarts(s) for s in smarts]
                 fail = 0
                 for s in compiled_smarts:
@@ -108,12 +127,8 @@ class virtualscreening:
                         break
                 if fail <= soft_fail:
                     yield mol
-            else:
-                compiled_smarts = toolkit.Smarts(smarts)
-                if len(compiled_smarts.findall(mol)) == 0:
-                    yield mol
 
-    def _filter(self, pipe, expression, soft_fail = 0):
+    def _filter(self, pipe, expression, soft_fail=0):
         for mol in pipe:
             if type(expression) is list:
                 fail = 0
@@ -147,12 +162,15 @@ class virtualscreening:
             raise ValueError('Docking engine %s was not implemented in ODDT' % engine)
         if self.n_cpu != 1:
             _parallel_helper_partial = partial(_parallel_helper, engine, 'dock')
-            docking_results = Pool(self.n_cpu if self.n_cpu > 0 else None).imap(_parallel_helper_partial, ({'ligands':lig, 'single': True} for lig in self._pipe))
+            docking_results = (Pool(self.n_cpu if self.n_cpu > 0 else None)
+                               .imap(_parallel_helper_partial, ({'ligands': lig,
+                                                                 'single': True}
+                                                                for lig in self._pipe)))
         else:
             docking_results = (engine.dock(lig, single=True) for lig in self._pipe)
         self._pipe = chain.from_iterable(docking_results)
 
-    def score(self, function, protein = None, *args, **kwargs):
+    def score(self, function, protein=None, *args, **kwargs):
         """Scoring procedure.
 
         Parameters
@@ -210,7 +228,10 @@ class virtualscreening:
                 raise ValueError('Supplied object "%s" is not an ODDT scoring funtion' % function.__name__)
         if self.n_cpu != 1:
             _parallel_helper_partial = partial(_parallel_helper, sf, 'predict_ligand')
-            self._pipe = Pool(self.n_cpu if self.n_cpu > 0 else None).imap(_parallel_helper_partial, ({'ligand': lig} for lig in self._pipe), chunksize=100)
+            self._pipe = (Pool(self.n_cpu if self.n_cpu > 0 else None)
+                          .imap(_parallel_helper_partial, ({'ligand': lig}
+                                                           for lig in self._pipe),
+                                chunksize=100))
         else:
             self._pipe = sf.predict_ligands(self._pipe)
 
@@ -218,13 +239,17 @@ class virtualscreening:
         for n, mol in enumerate(self._pipe):
             self.num_output = n+1
             if self.verbose and self.num_input % 100 == 0:
-                print("Passed: %i (%.2f%%)\tTotal: %i\r" % (self.num_output, float(self.num_output)/float(self.num_input)*100, self.num_input), file=sys.stderr, end=" ")
+                print("Passed: %i (%.2f%%)\tTotal: %i\r" %
+                      (self.num_output,
+                       float(self.num_output) / float(self.num_input) * 100,
+                       self.num_input),
+                      file=sys.stderr, end=" ")
             yield mol
         if self.verbose:
             print('', file=sys.stderr)
 
     # Consume the pipe
-    def write(self, fmt, filename, csv_filename = None, **kwargs):
+    def write(self, fmt, filename, csv_filename=None, **kwargs):
         """Outputs molecules to a file
 
         Parameters
@@ -251,7 +276,11 @@ class virtualscreening:
             if csv_filename:
                 data = mol.data.to_dict()
                 # filter some internal data
-                blacklist_keys = ['OpenBabel Symmetry Classes', 'MOL Chiral Flag', 'PartialCharges', 'TORSDO', 'REMARK']
+                blacklist_keys = ['OpenBabel Symmetry Classes',
+                                  'MOL Chiral Flag',
+                                  'PartialCharges',
+                                  'TORSDO',
+                                  'REMARK']
                 for b in blacklist_keys:
                     if b in data:
                         del data[b]
@@ -271,10 +300,10 @@ class virtualscreening:
             f.close()
 #        if 'keep_pipe' in kwargs and kwargs['keep_pipe']:
         if isfile(filename):
-            kwargs.pop('overwrite') # this argument is unsupported in readfile
+            kwargs.pop('overwrite')  # this argument is unsupported in readfile
             self._pipe = toolkit.readfile(fmt, filename, **kwargs)
 
-    def write_csv(self, csv_filename, fields=None, keep_pipe = False, **kwargs):
+    def write_csv(self, csv_filename, fields=None, keep_pipe=False, **kwargs):
         """Outputs molecules to a csv file
 
         Parameters
@@ -295,8 +324,12 @@ class virtualscreening:
         csv_file = None
         for mol in self.fetch():
             data = mol.data.to_dict()
-            #filter some internal data
-            blacklist_keys = ['OpenBabel Symmetry Classes', 'MOL Chiral Flag', 'PartialCharges', 'TORSDO', 'REMARK']
+            # filter some internal data
+            blacklist_keys = ['OpenBabel Symmetry Classes',
+                              'MOL Chiral Flag',
+                              'PartialCharges',
+                              'TORSDO',
+                              'REMARK']
             for b in blacklist_keys:
                 if b in data:
                     del data[b]
@@ -310,6 +343,6 @@ class virtualscreening:
                 csv_file.writeheader()
             csv_file.writerow(data)
             if keep_pipe:
-                #write ligand using pickle
+                # write ligand using pickle
                 pass
         f.close()
