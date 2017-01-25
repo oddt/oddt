@@ -348,7 +348,7 @@ class Molecule(object):
     """
     _cinfony = True
 
-    def __new__(cls, Mol=None, source=None, *args, **kwargs):
+    def __new__(cls, Mol=-1, source=None, *args, **kwargs):
         """ Trap RDKit molecules which are 'None' """
         if Mol is None and source is None:
             return None
@@ -377,6 +377,7 @@ class Molecule(object):
         # lazy
         self._source = source  # dict with keys: n, fmt, string, filename
         if Mol is None and not source:
+            self = None
             return None
 
     # lazy Molecule parsing requires masked Mol

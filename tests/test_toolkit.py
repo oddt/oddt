@@ -1,6 +1,7 @@
 import os
 from tempfile import NamedTemporaryFile
 
+from six.moves.cPickle import loads, dumps
 import numpy as np
 import pandas as pd
 
@@ -112,6 +113,30 @@ def test_mol():
     assert_equal(len(protein.atoms), 1114)
     assert_equal(len(protein.residues), 138)
     assert_array_equal([len(res.atoms) for res in protein.residues], res_atoms_n)
+
+
+def test_pickle():
+    """Pickle molecules"""
+    mols = list(oddt.toolkit.readfile('sdf',
+                                      os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+    pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
+
+    assert_array_equal(list(map(lambda x: x.smiles, mols)),
+                       list(map(lambda x: x.smiles, pickled_mols)))
+
+    assert_array_equal(list(map(lambda x: dict(x.data), mols)),
+                       list(map(lambda x: dict(x.data), pickled_mols)))
+
+    mols = list(oddt.toolkit.readfile('sdf',
+                                      os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'),
+                                      lazy=True))
+    pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
+
+    assert_array_equal(list(map(lambda x: x.smiles, mols)),
+                       list(map(lambda x: x.smiles, pickled_mols)))
+
+    assert_array_equal(list(map(lambda x: dict(x.data), mols)),
+                       list(map(lambda x: dict(x.data), pickled_mols)))
 
 
 @nottest
