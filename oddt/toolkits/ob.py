@@ -441,7 +441,7 @@ class Molecule(pybel.Molecule):
         pickle_format = 'mol2'
         return {'fmt': self._source['fmt'] if self._source else pickle_format,
                 'string': self._source['string'] if self._source else self.write(pickle_format),
-                'data': dict(self.data.items()),
+                'data': dict(self.data.items()) if self._source is None else {},
                 'dicts': {'atom_dict': self._atom_dict,
                           'ring_dict': self._ring_dict,
                           'res_dict': self._res_dict,
@@ -450,7 +450,8 @@ class Molecule(pybel.Molecule):
 
     def __setstate__(self, state):
         Molecule.__init__(self, source=state)
-        self.data.update(state['data'])
+        if state['data']:
+            self.data.update(state['data'])
         self._atom_dict = state['dicts']['atom_dict']
         self._ring_dict = state['dicts']['ring_dict']
         self._res_dict = state['dicts']['res_dict']

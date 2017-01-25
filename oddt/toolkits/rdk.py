@@ -252,6 +252,7 @@ def readstring(format, string, **kwargs):
     >>> len(mymol.atoms)
     5
     """
+    string = str(string)
     format = format.lower()
     if format in ["mol", "sdf"]:
         supplier = Chem.SDMolSupplier()
@@ -967,17 +968,30 @@ class Molecule(object):
         AllChem.Compute2DCoords(self.Mol)
 
     def __getstate__(self):
-        return {'Mol': self.Mol,
-                'data': dict([(k, self.Mol.GetProp(k)) for k in self.Mol.GetPropNames(includePrivate=True)]),
-                'dicts': {'atom_dict': self._atom_dict,
-                          'ring_dict': self._ring_dict,
-                          'res_dict': self._res_dict,
-                          }
-                }
+        if self._source is None:
+            state = {'Mol': self.Mol,
+                     'source': None,
+                     'data': dict([(k, self.Mol.GetProp(k)) for k in self.Mol.GetPropNames(includePrivate=True)]),
+                     'dicts': {'atom_dict': self._atom_dict,
+                               'ring_dict': self._ring_dict,
+                               'res_dict': self._res_dict,
+                               }
+                     }
+        else:
+            state = {'Mol': None,
+                     'source': self._source,
+                     'data': {},
+                     'dicts': {'atom_dict': None,
+                               'ring_dict': None,
+                               'res_dict': None,
+                               }
+                     }
+        return state
 
     def __setstate__(self, state):
-        Molecule.__init__(self, state['Mol'])
-        self.data.update(state['data'])
+        Molecule.__init__(self, Mol=state['Mol'], source=state['source'])
+        if state['data']:
+            self.data.update(state['data'])
         self._atom_dict = state['dicts']['atom_dict']
         self._ring_dict = state['dicts']['ring_dict']
         self._res_dict = state['dicts']['res_dict']

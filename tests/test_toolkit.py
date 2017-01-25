@@ -132,6 +132,9 @@ def test_pickle():
                                       lazy=True))
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
 
+    assert_array_equal(list(map(lambda x: x._source is not None, pickled_mols)),
+                       [True] * 100)
+
     assert_array_equal(list(map(lambda x: x.smiles, mols)),
                        list(map(lambda x: x.smiles, pickled_mols)))
 
