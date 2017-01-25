@@ -142,6 +142,13 @@ def test_pickle():
                        list(map(lambda x: dict(x.data), pickled_mols)))
 
 
+if oddt.toolkit.backend == 'rdk':
+    def test_badmol():
+        """Propagate None's for bad molecules"""
+        mol = oddt.toolkit.readstring('smi', 'c1cc2')
+        assert_equal(mol, None)
+
+
 @nottest
 def test_dicts():
     """Test ODDT numpy structures, aka. dicts"""
