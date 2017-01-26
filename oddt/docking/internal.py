@@ -11,7 +11,9 @@ def get_children(molecule, mother, restricted):
     d = 1  # Pass first
     prev = 0
     while d > 0:
-        atoms[[n.idx - 1 for i in np.nonzero(atoms)[0] if i != restricted - 1 for n in molecule.atoms[i].neighbors if n.idx != restricted]] = True
+        atoms[[n.idx - 1
+               for i in np.nonzero(atoms)[0] if i != restricted - 1
+               for n in molecule.atoms[i].neighbors if n.idx != restricted]] = True
         d = atoms.sum() - prev
         prev = atoms.sum()
     return atoms
@@ -21,7 +23,9 @@ def get_close_neighbors(molecule, a_idx, num_bonds=1):
     atoms = np.zeros(len(molecule.atoms), dtype=bool)
     atoms[a_idx - 1] = True
     for i in range(num_bonds):
-        atoms[[n.idx - 1 for i in np.nonzero(atoms)[0] for n in molecule.atoms[i].neighbors]] = True
+        atoms[[n.idx - 1
+               for i in np.nonzero(atoms)[0]
+               for n in molecule.atoms[i].neighbors]] = True
     return atoms
 
 
@@ -85,9 +89,10 @@ class vina_docking(object):
             self.box = np.array(box)
             # delete unused atoms
             r = self.rec_dict['coords']
-            mask = (self.box[0][0] - 8 <= r[:, 0]) & (r[:, 0] <= self.box[1][0] + 8)  # x within box and cutoff
-            mask *= (self.box[0][1] - 8 <= r[:, 1]) & (r[:, 1] <= self.box[1][1] + 8)  # y within box and cutoff
-            mask *= (self.box[0][2] - 8 <= r[:, 2]) & (r[:, 2] <= self.box[1][2] + 8)  # z within box and cutoff
+            # X, Y, Z within box and cutoff
+            mask = (self.box[0][0] - 8 <= r[:, 0]) & (r[:, 0] <= self.box[1][0] + 8)
+            mask *= (self.box[0][1] - 8 <= r[:, 1]) & (r[:, 1] <= self.box[1][1] + 8)
+            mask *= (self.box[0][2] - 8 <= r[:, 2]) & (r[:, 2] <= self.box[1][2] + 8)
             self.rec_dict = self.rec_dict#[mask]
         else:
             self.box = box
@@ -148,9 +153,9 @@ class vina_docking(object):
 
     def score(self, coords=None):
         return (self.score_inter(coords) * self.weights[:5]).sum() / (1 + self.weights[5] * self.num_rotors)
-#         inter = (self.score_inter(coords) * self.weights[:5]).sum()
-#         total = (self.score_total(coords) * self.weights[:5]).sum()
-#         return total/(1+self.weights[5]*self.num_rotors)
+        # inter = (self.score_inter(coords) * self.weights[:5]).sum()
+        # total = (self.score_total(coords) * self.weights[:5]).sum()
+        # return total/(1+self.weights[5]*self.num_rotors)
 
     def weighted_total(self, coords=None):
         return (self.score_total(coords) * self.weights[:5]).sum()
@@ -183,16 +188,19 @@ class vina_docking(object):
 
         # Hydrophobic
         if 'hyd' not in self.mask_inter:
-            self.mask_inter['hyd'] = (self.rec_dict['ishydrophobe'] | self.rec_dict['ishalogen'])[:, np.newaxis] * (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis, :]
+            self.mask_inter['hyd'] = ((self.rec_dict['ishydrophobe'] | self.rec_dict['ishalogen'])[:, np.newaxis] *
+                                      (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis, :])
         mask_hyd = mask & self.mask_inter['hyd']
         d_hyd = d[mask_hyd]
         inter.append((d_hyd <= 0.5).sum() + (1.5 - d_hyd[(0.5 < d_hyd) & (d_hyd < 1.5)]).sum())
 
         # H-Bonding
         if 'da' not in self.mask_inter:
-            self.mask_inter['da'] = (self.rec_dict['isdonor'] | self.rec_dict['ismetal'])[:, np.newaxis] * self.lig_dict['isacceptor'][np.newaxis, :]
+            self.mask_inter['da'] = ((self.rec_dict['isdonor'] | self.rec_dict['ismetal'])[:, np.newaxis] *
+                                     self.lig_dict['isacceptor'][np.newaxis, :])
         if 'ad' not in self.mask_inter:
-            self.mask_inter['ad'] = self.rec_dict['isacceptor'][:, np.newaxis] * (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, :]
+            self.mask_inter['ad'] = (self.rec_dict['isacceptor'][:, np.newaxis] *
+                                     (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, :])
         d_h = d[mask & (self.mask_inter['da'] | self.mask_inter['ad'])]
         inter.append((d_h <= -0.7).sum() + (d_h[(-0.7 < d_h) & (d_h < 0)] / -0.7).sum())
 
@@ -217,16 +225,19 @@ class vina_docking(object):
 
         # Hydrophobic
         if 'hyd' not in self.mask_intra:
-            self.mask_intra['hyd'] = (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[:, np.newaxis] * (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis, :]
+            self.mask_intra['hyd'] = ((self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[:, np.newaxis] *
+                                      (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis, :])
         mask_hyd = mask & self.mask_intra['hyd']
         d_hyd = d[mask_hyd]
         intra.append((d_hyd <= 0.5).sum() + (1.5 - d_hyd[(0.5 < d_hyd) & (d_hyd < 1.5)]).sum())
 
         # H-Bonding
         if 'da' not in self.mask_intra:
-            self.mask_intra['da'] = (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[..., np.newaxis] * self.lig_dict['isacceptor'][np.newaxis, ...]
+            self.mask_intra['da'] = ((self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[..., np.newaxis] *
+                                     self.lig_dict['isacceptor'][np.newaxis, ...])
         if 'ad' not in self.mask_intra:
-            self.mask_intra['ad'] = self.lig_dict['isacceptor'][..., np.newaxis] * (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, ...]
+            self.mask_intra['ad'] = (self.lig_dict['isacceptor'][..., np.newaxis] *
+                                     (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, ...])
         d_h = d[mask & (self.mask_intra['da'] | self.mask_intra['ad'])]
         intra.append((d_h <= -0.7).sum() + (d_h[(-0.7 < d_h) & (d_h < 0)] / -0.7).sum())
 

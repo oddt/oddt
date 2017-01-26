@@ -26,7 +26,8 @@ class autodock_vina(object):
                  executable=None,
                  autocleanup=True,
                  skip_bad_mols=True):
-        """Autodock Vina docking engine, which extends it's capabilities: automatic box (autocentering on ligand).
+        """Autodock Vina docking engine, which extends it's capabilities:
+        automatic box (auto-centering on ligand).
 
         Parameters
         ----------
@@ -34,7 +35,9 @@ class autodock_vina(object):
                 Protein object to be used while generating descriptors.
 
             auto_ligand: oddt.toolkit.Molecule object or string (default=None)
-                Ligand use to center the docking box. Either ODDT molecule or a file (opened based on extesion and read to ODDT molecule). Box is centered on geometric center of molecule.
+                Ligand use to center the docking box. Either ODDT molecule or
+                a file (opened based on extesion and read to ODDT molecule).
+                Box is centered on geometric center of molecule.
 
             size: tuple, shape=[3] (default=(10,10,10))
                 Dimentions of docking box (in Angstroms)
@@ -58,7 +61,8 @@ class autodock_vina(object):
                 Temporary directory for Autodock Vina files
 
             executable: string or None (default=None)
-                Autodock Vina executable location in the system. It's realy necessary if autodetection fails.
+                Autodock Vina executable location in the system.
+                It's realy necessary if autodetection fails.
 
             autocleanup: bool (default=True)
                 Should the docking engine clean up after execution?
@@ -76,17 +80,22 @@ class autodock_vina(object):
             if type(auto_ligand) is str:
                 extension = auto_ligand.split('.')[-1]
                 auto_ligand = six.next(toolkit.readfile(extension, auto_ligand))
-            self.center = tuple(np.array([atom.coords for atom in auto_ligand], dtype=np.float32).mean(axis=0))
+            self.center = tuple(np.array([atom.coords for atom in auto_ligand],
+                                         dtype=np.float32).mean(axis=0))
         # autodetect Vina executable
         if not executable:
             try:
-                self.executable = subprocess.check_output(['which', 'vina']).decode('ascii').split('\n')[0]
+                self.executable = (subprocess.check_output(['which', 'vina'])
+                                   .decode('ascii').split('\n')[0])
             except subprocess.CalledProcessError:
-                raise Exception('Could not find Autodock Vina binary. You have to install it globaly or supply binary full directory via `executable` parameter.')
+                raise Exception('Could not find Autodock Vina binary.'
+                                'You have to install it globaly or supply binary'
+                                'full directory via `executable` parameter.')
         else:
             self.executable = executable
         # detect version
-        self.version = subprocess.check_output([self.executable, '--version']).decode('ascii').split(' ')[2]
+        self.version = (subprocess.check_output([self.executable, '--version'])
+                        .decode('ascii').split(' ')[2])
         self.autocleanup = autocleanup
         self.cleanup_dirs = set()
 
@@ -99,8 +108,12 @@ class autodock_vina(object):
 
         # pregenerate common Vina parameters
         self.params = []
-        self.params += ['--center_x', str(self.center[0]), '--center_y', str(self.center[1]), '--center_z', str(self.center[2])]
-        self.params += ['--size_x', str(self.size[0]), '--size_y', str(self.size[1]), '--size_z', str(self.size[2])]
+        self.params += ['--center_x', str(self.center[0]),
+                        '--center_y', str(self.center[1]),
+                        '--center_z', str(self.center[2])]
+        self.params += ['--size_x', str(self.size[0]),
+                        '--size_y', str(self.size[1]),
+                        '--size_z', str(self.size[2])]
         if n_cpu > 0:
             self.params += ['--cpu', str(n_cpu)]
         self.params += ['--exhaustiveness', str(exhaustiveness)]
@@ -156,10 +169,12 @@ class autodock_vina(object):
                 Ligands to score
 
             protein: oddt.toolkit.Molecule object or None
-                Protein object to be used. If None, then the default one is used, else the protein is new default.
+                Protein object to be used. If None, then the default
+                one is used, else the protein is new default.
 
             single: bool (default=False)
-                A flag to indicate single ligand scoring (performance reasons (eg. there is no need for subdirectory for one ligand)
+                A flag to indicate single ligand scoring - performance reasons
+                (eg. there is no need for subdirectory for one ligand)
 
         Returns
         -------
@@ -179,7 +194,13 @@ class autodock_vina(object):
             ligand_file = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '.pdbqt'
             ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b': None})
             try:
-                scores = parse_vina_scoring_output(subprocess.check_output([self.executable, '--score_only', '--receptor', self.protein_file, '--ligand', ligand_file] + self.params))
+                scores = parse_vina_scoring_output(subprocess.check_output([self.executable,
+                                                                            '--score_only',
+                                                                            '--receptor',
+                                                                            self.protein_file,
+                                                                            '--ligand',
+                                                                            ligand_file] + self.params,
+                                                                           stderr=subprocess.STDOUT))
             except subprocess.CalledProcessError as e:
                 sys.stderr.write(e.output)
                 if self.skip_bad_mols:
@@ -200,10 +221,12 @@ class autodock_vina(object):
                 Ligands to dock
 
             protein: oddt.toolkit.Molecule object or None
-                Protein object to be used. If None, then the default one is used, else the protein is new default.
+                Protein object to be used. If None, then the default one
+                is used, else the protein is new default.
 
             single: bool (default=False)
-                A flag to indicate single ligand docking (performance reasons (eg. there is no need for subdirectory for one ligand)
+                A flag to indicate single ligand docking - performance reasons
+                (eg. there is no need for subdirectory for one ligand)
 
         Returns
         -------
@@ -224,7 +247,12 @@ class autodock_vina(object):
             ligand_outfile = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '_out.pdbqt'
             ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b': None})
             try:
-                vina = parse_vina_docking_output(subprocess.check_output([self.executable, '--receptor', self.protein_file, '--ligand', ligand_file, '--out', ligand_outfile] + self.params, stderr=subprocess.STDOUT))
+                vina = parse_vina_docking_output(subprocess.check_output([self.executable,
+                                                                          '--receptor',
+                                                                          self.protein_file,
+                                                                          '--ligand', ligand_file,
+                                                                          '--out', ligand_outfile] + self.params,
+                                                                         stderr=subprocess.STDOUT))
             except subprocess.CalledProcessError as e:
                 sys.stderr.write(e.output.decode('ascii'))
                 if self.skip_bad_mols:
