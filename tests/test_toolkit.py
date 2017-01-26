@@ -127,13 +127,30 @@ def test_pickle():
     assert_array_equal(list(map(lambda x: dict(x.data), mols)),
                        list(map(lambda x: dict(x.data), pickled_mols)))
 
+    # Test pickling of atom_dicts
+    assert_array_equal(list(map(lambda x: x._atom_dict is None, mols)),
+                       [True] * len(mols))
+    mols_atom_dict = np.hstack(list(map(lambda x: x.atom_dict, mols)))
+    assert_array_equal(list(map(lambda x: x._atom_dict is not None, mols)),
+                       [True] * len(mols))
+    pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
+    assert_array_equal(list(map(lambda x: x._atom_dict is not None, pickled_mols)),
+                       [True] * len(mols))
+    pickled_mols_atom_dict = np.hstack(list(map(lambda x: x._atom_dict, pickled_mols)))
+    for name in mols[0].atom_dict.dtype.names:
+        if issubclass(np.dtype(mols_atom_dict[name].dtype).type, np.number):
+            assert_array_almost_equal(mols_atom_dict[name], pickled_mols_atom_dict[name])
+        else:
+            assert_array_equal(mols_atom_dict[name], pickled_mols_atom_dict[name])
+
+    # Lazy Mols
     mols = list(oddt.toolkit.readfile('sdf',
                                       os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'),
                                       lazy=True))
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
 
     assert_array_equal(list(map(lambda x: x._source is not None, pickled_mols)),
-                       [True] * 100)
+                       [True] * len(mols))
 
     assert_array_equal(list(map(lambda x: x.smiles, mols)),
                        list(map(lambda x: x.smiles, pickled_mols)))
@@ -149,22 +166,26 @@ if oddt.toolkit.backend == 'rdk':
         assert_equal(mol, None)
 
 
-@nottest
 def test_dicts():
     """Test ODDT numpy structures, aka. dicts"""
     mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
     list(map(lambda x: x.addh(only_polar=True), mols))
 
-    rec = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
-    rec.protein = True
-    rec.addh(only_polar=True)
+    skip_cols = ['coords', 'neighbors', 'radius', 'charge', 'resid',
+                 # following fields need to be standarized
+                 'atomtype',
+                 'hybridization',
+                 'isacceptor',
+                 'isdonor',
+                 'isminus',
+                 'isplus',
+                 'isaromatic'
+                 ]
+    common_cols = [name for name in mols[0].atom_dict.dtype.names
+                   if name not in skip_cols]
 
-    skip_cols = ['coords', 'neighbors', 'radius', 'charge']
-    distinct_cols = []
-    common_cols = [name for name in mols[0].atom_dict.dtype.names if name not in skip_cols]
+    # Small molecules
     all_dicts = np.hstack([mol.atom_dict for mol in mols])
-
-    # remove Hs
     all_dicts = all_dicts[all_dicts['atomicnum'] != 1]
 
     data = pd.DataFrame({name: all_dicts[name] for name in common_cols})
@@ -174,10 +195,10 @@ def test_dicts():
                        if atom.atomicnum != 1]
 
     # Save correct results
-    # data.to_csv(os.path.join(test_data_dir, 'data/results/xiap/atom_dict.csv'),
+    # data.to_csv(os.path.join(test_data_dir, 'data/results/xiap/mols_atom_dict.csv'),
     #             index=False)
 
-    corr_data = pd.read_csv(os.path.join(test_data_dir, 'data/results/xiap/atom_dict.csv')).fillna('')
+    corr_data = pd.read_csv(os.path.join(test_data_dir, 'data/results/xiap/mols_atom_dict.csv')).fillna('')
 
     for name in common_cols:
         if issubclass(np.dtype(data[name].dtype).type, np.number):
@@ -187,7 +208,7 @@ def test_dicts():
                       mols[data['mol_idx'][int(i)]].write('smi'))
             assert_array_almost_equal(data[name],
                                       corr_data[name],
-                                      err_msg='atom_dict\'s collumn: "%s" is not equal' % name)
+                                      err_msg='Mols atom_dict\'s collumn: "%s" is not equal' % name)
         else:
             mask = data[name] != corr_data[name]
             for i in np.argwhere(mask):
@@ -195,7 +216,38 @@ def test_dicts():
                       mols[data['mol_idx'][int(i)]].write('smi'))
             assert_array_equal(data[name],
                                corr_data[name],
-                               err_msg='atom_dict\'s collumn: "%s" is not equal' % name)
+                               err_msg='Mols atom_dict\'s collumn: "%s" is not equal' % name)
+
+    # Protein
+    rec = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    rec.protein = True
+    rec.addh(only_polar=True)
+
+    all_dicts = rec.atom_dict[rec.atom_dict['atomicnum'] != 1]
+
+    data = pd.DataFrame({name: all_dicts[name] for name in common_cols})
+
+    # Save correct results
+    # data.to_csv(os.path.join(test_data_dir, 'data/results/xiap/prot_atom_dict.csv'),
+    #             index=False)
+
+    corr_data = pd.read_csv(os.path.join(test_data_dir, 'data/results/xiap/prot_atom_dict.csv')).fillna('')
+
+    for name in common_cols:
+        if issubclass(np.dtype(data[name].dtype).type, np.number):
+            mask = data[name] - corr_data[name] > 1e-6
+            for i in np.argwhere(mask):
+                print(i, data[name][i].values)
+            assert_array_almost_equal(data[name],
+                                      corr_data[name],
+                                      err_msg='Protein atom_dict\'s collumn: "%s" is not equal' % name)
+        else:
+            mask = data[name] != corr_data[name]
+            for i in np.argwhere(mask):
+                print(i, data[name][i].values)
+            assert_array_equal(data[name],
+                               corr_data[name],
+                               err_msg='Protein atom_dict\'s collumn: "%s" is not equal' % name)
 
 
 def test_ss():

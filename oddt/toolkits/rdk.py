@@ -619,7 +619,7 @@ class Molecule(object):
                             neighbors['coords'],
                             # residue info
                             residue.GetResidueNumber() if residue else 0,
-                            residue.GetResidueName() if residue else '',
+                            residue.GetResidueName().strip() if residue else '',
                             False,  # is backbone
                             # atom properties
                             False,  # IsHbondAcceptor
