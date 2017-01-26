@@ -1,13 +1,10 @@
 from tempfile import mkdtemp
 from shutil import rmtree
-from os.path import exists
-from os import remove
 import sys
 import six
 import subprocess
 import numpy as np
 import re
-from random import random
 from oddt import toolkit
 
 

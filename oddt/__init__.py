@@ -40,14 +40,6 @@ elif rdk:
 else:
     raise Exception('No toolkit is present. Install OpenBabel or RDKit')
 
-try:
-    if get_ipython().config:
-        ipython_notebook = True
-    else:
-        ipython_notebook = False
-except NameError:
-    ipython_notebook = False
-
 
 def get_version():
     home = os.path.dirname(__file__)

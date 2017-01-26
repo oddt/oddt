@@ -1,8 +1,7 @@
 """ ODDT's internal docking/scoring engines """
 import numpy as np
 import math
-from oddt import toolkit
-from oddt.spatial import distance, dihedral, angle_2v, rotate
+from oddt.spatial import distance, dihedral, rotate
 
 
 def get_children(molecule, mother, restricted):
@@ -261,7 +260,7 @@ class vina_docking(object):
         return atom_dict
 
 
-class vina_ligand:
+class vina_ligand(object):
     def __init__(self, c0, num_rotors, engine, box_size=1):
         self.c0 = c0.copy()
         self.x0 = np.zeros(6 + num_rotors)

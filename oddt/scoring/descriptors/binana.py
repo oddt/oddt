@@ -322,7 +322,9 @@ class binana_descriptor(object):
             vec += tuple(pi_t_vec)
 
             # Active site flexibility (<4A)
-            acitve_site = interactions.close_contacts(mol_dict, protein_dict, 4)[1]
+            acitve_site = interactions.close_contacts(mol_dict[mol_dict['atomicnum'] != 1],
+                                                      protein_dict[protein_dict['atomicnum'] != 1],
+                                                      cutoff=4)[1]
             backbone = acitve_site['isbackbone']
             alpha = acitve_site['isalpha']
             beta = acitve_site['isbeta']

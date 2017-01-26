@@ -15,7 +15,7 @@ import numpy as np
 import openbabel as ob
 from openbabel import OBAtomAtomIter, OBTypeTable
 
-import oddt
+import oddt.pandas
 from oddt.toolkits.common import detect_secondary_structure
 
 backend = 'ob'
@@ -120,7 +120,9 @@ class Molecule(pybel.Molecule):
     @property
     def OBMol(self):
         if not self._OBMol and self._source:
-            self._OBMol = readstring(self._source['fmt'], self._source['string'], opt=self._source['opt'] if 'opt' in self._source else {}).OBMol
+            self._OBMol = readstring(self._source['fmt'],
+                                     self._source['string'],
+                                     opt=self._source['opt'] if 'opt' in self._source else {}).OBMol
             self._source = None
         return self._OBMol
 
@@ -185,11 +187,11 @@ class Molecule(pybel.Molecule):
         return self.__repr__()
 
     def __repr__(self):
-        if oddt.ipython_notebook:
+        if oddt.pandas.ipython_notebook:
             if oddt.pandas.image_backend == 'png':
-                return self._repr_png_()
+                return self._repr_png_(size=oddt.pandas.image_size)
             else:
-                return self._repr_svg_()
+                return self._repr_svg_(size=oddt.pandas.image_size)
         else:
             return super(Molecule, self).__repr__()
 
@@ -199,10 +201,22 @@ class Molecule(pybel.Molecule):
             self.OBMol.AddPolarHydrogens()
         else:
             self.OBMol.AddHydrogens()
+        self._clear_cache()
+
+    def removeh(self):
+        """Remove hydrogens"""
+        super(Molecule, self).removeh()
+        self._clear_cache()
+
+    def make3D(self, forcefield="mmff94", steps=50):
+        """Generate 3D coordinates"""
+        super(Molecule, self).make3D(forcefield=forcefield, steps=steps)
+        self._clear_cache()
 
     def make2D(self):
         """Generate 2D coordinates for molecule"""
         pybel._operations['gen2D'].Do(self.OBMol)
+        self._clear_cache()
 
     # Custom ODDT properties #
     def __getattr__(self, attr):
@@ -210,6 +224,15 @@ class Molecule(pybel.Molecule):
             if attr.lower() == desc.lower():
                 return self.calcdesc([desc])[desc]
         raise AttributeError('Molecule has no such property: %s' % attr)
+
+    def _clear_cache(self):
+        """Clear all ODDT caches and dicts"""
+        self._atom_dict = None
+        self._res_dict = None
+        self._ring_dict = None
+        self._coords = None
+        self._charges = None
+        self._residues = None
 
     @property
     def num_rotors(self):
@@ -228,16 +251,16 @@ class Molecule(pybel.Molecule):
                           '!$(C([CH3])([CH3])[CH3])]')
         return len(rot_bond.findall(self))
 
-    def _repr_svg_(self):
+    def _repr_svg_(self, size=(200, 200)):
         return self.clone.write('svg',
                                 opt={'d': None},
-                                size=oddt.pandas.image_size).replace('\n', '')
+                                size=size).replace('\n', '')
 
-    def _repr_png_(self):
+    def _repr_png_(self, size=(200, 200)):
         string = self.clone.write('png',
                                   opt={'d': None,
                                        't': None},
-                                  size=oddt.pandas.image_size)
+                                  size=size)
         if six.PY3:  # bug in SWIG decoding
             string = string.encode('utf-8', errors='surrogateescape')
         return '<img src="data:image/png;base64,%s" alt="%s">' % (
@@ -289,7 +312,7 @@ class Molecule(pybel.Molecule):
                       ('radius', np.float32),
                       ('charge', np.float32),
                       ('atomicnum', np.int8),
-                      ('atomtype', 'U4' if six.PY3 else 'a4'),
+                      ('atomtype', 'U5' if six.PY3 else 'a5'),
                       ('hybridization', np.int8),
                       ('neighbors', np.float32, (4, 3)),  # max of 4 neighbors should be enough
                       # residue info
@@ -356,18 +379,62 @@ class Molecule(pybel.Molecule):
                             residue.name if residue else '',
                             residue.OBResidue.GetAtomProperty(atom.OBAtom, 2) if residue else False,  # is backbone
                             # atom properties
-                            atom.OBAtom.IsHbondAcceptor(),
-                            atom.OBAtom.IsHbondDonor(),
-                            atom.OBAtom.IsHbondDonorH(),
+                            False,  # atom.OBAtom.IsHbondAcceptor(),
+                            False,  # atom.OBAtom.IsHbondDonor(),
+                            False,  # atom.OBAtom.IsHbondDonorH(),
                             atomicnum in metals,
                             atomicnum == 6 and np.in1d(neighbors['atomicnum'], [6, 1, 0]).all(),  # hydrophobe
                             atom.OBAtom.IsAromatic(),
-                            atomtype in ['O3-', '02-' 'O-'] or atom.formalcharge < 0,  # is charged (minus)
-                            atomtype in ['N3+', 'N2+', 'Ng+'] or atom.formalcharge > 0,  # is charged (plus)
+                            atom.formalcharge < 0,  # is charged (minus)
+                            atom.formalcharge > 0,  # is charged (plus)
                             atomicnum in [9, 17, 35, 53],  # is halogen?
                             False,  # alpha
                             False  # beta
                             )
+
+        not_carbon = np.argwhere(~np.in1d(atom_dict['atomicnum'], [1, 6])).flatten()
+        # Acceptors
+        patt = Smarts('[$([O;H1;v2]),'
+                      '$([O;H0;v2;!$(O=N-*),'
+                      '$([O;-;!$(*-N=O)]),'
+                      '$([o;+0])]),'
+                      '$([n;+0;!X3;!$([n;H1](cc)cc),'
+                      '$([$([N;H0]#[C&v4])]),'
+                      '$([N&v3;H0;$(Nc)])]),'
+                      '$([F;$(F-[#6]);!$(FC[F,Cl,Br,I])])]')
+        matches = np.array(patt.findall(self)).flatten()
+        if len(matches) > 0:
+            atom_dict['isacceptor'][np.intersect1d(matches - 1, not_carbon)] = True
+
+        # Donors
+        patt = Smarts('[$([N&!H0&v3,N&!H0&+1&v4,n&H1&+0,$([$([Nv3](-C)(-C)-C)]),'
+                      '$([$(n[n;H1]),'
+                      '$(nc[n;H1])])]),'
+                      # Guanidine can be tautormeic - e.g. Arginine
+                      '$([NX3,NX2]([!O,!S])!@C(!@[NX3,NX2]([!O,!S]))!@[NX3,NX2]([!O,!S])),'
+                      '$([O,S;H1;+0])]')
+        matches = np.array(patt.findall(self)).flatten()
+        if len(matches) > 0:
+            atom_dict['isdonor'][np.intersect1d(matches - 1, not_carbon)] = True
+            atom_dict['isdonorh'][[n.idx - 1
+                                   for idx in np.argwhere(atom_dict['isdonor']).flatten()
+                                   for n in self.atoms[int(idx)].neighbors
+                                   if n.atomicnum == 1]] = True
+
+        # Basic group
+        patt = Smarts('[$([N;H2&+0][$([C,a]);!$([C,a](=O))]),'
+                      '$([N;H1&+0]([$([C,a]);!$([C,a](=O))])[$([C,a]);!$([C,a](=O))]),'
+                      '$([N;H0&+0]([C;!$(C(=O))])([C;!$(C(=O))])[C;!$(C(=O))]),'
+                      '$([N,n;X2;+0])]')
+        matches = np.array(patt.findall(self)).flatten()
+        if len(matches) > 0:
+            atom_dict['isplus'][np.intersect1d(matches - 1, not_carbon)] = True
+
+        # Acidic group
+        patt = Smarts('[$([C,S](=[O,S,P])-[O;H1])]')
+        matches = np.array(patt.findall(self)).flatten()
+        if len(matches) > 0:
+            atom_dict['isminus'][np.intersect1d(matches - 1, not_carbon)] = True
 
         if self.protein:
             # Protein Residues (alpha helix and beta sheet)

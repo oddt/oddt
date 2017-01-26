@@ -70,41 +70,50 @@ class pdbbind(object):
         return self._set_act[self.default_set]
 
     def __iter__(self):
-        for id in self.ids:
-            yield _pdbbind_id(self.home, id, opt=self.opt)
+        for pdbid in self.ids:
+            yield _pdbbind_id(self.home, pdbid, opt=self.opt)
 
     def __getitem__(self, id):
-        if id in self.ids:
-            return _pdbbind_id(self.home, id, opt=self.opt)
+        if i in self.ids:
+            return _pdbbind_id(self.home, pdbid, opt=self.opt)
         else:
-            if type(id) is int:
-                return _pdbbind_id(self.home + '', self.ids[id], opt=self.opt)
+            if type(pdbid) is int:
+                return _pdbbind_id(self.home + '', self.ids[pdbid], opt=self.opt)
             return None
 
 
 class _pdbbind_id(object):
-    def __init__(self, home, id, opt=None):
+    def __init__(self, home, pdbid, opt=None):
         self.home = home
-        self.id = id
+        self.id = pdbid
         self.opt = opt or {}
 
     @property
     def protein(self):
         if isfile('%s/%s/%s_protein.pdb' % (self.home, self.id, self.id)):
-            return six.next(toolkit.readfile('pdb', '%s/%s/%s_protein.pdb' % (self.home, self.id, self.id), lazy=True, opt=self.opt))
+            return six.next(toolkit.readfile('pdb',
+                                             '%s/%s/%s_protein.pdb' % (self.home, self.id, self.id),
+                                             lazy=True,
+                                             opt=self.opt))
         else:
             return None
 
     @property
     def pocket(self):
         if isfile('%s/%s/%s_pocket.pdb' % (self.home, self.id, self.id)):
-            return six.next(toolkit.readfile('pdb', '%s/%s/%s_pocket.pdb' % (self.home, self.id, self.id), lazy=True, opt=self.opt))
+            return six.next(toolkit.readfile('pdb',
+                                             '%s/%s/%s_pocket.pdb' % (self.home, self.id, self.id),
+                                             lazy=True,
+                                             opt=self.opt))
         else:
             return None
 
     @property
     def ligand(self):
         if isfile('%s/%s/%s_ligand.sdf' % (self.home, self.id, self.id)):
-            return six.next(toolkit.readfile('sdf', '%s/%s/%s_ligand.sdf' % (self.home, self.id, self.id), lazy=True, opt=self.opt))
+            return six.next(toolkit.readfile('sdf',
+                                             '%s/%s/%s_ligand.sdf' % (self.home, self.id, self.id),
+                                             lazy=True,
+                                             opt=self.opt))
         else:
             return None
