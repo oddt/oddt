@@ -41,19 +41,19 @@ def atoms_by_type(atom_dict, types, mode='atomic_nums'):
         out = {}
         for t in set(types):
             if t == 'HD':
-                out[t] = atom_dict[atom_dict['atomicnum'] == 1 & atom_dict['isdonorh']]
+                out[t] = atom_dict[(atom_dict['atomicnum'] == 1) & atom_dict['isdonorh']]
             elif t == 'C':
-                out[t] = atom_dict[atom_dict['atomicnum'] == 6 & ~atom_dict['isaromatic']]
-            elif t == 'CD':  # not canonical AD4 type, although used by NNscore, with no description. properies assumed by name
-                out[t] = atom_dict[atom_dict['atomicnum'] == 6 & ~atom_dict['isdonor']]
+                out[t] = atom_dict[(atom_dict['atomicnum'] == 6) & ~atom_dict['isaromatic']]
+            elif t == 'CD':  # not canonical AD4 type, although used by NNscore, with no description
+                out[t] = atom_dict[(atom_dict['atomicnum'] == 6) & ~atom_dict['isdonor']]
             elif t == 'A':
-                out[t] = atom_dict[atom_dict['atomicnum'] == 6 & atom_dict['isaromatic']]
+                out[t] = atom_dict[(atom_dict['atomicnum'] == 6) & atom_dict['isaromatic']]
             elif t == 'N':
-                out[t] = atom_dict[atom_dict['atomicnum'] == 7 & ~atom_dict['isacceptor']]
+                out[t] = atom_dict[(atom_dict['atomicnum'] == 7) & ~atom_dict['isacceptor']]
             elif t == 'NA':
-                out[t] = atom_dict[atom_dict['atomicnum'] == 7 & atom_dict['isacceptor']]
+                out[t] = atom_dict[(atom_dict['atomicnum'] == 7) & atom_dict['isacceptor']]
             elif t == 'OA':
-                out[t] = atom_dict[atom_dict['atomicnum'] == 8 & atom_dict['isacceptor']]
+                out[t] = atom_dict[(atom_dict['atomicnum'] == 8) & atom_dict['isacceptor']]
             elif t == 'F':
                 out[t] = atom_dict[atom_dict['atomicnum'] == 9]
             elif t == 'MG':
@@ -61,9 +61,9 @@ def atoms_by_type(atom_dict, types, mode='atomic_nums'):
             elif t == 'P':
                 out[t] = atom_dict[atom_dict['atomicnum'] == 15]
             elif t == 'SA':
-                out[t] = atom_dict[atom_dict['atomicnum'] == 16 & atom_dict['isacceptor']]
+                out[t] = atom_dict[(atom_dict['atomicnum'] == 16) & atom_dict['isacceptor']]
             elif t == 'S':
-                out[t] = atom_dict[atom_dict['atomicnum'] == 16 & ~atom_dict['isacceptor']]
+                out[t] = atom_dict[(atom_dict['atomicnum'] == 16) & ~atom_dict['isacceptor']]
             elif t == 'CL':
                 out[t] = atom_dict[atom_dict['atomicnum'] == 17]
             elif t == 'CA':

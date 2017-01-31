@@ -73,8 +73,8 @@ class pdbbind(object):
         for pdbid in self.ids:
             yield _pdbbind_id(self.home, pdbid, opt=self.opt)
 
-    def __getitem__(self, id):
-        if i in self.ids:
+    def __getitem__(self, pdbid):
+        if pdbid in self.ids:
             return _pdbbind_id(self.home, pdbid, opt=self.opt)
         else:
             if type(pdbid) is int:
