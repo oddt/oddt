@@ -75,6 +75,7 @@ class rfscore(scorer):
                              n_jobs=n_jobs,
                              max_features=mtry,
                              bootstrap=True,
+                             min_samples_split=6,
                              **kwargs)
         super(rfscore, self).__init__(model, descriptors, score_title='rfscore_v%i' % self.version)
 
