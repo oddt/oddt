@@ -1,9 +1,7 @@
 from __future__ import print_function
-# All functions using f2py need to be loaded before pybel/openbabel,
-# otherwise it will segfault.
-# See BUG report: https://github.com/numpy/numpy/issues/1746
-from scipy.optimize import fmin_l_bfgs_b
 
+import sys
+from ctypes import RTLD_GLOBAL
 from itertools import chain
 
 import gzip
@@ -17,6 +15,10 @@ from openbabel import OBAtomAtomIter, OBTypeTable
 
 import oddt.pandas
 from oddt.toolkits.common import detect_secondary_structure
+
+# Fix for BUG: https://github.com/numpy/numpy/issues/1746
+ob.OBConversion()
+sys.setdlopenflags(sys.getdlopenflags() ^ RTLD_GLOBAL)
 
 backend = 'ob'
 # setup typetable to translate atom types
@@ -523,6 +525,7 @@ class Molecule(pybel.Molecule):
         self._ring_dict = state['dicts']['ring_dict']
         self._res_dict = state['dicts']['res_dict']
 
+
 # Extend pybel.Molecule
 pybel.Molecule = Molecule
 
@@ -557,6 +560,7 @@ class Atom(pybel.Atom):
     @property
     def bonds(self):
         return [Bond(self.OBAtom.GetBond(n.OBAtom)) for n in self.neighbors]
+
 
 pybel.Atom = Atom
 
@@ -664,6 +668,7 @@ class MoleculeData(pybel.MoleculeData):
     def to_dict(self):
         return dict((x.GetAttribute(), x.GetValue()) for x in self._data())
 
+
 pybel.MoleculeData = MoleculeData
 
 
@@ -695,6 +700,7 @@ def _unrollbits(fp, bitsperint):
             i += 1
         start += bitsperint
     return ans
+
 
 pybel.Fingerprint = Fingerprint
 
