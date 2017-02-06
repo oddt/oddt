@@ -237,7 +237,11 @@ class binana_descriptor(object):
             for r_t, m_t in self.ele_types:
                 mol_ele_dict, rec_ele_dict = interactions.close_contacts(ele_mol_atoms[m_t], ele_rec_atoms[r_t], 4)
                 if len(mol_ele_dict) and len(rec_ele_dict):
-                    ele += (mol_ele_dict['charge'] * rec_ele_dict['charge'] / np.sqrt((mol_ele_dict['coords'] - rec_ele_dict['coords'])**2).sum(axis=-1) * 138.94238460104697e4).sum(),  # convert to J/mol
+                    ele += (mol_ele_dict['charge'] *
+                            rec_ele_dict['charge'] /
+                            np.sqrt((mol_ele_dict['coords'] -
+                                     rec_ele_dict['coords'])**2).sum(axis=-1) *
+                            138.94238460104697e4).sum(),  # convert to J/mol
                 else:
                     ele += 0,
             vec += tuple(ele)
