@@ -34,9 +34,9 @@ If you want to install cutting edge version (master branch from GitHub) of ODDT 
 
 Finally you can install ODDT straight from the source
 ::
-    wget https://github.com/oddt/oddt/archive/0.3.1.tar.gz
-    tar zxvf 0.3.1.tar.gz
-    cd oddt-0.3.1/
+    wget https://github.com/oddt/oddt/archive/0.3.2.tar.gz
+    tar zxvf 0.3.2.tar.gz
+    cd oddt-0.3.2/
     python setup.py install
 
 Common installation problems
