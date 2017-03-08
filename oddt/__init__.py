@@ -12,6 +12,7 @@ ie docking, virutal screening, rescoring.
 from __future__ import absolute_import
 import os
 import subprocess
+import warnings
 try:
     from oddt.toolkits import ob
 except ImportError:
@@ -25,26 +26,26 @@ toolkit = None
 if 'ODDT_TOOLKIT' in os.environ:
     if os.environ['ODDT_TOOLKIT'] == 'ob':
         if ob is None:
-            raise Exception('OpenBabel toolkit is forced by ODDT_TOOLKIT, '
-                            'but can\'t be imported')
+            warnings.warn('OpenBabel toolkit is forced by ODDT_TOOLKIT, '
+                          'but can\'t be imported')
         toolkit = ob
     elif os.environ['ODDT_TOOLKIT'] == 'rdk':
         if rdk is None:
-            raise Exception('RDKit toolkit is forced by ODDT_TOOLKIT, '
-                            'but can\'t be imported')
+            warnings.warn('RDKit toolkit is forced by ODDT_TOOLKIT, '
+                          'but can\'t be imported')
         toolkit = rdk
 elif ob:
     toolkit = ob
 elif rdk:
     toolkit = rdk
 else:
-    raise Exception('No toolkit is present. Install OpenBabel or RDKit')
+    warnings.warn('No toolkit is present. Install OpenBabel or RDKit')
 
 
 def get_version():
     home = os.path.dirname(__file__)
     git_v = None
-    v = '0.3.0'
+    v = '0.3.1'
     if os.path.isdir(home + '/../.git'):
         try:
             git_v = str(subprocess.check_output(['git',
@@ -55,6 +56,7 @@ def get_version():
     if git_v:
         v = git_v
     return v
+
 
 __version__ = get_version()
 __all__ = ['toolkit']
