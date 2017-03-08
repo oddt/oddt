@@ -258,6 +258,7 @@ class autodock_vina(object):
                     raise Exception('Autodock Vina failed. Command: "%s"' % ' '.join(e.cmd))
             # HACK # overcome connectivity problems in obabel
             source_ligand = six.next(toolkit.readfile('pdbqt', ligand_file))
+            del source_ligand.data['REMARK']
             for lig, scores in zip([lig for lig in toolkit.readfile('pdbqt', ligand_outfile, opt={'b': None})], vina):
                 # HACK # copy data from source
                 clone = source_ligand.clone

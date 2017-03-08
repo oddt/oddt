@@ -685,7 +685,7 @@ class Outputfile(pybel.Outputfile):
 class Fingerprint(pybel.Fingerprint):
     @property
     def raw(self):
-        return _unrollbits(self.fp, pybel.ob.OBFingerprint.Getbitsperint())
+        return np.array(_unrollbits(self.fp, pybel.ob.OBFingerprint.Getbitsperint()))
 
 
 def _unrollbits(fp, bitsperint):
