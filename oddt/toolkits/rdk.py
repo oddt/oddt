@@ -786,9 +786,11 @@ class Molecule(object):
                     centroid = coords.mean(axis=0)
                     # get vector perpendicular to ring
                     vector = np.cross(coords - np.vstack((coords[1:], coords[:1])), np.vstack((coords[1:], coords[:1])) - np.vstack((coords[2:], coords[:2]))).mean(axis=0) - centroid
-                    r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
+                    r.append((centroid, vector, atom['resid'], atom['resname'], atom['isalpha'], atom['isbeta']))
         ring_dict = np.array(r, dtype=[('centroid', np.float32, 3),
                                        ('vector', np.float32, 3),
+                                       ('resid', np.int16),
+                                       ('resname', 'U3' if PY3 else 'a3'),
                                        ('isalpha', bool),
                                        ('isbeta', bool)])
 

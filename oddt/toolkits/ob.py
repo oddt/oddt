@@ -13,7 +13,7 @@ from tempfile import NamedTemporaryFile
 
 import gzip
 from base64 import b64encode
-import six
+from six import PY3, text_type
 import pybel
 from pybel import *
 import numpy as np
@@ -198,7 +198,7 @@ class Molecule(pybel.Molecule):
         if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
             return self._source['string']
         # Workaround OB 2.3.2 + Py3 PNG encoding error
-        elif format == '_png2' and filename is None and six.PY3 and __version__ < '2.4.0':
+        elif format == '_png2' and filename is None and PY3 and __version__ < '2.4.0':
             with NamedTemporaryFile(suffix='.png') as f:
                 super(Molecule, self).write(format=format, filename=f.name, overwrite=True, opt=opt)
                 output = f.read()
@@ -289,7 +289,7 @@ class Molecule(pybel.Molecule):
                                   opt={'d': None,
                                        't': None},
                                   size=size)
-        if six.PY3 and isinstance(string, six.text_type):  # bug in SWIG decoding
+        if PY3 and isinstance(string, text_type):
             string = string.encode('utf-8', errors='surrogateescape')
         return '<img src="data:image/png;base64,%s" alt="%s">' % (
             b64encode(string).decode('ascii'),
@@ -340,12 +340,12 @@ class Molecule(pybel.Molecule):
                       ('radius', np.float32),
                       ('charge', np.float32),
                       ('atomicnum', np.int8),
-                      ('atomtype', 'U5' if six.PY3 else 'a5'),
+                      ('atomtype', 'U5' if PY3 else 'a5'),
                       ('hybridization', np.int8),
                       ('neighbors', np.float32, (4, 3)),  # max of 4 neighbors should be enough
                       # residue info
                       ('resid', np.int16),
-                      ('resname', 'U3' if six.PY3 else 'a3'),
+                      ('resname', 'U3' if PY3 else 'a3'),
                       ('isbackbone', bool),
                       # atom properties
                       ('isacceptor', bool),
@@ -467,7 +467,7 @@ class Molecule(pybel.Molecule):
         if self.protein:
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', np.int16),
-                         ('resname', 'U3' if six.PY3 else 'a3'),
+                         ('resname', 'U3' if PY3 else 'a3'),
                          ('N', np.float32, 3),
                          ('CA', np.float32, 3),
                          ('C', np.float32, 3),
@@ -518,9 +518,11 @@ class Molecule(pybel.Molecule):
                     vector = np.cross(coords - np.vstack((coords[1:], coords[:1])),
                                       np.vstack((coords[1:], coords[:1])) - np.vstack((coords[2:], coords[:2]))
                                       ).mean(axis=0) - centroid
-                    r.append((centroid, vector, atom['isalpha'], atom['isbeta']))
+                    r.append((centroid, vector, atom['resid'], atom['resname'], atom['isalpha'], atom['isbeta']))
         ring_dict = np.array(r, dtype=[('centroid', np.float32, 3),
                                        ('vector', np.float32, 3),
+                                       ('resid', np.int16),
+                                       ('resname', 'U3' if PY3 else 'a3'),
                                        ('isalpha', bool),
                                        ('isbeta', bool)])
 
