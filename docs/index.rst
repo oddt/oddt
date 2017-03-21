@@ -184,6 +184,54 @@ Get all acceptor atoms:
 ::
     mol.atom_dict[‘is_acceptor’]
 
+
+Interaction Fingerprints
+```````````````````````````````````````````````
+Module, where interactions between two molecules are calculated and stored in fingerprint.
+
+The most common usage
+------------------------
+
+Firstly, loading files
+::
+  protein = next(oddt.toolkit.readfile('pdb', 'protein.pdb'))
+  protein.protein = True
+  ligand = next(oddt.toolkit.readfile('sdf', 'ligand.sdf'))
+.. note:: You have to mark a variable with file as protein, otherwise You won't be able to get access to e.g. 'resname; , 'resid' etc. It can be done as above.
+
+File with more than one molecule
+::
+  mols = list(oddt.toolkit.readfile('sdf', 'ligands.sdf'))
+
+When files are loaded, You can check interactions between molecules. Let's find out, which amino acids creates hydrogen bonds
+::
+  protein_atoms, ligand_atoms, strict = hbond(protein, ligand)
+  print(protein_atoms['resname'])
+
+Or check hydrophobic contacts between molecules
+::
+  protein_atoms, ligand_atoms = hydrophobic_contacts(protein, ligand)
+  print(protein_atoms, ligand_atoms)
+
+But instead of checking interactions one by one, You can use fingerprints module.
+::
+  IFP = InteractionFingerprint(ligand, protein)
+  SIFP = SimpleInteractionFingerprint(ligand, protein)
+
+Very often we're looking for similar molecules. We can easily accomplish this by e.g.
+::
+  results = []
+  reference = SimpleInteractionFingerprint(ligand, protein)
+  for el in query:
+      fp_query = SimpleInteractionFingerprint(el, protein)
+      # similarity score for current query
+      cur_score = dice(reference, fp_query)
+      # score is the lowest, required similarity
+      if cur_score > score:
+          results.append(el)
+  return results
+
+
 ODDT command line interface (CLI)
 =================================
 
