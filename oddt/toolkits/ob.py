@@ -1,7 +1,11 @@
 from __future__ import print_function
 
+# All functions using f2py need to be loaded before pybel/openbabel,
+# otherwise it will segfault.
+# See BUG report: https://github.com/numpy/numpy/issues/1746
+from scipy.optimize import fmin_l_bfgs_b
+
 import sys
-from ctypes import RTLD_GLOBAL
 from itertools import chain
 
 import gzip
@@ -15,10 +19,6 @@ from openbabel import OBAtomAtomIter, OBTypeTable
 
 import oddt.pandas
 from oddt.toolkits.common import detect_secondary_structure
-
-# Fix for BUG: https://github.com/numpy/numpy/issues/1746
-ob.OBConversion()
-sys.setdlopenflags(sys.getdlopenflags() ^ RTLD_GLOBAL)
 
 backend = 'ob'
 # setup typetable to translate atom types
