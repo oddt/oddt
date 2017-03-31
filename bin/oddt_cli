@@ -126,12 +126,12 @@ def main():
 
     # Switch toolkits
     if 'toolkit' in args:
-        if args.toolkit == 'ob':
-            from oddt.toolkits import ob
-            oddt.toolkit = ob
-        elif args.toolkit == 'rdk':
+        if args.toolkit == 'rdk' or os.environ['ODDT_TOOLKIT'] == 'rdk':
             from oddt.toolkits import rdk
             oddt.toolkit = rdk
+        else:  # OB as fallback
+            from oddt.toolkits import ob
+            oddt.toolkit = ob
 
     from oddt.virtualscreening import virtualscreening as vs
 
