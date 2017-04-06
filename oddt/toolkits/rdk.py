@@ -1163,6 +1163,10 @@ class Bond(object):
         self.Bond = Bond
 
     @property
+    def idx(self):
+        return self.Bond.GetIdx()
+
+    @property
     def order(self):
         return BOND_ORDERS[self.Bond.GetBondType()]
 
@@ -1192,6 +1196,10 @@ class Bond(object):
                 if a1_n > 1 and a2_n > 1:
                     return True
         return False
+
+    @property
+    def isaromatic(self):
+        return self.Bond.GetIsAromatic()
 
 
 class Residue(object):
