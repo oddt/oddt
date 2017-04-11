@@ -115,7 +115,7 @@ Reading molecules from file in asynchronous manner
 This example will execute instantaneously, since no molecules were evaluated.
 
 Numpy Dictionaries - store your molecule as an uniform structure
-```````````````````````````````````````````````
+````````````````````````````````````````````````````````````````
 
 Most important and handy property of Molecule in ODDT are Numpy dictionaries containing most properties of supplied molecule. Some of them are straightforward, other require some calculation, ie. atom features. Dictionaries are provided for major entities of molecule: atoms, bonds, residues and rings. It was primarily used for interactions calculations, although it is applicable for any other calculation. The main benefit is marvelous Numpy broadcasting and subsetting.
 
@@ -186,11 +186,11 @@ Get all acceptor atoms:
 
 
 Interaction Fingerprints
-```````````````````````````````````````````````
+````````````````````````
 Module, where interactions between two molecules are calculated and stored in fingerprint.
 
 The most common usage
-------------------------
+---------------------
 
 Firstly, loading files
 ::
@@ -231,6 +231,49 @@ Very often we're looking for similar molecules. We can easily accomplish this by
           results.append(el)
   return results
 
+Molecular shape comparison
+``````````````````````````
+Three methods for molecular shape comparison are supported: USR and its two derivatives: USRCAT and Electroshape.
+
+* USR (Ultrafast Shape Recognition) - function usr(molecule)
+    Ballester PJ, Richards WG (2007). Ultrafast shape recognition to search
+    compound databases for similar molecular shapes. Journal of
+    computational chemistry, 28(10):1711-23.
+    http://dx.doi.org/10.1002/jcc.20681
+
+* USRCAT (USR with Credo Atom Types) - function usr_cat(molecule)
+    Adrian M Schreyer, Tom Blundell (2012). USRCAT: real-time ultrafast
+    shape recognition with pharmacophoric constraints. Journal of
+    Cheminformatics, 2012 4:27.
+    http://dx.doi.org/10.1186/1758-2946-4-27
+
+* Electroshape - function electroshape(molecule)
+    Armstrong, M. S. et al. ElectroShape: fast molecular similarity
+    calculations incorporating shape, chirality and electrostatics.
+    J Comput Aided Mol Des 24, 789-801 (2010).
+    http://dx.doi.org/doi:10.1007/s10822-010-9374-0
+
+    Aside from spatial coordinates, atoms' charges are also used
+    as the fourth dimension to describe shape of the molecule.
+
+To find most similar molecules from the given set, each of these methods can be used.
+
+Loading files:
+::
+    query = next(oddt.toolkit.readfile('sdf', 'query.sdf'))
+    database = list(oddt.toolkit.readfile('sdf', 'database.sdf'))
+
+Example code to find similar molecules:
+::
+    results = []
+    query_shape = usr(query)
+    for mol in database:
+        mol_shape = usr(mol)
+        similarity = usr_similarity(query_shape, mol_shape)
+        if similarity > 0.7:
+            results.append(mol)
+
+To use another method, replace usr(mol) with usr_cat(mol) or electroshape(mol).
 
 ODDT command line interface (CLI)
 =================================
