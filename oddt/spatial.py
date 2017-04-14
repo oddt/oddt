@@ -239,3 +239,36 @@ def rotate(coords, alpha, beta, gamma):
                             cos_alpha * cos_beta]])
 
     return (coords[:, np.newaxis, :] * rot_matrix).sum(axis=2) + centroid
+
+
+def surface_mesh(r=1., spacing=0.5):
+    """
+    Compute an evenly distributed mesh on the surface of sphere.
+
+    Parameters
+    ----------
+    r : float
+        The radius of sphere
+
+    spacing: float
+        Distance between mesh points
+
+    Returns
+    -------
+    meshcoords : numpy arrays, shape = [n_points, 4]
+        3d coordinates of mesh points (0-centered). 4-th dim is the singular
+        surface of mesh point.
+    """
+    coords = []
+    total_surf = 4 * np.pi * r * r
+    num = 0
+    for alpha in np.linspace(0., np.pi, ceil(np.pi * r / spacing)):
+        r2 = r * sin(alpha)
+        # the number of steps must be uneven to cover the top and bottom
+        for beta in np.linspace(0., 2 * np.pi, ceil(2 * np.pi * r2 / spacing) + 1):
+            coords.append((r2 * cos(beta),
+                           r2 * sin(beta),
+                           r * cos(alpha)))
+            num += 1
+    coords = np.array(coords)
+    return np.hstack((coords, np.array([total_surf / num] * num).reshape(-1, 1)))
