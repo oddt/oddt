@@ -79,6 +79,27 @@ def main():
                        default=[],
                        help='Choose built-in filters to be used (eg. "ro5", "ro3", "pains")')
 
+    # fingerprints
+    group = parser.add_argument_group('Similarity searching')
+    group.add_argument('--similarity',
+                       dest='similarity',
+                       action='append',
+                       default=[],
+                       choices=['ifp', 'sifp', 'usr', 'usr_cat', 'electroshape'],
+                       help='Choose similarity method to use (eg. "ifp", "sifp", '
+                       '"usr", "usr_cat", "electroshape")')
+
+    group.add_argument('--cutoff',
+                       dest='cutoff',
+                       type=float,
+                       default=0.9,
+                       help='Similarity cufoff below which molecules will be ignored.')
+
+    group.add_argument('--query',
+                       dest='query',
+                       action='append',
+                       help='Query molecule(s) for similarity searching')
+
     # docking
     group = parser.add_argument_group('Protein-Ligand docking')
     group.add_argument('--dock',
@@ -161,6 +182,13 @@ def main():
         extension = args.receptor.split('.')[-1]
         receptor = six.next(oddt.toolkit.readfile(extension, args.receptor))
         receptor.protein = True
+
+    if args.query:
+        query = [six.next(oddt.toolkit.readfile(q.split('.')[-1], q))
+                 for q in args.query]
+
+    for i, sim in enumerate(args.similarity):
+        pipeline.similarity(sim, query, protein=receptor, cutoff=args.cutoff)
 
     # Docking
     if args.dock == 'autodock_vina':

@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys
 import csv
 import six
+from six.moves import filter
 from os.path import dirname, isfile
 # from multiprocessing.dummy import Pool # threading
 from multiprocessing import Pool  # process
@@ -11,6 +12,10 @@ from functools import partial
 
 from oddt import toolkit
 from oddt.scoring import scorer
+from oddt.fingerprints import (InteractionFingerprint,
+                               SimpleInteractionFingerprint,
+                               dice)
+from oddt.shape import usr, usr_cat, electroshape
 
 
 def _parallel_helper(obj, methodname, kwargs):
@@ -142,6 +147,58 @@ class virtualscreening:
             else:
                 if eval(expression):
                     yield mol
+
+    def similarity(self, method, query, cutoff=0.9, protein=None):
+        """Similarity filter. Supported structural methods:
+            * ift: interaction fingerprints
+            * sift: simple interaction fingerprints
+            * usr: Ultrafast Shape recognition
+            * usr_cat: Ultrafast Shape recognition, Credo Atom Types
+            * electroshape: Electroshape, an USR method including partial charges
+
+        Parameters
+        ----------
+            method: string, one of ['ift', 'sift', 'usr', 'usr_cat', 'electroshape']
+                Similarity method used to compare molecules
+
+            query: oddt.toolkit.Molecule or list of oddt.toolkit.Molecule
+                Query molecules to compare the pipeline to.
+
+            cutoff: float
+                Similarity cutoff for filtering molecules. Any similarity lower
+                than it will be filtered out.
+
+            protein: oddt.toolkit.Molecule (default = None)
+                Protein for underling method. By default it's empty, but sturctural
+                fingerprints need one.
+
+        """
+        if isinstance(query, toolkit.Molecule):
+            query = [query]
+
+        # choose fp/usr and appropriate distance
+        if method.lower() == 'ifp':
+            gen = InteractionFingerprint
+            dist = dice
+        elif method.lower() == 'sifp':
+            gen = SimpleInteractionFingerprint
+            dist = dice
+        elif method.lower() == 'usr':
+            gen = usr
+            dist = usr_similarity
+        elif method.lower() == 'usr_cat':
+            gen = usr_cat
+            dist = usr_similarity
+        elif method.lower() == 'electroshape':
+            gen = electroshape
+            dist = usr_similarity
+        else:
+            raise Exception('Similarity filter "%s" is not supported.' % method)
+        query_fps = [(gen(q) if protein is None else gen(q, protein)) for q in query]
+        self._pipe = filter(lambda q: any(dist(gen(q) if protein is None else gen(q, protein),
+                                               q_fp) >= float(cutoff)
+                                          for q_fp in query_fps),
+                            self._pipe)
 
     def dock(self, engine, protein, *args, **kwargs):
         """Docking procedure.
