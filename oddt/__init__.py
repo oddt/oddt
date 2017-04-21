@@ -24,16 +24,21 @@ except ImportError:
 
 toolkit = None
 if 'ODDT_TOOLKIT' in os.environ:
-    if os.environ['ODDT_TOOLKIT'] == 'ob':
+    if os.environ['ODDT_TOOLKIT'] in ['ob', 'openbabel']:
         if ob is None:
             warnings.warn('OpenBabel toolkit is forced by ODDT_TOOLKIT, '
                           'but can\'t be imported')
         toolkit = ob
-    elif os.environ['ODDT_TOOLKIT'] == 'rdk':
+    elif os.environ['ODDT_TOOLKIT'] in ['rdk', 'rdkit']:
         if rdk is None:
             warnings.warn('RDKit toolkit is forced by ODDT_TOOLKIT, '
                           'but can\'t be imported')
         toolkit = rdk
+    else:
+        raise EnvironmentError('ODDT_TOOLKIT is set to invalid value: "%s". '
+                               'Use one of ["ob", "openbabel"] for OpenBabel '
+                               'or ["rdk", "rdkit"] for RDKit' % os.environ['ODDT_TOOLKIT'])
+
 elif ob:
     toolkit = ob
 elif rdk:
