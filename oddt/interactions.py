@@ -100,9 +100,10 @@ def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, base_angle=120, tolerance=30):
                        d['coords'][:, np.newaxis, :],
                        d['neighbors'])
         d_neighbors_num = np.sum(~np.isnan(d['neighbors'][:, :, 0]), axis=-1)[:, np.newaxis]
-        strict = (((angle1 > (base_angle / a_neighbors_num - tolerance)) |
+        strict = (((np.nan_to_num(angle1) > (base_angle / a_neighbors_num - tolerance)) |
                    np.isnan(angle1)) &
-                  ((angle2 > (base_angle / d_neighbors_num - tolerance)) | np.isnan(angle2))).all(axis=-1)
+                  ((np.nan_to_num(angle2) > (base_angle / d_neighbors_num - tolerance)) |
+                   np.isnan(angle2))).all(axis=-1)
         return a, d, strict
     else:
         return a, d, np.array([], dtype=bool)
@@ -195,9 +196,10 @@ def halogenbond_acceptor_halogen(mol1,
                        h['neighbors'])
         a_neighbors_num = np.sum(~np.isnan(a['neighbors'][:, :, 0]), axis=-1)[:, np.newaxis]
         h_neighbors_num = np.sum(~np.isnan(h['neighbors'][:, :, 0]), axis=-1)[:, np.newaxis]
-        strict = (((angle1 > (base_angle_acceptor / a_neighbors_num - tolerance)) |
+        strict = (((np.nan_to_num(angle1) > (base_angle_acceptor / a_neighbors_num - tolerance)) |
                    np.isnan(angle1)) &
-                  ((angle2 > (base_angle_halogen / h_neighbors_num - tolerance)) | np.isnan(angle2))).all(axis=-1)
+                  ((np.nan_to_num(angle2) > (base_angle_halogen / h_neighbors_num - tolerance)) |
+                   np.isnan(angle2))).all(axis=-1)
         return a, h, strict
     else:
         return a, h, np.array([], dtype=bool)
@@ -441,7 +443,7 @@ def acceptor_metal(mol1, mol2, base_angle=120, tolerance=30, cutoff=4):
                        a['coords'][:, np.newaxis, :],
                        a['neighbors'])
         a_neighbors_num = np.sum(~np.isnan(a['neighbors'][:, :, 0]), axis=-1)[:, np.newaxis]
-        strict = ((angle1 > (base_angle / a_neighbors_num - tolerance)) |
+        strict = ((np.nan_to_num(angle1) > (base_angle / a_neighbors_num - tolerance)) |
                   np.isnan(angle1)).all(axis=-1)
         return a, m, strict
     else:
