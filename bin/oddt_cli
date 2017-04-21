@@ -126,7 +126,8 @@ def main():
 
     # Switch toolkits
     if 'toolkit' in args:
-        if args.toolkit == 'rdk' or os.environ['ODDT_TOOLKIT'] == 'rdk':
+        if (args.toolkit == 'rdk' or ('ODDT_TOOLKIT' in os.environ and
+                                      os.environ['ODDT_TOOLKIT'] == 'rdk')):
             from oddt.toolkits import rdk
             oddt.toolkit = rdk
         else:  # OB as fallback
@@ -219,6 +220,7 @@ def main():
         else:
             for lig in pipeline.fetch():
                 sys.stdout.write(lig.write(fmt))
+
 
 if __name__ == '__main__':
     # On Windows calling this function is necessary.
