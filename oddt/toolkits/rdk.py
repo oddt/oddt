@@ -32,7 +32,10 @@ import numpy as np
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
-from rdkit.Chem.Draw import rdMolDraw2D
+try:
+    from rdkit.Chem.Draw import rdMolDraw2D
+except ImportError as e:
+    pass
 from rdkit.Chem import Descriptors
 from rdkit import RDConfig
 
@@ -85,7 +88,7 @@ try:
     import Tkinter as tk
     import Image as PIL
     import ImageTk as PILtk
-except:
+except ImportError as e:
     PILtk = None
 
 # Aggdraw

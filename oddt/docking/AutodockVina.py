@@ -141,21 +141,39 @@ class autodock_vina(object):
         # generate new directory
         self._tmp_dir = None
         if protein:
-            self.protein = protein
+            self.protein = protein 
             if type(protein) is str:
                 extension = protein.split('.')[-1]
                 if extension == 'pdbqt':
                     self.protein_file = protein
                     self.protein = six.next(toolkit.readfile(extension, protein))
+                    self.protein.protein = True
                 else:
                     self.protein = six.next(toolkit.readfile(extension, protein))
                     self.protein.protein = True
                     self.protein_file = self.tmp_dir + '/protein.pdbqt'
-                    self.protein.write('pdbqt', self.protein_file, opt={'r': None, 'c': None}, overwrite=True)
+                    # remove OB 2.3 ROOT/ENDROOT tags
+                    with open(self.protein_file, 'w') as f:
+                        for line in self.protein.write('pdbqt', opt={'r': None, 'c': None}, overwrite=True).split('\n'):
+                            if line in ['ROOT', 'ENDROOT']:
+                                continue
+                            elif line[:7] == 'TORSDOF':
+                                f.write('TER\n')
+                            else:
+                                f.write(line + '\n')
             else:
                 # write protein to file
                 self.protein_file = self.tmp_dir + '/protein.pdbqt'
-                self.protein.write('pdbqt', self.protein_file, opt={'r': None, 'c': None}, overwrite=True)
+                # remove OB 2.3 ROOT/ENDROOT tags
+                with open(self.protein_file, 'w') as f:
+                    for line in self.protein.write('pdbqt', opt={'r': None, 'c': None}, overwrite=True).split('\n'):
+                        if line in ['ROOT', 'ENDROOT']:
+                            continue
+                        elif line[:7] == 'TORSDOF':
+                            f.write('TER\n')
+                        else:
+                            f.write(line + '\n')
+
 
     def score(self, ligands, protein=None, single=False):
         """Automated scoring procedure.
@@ -323,7 +341,7 @@ def parse_vina_scoring_output(output):
             m = line.replace(' ', '').split(':')
             if m[0] == 'Affinity':
                 m[1] = m[1].replace('(kcal/mol)', '')
-            out['vina_' + m[0].lower()] = float(m[1])
+            out[str('vina_' + m[0].lower())] = float(m[1])
     return out
 
 

@@ -32,7 +32,7 @@ def detect_secondary_structure(res_dict):
     # Ignore groups smaller than 3
     res_mask_alpha = np.argwhere(res_dict['isalpha']).flatten()
     for mask_group in np.split(res_mask_alpha, np.argwhere(np.diff(res_mask_alpha) != 1).flatten() + 1):
-        if len(mask_group) < 3:
+        if 0 < len(mask_group) < 3:
             res_dict['isalpha'][mask_group] = False
 
     # Beta sheets
@@ -60,7 +60,7 @@ def detect_secondary_structure(res_dict):
     # Ignore groups smaller than 3
     res_mask_beta = np.argwhere(res_dict['isbeta']).flatten()
     for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
-        if len(mask_group) < 3:
+        if 0 < len(mask_group) < 3:
             res_dict['isbeta'][mask_group] = False
 
     return res_dict

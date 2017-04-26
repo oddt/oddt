@@ -15,11 +15,11 @@ import subprocess
 import warnings
 try:
     from oddt.toolkits import ob
-except ImportError:
+except ImportError as e:
     ob = None
 try:
     from oddt.toolkits import rdk
-except ImportError:
+except ImportError as e:
     rdk = None
 
 toolkit = None
@@ -50,7 +50,7 @@ else:
 def get_version():
     home = os.path.dirname(__file__)
     git_v = None
-    v = '0.3.2'
+    v = '0.3.3'
     if os.path.isdir(home + '/../.git'):
         try:
             git_v = str(subprocess.check_output(['git',

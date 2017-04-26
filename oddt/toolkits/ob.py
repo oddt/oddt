@@ -7,6 +7,9 @@ from scipy.optimize import fmin_l_bfgs_b
 
 import sys
 from itertools import chain
+from subprocess import check_output
+from distutils.version import LooseVersion
+import warnings
 
 import gzip
 from base64 import b64encode
@@ -21,6 +24,10 @@ import oddt.pandas
 from oddt.toolkits.common import detect_secondary_structure
 
 backend = 'ob'
+try:
+    __version__ = check_output(['obabel', '-V']).split()[2].decode('ascii')
+except Exception as e:
+    __version__ = ''
 # setup typetable to translate atom types
 typetable = OBTypeTable()
 typetable.SetFromType('INT')
@@ -83,6 +90,9 @@ def _filereader_pdb(filename, opt=None):
 
 def readfile(format, filename, opt=None, lazy=False):
     if format == 'mol2':
+        if LooseVersion(__version__) < LooseVersion('2.4.0'):
+            warnings.warn('OpenBabel 2.3.2 does not support writing data in '
+                          'comments ["-xc"]. Please upgrade to OB 2.4')
         if opt:
             opt['c'] = None
         else:
