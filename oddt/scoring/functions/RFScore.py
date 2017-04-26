@@ -139,9 +139,14 @@ class rfscore(scorer):
 
         train_set = 'refined'
         test_set = 'core'
-        self.train_descs = df[df['%i_%s' % (pdbbind_version, train_set)] & ~df['%i_%s' % (pdbbind_version, test_set)]][list(map(str, range(len(self.descriptor_generator))))].values
-        self.train_target = df[df['%i_%s' % (pdbbind_version, train_set)] & ~df['%i_%s' % (pdbbind_version, test_set)]]['act'].values
-        self.test_descs = df[df['%i_%s' % (pdbbind_version, test_set)]][list(map(str, range(len(self.descriptor_generator))))].values
+        cols = list(map(str, range(len(self.descriptor_generator))))
+        self.train_descs = (df[(df['%i_%s' % (pdbbind_version, train_set)] &
+                               ~df['%i_%s' % (pdbbind_version, test_set)])][cols]
+                            .values)
+        self.train_target = (df[(df['%i_%s' % (pdbbind_version, train_set)] &
+                                 ~df['%i_%s' % (pdbbind_version, test_set)])]['act']
+                             .values)
+        self.test_descs = df[df['%i_%s' % (pdbbind_version, test_set)]][cols].values
         self.test_target = df[df['%i_%s' % (pdbbind_version, test_set)]]['act'].values
 
         # remove sparse dimentions
