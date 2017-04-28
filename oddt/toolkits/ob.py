@@ -8,7 +8,6 @@ from scipy.optimize import fmin_l_bfgs_b
 import sys
 from itertools import chain
 from subprocess import check_output
-from distutils.version import LooseVersion
 import warnings
 
 import gzip
@@ -100,7 +99,7 @@ def _filereader_pdb(filename, opt=None):
 
 def readfile(format, filename, opt=None, lazy=False):
     if format == 'mol2':
-        if LooseVersion(__version__) < LooseVersion('2.4.0'):
+        if __version__ < '2.4.0':
             warnings.warn('OpenBabel 2.3.2 does not support writing data in '
                           'comments ["-xc"]. Please upgrade to OB 2.4')
         if opt:

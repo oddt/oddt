@@ -1,6 +1,5 @@
 import os
 from tempfile import NamedTemporaryFile
-from distutils.version import LooseVersion
 
 from nose.tools import assert_in, assert_not_in, assert_equal
 from sklearn.utils.testing import assert_true, assert_array_equal
@@ -87,7 +86,7 @@ def test_substruct_sim_search():
 
 def test_mol2():
     """Writing and reading of mol2 fils to/from ChemDataFrame"""
-    if (oddt.toolkit.backend == 'ob' and LooseVersion(oddt.toolkit.__version__) >= LooseVersion('2.4.0')):
+    if (oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ >= '2.4.0'):
         df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
         with NamedTemporaryFile(suffix='.mol2') as f:
             df.to_mol2(f.name)
