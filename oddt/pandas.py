@@ -7,16 +7,6 @@ import pandas as pd
 import oddt
 
 pd.set_option("display.max_colwidth", 999999)
-image_backend = 'png'  # png or svg
-image_size = (200, 200)
-
-try:
-    if get_ipython().config:
-        ipython_notebook = True
-    else:
-        ipython_notebook = False
-except NameError:
-    ipython_notebook = False
 
 
 def _mol_reader(fmt='sdf',

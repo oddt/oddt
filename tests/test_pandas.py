@@ -136,13 +136,13 @@ def test_ipython():
     """iPython Notebook molecule rendering in SVG"""
     df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
     # mock ipython
-    oddt.pandas.ipython_notebook = True
+    oddt.toolkit.ipython_notebook = True
     # png
-    oddt.pandas.image_backend = 'png'
+    oddt.toolkit.image_backend = 'png'
     html = df.head(1).to_html()
     assert_in('<img src="data:image/png;base64,', html)
     # svg
-    oddt.pandas.image_backend = 'svg'
+    oddt.toolkit.image_backend = 'svg'
     html = df.head(1).to_html()
     assert_in('<svg', html)
-    oddt.pandas.ipython_notebook = False
+    oddt.toolkit.ipython_notebook = False

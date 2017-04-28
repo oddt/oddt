@@ -20,10 +20,20 @@ import numpy as np
 import openbabel as ob
 from openbabel import OBAtomAtomIter, OBTypeTable
 
-import oddt.pandas
 from oddt.toolkits.common import detect_secondary_structure
 
 backend = 'ob'
+image_backend = 'png'  # png or svg
+image_size = (200, 200)
+
+try:
+    if get_ipython().config:
+        ipython_notebook = True
+    else:
+        ipython_notebook = False
+except NameError:
+    ipython_notebook = False
+
 try:
     __version__ = check_output(['obabel', '-V']).split()[2].decode('ascii')
 except Exception as e:
@@ -199,11 +209,11 @@ class Molecule(pybel.Molecule):
         return self.__repr__()
 
     def __repr__(self):
-        if oddt.pandas.ipython_notebook:
-            if oddt.pandas.image_backend == 'png':
-                return self._repr_png_(size=oddt.pandas.image_size)
+        if ipython_notebook:
+            if image_backend == 'png':
+                return self._repr_png_(size=image_size)
             else:
-                return self._repr_svg_(size=oddt.pandas.image_size)
+                return self._repr_svg_(size=image_size)
         else:
             return super(Molecule, self).__repr__()
 

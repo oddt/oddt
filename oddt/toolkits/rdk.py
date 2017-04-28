@@ -48,13 +48,22 @@ from rdkit.Chem.Lipinski import NumRotatableBonds
 from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D, Generate
 
-import oddt.pandas
 from oddt.toolkits.common import detect_secondary_structure
 from oddt.toolkits.extras.rdkit import _sybyl_atom_type, MolFromPDBBlock
 
 _descDict = dict(Descriptors.descList)
 
 backend = 'rdk'
+image_backend = 'png'  # png or svg
+image_size = (200, 200)
+
+try:
+    if get_ipython().config:
+        ipython_notebook = True
+    else:
+        ipython_notebook = False
+except NameError:
+    ipython_notebook = False
 
 elementtable = Chem.GetPeriodicTable()
 
@@ -551,11 +560,11 @@ class Molecule(object):
         return self.__repr__()
 
     def __repr__(self):
-        if oddt.pandas.ipython_notebook:
-            if oddt.pandas.image_backend == 'png':
-                return self._repr_png_(size=oddt.pandas.image_size)
+        if ipython_notebook:
+            if image_backend == 'png':
+                return self._repr_png_(size=image_size)
             else:
-                return self._repr_svg_(size=oddt.pandas.image_size)
+                return self._repr_svg_(size=image_size)
         else:
             return super(Molecule, self).__repr__()
 
