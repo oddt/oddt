@@ -9,6 +9,7 @@ import sys
 from itertools import chain
 from subprocess import check_output
 import warnings
+from tempfile import NamedTemporaryFile
 
 import gzip
 from base64 import b64encode
@@ -196,6 +197,12 @@ class Molecule(pybel.Molecule):
         # Use lazy molecule if possible
         if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
             return self._source['string']
+        # Workaround OB 2.3.2 + Py3 PNG encoding error
+        elif format == '_png2' and filename is None and six.PY3 and __version__ < '2.4.0':
+            with NamedTemporaryFile(suffix='.png') as f:
+                super(Molecule, self).write(format=format, filename=f.name, overwrite=True, opt=opt)
+                output = f.read()
+            return output
         else:
             return super(Molecule, self).write(format=format, filename=filename, overwrite=overwrite, opt=opt)
 
@@ -282,7 +289,7 @@ class Molecule(pybel.Molecule):
                                   opt={'d': None,
                                        't': None},
                                   size=size)
-        if six.PY3:  # bug in SWIG decoding
+        if six.PY3 and isinstance(string, six.text_type):  # bug in SWIG decoding
             string = string.encode('utf-8', errors='surrogateescape')
         return '<img src="data:image/png;base64,%s" alt="%s">' % (
             b64encode(string).decode('ascii'),
