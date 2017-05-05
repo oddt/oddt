@@ -2,6 +2,12 @@ sudo: false
 language: python
 env:
     matrix:
+        # Minimal required package versions
+        - ODDT_TOOLKIT=ob CONDA_PY=2.7 MINIMAL_REQ=1
+        - ODDT_TOOLKIT=rdk CONDA_PY=2.7  MINIMAL_REQ=1
+        - ODDT_TOOLKIT=ob CONDA_PY=3.4 MINIMAL_REQ=1
+        - ODDT_TOOLKIT=rdk CONDA_PY=3.4  MINIMAL_REQ=1
+        # Recent versions
         - ODDT_TOOLKIT=ob CONDA_PY=2.7
         - ODDT_TOOLKIT=ob CONDA_PY=3.4
         - ODDT_TOOLKIT=ob CONDA_PY=3.5
@@ -10,9 +16,7 @@ env:
         - ODDT_TOOLKIT=rdk CONDA_PY=3.4
         - ODDT_TOOLKIT=rdk CONDA_PY=3.5
         - ODDT_TOOLKIT=rdk CONDA_PY=3.6
-        # Minimal required package versions
-        - ODDT_TOOLKIT=ob CONDA_PY=2.7 MINIMAL_REQ=1
-        - ODDT_TOOLKIT=rdk CONDA_PY=2.7  MINIMAL_REQ=1
+
     global:
         secure: OVE5GtJJ2Ga+GDJIFuyPsbJ5SFCecdbiPv6TzrdNT6AoMdjEZK/zw1ZRHNtMHvrPbq5G7qY/54tHEePSKJlm7pi8agYPbTAg3pPvUvFfmyoQm4Vg07BEULKJ9wfgNI2c+IsMp77r1hW+04+HpwMT81p/zYndVcuhvj7C7vJ0hgo=
 deploy:
@@ -52,7 +56,7 @@ install:
     # Downgrade to miminal requirements
     - if [[ "$MINIMAL_REQ" == "1" && "$ODDT_TOOLKIT" == "ob" ]]; then conda install -q -c mwojcikowski openbabel=2.3.2; fi
     - if [[ "$MINIMAL_REQ" == "1" && "$ODDT_TOOLKIT" == "rdk" ]]; then conda install -q -c mwojcikowski -c rdkit rdkit=2016.03; fi
-    - if [[ "$MINIMAL_REQ" == "1" ]]; then conda install -q numpy=1.8 scipy=0.14 pandas=0.14 joblib=0.8; conda remove -q scikit-learn; pip install scikit-learn==0.18; fi
+    - if [[ "$MINIMAL_REQ" == "1" ]]; then conda install -q numpy=1.8 scipy=0.13 pandas=0.13 joblib=0.8; conda remove -q scikit-learn; pip install scikit-learn==0.18; fi
     - pip install coveralls
     - python setup.py install
 script:
