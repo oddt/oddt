@@ -728,3 +728,11 @@ class Smarts(pybel.Smarts):
     def match(self, molecule):
         """ Checks if there is any match. Returns True or False """
         return self.obsmarts.HasMatch(molecule.OBMol)
+
+    def findall(self, molecule, unique=True):
+        """Find all matches of the SMARTS pattern to a particular molecule """
+        if unique:
+            return super(Smarts, self).findall(molecule)
+        else:
+            self.obsmarts.Match(molecule.OBMol)
+            return list(self.obsmarts.GetMapList())

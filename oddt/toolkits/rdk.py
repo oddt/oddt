@@ -1,8 +1,8 @@
 # -*. coding: utf-8 -*-
-# Copyright (c) 2008-2011, Noel O'Boyle; 2012, Adrià Cereto-Massagué; 2014-2016, Maciej Wójcikowski;
+# Copyright (c) 2008-2011, Noel O'Boyle; 2012, Adrià Cereto-Massagué; 2014-2017, Maciej Wójcikowski;
 # All rights reserved.
 #
-#  This file is part of Cinfony.
+#  This file is part of Cinfony and ODDT.
 #  The contents are covered by the terms of the BSD license
 #  which is included in the file LICENSE_BSD.txt.
 
@@ -1299,13 +1299,13 @@ class Smarts(object):
         """
         return molecule.Mol.HasSubstructMatch(self.rdksmarts)
 
-    def findall(self, molecule):
+    def findall(self, molecule, unique=True):
         """Find all matches of the SMARTS pattern to a particular molecule.
 
         Required parameters:
            molecule
         """
-        return molecule.Mol.GetSubstructMatches(self.rdksmarts)
+        return molecule.Mol.GetSubstructMatches(self.rdksmarts, uniquify=unique)
 
 
 class MoleculeData(object):
