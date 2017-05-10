@@ -15,6 +15,7 @@ except ImportError:
     def linear_sum_assignment(M):
         out = linear_assignment(M)
         return out[:, 0], out[:, 1]
+import oddt
 
 __all__ = ['angle',
            'angle_2v',
@@ -114,6 +115,7 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         Available methods:
             - canonize - match heavy atoms using OB canonical ordering (it forces ignoring H's)
             - hungarian - minimize RMSD using Hungarian algorithm
+            - min_symmetry - makes multiple molecule-molecule matches and finds minimal RMSD (the slowest)
 
     normalize : bool (default=False)
         Normalize RMSD by square root of rot. bonds
@@ -146,6 +148,19 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
                 ref_map.append(ref_idx[tmp_ref])
         mol_atoms = mol.atom_dict['coords'][np.hstack(mol_map)]
         ref_atoms = ref.atom_dict['coords'][np.hstack(ref_map)]
+    elif method == 'min_symmetry':
+        min_rmsd = None
+        ref_atoms = ref.coords[ref.atom_dict['atomicnum'] != 1]
+        mol_atoms = mol.coords[mol.atom_dict['atomicnum'] != 1]
+        for match in oddt.toolkit.Smarts(ref).findall(mol, unique=False):
+            match = np.array(match, dtype=int)
+            if oddt.toolkit.backend == 'ob':
+                match -= 1
+            rmsd = np.sqrt(((mol_atoms - ref_atoms[match])**2).sum(axis=-1).mean())
+            print(rmsd, match)
+            if min_rmsd is None or rmsd < min_rmsd:
+                min_rmsd = rmsd
+        return min_rmsd
     elif ignore_h:
         hvy_map = np.argwhere(mol.atom_dict['atomicnum'] != 1).flatten()
         mol_atoms = mol.coords[hvy_map]

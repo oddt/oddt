@@ -126,6 +126,8 @@ def test_spatial():
     assert_almost_equal(rmsd(mol, mol2, method=None), 2.77, decimal=1)
     # Hungarian must be close to zero (RDKit is 0.3)
     assert_almost_equal(rmsd(mol, mol2, method='hungarian'), 0, decimal=0)
+    # Minimized by symetry must close to zero
+    assert_almost_equal(rmsd(mol, mol2, method='min_symmetry'), 0, decimal=0)
 
     # pick one molecule from docked poses
     mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))

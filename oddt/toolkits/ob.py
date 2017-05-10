@@ -798,14 +798,28 @@ pybel.Fingerprint = Fingerprint
 
 
 class Smarts(pybel.Smarts):
+    def __init__(self, smartspattern):
+        """Initialise with a SMARTS pattern."""
+        self.amap = None
+        if isinstance(smartspattern, Molecule):
+            tmp = smartspattern.write('can')
+            self.amap = np.array(smartspattern.data['SMILES Atom Order'].split(), dtype=int) - 1
+            smartspattern = tmp
+        super(Smarts, self).__init__(smartspattern)
+
     def match(self, molecule):
         """ Checks if there is any match. Returns True or False """
         return self.obsmarts.HasMatch(molecule.OBMol)
 
     def findall(self, molecule, unique=True):
         """Find all matches of the SMARTS pattern to a particular molecule """
+        self.obsmarts.Match(molecule.OBMol)
         if unique:
-            return super(Smarts, self).findall(molecule)
+            matches = list(self.obsmarts.GetUMapList())
         else:
-            self.obsmarts.Match(molecule.OBMol)
-            return list(self.obsmarts.GetMapList())
+            matches = list(self.obsmarts.GetMapList())
+        if self.amap is None:
+            return matches
+        else:
+            idx = np.argsort(self.amap)
+            return [np.array(m)[idx].tolist() for m in matches]
