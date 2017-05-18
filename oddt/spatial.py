@@ -5,7 +5,7 @@ Mainly used by other modules, but can be accessed directly.
 from math import sin, cos
 from six import PY3
 import numpy as np
-from scipy.spatial.distance import cdist as distance
+# from scipy.spatial.distance import cdist as distance
 # for Hungarian algorithm, in future use scipy.optimize.linear_sum_assignment (in scipy 0.17+)
 try:
     from scipy.optimize import linear_sum_assignment
@@ -159,6 +159,25 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         return rmsd
     # at this point raise an exception
     raise Exception('Unequal number of atoms in molecules')
+
+
+def distance(x, y):
+    """Computes distance between each pair of points from x and y.
+
+    Parameters
+    ----------
+    x : numpy arrays, shape = [n_x, 3]
+        Array of poinds in 3D
+
+    y : numpy arrays, shape = [n_y, 3]
+        Array of poinds in 3D
+
+    Returns
+    -------
+    dist_matrix : numpy arrays, shape = [n_x, n_y]
+        Distance matrix
+    """
+    return np.linalg.norm(x[..., np.newaxis, :] - y, axis=-1)
 
 
 def distance_complex(x, y):
