@@ -5,6 +5,7 @@ from oddt.spatial import distance, dihedral, rotate
 
 
 def get_children(molecule, mother, restricted):
+    # TODO: Fix RDKit 0-based indexes
     atoms = np.zeros(len(molecule.atoms), dtype=bool)
     atoms[mother - 1] = True
     d = 1  # Pass first
@@ -19,6 +20,7 @@ def get_children(molecule, mother, restricted):
 
 
 def get_close_neighbors(molecule, a_idx, num_bonds=1):
+    # TODO: Fix RDKit 0-based indexes
     atoms = np.zeros(len(molecule.atoms), dtype=bool)
     atoms[a_idx - 1] = True
     for i in range(num_bonds):
