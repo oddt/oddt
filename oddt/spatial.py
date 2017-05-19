@@ -183,7 +183,20 @@ def distance(x, y):
 def distance_complex(x, y):
     """ Computes distance between points, similar to distance(cdist),
     with major difference - allows higher dimmentions of input (cdist supports 2).
-    But it's 2-6 times slower, so use distance unless you have to nest it with a for loop.
+    distance is purely float64 and can de slightly more precise.
+
+    Parameters
+    ----------
+    x : numpy arrays, shape = [..., 3]
+        Array of poinds in 3D
+
+    y : numpy arrays, shape = [..., 3]
+        Array of poinds in 3D
+
+    Returns
+    -------
+    dist_matrix : numpy arrays
+        Distance matrix
     """
     return np.linalg.norm(x[..., np.newaxis, :] - y, axis=-1)
 
