@@ -5,7 +5,7 @@ Mainly used by other modules, but can be accessed directly.
 from math import sin, cos
 from six import PY3
 import numpy as np
-# from scipy.spatial.distance import cdist as distance
+from scipy.spatial.distance import cdist
 # for Hungarian algorithm, in future use scipy.optimize.linear_sum_assignment (in scipy 0.17+)
 try:
     from scipy.optimize import linear_sum_assignment
@@ -177,7 +177,7 @@ def distance(x, y):
     dist_matrix : numpy arrays, shape = [n_x, n_y]
         Distance matrix
     """
-    return np.linalg.norm(x[..., np.newaxis, :] - y, axis=-1)
+    return cdist(x, y)
 
 
 def distance_complex(x, y):
@@ -185,7 +185,7 @@ def distance_complex(x, y):
     with major difference - allows higher dimmentions of input (cdist supports 2).
     But it's 2-6 times slower, so use distance unless you have to nest it with a for loop.
     """
-    return np.sqrt(((x[..., np.newaxis, :] - y)**2).sum(axis=-1))
+    return np.linalg.norm(x[..., np.newaxis, :] - y, axis=-1)
 
 
 def rotate(coords, alpha, beta, gamma):
