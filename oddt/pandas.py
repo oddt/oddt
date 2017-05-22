@@ -473,6 +473,8 @@ class ChemDataFrame(pd.DataFrame):
         sheet = excel_writer.sheets['Sheet1']  # TODO: Get appropriate sheet name
         sheet.set_column(molecule_column_idx + 1, molecule_column_idx + 1, width=size[1] / 6.)
         for i, mol in enumerate(self[molecule_column]):
+            if mol is None:
+                continue
             img = BytesIO()
             png = mol.clone.write('png', size=size)
             if type(png) is str:
