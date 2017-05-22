@@ -465,13 +465,16 @@ class ChemDataFrame(pd.DataFrame):
         else:
             molecule_column = self._molecule_column
         molecule_column_idx = columns.index(molecule_column)
+        if 'index' not in kwargs or ('index' in kwargs and kwargs['index']):
+            molecule_column_idx += 1
+            print('blah', kwargs)
         size = kwargs.pop('size') if 'size' in kwargs else (200, 200)
         excel_writer = pd.ExcelWriter(args[0], engine='xlsxwriter')
 
         super(ChemDataFrame, self).to_excel(excel_writer, *args[1:], **kwargs)
 
         sheet = excel_writer.sheets['Sheet1']  # TODO: Get appropriate sheet name
-        sheet.set_column(molecule_column_idx + 1, molecule_column_idx + 1, width=size[1] / 6.)
+        sheet.set_column(molecule_column_idx, molecule_column_idx, width=size[1] / 6.)
         for i, mol in enumerate(self[molecule_column]):
             if mol is None:
                 continue
@@ -480,9 +483,9 @@ class ChemDataFrame(pd.DataFrame):
             if type(png) is str:
                 png = png.encode('utf-8', errors='surrogateescape')
             img.write(png)
-            sheet.write_string(i + 1, molecule_column_idx + 1, "")
+            sheet.write_string(i + 1, molecule_column_idx, "")
             sheet.insert_image(i + 1,
-                               molecule_column_idx + 1,
+                               molecule_column_idx,
                                'dummy',
                                {'image_data': img,
                                 'positioning': 2,
