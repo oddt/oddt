@@ -18,7 +18,7 @@ import pybel
 from pybel import *
 import numpy as np
 import openbabel as ob
-from openbabel import OBAtomAtomIter, OBTypeTable
+from openbabel import OBAtomAtomIter, OBAtomBondIter, OBTypeTable
 
 from oddt.toolkits.common import detect_secondary_structure
 
@@ -587,7 +587,7 @@ class Atom(pybel.Atom):
 
     @property
     def bonds(self):
-        return [Bond(self.OBAtom.GetBond(n.OBAtom)) for n in self.neighbors]
+        return [Bond(b) for b in OBAtomBondIter(self.OBAtom)]
 
 
 pybel.Atom = Atom
