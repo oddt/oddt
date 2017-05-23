@@ -4,12 +4,21 @@
 
 """
 
+from itertools import chain
 import numpy as np
-from oddt.interactions import pi_stacking, pi_cation, \
-    hbond_acceptor_donor, salt_bridge_plus_minus, hydrophobic_contacts, acceptor_metal
+import oddt
+from oddt.interactions import (pi_stacking,
+                               pi_cation,
+                               hbond_acceptor_donor,
+                               salt_bridge_plus_minus,
+                               hydrophobic_contacts,
+                               acceptor_metal)
 
 __all__ = ['InteractionFingerprint',
-           'SimpleInteractionFingerprint', 'dice', 'tc']
+           'SimpleInteractionFingerprint',
+           'ECFP',
+           'dice',
+           'tanimoto']
 
 
 def InteractionFingerprint(ligand, protein, strict=True):
@@ -183,6 +192,215 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
         amino_acids, metal[strict2]['resname']), 7], 1)
 
     return IFP.flatten()
+
+
+# ranges for hashing function
+MIN_HASH_VALUE = 0
+MAX_HASH_VALUE = 2 ** 32
+
+
+def hash32(value):
+    """Platform independend 32bit hashing method"""
+    return hash(value) & 0xffffffff
+
+
+def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
+    """Simple description of atoms used in ECFP/FCFP. Bonds are not described
+    accounted for. Hydrogens are explicitly forbidden, they raise Exception.
+
+    Reference:
+    Rogers D, Hahn M. Extended-connectivity fingerprints. J Chem Inf Model.
+    2010;50: 742–754. http://dx.doi.org/10.1021/ci100050t
+
+    Parameters
+    ----------
+    mol : oddt.toolkit.Molecule object
+        Input molecule for the FP calculations
+
+    idx : int
+        Root atom index (0-based).
+
+    use_pharm_features : bool (default=False)
+        Switch to use pharmacophoric features as atom representation instead of
+        explicit atomic numbers etc.
+
+    Returns
+    -------
+    atom_repr : tuple (size=6 or 7)
+        Atom type desctiption or pharmacophoric features of atom.
+    """
+    if use_pharm_features:
+        atom_dict = mol.atom_dict[idx]
+        if atom_dict['atomicnum'] == 1:
+            raise Exception('ECFP should not hash Hydrogens')
+        return (int(atom_dict['isdonor']),
+                int(atom_dict['isacceptor']),
+                int(atom_dict['ishydrophobe']),
+                int(atom_dict['isplus']),
+                int(atom_dict['isminus']),
+                int(atom_dict['isaromatic']))
+
+    else:
+        if oddt.toolkit.backend == 'ob':
+            atom = mol.OBMol.GetAtom(idx + 1)
+            if atom.GetAtomicNum() == 1:
+                raise Exception('ECFP should not hash Hydrogens')
+            return (atom.GetAtomicNum(),
+                    atom.GetIsotope(),
+                    atom.GetHvyValence(),
+                    atom.ImplicitHydrogenCount() + atom.ExplicitHydrogenCount(),
+                    atom.GetFormalCharge(),
+                    int(atom.IsInRing()),
+                    int(atom.IsAromatic()),)
+        else:
+            atom = mol.Mol.GetAtomWithIdx(idx)
+            if atom.GetAtomicNum() == 1:
+                raise Exception('ECFP should not hash Hydrogens')
+            return (atom.GetAtomicNum(),
+                    atom.GetIsotope(),
+                    atom.GetTotalDegree() - atom.GetTotalNumHs(includeNeighbors=True),
+                    atom.GetTotalNumHs(includeNeighbors=True),
+                    atom.GetFormalCharge(),
+                    int(atom.IsInRing()),
+                    int(atom.GetIsAromatic()),)
+
+
+def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False):
+    """Generate hashed environments for single atom up to certain depth
+    (bond-wise). Hydrogens are ignored during neighbor lookup.
+
+    Reference:
+    Rogers D, Hahn M. Extended-connectivity fingerprints. J Chem Inf Model.
+    2010;50: 742–754. http://dx.doi.org/10.1021/ci100050t
+
+    Parameters
+    ----------
+    mol : oddt.toolkit.Molecule object
+        Input molecule for the FP calculations
+
+    idx : int
+        Root atom index (0-based).
+
+    depth : int (deafult = 2)
+        The depth of the fingerprint, i.e. the number of bonds in Morgan
+        algorithm. Note: For ECFP2: depth = 1, ECFP4: depth = 2, etc.
+
+    use_pharm_features : bool (default=False)
+        Switch to use pharmacophoric features as atom representation instead of
+        explicit atomic numbers etc.
+
+    Returns
+    -------
+    environment_hashes : list of ints
+        Hashed environments for certain atom
+    """
+    atom_env = [[idx]]
+    for r in range(1, depth + 1):
+        prev_atom_env = atom_env[r - 1]
+        if r > 2:  # prune visited atoms
+            prev_atom_env = prev_atom_env[len(atom_env[r - 2]):]
+        tmp = []
+        for atom_idx in prev_atom_env:
+            # Toolkit independent version (slower 30%)
+            # for neighbor in mol.atoms[atom_idx].neighbors:
+            #     if neighbor.atomicnum == 1:
+            #         continue
+            #     n_idx = neighbor.idx - 1  # atom.idx is 1-based!
+            #     if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
+            #         tmp.append(n_idx)
+            if oddt.toolkit.backend == 'ob':
+                for neighbor in oddt.toolkit.OBAtomAtomIter(mol.OBMol.GetAtom(atom_idx + 1)):
+                    if neighbor.GetAtomicNum() == 1:
+                        continue
+                    n_idx = neighbor.GetIdx() - 1
+                    if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
+                        tmp.append(n_idx)
+            else:
+                for neighbor in mol.Mol.GetAtomWithIdx(atom_idx).GetNeighbors():
+                    if neighbor.GetAtomicNum() == 1:
+                        continue
+                    n_idx = neighbor.GetIdx()
+                    if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
+                        tmp.append(n_idx)
+        atom_env.append(atom_env[r - 1] + tmp)
+
+    # Get atom representation only once, pull indices from largest env
+    atom_repr = [_ECFP_atom_repr(mol, aidx, use_pharm_features=use_pharm_features)
+                 for aidx in atom_env[-1]]
+    # Get atom invariants
+    out_hash = []
+    for layer in atom_env:
+        layer_invariant = tuple(sorted([a_repr for aidx, a_repr in zip(layer, atom_repr)]))
+        out_hash.append(hash32(layer_invariant))
+    return out_hash
+
+
+def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
+         use_pharm_features=False):
+    """Extended connectivity fingerprints (ECFP) with an option to include
+    atom features (FCPF). Depth of a fingerprint is counted as bond-steps, thus
+    the depth for ECFP2 = 1, ECPF4 = 2, ECFP6 = 3, etc.
+
+    Reference:
+    Rogers D, Hahn M. Extended-connectivity fingerprints. J Chem Inf Model.
+    2010;50: 742–754. http://dx.doi.org/10.1021/ci100050t
+
+    Parameters
+    ----------
+    mol : oddt.toolkit.Molecule object
+        Input molecule for the FP calculations
+
+    depth : int (deafult = 2)
+        The depth of the fingerprint, i.e. the number of bonds in Morgan
+        algorithm. Note: For ECFP2: depth = 1, ECFP4: depth = 2, etc.
+
+    size : int (default = 4096)
+        Final size of fingerprint to which it is folded.
+
+    count_bits : bool (default = True)
+        Should the bits be counted or unique. In dense representation it
+        translates to integer array (count_bits=True) or boolean array if False.
+
+    sparse : bool (default=True)
+        Should fingerprints be dense (contain all bits) or sparse (just the on
+        bits).
+
+    use_pharm_features : bool (default=False)
+        Switch to use pharmacophoric features as atom representation instead of
+        explicit atomic numbers etc.
+
+    Returns
+    -------
+    fingerprint : numpy array
+        Calsulated FP of fixed size (dense) or on bits indices (sparse). Dtype
+        is either integer or boolean.
+    """
+    # Hash atom environments
+    mol_hashed = []
+    for idx, atom in enumerate(mol.atoms):
+        if atom.atomicnum == 1:
+            continue
+        mol_hashed.append(_ECFP_atom_hash(mol, idx, depth=depth,
+                                          use_pharm_features=use_pharm_features))
+    mol_hashed = np.array(sorted(chain(*mol_hashed)))
+
+    # folding
+    mol_hashed = np.floor((mol_hashed.astype(np.float64) - MIN_HASH_VALUE) /
+                          int(abs(MAX_HASH_VALUE - MIN_HASH_VALUE) / size))
+
+    # cast to minimum unsigned integer dtype
+    mol_hashed = mol_hashed.astype(np.min_scalar_type(size))
+
+    if not count_bits:
+        mol_hashed = np.unique(mol_hashed)
+
+    # dense or sparse FP
+    if not sparse:
+        tmp = np.zeros(size, dtype=np.uint8 if count_bits else bool)
+        np.add.at(tmp, mol_hashed, 1)
+        mol_hashed = tmp
+
+    return mol_hashed
 
 
 def dice(a, b):
