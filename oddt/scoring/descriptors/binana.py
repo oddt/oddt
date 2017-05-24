@@ -244,7 +244,7 @@ class binana_descriptor(object):
                             138.94238460104697e4).sum(),  # convert to J/mol
                 else:
                     ele += 0,
-            vec += tuple(ele)
+            vec += tuple(np.nan_to_num(ele))
 
             # Ligand Atom Types
             atoms = atoms_by_type(mol_dict, self.ligand_atom_types, 'atom_types_ad4')

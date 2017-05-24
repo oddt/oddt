@@ -112,7 +112,6 @@ def test_rfscore():
         assert_array_almost_equal(descs, descs_correct, decimal=4)
 
 
-@nottest
 def test_nnscore():
     """Test NNScore descriptors generators"""
     mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
@@ -125,17 +124,6 @@ def test_nnscore():
     # Delete molecule which has differences in Acceptor-Donor def in RDK and OB
     del mols[65]
 
-    # print((rec.atom_dict['atomicnum'] == 1).sum(),
-    #       rec.atom_dict['isdonor'].sum(),
-    #       rec.atom_dict['isdonorh'].sum())
-
-    # for mol in mols:
-    #     print(mol.num_rotors)
-    #     print(sum(atom.Atom.GetAtomicNum() == 1 for atom in mol.atoms))
-    #     print((mol.atom_dict['atomicnum'] == 1).sum(),
-    #           mol.atom_dict['isdonor'].sum(),
-    #           mol.atom_dict['isdonorh'].sum())
-
     gen = nnscore(protein=rec).descriptor_generator
     descs = gen.build(mols)
     # save correct results (for future use)
@@ -144,7 +132,14 @@ def test_nnscore():
     #            descs,
     #            fmt='%.16g',
     #            delimiter=',')
-    descs_correct = np.loadtxt(os.path.join(test_data_dir, 'data/results/xiap/nnscore_descs.csv'), delimiter=',')
+    if oddt.toolkit.backend == 'ob':
+        descs_correct = np.loadtxt(os.path.join(test_data_dir,
+                                                'data/results/xiap/nnscore_descs_ob.csv'),
+                                   delimiter=',')
+    else:
+        descs_correct = np.loadtxt(os.path.join(test_data_dir,
+                                                'data/results/xiap/nnscore_descs_rdk.csv'),
+                                   delimiter=',')
 
     # help debug errors
     for i in range(descs.shape[1]):
