@@ -40,27 +40,38 @@ deploy:
           branch: master
       skip_cleanup: true
 install:
-    - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh;
-    - bash miniconda.sh -b -p $HOME/miniconda
+    # Install Miniconda.
+    - wget https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh; bash miniconda.sh -b -f -p $HOME/miniconda;
     - export PATH="$HOME/miniconda/bin:$PATH"
     - conda config --set always_yes yes --set changeps1 no
     - conda update -q conda
     - conda install -q conda-build anaconda-client
     - conda info -a
-    - conda create -q -n test-environment python=$CONDA_PY nose numpydoc six scipy numpy scipy scikit-learn joblib pandas coverage pillow
+    - if [ -d $HOME/miniconda/envs/test-environment ]; then rm -rf $HOME/miniconda/envs/test-environment; fi
+    - conda create -q -n test-environment python=$CONDA_PY nose numpydoc six coverage pillow
     - source activate test-environment
-    - if [[ "$ODDT_TOOLKIT" == "ob" ]]; then conda install -q -c openbabel openbabel; fi
-    - if [[ "$ODDT_TOOLKIT" == "rdk" ]]; then conda install -q -c rdkit rdkit; fi
-    - conda install -q -c bioconda autodock-vina
-
-    # Downgrade to miminal requirements
-    - if [[ "$MINIMAL_REQ" == "1" && "$ODDT_TOOLKIT" == "ob" ]]; then conda install -q -c mwojcikowski openbabel=2.3.2; fi
-    - if [[ "$MINIMAL_REQ" == "1" && "$ODDT_TOOLKIT" == "rdk" ]]; then conda install -q -c mwojcikowski -c rdkit rdkit=2016.03; fi
-    - if [[ "$MINIMAL_REQ" == "1" ]]; then conda install -q numpy=1.8 scipy=0.13 pandas=0.13 joblib=0.8; conda remove -q scikit-learn; pip install scikit-learn==0.18; fi
-    - pip install coveralls
+    - |
+        if [[ "$MINIMAL_REQ" == "1" ]]; then
+            conda install -q numpy=1.8 scipy=0.13 pandas=0.13 joblib=0.8;
+            pip install scikit-learn==0.18;
+            if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
+                conda install -q -c mwojcikowski openbabel=2.3.2;
+            elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
+                conda install -q -c mwojcikowski -c rdkit rdkit=2016.03;
+            fi
+        else
+            conda install -q numpy scipy scikit-learn joblib pandas;
+            if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
+                conda install -q -c openbabel openbabel;
+            elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
+                conda install -q -c rdkit rdkit;
+            fi
+        fi
+        conda install -q -c bioconda autodock-vina
+        pip install coveralls
     - python setup.py install
 script:
-    - nosetests --with-coverage --cover-package oddt -v --nocapture
+    - nosetests --with-coverage --cover-package oddt -v --nocapture --processes=2 --process-timeout=60
     - oddt_cli --help
     - oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
 after_success:
