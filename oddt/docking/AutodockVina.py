@@ -12,7 +12,7 @@ class autodock_vina(object):
     def __init__(self,
                  protein=None,
                  auto_ligand=None,
-                 size=(10, 10, 10),
+                 size=(20, 20, 20),
                  center=(0, 0, 0),
                  exhaustiveness=8,
                  num_modes=9,
@@ -36,7 +36,7 @@ class autodock_vina(object):
                 a file (opened based on extesion and read to ODDT molecule).
                 Box is centered on geometric center of molecule.
 
-            size: tuple, shape=[3] (default=(10,10,10))
+            size: tuple, shape=[3] (default=(20, 20, 20))
                 Dimentions of docking box (in Angstroms)
 
             center: tuple, shape=[3] (default=(0,0,0))
@@ -141,7 +141,7 @@ class autodock_vina(object):
         # generate new directory
         self._tmp_dir = None
         if protein:
-            self.protein = protein 
+            self.protein = protein
             if type(protein) is str:
                 extension = protein.split('.')[-1]
                 if extension == 'pdbqt':

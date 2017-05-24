@@ -36,15 +36,16 @@ if oddt.toolkit.backend == 'ob':  # RDKit doesn't write PDBQT
 if oddt.toolkit.backend == 'ob':  # RDKit doesn't write PDBQT
     def test_vs_docking():
         """VS docking (Vina) tests"""
-        vs = virtualscreening(n_cpu=-1)
+        vs = virtualscreening(n_cpu=1)
         vs.load_ligands('sdf', os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf'))
         vs.dock(engine='autodock_vina',
                 protein=os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb'),
                 auto_ligand=os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf'),
                 exhaustiveness=1,
+                size=(20, 20, 20),
                 seed=0)
         mols = list(vs.fetch())
-        assert_equal(len(mols), 3)
+        assert_equal(len(mols), 7)
         mol_data = mols[0].data
         assert_in('vina_affinity', mol_data)
         assert_in('vina_rmsd_lb', mol_data)
