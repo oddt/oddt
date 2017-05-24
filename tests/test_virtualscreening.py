@@ -42,15 +42,17 @@ if oddt.toolkit.backend == 'ob':  # RDKit doesn't write PDBQT
                 protein=os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb'),
                 auto_ligand=os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf'),
                 exhaustiveness=1,
+                num_modes=9,
                 size=(20, 20, 20),
                 seed=0)
         mols = list(vs.fetch())
-        assert_equal(len(mols), 7)
+        assert_equal(len(mols), 9)
         mol_data = mols[0].data
         assert_in('vina_affinity', mol_data)
         assert_in('vina_rmsd_lb', mol_data)
         assert_in('vina_rmsd_ub', mol_data)
-
+        assert_array_equal([float(m.data['vina_affinity']) for m in mols],
+                           [-6.3, -6., -6., -5.9, -5.9, -5.8, -5.2, -4.2, -3.9])
 
 if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed
     def test_vs_filtering():
