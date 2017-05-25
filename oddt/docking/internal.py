@@ -1,8 +1,8 @@
 """ ODDT's internal docking/scoring engines """
 import numpy as np
 import math
-from oddt.spatial import distance, dihedral, rotate
-
+from oddt.spatial import distance, dihedral, rotate, angle
+from pprint import pprint
 
 def get_children(molecule, mother, restricted):
     # TODO: Fix RDKit 0-based indexes
@@ -314,6 +314,52 @@ class vina_ligand(object):
 class xscore_docking(vina_docking):
     """Internal implementation of XSCORE"""
 
+    def set_protein(self, rec):
+        rec.protein = True
+        if rec is None:
+            self.rec_dict = None
+            self.mask_inter = {}
+        else:
+            self.rec_dict = rec.atom_dict[rec.atom_dict['atomicnum'] != 1].copy()
+
+            # Remove waters
+            self.rec_dict = self.rec_dict[self.rec_dict['resname'] != 'HOH']
+
+            self.rec_dict = self.correct_radius(self.rec_dict)
+            self.mask_inter = {}
+
+    def correct_radius(self, atom_dict):
+        vina_r = {6: 1.8,
+                  7: 1.75,
+                  8: 1.65,
+                  9: 1.5,
+                  15: 2.0,
+                  16: 2.0,
+                  17: 1.75,
+                  35: 1.9,
+                  53: 2.05,
+                  }
+        for a, r in vina_r.items():
+            atom_dict['radius'][atom_dict['atomicnum'] == a] = r
+
+        # C sp2
+        atom_dict['radius'][(atom_dict['atomicnum'] == 6) & (atom_dict['hybridization'] == 2)] = 1.9
+        # C sp3
+        atom_dict['radius'][(atom_dict['atomicnum'] == 6) & (atom_dict['hybridization'] == 3)] = 2.1
+        # C aromatic
+        atom_dict['radius'][(atom_dict['atomicnum'] == 6) & atom_dict['isaromatic']] = 2.0
+        # carbocation
+        atom_dict['radius'][atom_dict['atomtype'] == 'C.cat'] = 1.9
+        # N sp3
+        atom_dict['radius'][(atom_dict['atomicnum'] == 7) & (atom_dict['hybridization'] == 3)] = 1.8
+        # 0 sp2
+        atom_dict['radius'][(atom_dict['atomicnum'] == 8) & (atom_dict['hybridization'] == 2)] = 1.55
+        # S sp3
+        atom_dict['radius'][(atom_dict['atomicnum'] == 16) & (atom_dict['hybridization'] == 3)] = 2.1
+        # metals - 1.2 A
+        atom_dict['radius'][atom_dict['ismetal']] = 1.2
+        return atom_dict
+
     def score_inter(self, coords=None):
         local_lig_dict = self.lig_dict.copy()
         if coords is None:
@@ -324,13 +370,22 @@ class xscore_docking(vina_docking):
 
         # Inter-molecular
         d = distance(self.rec_dict['coords'], coords)
-        d0 = (self.rec_dict['radius'][:, np.newaxis] -
+        d0 = (self.rec_dict['radius'][:, np.newaxis] +
               self.lig_dict['radius'][np.newaxis, :])
-        mask = np.ones_like(d, dtype=bool)  # What is the cutoff?
+        mask = d <= 8
 
         inter = []
         # Van def Waals
-        inter.append(((d0 / d) ** 8 - 2 * (d0 / d) ** 4).sum())
+        d_vdw = d[mask]
+        d_vdw0 = d0[mask]
+
+        out = np.zeros_like(d)
+        np.add.at(out, mask, -(((d_vdw0 / d_vdw) ** 8) - 2 * ((d_vdw0 / d_vdw) ** 4)))
+        inter.append(out.sum())
+
+        pprint(list(zip(self.lig_dict['atomtype'],
+               self.lig_dict['radius'],
+               out.sum(0))))
 
         # H-Bonding
         if 'da' not in self.mask_inter:
@@ -340,34 +395,38 @@ class xscore_docking(vina_docking):
             self.mask_inter['ad'] = (self.rec_dict['isacceptor'][:, np.newaxis] *
                                      (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, :])
 
-        d_h = d[mask & (self.mask_inter['da'] | self.mask_inter['ad'])]
-        d_h0 = d0[mask & (self.mask_inter['da'] | self.mask_inter['ad'])]
+        d_h = d * (mask & (self.mask_inter['da'] | self.mask_inter['ad']))
+        d_h0 = d0 * (mask & (self.mask_inter['da'] | self.mask_inter['ad']))
 
         # the angle between donor root (DR), donor (D) and acceptor (A)
-        a = coords[self.lig_dict['isacceptor']]
-        d = self.rec_dict['coords'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
-        dr = self.rec_dict['neighbors'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
-        theta1_1 = angle(a[:, np.newaxis, :], d[:, np.newaxis, :], dr)
+        A = coords#[self.lig_dict['isacceptor']]
+        D = self.rec_dict['coords']#[self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
+        DR = self.rec_dict['neighbors']#[self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
+        theta1_1 = angle(A[:, np.newaxis, np.newaxis, :], D[:, np.newaxis, :], DR)
+        theta1_1 = np.nanmin(theta1_1, axis=-1).swapaxes(0, 1)
 
-        a = self.rec_dict['coords'][self.rec_dict['isacceptor']]
-        d = coords[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
-        dr = self.lig_dict['neighbors'][self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
-        theta1_2 = angle(a[:, np.newaxis, :], d[:, np.newaxis, :], d)
+        A = self.rec_dict['coords']#[self.rec_dict['isacceptor']]
+        D = coords#[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
+        DR = self.lig_dict['neighbors']#[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
+        theta1_2 = angle(A[:, np.newaxis, np.newaxis, :], D[:, np.newaxis, :], DR)
+        theta1_2 = np.nanmin(theta1_2, axis=-1)
 
-        theta1 = np.hstack((theta1_1, theta1_2)).min(axis=0)
+        theta1 = np.nan_to_num(theta1_1) + np.nan_to_num(theta1_2)
 
         # the angle between donor (D), acceptor (A) and acceptor root (AR)
-        d = coords['coords'][self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
-        a = self.rec_dict[self.rec_dict['isacceptor']]
-        ar = self.rec_dict['neighbors'][self.rec_dict['isacceptor']]
-        theta2_1 = angle(d[:, np.newaxis, :], a[:, np.newaxis, :], ar)
+        D = coords#[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
+        A = self.rec_dict['coords']#[self.rec_dict['isacceptor']]
+        AR = self.rec_dict['neighbors']#[self.rec_dict['isacceptor']]
+        theta2_1 = angle(D[:, np.newaxis, np.newaxis, :], A[:, np.newaxis, :], AR)
+        theta2_1 = np.nanmin(theta2_1, axis=-1).swapaxes(0, 1)
 
-        d = self.rec_dict['coords'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
-        a = coords[self.lig_dict['isacceptor']]
-        ar = self.lig_dict['neighbors'][self.lig_dict['isacceptor']]
-        theta2_2 = angle(d[:, np.newaxis, :], a[:, np.newaxis, :], ar)
+        D = self.rec_dict['coords']#[self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
+        A = coords#[self.lig_dict['isacceptor']]
+        AR = self.lig_dict['neighbors']#[self.lig_dict['isacceptor']]
+        theta2_2 = angle(D[:, np.newaxis, np.newaxis, :], A[:, np.newaxis, :], AR)
+        theta2_2 = np.nanmin(theta2_2, axis=-1)
 
-        theta2 = np.hstack((theta2_1, theta2_2)).min(axis=0)
+        theta2 = np.nan_to_num(theta2_1) + np.nan_to_num(theta2_2)
 
         f_d = ((d_h <= d_h0 - 0.7).astype(float) +
                ((d_h0 - d_h) * ((d_h0 - 0.7 < d_h) & (d_h < 0)).astype(float) / -0.7))
@@ -384,16 +443,25 @@ class xscore_docking(vina_docking):
         # i) Hydrophobic surface (HS)
         inter.append(np.nan)
 
-        # ii) Hydrophobic contact (HC)
+        # ii) Hydrophobic pairs (HP)
         if 'hyd' not in self.mask_inter:
             self.mask_inter['hyd'] = ((self.rec_dict['ishydrophobe'] | self.rec_dict['ishalogen'])[:, np.newaxis] *
                                       (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis, :])
         mask_hyd = mask & self.mask_inter['hyd']
         d_hyd = d[mask_hyd]
         d_hyd0 = d0[mask_hyd]
-        inter.append((d_hyd <= d_hyd0 + 0.5).sum() +
-                     ((d_hyd + 2. - d_hyd) / 1.5 *
-                      ((0.5 + d_hyd0 < d_hyd) & (d_hyd <= d_hyd + 2.)).astype(float)).sum())
+
+        out = np.zeros_like(d, dtype=float)
+        np.add.at(out, np.where(mask_hyd), d_hyd <= (d_hyd0 + 0.5))
+        np.add.at(out, np.where(mask_hyd),
+                  ((d_hyd0 + 2.2 - d_hyd) / (2.2 - 0.5) *
+                   ((d_hyd > d_hyd0 + 0.5) & (d_hyd <= d_hyd0 + 2.2))))
+
+        pprint(list(zip(self.lig_dict['atomtype'],
+               self.lig_dict['radius'],
+               out.sum(0))))
+
+        inter.append(out.sum())
 
         # iii) Hydrophobic matching (HM)
         inter.append(np.nan)
