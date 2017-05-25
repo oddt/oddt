@@ -309,3 +309,93 @@ class vina_ligand(object):
             mask = self.engine.rotors[i]['mask']
             c = change_dihedral(c, a[0], a[1], a[2], a[3], rotors_vec[i], mask)
         return c
+
+
+class xscore_docking(vina_docking):
+    """Internal implementation of XSCORE"""
+
+    def score_inter(self, coords=None):
+        local_lig_dict = self.lig_dict.copy()
+        if coords is None:
+            coords = self.lig_dict['coords']
+        else:
+            # BUG: Neighbors are out of order!
+            local_lig_dict['coords'] = coords
+
+        # Inter-molecular
+        d = distance(self.rec_dict['coords'], coords)
+        d0 = (self.rec_dict['radius'][:, np.newaxis] -
+              self.lig_dict['radius'][np.newaxis, :])
+        mask = np.ones_like(d, dtype=bool)  # What is the cutoff?
+
+        inter = []
+        # Van def Waals
+        inter.append(((d0 / d) ** 8 - 2 * (d0 / d) ** 4).sum())
+
+        # H-Bonding
+        if 'da' not in self.mask_inter:
+            self.mask_inter['da'] = ((self.rec_dict['isdonor'] | self.rec_dict['ismetal'])[:, np.newaxis] *
+                                     self.lig_dict['isacceptor'][np.newaxis, :])
+        if 'ad' not in self.mask_inter:
+            self.mask_inter['ad'] = (self.rec_dict['isacceptor'][:, np.newaxis] *
+                                     (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, :])
+
+        d_h = d[mask & (self.mask_inter['da'] | self.mask_inter['ad'])]
+        d_h0 = d0[mask & (self.mask_inter['da'] | self.mask_inter['ad'])]
+
+        # the angle between donor root (DR), donor (D) and acceptor (A)
+        a = coords[self.lig_dict['isacceptor']]
+        d = self.rec_dict['coords'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
+        dr = self.rec_dict['neighbors'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
+        theta1_1 = angle(a[:, np.newaxis, :], d[:, np.newaxis, :], dr)
+
+        a = self.rec_dict['coords'][self.rec_dict['isacceptor']]
+        d = coords[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
+        dr = self.lig_dict['neighbors'][self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
+        theta1_2 = angle(a[:, np.newaxis, :], d[:, np.newaxis, :], d)
+
+        theta1 = np.hstack((theta1_1, theta1_2)).min(axis=0)
+
+        # the angle between donor (D), acceptor (A) and acceptor root (AR)
+        d = coords['coords'][self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
+        a = self.rec_dict[self.rec_dict['isacceptor']]
+        ar = self.rec_dict['neighbors'][self.rec_dict['isacceptor']]
+        theta2_1 = angle(d[:, np.newaxis, :], a[:, np.newaxis, :], ar)
+
+        d = self.rec_dict['coords'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
+        a = coords[self.lig_dict['isacceptor']]
+        ar = self.lig_dict['neighbors'][self.lig_dict['isacceptor']]
+        theta2_2 = angle(d[:, np.newaxis, :], a[:, np.newaxis, :], ar)
+
+        theta2 = np.hstack((theta2_1, theta2_2)).min(axis=0)
+
+        f_d = ((d_h <= d_h0 - 0.7).astype(float) +
+               ((d_h0 - d_h) * ((d_h0 - 0.7 < d_h) & (d_h < 0)).astype(float) / -0.7))
+        f_theta1 = ((theta1 >= 120).astype(float) +
+                    (theta1 * ((theta1 < 120) & (theta1 >= 60)).astype(float) / 60 - 1))
+        f_theta2 = ((theta2 >= 120).astype(float) +
+                    (theta2 * ((theta2 < 120) & (theta2 >= 60)).astype(float) / 60 - 1))
+
+        inter.append((f_d * f_theta1 * f_theta2).sum())
+
+        # Deformation effect
+
+        # Hydrophobic effect
+        # i) Hydrophobic surface (HS)
+        inter.append(np.nan)
+
+        # ii) Hydrophobic contact (HC)
+        if 'hyd' not in self.mask_inter:
+            self.mask_inter['hyd'] = ((self.rec_dict['ishydrophobe'] | self.rec_dict['ishalogen'])[:, np.newaxis] *
+                                      (self.lig_dict['ishydrophobe'] | self.lig_dict['ishalogen'])[np.newaxis, :])
+        mask_hyd = mask & self.mask_inter['hyd']
+        d_hyd = d[mask_hyd]
+        d_hyd0 = d0[mask_hyd]
+        inter.append((d_hyd <= d_hyd0 + 0.5).sum() +
+                     ((d_hyd + 2. - d_hyd) / 1.5 *
+                      ((0.5 + d_hyd0 < d_hyd) & (d_hyd <= d_hyd + 2.)).astype(float)).sum())
+
+        # iii) Hydrophobic matching (HM)
+        inter.append(np.nan)
+
+        return np.array(inter)
