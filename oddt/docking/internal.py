@@ -1,8 +1,12 @@
 """ ODDT's internal docking/scoring engines """
 import numpy as np
 import math
+from collections import Counter
+from itertools import chain
+import oddt
 from oddt.spatial import distance, dihedral, rotate, angle
 from pprint import pprint
+
 
 def get_children(molecule, mother, restricted):
     # TODO: Fix RDKit 0-based indexes
@@ -69,6 +73,38 @@ def num_rotors_pdbqt(lig):
         elif num_local_rot >= 3:
             i += 0.5
     return i
+
+
+def num_rotors_xscore(lig, atom_contrib=False):
+    SMARTS_EXLUSIONS = [
+        '!$(C(F)(F)F)',
+        '!$(C(Cl)(Cl)Cl)',
+        '!$(C(Br)(Br)Br)',
+        '!$(C([CD1])([D1])[CD1])',
+        '!$(C(!@N)(!@[N,N+]))',
+    ]
+    SMARTS_SINGLE_EXCLUSIONS = [
+        '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])',
+        '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])',
+        '!$([#7!D1]-!@[CD3]=[N+])',
+    ]
+    SMARTS = ('[!D1&%s]-&!@[!D1&%s]' % ('&'.join(SMARTS_EXLUSIONS +
+                                                 SMARTS_SINGLE_EXCLUSIONS),
+                                        '&'.join(SMARTS_EXLUSIONS)))
+    s = oddt.toolkit.Smarts(SMARTS)
+    rotor_ids = list(chain(*s.findall(lig)))
+
+    out = np.zeros(len(lig.atoms))
+    for i, count in Counter(rotor_ids).items():
+        if oddt.toolkit.backend == 'ob':
+            i -= 1
+        if count == 1:
+            out[i] += 0.5
+        elif count == 2:
+            out[i] += 1.0
+        elif count >= 3:
+            out[i] += 0.5
+    return out if atom_contrib else out.sum()
 
 
 class vina_docking(object):
@@ -314,6 +350,10 @@ class vina_ligand(object):
 class xscore_docking(vina_docking):
     """Internal implementation of XSCORE"""
 
+    def set_ligand(self, lig):
+        super(xscore_docking, self).set_ligand(lig)
+        self.num_rotors = num_rotors_xscore(lig, atom_contrib=True)
+
     def set_protein(self, rec):
         rec.protein = True
         if rec is None:
@@ -438,6 +478,8 @@ class xscore_docking(vina_docking):
         inter.append((f_d * f_theta1 * f_theta2).sum())
 
         # Deformation effect
+        out = self.num_rotors
+        inter.append(out.sum())
 
         # Hydrophobic effect
         # i) Hydrophobic surface (HS)

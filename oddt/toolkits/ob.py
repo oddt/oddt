@@ -278,6 +278,7 @@ class Molecule(pybel.Molecule):
                           '!$(C(Br)(Br)Br)&'
                           '!$(C([CH3])([CH3])[CH3])]')
         return len(rot_bond.findall(self))
+        # return sum(b.isrotor for b in self.bonds)
 
     def _repr_svg_(self, size=(200, 200)):
         return self.clone.write('svg',
@@ -634,6 +635,10 @@ class Bond(object):
     @property
     def isaromatic(self):
         return self.OBBond.IsAromatic()
+
+    @property
+    def inring(self):
+        return self.OBBond.IsInRing()
 
 
 class Residue(object):

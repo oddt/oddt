@@ -509,6 +509,7 @@ class Molecule(object):
     @property
     def num_rotors(self):
         return NumRotatableBonds(self.Mol)
+        #return sum(b.isrotor for b in self.bonds)
 
     @property
     def bonds(self):
@@ -1176,30 +1177,38 @@ class Bond(object):
 
     @property
     def isrotor(self):
-        if (not self.Bond.IsInRing() and
-            self.Bond.Match(Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
-                                               '!$(C(Cl)(Cl)Cl)&'
-                                               '!$(C(Br)(Br)Br)&'
-                                               '!$(C([CH3])([CH3])[CH3])&'
-                                               '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&'
-                                               '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&'
-                                               '!$([CD3](=[N+])-!@[#7!D1])&'
-                                               '!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&'
-                                               '!D1&!$(C(F)(F)F)&'
-                                               '!$(C(Cl)(Cl)Cl)&'
-                                               '!$(C(Br)(Br)Br)&'
-                                               '!$(C([CH3])([CH3])[CH3])]').GetBondWithIdx(0))):
-            a1, a2 = self.atoms
-            if a1.atomicnum > 1 and a2.atomicnum > 1:
-                a1_n = sum(n.atomicnum > 1 for n in a1.neighbors)
-                a2_n = sum(n.atomicnum > 1 for n in a2.neighbors)
-                if a1_n > 1 and a2_n > 1:
-                    return True
+        SMARTS_EXLUSIONS = [
+            '!$(C(F)(F)F)',
+            '!$(C(Cl)(Cl)Cl)',
+            '!$(C(Br)(Br)Br)',
+            '!$(C([CD1])([D1])[CD1])',
+            #'!$(C(!@[ND1])(!@[ND1,ND1+]))',
+        ]
+        SMARTS_SINGLE_EXCLUSIONS = [
+            '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])',
+            '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])',
+            '!$([#7!D1]-!@[CD3]=[N+])',
+        ]
+        SMARTS = ('[!D1&%s]-&!@[!D1&%s]' % ('&'.join(SMARTS_EXLUSIONS +
+                                                     SMARTS_SINGLE_EXCLUSIONS),
+                                            '&'.join(SMARTS_EXLUSIONS)))
+        if not self.Bond.IsInRing() and self.order == 1:
+            if self.Bond.Match(Chem.MolFromSmarts(SMARTS).GetBondWithIdx(0)):
+                a1, a2 = self.atoms
+                if a1.atomicnum > 1 and a2.atomicnum > 1:
+                    a1_n = sum(n.atomicnum > 1 for n in a1.neighbors)
+                    a2_n = sum(n.atomicnum > 1 for n in a2.neighbors)
+                    if a1_n > 1 and a2_n > 1:
+                        return True
         return False
 
     @property
     def isaromatic(self):
         return self.Bond.GetIsAromatic()
+
+    @property
+    def inring(self):
+        return self.Bond.IsInRing()
 
 
 class Residue(object):
