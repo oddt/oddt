@@ -1,6 +1,6 @@
 """ ODDT's internal docking/scoring engines """
 import numpy as np
-import math
+from math import floor, ceil, sin, cos
 from collections import Counter
 from itertools import chain
 import oddt
@@ -36,20 +36,20 @@ def get_close_neighbors(molecule, a_idx, num_bonds=1):
 
 
 def change_dihedral(coords, a1, a2, a3, a4, target_angle, rot_mask):
-    sin = math.sin(target_angle)
-    cos = math.cos(target_angle)
+    angle_sin = sin(target_angle)
+    angle_cos = cos(target_angle)
     t = 1 - cos
     v0 = coords[a2] - coords[a3]
     v = (v0) / np.linalg.norm(v0)
-    rot_matrix = np.array([[t * v[0] * v[0] + cos,
-                            t * v[0] * v[1] + sin * v[2],
-                            t * v[0] * v[2] - sin * v[1]],
-                           [t * v[0] * v[1] - sin * v[2],
-                            t * v[1] * v[1] + cos,
-                            t * v[1] * v[2] + sin * v[0]],
-                           [t * v[0] * v[2] + sin * v[1],
-                            t * v[1] * v[2] - sin * v[0],
-                            t * v[2] * v[2] + cos]])
+    rot_matrix = np.array([[t * v[0] * v[0] + angle_cos,
+                            t * v[0] * v[1] + angle_sin * v[2],
+                            t * v[0] * v[2] - angle_sin * v[1]],
+                           [t * v[0] * v[1] - angle_sin * v[2],
+                            t * v[1] * v[1] + angle_cos,
+                            t * v[1] * v[2] + angle_sin * v[0]],
+                           [t * v[0] * v[2] + angle_sin * v[1],
+                            t * v[1] * v[2] - angle_sin * v[0],
+                            t * v[2] * v[2] + angle_cos]])
 
     centroid = coords[a3]
     coords = coords - centroid
@@ -74,6 +74,39 @@ def num_rotors_pdbqt(lig):
         elif num_local_rot >= 3:
             i += 0.5
     return i
+
+
+def surface_mesh(r=1., spacing=0.5):
+    """
+    Compute an evenly distributed mesh on the surface of sphere.
+
+    Parameters
+    ----------
+    r : float
+        The radius of sphere
+
+    spacing: float
+        Distance between mesh points
+
+    Returns
+    -------
+    meshcoords : numpy arrays, shape = [n_points, 4]
+        3d coordinates of mesh points (0-centered). 4-th dim is the singular
+        surface of mesh point.
+    """
+    coords = []
+    total_surf = 4 * np.pi * r * r
+    num = 0
+    for alpha in np.linspace(0., np.pi, ceil(np.pi * r / spacing)):
+        r2 = r * sin(alpha)
+        # the number of steps must be uneven to cover the top and bottom
+        for beta in np.linspace(0., 2 * np.pi, ceil(2 * np.pi * r2 / spacing) + 1):
+            coords.append((r2 * cos(beta),
+                           r2 * sin(beta),
+                           r * cos(alpha)))
+            num += 1
+    coords = np.array(coords)
+    return np.hstack((coords, np.array([total_surf / num] * num).reshape(-1, 1)))
 
 
 def num_rotors_xscore(lig, atom_contrib=False):
