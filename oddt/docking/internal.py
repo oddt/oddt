@@ -5,6 +5,7 @@ from collections import Counter
 from itertools import chain
 import oddt
 from oddt.spatial import distance, dihedral, rotate, angle
+from oddt.property import xlogp2_atom_contrib
 from pprint import pprint
 
 
@@ -353,6 +354,7 @@ class xscore_docking(vina_docking):
     def set_ligand(self, lig):
         super(xscore_docking, self).set_ligand(lig)
         self.num_rotors = num_rotors_xscore(lig, atom_contrib=True)
+        self.lig_xlogp2_contrib = xlogp2_atom_contrib(lig)[lig.atom_dict['atomicnum'] != 1]
 
     def set_protein(self, rec):
         rec.protein = True
@@ -361,6 +363,9 @@ class xscore_docking(vina_docking):
             self.mask_inter = {}
         else:
             self.rec_dict = rec.atom_dict[rec.atom_dict['atomicnum'] != 1].copy()
+
+            self.rec_xlogp2_contrib = xlogp2_atom_contrib(rec)[np.array([a.atomicnum != 1 for a in rec.atoms], dtype=bool)]
+            self.rec_xlogp2_contrib = self.rec_xlogp2_contrib[self.rec_dict['resname'] != 'HOH']
 
             # Remove waters
             self.rec_dict = self.rec_dict[self.rec_dict['resname'] != 'HOH']
@@ -423,9 +428,9 @@ class xscore_docking(vina_docking):
         np.add.at(out, mask, -(((d_vdw0 / d_vdw) ** 8) - 2 * ((d_vdw0 / d_vdw) ** 4)))
         inter.append(out.sum())
 
-        pprint(list(zip(self.lig_dict['atomtype'],
-               self.lig_dict['radius'],
-               out.sum(0))))
+        # pprint(list(zip(self.lig_dict['atomtype'],
+        #        self.lig_dict['radius'],
+        #        out.sum(0))))
 
         # H-Bonding
         if 'da' not in self.mask_inter:
@@ -499,13 +504,28 @@ class xscore_docking(vina_docking):
                   ((d_hyd0 + 2.2 - d_hyd) / (2.2 - 0.5) *
                    ((d_hyd > d_hyd0 + 0.5) & (d_hyd <= d_hyd0 + 2.2))))
 
-        pprint(list(zip(self.lig_dict['atomtype'],
-               self.lig_dict['radius'],
-               out.sum(0))))
+        # pprint(list(zip(self.lig_dict['atomtype'],
+        #        self.lig_dict['radius'],
+        #        out.sum(0))))
 
         inter.append(out.sum())
 
         # iii) Hydrophobic matching (HM)
-        inter.append(np.nan)
+        out = np.zeros_like(d, dtype=float)
+        out[d <= (d0 + 0.5)] += 1
+        ix = (d > d0 + 0.5) & (d <= d0 + 2.2)
+        out[ix] += ((d0 + 2.2 - d) / (2.2 - 0.5))[ix]
+
+        hm_env = (self.rec_xlogp2_contrib[:, np.newaxis] * out).sum(axis=0)
+
+        out = (np.clip(self.lig_xlogp2_contrib, 0, None) *
+               ((hm_env > -0.5) | (self.lig_xlogp2_contrib > 0.5)))
+
+        # pprint(list(zip(self.lig_dict['atomtype'],
+        #                 self.lig_xlogp2_contrib,
+        #                 hm_env,
+        #                 out)))
+
+        inter.append(out.sum())
 
         return np.array(inter)
