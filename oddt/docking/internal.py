@@ -452,7 +452,7 @@ class xscore_docking(vina_docking):
     def gen_molecule_surface_mesh(self, coords=None, probe=1.4):
         molecule_surface_mesh = []
         if coords is None:
-            coords = self.lig_dict['coords']
+            coords = self.lig_dict['coords'].copy()
         for i in range(len(self.lig_dict)):
             a_dict = self.lig_dict[i]
             atom_mesh = self.ligand_atom_mesh[i]
@@ -464,6 +464,13 @@ class xscore_docking(vina_docking):
             mask[:, i] = True  # mark current atom
             mask = mask.all(axis=1)
 
+            edge_mask = (d - self.lig_dict['radius'] - probe <
+                         np.sqrt(atom_mesh[:, 3]).reshape(-1, 1))
+            edge_mask[:, i] = False
+            atom_mesh[:, 3][edge_mask.any(axis=1)] *= 0.5
+
+            # print(d - self.lig_dict['radius'] - probe)
+            # print(edge_mask.shape, edge_mask.sum(), (~edge_mask).sum())
             molecule_surface_mesh.append(atom_mesh[mask])
         return molecule_surface_mesh
 
