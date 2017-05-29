@@ -96,11 +96,18 @@ def surface_mesh(r=1., spacing=0.5):
     """
     coords = []
     total_surf = 4 * np.pi * r * r
+    tolerance = 1e-6
     num = 0
     for alpha in np.linspace(0., np.pi, ceil(np.pi * r / spacing)):
         r2 = r * sin(alpha)
         # the number of steps must be uneven to cover the top and bottom
         for beta in np.linspace(0., 2 * np.pi, ceil(2 * np.pi * r2 / spacing) + 1):
+            # remove duplicate/overlapping dots
+            if ((not abs(alpha - np.pi) < tolerance and
+                 abs(beta - 2 * np.pi) < tolerance) or
+                (abs(alpha - np.pi) < tolerance and
+                 not abs(beta - 2 * np.pi) < tolerance)):
+                continue
             coords.append((r2 * cos(beta),
                            r2 * sin(beta),
                            r * cos(alpha)))
@@ -383,11 +390,15 @@ class vina_ligand(object):
 
 class xscore_docking(vina_docking):
     """Internal implementation of XSCORE"""
+    WATER_R = 1.4
 
     def set_ligand(self, lig):
         super(xscore_docking, self).set_ligand(lig)
         self.num_rotors = num_rotors_xscore(lig, atom_contrib=True)
         self.lig_xlogp2_contrib = xlogp2_atom_contrib(lig)[lig.atom_dict['atomicnum'] != 1]
+
+        self.ligand_atom_mesh = [surface_mesh(r=self.lig_dict['radius'][i] + self.WATER_R, spacing=.5)
+                                 for i in range(len(self.lig_dict))]
 
     def set_protein(self, rec):
         rec.protein = True
@@ -437,6 +448,24 @@ class xscore_docking(vina_docking):
         # metals - 1.2 A
         atom_dict['radius'][atom_dict['ismetal']] = 1.2
         return atom_dict
+
+    def gen_molecule_surface_mesh(self, coords=None, probe=1.4):
+        molecule_surface_mesh = []
+        if coords is None:
+            coords = self.lig_dict['coords']
+        for i in range(len(self.lig_dict)):
+            a_dict = self.lig_dict[i]
+            atom_mesh = self.ligand_atom_mesh[i]
+
+            atom_mesh[:, :3] += coords[i]
+            d = distance(atom_mesh[:, :3], coords)
+
+            mask = d > self.lig_dict['radius'] + probe
+            mask[:, i] = True  # mark current atom
+            mask = mask.all(axis=1)
+
+            molecule_surface_mesh.append(atom_mesh[mask])
+        return molecule_surface_mesh
 
     def score_inter(self, coords=None):
         local_lig_dict = self.lig_dict.copy()
@@ -521,7 +550,27 @@ class xscore_docking(vina_docking):
 
         # Hydrophobic effect
         # i) Hydrophobic surface (HS)
-        inter.append(np.nan)
+        molecule_surface_mesh = self.gen_molecule_surface_mesh(coords)
+        out = np.zeros(len(self.lig_dict))
+        for i in range(len(self.lig_dict)):
+            if not self.lig_dict['ishydrophobe'][i]:
+                continue
+            # limit distance calculation
+            rec_local_dict = self.rec_dict[mask.any(axis=1)]
+            mask_hs = (distance(rec_local_dict['coords'],
+                                molecule_surface_mesh[i][:, :3]) <
+                       rec_local_dict['radius'].reshape(-1, 1) + self.WATER_R).any(axis=0)
+            out[i] = molecule_surface_mesh[i][mask_hs, 3].sum()
+
+        # ref = [0, 0, 0, 0, 0, 10.1, 21.9, 19.3, 30.1, 13.9, 0, 0, 0, 0, 0, 0, 0,
+        #        0, 0, 23.4, 1.6, 10.6, 23, 14.8, 17.9, 2.6, 0, 0, 0, 0, 0, 0, 0,
+        #        0, 11.5, 1.7, 0, ]
+        # pprint(list(zip(self.lig_dict['atomtype'],
+        #        self.lig_dict['radius'],
+        #        out,
+        #        ref)))
+
+        inter.append(out.sum())
 
         # ii) Hydrophobic pairs (HP)
         if 'hyd' not in self.mask_inter:
