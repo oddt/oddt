@@ -547,12 +547,18 @@ class xscore_docking(vina_docking):
         np.add.at(theta2, self.mask_inter['da'], theta2_2.flatten())
 
         f_d = ((d_h <= d_h0 - 0.7).astype(float) +
-               ((d_h0 - d_h) * ((d_h > d_h0 - 0.7) & (d_h < d_h0)).astype(float) / 0.7))
+               ((d_h0 - d_h) * ((d_h > d_h0 - 0.7) & (d_h < d_h0)) / 0.7))
 
-        f_theta1 = ((theta1 >= 120).astype(float) +
-                    (theta1 * ((theta1 < 120) & (theta1 >= 60)).astype(float) / 60 - 1))
-        f_theta2 = ((theta2 >= 120).astype(float) +
-                    (theta2 * ((theta2 < 120) & (theta2 >= 60)).astype(float) / 60 - 1))
+        f_theta1 = np.clip(((theta1 >= 120) +
+                           (theta1 * ((theta1 < 120) & (theta1 >= 60)) / 60 - 1)), 0, 1)
+        f_theta2 = np.clip(((theta2 >= 120) +
+                           (theta2 * ((theta2 < 120) & (theta2 >= 60)) / 60 - 1)), 0, 1)
+
+        # print(f_theta1.min(), f_theta1.max())
+        # print(f_theta2.min(), f_theta2.max())
+        #
+        # print(theta1.min(), theta1.max())
+        # print(theta2.min(), theta2.max())
 
         out = f_d * f_theta1 * f_theta2
 
