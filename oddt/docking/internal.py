@@ -513,43 +513,53 @@ class xscore_docking(vina_docking):
         d_h0 = d0 * (mask & (self.mask_inter['da'] | self.mask_inter['ad']))
 
         # the angle between donor root (DR), donor (D) and acceptor (A)
-        A = coords#[self.lig_dict['isacceptor']]
-        D = self.rec_dict['coords']#[self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
-        DR = self.rec_dict['neighbors']#[self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
-        theta1_1 = angle(A[:, np.newaxis, np.newaxis, :], D[:, np.newaxis, :], DR)
-        theta1_1 = np.nanmin(theta1_1, axis=-1).swapaxes(0, 1)
+        theta1 = np.zeros_like(d)
 
-        A = self.rec_dict['coords']#[self.rec_dict['isacceptor']]
-        D = coords#[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
-        DR = self.lig_dict['neighbors']#[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
+        A = coords[self.lig_dict['isacceptor']]
+        D = self.rec_dict['coords'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
+        DR = self.rec_dict['neighbors'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
+        theta1_1 = angle(A[:, np.newaxis, np.newaxis, :], D[:, np.newaxis, :], DR)
+        theta1_1 = np.nanmin(theta1_1, axis=-1)
+        np.add.at(theta1, self.mask_inter['da'], theta1_1.flatten())
+
+        A = self.rec_dict['coords'][self.rec_dict['isacceptor']]
+        D = coords[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
+        DR = self.lig_dict['neighbors'][self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
         theta1_2 = angle(A[:, np.newaxis, np.newaxis, :], D[:, np.newaxis, :], DR)
         theta1_2 = np.nanmin(theta1_2, axis=-1)
-
-        theta1 = np.nan_to_num(theta1_1) + np.nan_to_num(theta1_2)
+        np.add.at(theta1, self.mask_inter['ad'], theta1_2.flatten())
 
         # the angle between donor (D), acceptor (A) and acceptor root (AR)
-        D = coords#[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
-        A = self.rec_dict['coords']#[self.rec_dict['isacceptor']]
-        AR = self.rec_dict['neighbors']#[self.rec_dict['isacceptor']]
-        theta2_1 = angle(D[:, np.newaxis, np.newaxis, :], A[:, np.newaxis, :], AR)
-        theta2_1 = np.nanmin(theta2_1, axis=-1).swapaxes(0, 1)
+        theta2 = np.zeros_like(d)
 
-        D = self.rec_dict['coords']#[self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
-        A = coords#[self.lig_dict['isacceptor']]
-        AR = self.lig_dict['neighbors']#[self.lig_dict['isacceptor']]
+        D = coords[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
+        A = self.rec_dict['coords'][self.rec_dict['isacceptor']]
+        AR = self.rec_dict['neighbors'][self.rec_dict['isacceptor']]
+        theta2_1 = angle(D[:, np.newaxis, np.newaxis, :], A[:, np.newaxis, :], AR)
+        theta2_1 = np.nanmin(theta2_1, axis=-1)
+        np.add.at(theta2, self.mask_inter['ad'], theta2_1.flatten())
+
+        D = self.rec_dict['coords'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
+        A = coords[self.lig_dict['isacceptor']]
+        AR = self.lig_dict['neighbors'][self.lig_dict['isacceptor']]
         theta2_2 = angle(D[:, np.newaxis, np.newaxis, :], A[:, np.newaxis, :], AR)
         theta2_2 = np.nanmin(theta2_2, axis=-1)
-
-        theta2 = np.nan_to_num(theta2_1) + np.nan_to_num(theta2_2)
+        np.add.at(theta2, self.mask_inter['da'], theta2_2.flatten())
 
         f_d = ((d_h <= d_h0 - 0.7).astype(float) +
-               ((d_h0 - d_h) * ((d_h0 - 0.7 < d_h) & (d_h < 0)).astype(float) / -0.7))
+               ((d_h0 - d_h) * ((d_h > d_h0 - 0.7) & (d_h < d_h0)).astype(float) / 0.7))
+
         f_theta1 = ((theta1 >= 120).astype(float) +
                     (theta1 * ((theta1 < 120) & (theta1 >= 60)).astype(float) / 60 - 1))
         f_theta2 = ((theta2 >= 120).astype(float) +
                     (theta2 * ((theta2 < 120) & (theta2 >= 60)).astype(float) / 60 - 1))
 
-        inter.append((f_d * f_theta1 * f_theta2).sum())
+        out = f_d * f_theta1 * f_theta2
+
+        # pprint(list(zip(self.lig_dict['atomtype'],
+        #        out.sum(0))))
+
+        inter.append(out.sum())
 
         # Deformation effect
         out = self.num_rotors
