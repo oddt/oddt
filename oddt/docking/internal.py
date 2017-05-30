@@ -508,9 +508,9 @@ class xscore_docking(vina_docking):
         if 'ad' not in self.mask_inter:
             self.mask_inter['ad'] = (self.rec_dict['isacceptor'][:, np.newaxis] *
                                      (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, :])
-
-        d_h = d * (mask & (self.mask_inter['da'] | self.mask_inter['ad']))
-        d_h0 = d0 * (mask & (self.mask_inter['da'] | self.mask_inter['ad']))
+        mask_hb = d <= 5
+        d_h = d * (mask_hb & (self.mask_inter['da'] | self.mask_inter['ad']))
+        d_h0 = d0 * (mask_hb & (self.mask_inter['da'] | self.mask_inter['ad']))
 
         # the angle between donor root (DR), donor (D) and acceptor (A)
         theta1 = np.zeros_like(d)
@@ -554,6 +554,12 @@ class xscore_docking(vina_docking):
         f_theta2 = np.clip(((theta2 >= 120) +
                            (theta2 * ((theta2 < 120) & (theta2 >= 60)) / 60 - 1)), 0, 1)
 
+        # print(f_d.min(), f_d.max())
+        # a = (d_h <= d_h0 - 0.7).astype(float)
+        # print(a.min(), a.max())
+        # a = ((d_h0 - d_h) * ((d_h > d_h0 - 0.7) & (d_h < d_h0)) / 0.7)
+        # print(a.min(), a.max())
+        #
         # print(f_theta1.min(), f_theta1.max())
         # print(f_theta2.min(), f_theta2.max())
         #
