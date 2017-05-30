@@ -242,12 +242,9 @@ def usr_similarity(mol1_shape, mol2_shape, ow=1., hw=1., rw=1., aw=1., dw=1.):
     if mol1_shape.shape[0] == 12 and mol2_shape.shape[0] == 12:
         sim = 1. / (1. + (1. / 12) * np.sum(np.fabs(mol1_shape - mol2_shape)))
     elif mol1_shape.shape[0] == 60 and mol2_shape.shape[0] == 60:
-        sim = 1. / (1 +
-                    ow * (1. / 12) * np.sum(np.abs(mol1_shape[0:12] - mol2_shape[0:12])) +
-                    hw * (1. / 12) * np.sum(np.abs(mol1_shape[12:24] - mol2_shape[12:24])) +
-                    rw * (1. / 12) * np.sum(np.abs(mol1_shape[24:36] - mol2_shape[24:36])) +
-                    aw * (1. / 12) * np.sum(np.abs(mol1_shape[36:48] - mol2_shape[36:48])) +
-                    dw * (1. / 12) * np.sum(np.abs(mol1_shape[48:] - mol2_shape[48:])))
+        w = np.array([ow, hw, rw, aw, dw])
+        shape_diff = np.abs(mol1_shape - mol2_shape).reshape(-1, 12)
+        sim = 1. / (1 + (w * (1. / 12) * shape_diff.sum(axis=1)).sum())
     elif mol1_shape.shape[0] == 15 and mol2_shape.shape[0] == 15:
         sim = 1. / (1 + (1. / 15) * np.sum(np.fabs(mol1_shape - mol2_shape)))
     else:
