@@ -150,9 +150,9 @@ def test_usr_similarity():
 
 def test_usrcat_similarity():
     """Similarity function for USRCAT test"""
-    similarity_usrcat = 0.48306484140373468
+    similarity_usrcat = 0.82370755989115707
     assert_almost_equal(usr_similarity(usr_cat(benzene), usr_cat(methylo)),
-                 similarity_usrcat)
+                        similarity_usrcat)
 
 
 def test_elecroshape_similarity():
@@ -163,4 +163,4 @@ def test_elecroshape_similarity():
         similarity_electroshape = 0.67710967360721197
 
     assert_almost_equal(usr_similarity(electroshape(benzene), electroshape(methylo)),
-                 similarity_electroshape)
+                        similarity_electroshape)
