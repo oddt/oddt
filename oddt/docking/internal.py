@@ -508,43 +508,47 @@ class xscore_docking(vina_docking):
         if 'ad' not in self.mask_inter:
             self.mask_inter['ad'] = (self.rec_dict['isacceptor'][:, np.newaxis] *
                                      (self.lig_dict['isdonor'] | self.lig_dict['ismetal'])[np.newaxis, :])
-        mask_hb = d <= 5
+        mask_hb = d <= 15
         d_h = d * (mask_hb & (self.mask_inter['da'] | self.mask_inter['ad']))
         d_h0 = d0 * (mask_hb & (self.mask_inter['da'] | self.mask_inter['ad']))
 
         # the angle between donor root (DR), donor (D) and acceptor (A)
         theta1 = np.zeros_like(d)
 
-        A = coords[self.lig_dict['isacceptor']]
-        D = self.rec_dict['coords'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
-        DR = self.rec_dict['neighbors'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
-        theta1_1 = angle(A[:, np.newaxis, np.newaxis, :], D[:, np.newaxis, :], DR)
+        mask_d, mask_a = np.where(mask_hb & self.mask_inter['da'])
+        A = coords[mask_a]
+        D = self.rec_dict['coords'][mask_d]
+        DR = self.rec_dict['neighbors'][mask_d]
+        theta1_1 = angle(A[:, np.newaxis, :], D[:, np.newaxis, :], DR)
         theta1_1 = np.nanmin(theta1_1, axis=-1)
-        np.add.at(theta1, self.mask_inter['da'], theta1_1.flatten())
+        np.add.at(theta1, mask_hb & self.mask_inter['da'], theta1_1.flatten())
 
-        A = self.rec_dict['coords'][self.rec_dict['isacceptor']]
-        D = coords[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
-        DR = self.lig_dict['neighbors'][self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
-        theta1_2 = angle(A[:, np.newaxis, np.newaxis, :], D[:, np.newaxis, :], DR)
+        mask_a, mask_d = np.where(mask_hb & self.mask_inter['ad'])
+        A = self.rec_dict['coords'][mask_a]
+        D = coords[mask_d]
+        DR = self.lig_dict['neighbors'][mask_d]
+        theta1_2 = angle(A[:, np.newaxis, :], D[:, np.newaxis, :], DR)
         theta1_2 = np.nanmin(theta1_2, axis=-1)
-        np.add.at(theta1, self.mask_inter['ad'], theta1_2.flatten())
+        np.add.at(theta1, mask_hb & self.mask_inter['ad'], theta1_2.flatten())
 
         # the angle between donor (D), acceptor (A) and acceptor root (AR)
         theta2 = np.zeros_like(d)
 
-        D = coords[self.lig_dict['isdonor'] | self.lig_dict['ismetal']]
-        A = self.rec_dict['coords'][self.rec_dict['isacceptor']]
-        AR = self.rec_dict['neighbors'][self.rec_dict['isacceptor']]
-        theta2_1 = angle(D[:, np.newaxis, np.newaxis, :], A[:, np.newaxis, :], AR)
+        mask_a, mask_d = np.where(mask_hb & self.mask_inter['ad'])
+        D = coords[mask_d]
+        A = self.rec_dict['coords'][mask_a]
+        AR = self.rec_dict['neighbors'][mask_a]
+        theta2_1 = angle(D[:, np.newaxis, :], A[:, np.newaxis, :], AR)
         theta2_1 = np.nanmin(theta2_1, axis=-1)
-        np.add.at(theta2, self.mask_inter['ad'], theta2_1.flatten())
+        np.add.at(theta2, mask_hb & self.mask_inter['ad'], theta2_1.flatten())
 
-        D = self.rec_dict['coords'][self.rec_dict['isdonor'] | self.rec_dict['ismetal']]
-        A = coords[self.lig_dict['isacceptor']]
-        AR = self.lig_dict['neighbors'][self.lig_dict['isacceptor']]
-        theta2_2 = angle(D[:, np.newaxis, np.newaxis, :], A[:, np.newaxis, :], AR)
+        mask_d, mask_a = np.where(mask_hb & self.mask_inter['da'])
+        D = self.rec_dict['coords'][mask_d]
+        A = coords[mask_a]
+        AR = self.lig_dict['neighbors'][mask_a]
+        theta2_2 = angle(D[:, np.newaxis, :], A[:, np.newaxis, :], AR)
         theta2_2 = np.nanmin(theta2_2, axis=-1)
-        np.add.at(theta2, self.mask_inter['da'], theta2_2.flatten())
+        np.add.at(theta2, mask_hb & self.mask_inter['da'], theta2_2.flatten())
 
         f_d = ((d_h <= d_h0 - 0.7).astype(float) +
                ((d_h0 - d_h) * ((d_h > d_h0 - 0.7) & (d_h < d_h0)) / 0.7))
@@ -569,7 +573,11 @@ class xscore_docking(vina_docking):
         out = f_d * f_theta1 * f_theta2
 
         # pprint(list(zip(self.lig_dict['atomtype'],
-        #        out.sum(0))))
+        #        out.sum(0),
+        #        f_d.sum(0),
+        #        f_theta1.sum(0),
+        #        f_theta2.sum(0),
+        #        )))
 
         inter.append(out.sum())
 
