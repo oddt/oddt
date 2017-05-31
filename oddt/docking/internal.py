@@ -521,7 +521,7 @@ class xscore_docking(vina_docking):
         DR = self.rec_dict['neighbors'][mask_d]
         theta1_1 = angle(A[:, np.newaxis, :], D[:, np.newaxis, :], DR)
         theta1_1 = np.nanmin(theta1_1, axis=-1)
-        np.add.at(theta1, mask_hb & self.mask_inter['da'], theta1_1.flatten())
+        np.add.at(theta1, mask_hb & self.mask_inter['da'], 180 - theta1_1.flatten())
 
         mask_a, mask_d = np.where(mask_hb & self.mask_inter['ad'])
         A = self.rec_dict['coords'][mask_a]
@@ -529,7 +529,7 @@ class xscore_docking(vina_docking):
         DR = self.lig_dict['neighbors'][mask_d]
         theta1_2 = angle(A[:, np.newaxis, :], D[:, np.newaxis, :], DR)
         theta1_2 = np.nanmin(theta1_2, axis=-1)
-        np.add.at(theta1, mask_hb & self.mask_inter['ad'], theta1_2.flatten())
+        np.add.at(theta1, mask_hb & self.mask_inter['ad'], 180 - theta1_2.flatten())
 
         # the angle between donor (D), acceptor (A) and acceptor root (AR)
         theta2 = np.zeros_like(d)
@@ -540,7 +540,7 @@ class xscore_docking(vina_docking):
         AR = self.rec_dict['neighbors'][mask_a]
         theta2_1 = angle(D[:, np.newaxis, :], A[:, np.newaxis, :], AR)
         theta2_1 = np.nanmin(theta2_1, axis=-1)
-        np.add.at(theta2, mask_hb & self.mask_inter['ad'], theta2_1.flatten())
+        np.add.at(theta2, mask_hb & self.mask_inter['ad'], 180 - theta2_1.flatten())
 
         mask_d, mask_a = np.where(mask_hb & self.mask_inter['da'])
         D = self.rec_dict['coords'][mask_d]
@@ -548,15 +548,42 @@ class xscore_docking(vina_docking):
         AR = self.lig_dict['neighbors'][mask_a]
         theta2_2 = angle(D[:, np.newaxis, :], A[:, np.newaxis, :], AR)
         theta2_2 = np.nanmin(theta2_2, axis=-1)
-        np.add.at(theta2, mask_hb & self.mask_inter['da'], theta2_2.flatten())
+        np.add.at(theta2, mask_hb & self.mask_inter['da'], 180 - theta2_2.flatten())
 
-        f_d = ((d_h <= d_h0 - 0.7).astype(float) +
-               ((d_h0 - d_h) * ((d_h > d_h0 - 0.7) & (d_h < d_h0)) / 0.7))
+        # f_d = ((d_h <= d_h0 - 0.7).astype(float) +
+        #        ((d_h0 - d_h) * ((d_h > d_h0 - 0.7) & (d_h < d_h0)) / 0.7))
 
-        f_theta1 = np.clip(((theta1 >= 120) +
-                           (theta1 * ((theta1 < 120) & (theta1 >= 60)) / 60 - 1)), 0, 1)
-        f_theta2 = np.clip(((theta2 >= 120) +
-                           (theta2 * ((theta2 < 120) & (theta2 >= 60)) / 60 - 1)), 0, 1)
+        f_d = np.zeros_like(d)
+        tmp_mask = d_h < 1.
+        f_d[tmp_mask] = d[tmp_mask]
+        tmp_mask = (d_h >= 1.) & (d_h < d_h0 - 0.4)
+        f_d[tmp_mask] = 1.
+        tmp_mask = (d_h >= d_h0 - 0.4) & (d_h < d_h0 + 0.2)
+        f_d[tmp_mask] = ((d_h0 + 0.2 - d_h) / 0.6)[tmp_mask]
+
+        # f_theta1 = np.clip(((theta1 >= 120) +
+        #                    (theta1 * ((theta1 < 120) & (theta1 >= 60)) / 60 - 1)), 0, 1)
+
+        theta1_cutoff = [25, 50, 75, 100]
+        f_theta1 = np.zeros_like(d)
+        tmp_mask = np.argwhere((theta1 >= theta1_cutoff[0]) & (theta1 < theta1_cutoff[1]))
+        f_theta1[tmp_mask] = ((theta1 - theta1_cutoff[0]) / (theta1_cutoff[1] - theta1_cutoff[0]))[tmp_mask]
+        tmp_mask = np.argwhere((theta1 >= theta1_cutoff[1]) & (theta1 < theta1_cutoff[2]))
+        f_theta1[tmp_mask] = 1.
+        tmp_mask = np.argwhere((theta1 >= theta1_cutoff[2]) & (theta1 < theta1_cutoff[3]))
+        f_theta1[tmp_mask] = ((theta1_cutoff[3] - theta1) / (theta1_cutoff[3] - theta1_cutoff[2]))[tmp_mask]
+
+        # f_theta2 = np.clip(((theta2 >= 120) +
+        #                    (theta2 * ((theta2 < 120) & (theta2 >= 60)) / 60 - 1)), 0, 1)
+
+        theta2_cutoff = [0, 5, 70, 95]
+        f_theta2 = np.zeros_like(d)
+        tmp_mask = np.argwhere((theta2 >= theta2_cutoff[0]) & (theta2 < theta2_cutoff[1]))
+        f_theta2[tmp_mask] = ((theta2 - theta2_cutoff[0]) / (theta2_cutoff[1] - theta2_cutoff[0]))[tmp_mask]
+        tmp_mask = np.argwhere((theta2 >= theta2_cutoff[1]) & (theta2 < theta2_cutoff[2]))
+        # f_theta2[tmp_mask] = 1.
+        tmp_mask = np.argwhere((theta2 >= theta2_cutoff[2]) & (theta2 < theta2_cutoff[3]))
+        f_theta2[tmp_mask] = ((theta2_cutoff[3] - theta2) / (theta2_cutoff[3] - theta2_cutoff[2]))[tmp_mask]
 
         # print(f_d.min(), f_d.max())
         # a = (d_h <= d_h0 - 0.7).astype(float)
@@ -571,6 +598,11 @@ class xscore_docking(vina_docking):
         # print(theta2.min(), theta2.max())
 
         out = f_d * f_theta1 * f_theta2
+
+        tmp_mask = f_theta1 >= f_theta2
+        out[tmp_mask] = f_d[tmp_mask] * f_theta1[tmp_mask]
+        tmp_mask = f_theta1 < f_theta2
+        out[tmp_mask] = f_d[tmp_mask] * f_theta2[tmp_mask]
 
         # pprint(list(zip(self.lig_dict['atomtype'],
         #        out.sum(0),
