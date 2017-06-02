@@ -210,7 +210,7 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
 
     Reference:
     Rogers D, Hahn M. Extended-connectivity fingerprints. J Chem Inf Model.
-    2010;50: 742–754. http://dx.doi.org/10.1021/ci100050t
+    2010;50: 742-754. http://dx.doi.org/10.1021/ci100050t
 
     Parameters
     ----------
@@ -271,7 +271,7 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False):
 
     Reference:
     Rogers D, Hahn M. Extended-connectivity fingerprints. J Chem Inf Model.
-    2010;50: 742–754. http://dx.doi.org/10.1021/ci100050t
+    2010;50: 742-754. http://dx.doi.org/10.1021/ci100050t
 
     Parameters
     ----------
@@ -343,7 +343,7 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
 
     Reference:
     Rogers D, Hahn M. Extended-connectivity fingerprints. J Chem Inf Model.
-    2010;50: 742–754. http://dx.doi.org/10.1021/ci100050t
+    2010;50: 742-754. http://dx.doi.org/10.1021/ci100050t
 
     Parameters
     ----------
