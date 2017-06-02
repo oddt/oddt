@@ -57,7 +57,7 @@ install:
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
                 conda install -q -c mwojcikowski openbabel=2.3.2;
             elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
-                conda install -q -c mwojcikowski -c rdkit rdkit=2016.03;
+                conda install -q -c mwojcikowski rdkit=2016.03;
             fi
         else
             conda install -q numpy scipy scikit-learn joblib pandas;
