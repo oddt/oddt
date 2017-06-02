@@ -151,6 +151,23 @@ def test_similarity():
     assert_array_almost_equal(outcome, target_outcome)
 
 
+def test_sparse_similarity():
+    """Sparse similarity"""
+    mol1 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol2 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+
+    mol1_fp_dense = ECFP(mol1, depth=8, size=4096, sparse=False)
+    mol2_fp_dense = ECFP(mol2, depth=8, size=4096, sparse=False)
+
+    mol1_fp_sparse = ECFP(mol1, depth=8, size=4096, sparse=True)
+    mol2_fp_sparse = ECFP(mol2, depth=8, size=4096, sparse=True)
+
+    assert_almost_equal(dice(mol1_fp_sparse, mol2_fp_sparse, sparse=True),
+                        dice(mol1_fp_dense, mol2_fp_dense))
+    assert_almost_equal(tanimoto(mol1_fp_sparse, mol2_fp_sparse, sparse=True),
+                        tanimoto(mol1_fp_dense, mol2_fp_dense))
+
+
 def test_ecfp():
     """ECFP fingerprints"""
     mol1 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")

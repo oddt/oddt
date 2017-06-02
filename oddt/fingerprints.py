@@ -403,9 +403,8 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
     return mol_hashed
 
 
-def dice(a, b):
-    """
-        Calculates the Dice coefficient, the ratio of the bits in common to
+def dice(a, b, sparse=False):
+    """Calculates the Dice coefficient, the ratio of the bits in common to
         the arithmetic mean of the number of 'on' bits in the two fingerprints.
         Supports integer and boolean fingerprints.
 
@@ -414,16 +413,28 @@ def dice(a, b):
         a, b : numpy array
             Interaction fingerprints to check similarity between them.
 
+        sparse : bool (default=False)
+            Type of FPs to use. Defaults to dense form.
+
         Returns
         -------
         score : float
             Similarity between a, b.
 
     """
-    return 2 * np.vstack((a, b)).min(axis=0).sum().astype(float) / (a.sum() + b.sum())
+    if sparse:
+        a_unique, a_counts = np.unique(a, return_counts=True)
+        b_unique, b_counts = np.unique(b, return_counts=True)
+        a_b_intersection = np.intersect1d(a_unique, b_unique, assume_unique=True)
+        a_b = np.minimum(a_counts[np.in1d(a_unique, a_b_intersection)],
+                         b_counts[np.in1d(b_unique, a_b_intersection)]).sum()
+        return 2 * a_b.astype(float) / (len(a) + len(b))
+    else:
+        a_b = np.vstack((a, b)).min(axis=0).sum()
+        return 2 * a_b.astype(float) / (a.sum() + b.sum())
 
 
-def tanimoto(a, b):
+def tanimoto(a, b, sparse=False):
     """
         Tanimoto coefficient, supports boolean fingerprints.
         Integer fingerprints are casted to boolean.
@@ -433,13 +444,23 @@ def tanimoto(a, b):
         a, b : numpy array
             Interaction fingerprints to check similarity between them.
 
+        sparse : bool (default=False)
+            Type of FPs to use. Defaults to dense form.
+
         Returns
         -------
         score : float
             Similarity between a, b.
 
     """
-    a = a.astype(bool)
-    b = b.astype(bool)
-    a_b = (a * b).sum().astype(float)
-    return a_b / (a.sum() + b.sum() - a_b)
+
+    if sparse:
+        a = np.unique(a)
+        b = np.unique(b)
+        a_b = float(len(np.intersect1d(a, b, assume_unique=True)))
+        return a_b / (len(a) + len(b) - a_b)
+    else:
+        a = a.astype(bool)
+        b = b.astype(bool)
+        a_b = (a & b).sum().astype(float)
+        return a_b / (a.sum() + b.sum() - a_b)
