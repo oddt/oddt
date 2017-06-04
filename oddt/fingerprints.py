@@ -241,7 +241,8 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
                 int(atom_dict['isaromatic']))
 
     else:
-        if oddt.toolkit.backend == 'ob':
+        if (hasattr(oddt.toolkits, 'ob') and
+                isinstance(mol, oddt.toolkits.ob.Molecule)):
             atom = mol.OBMol.GetAtom(idx + 1)
             if atom.GetAtomicNum() == 1:
                 raise Exception('ECFP should not hash Hydrogens')
@@ -308,7 +309,8 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False):
             #     n_idx = neighbor.idx - 1  # atom.idx is 1-based!
             #     if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
             #         tmp.append(n_idx)
-            if oddt.toolkit.backend == 'ob':
+            if (hasattr(oddt.toolkits, 'ob') and
+                    isinstance(mol, oddt.toolkits.ob.Molecule)):
                 for neighbor in oddt.toolkit.OBAtomAtomIter(mol.OBMol.GetAtom(atom_idx + 1)):
                     if neighbor.GetAtomicNum() == 1:
                         continue
