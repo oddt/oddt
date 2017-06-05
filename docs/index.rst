@@ -25,15 +25,21 @@ Requirements
 .. note:: All installation methods assume that one of toolkits is installed. For detailed installation procedure visit toolkit’s website (OpenBabel, RDKit)
 
 Most convenient way of installing ODDT is using PIP. All required python modules will be installed automatically, although toolkits, either OpenBabel (``pip install openbabel``) or RDKit need to be installed manually
-::
+
+.. code-block::
+
     pip install oddt
 
 If you want to install cutting edge version (master branch from GitHub) of ODDT also using PIP
-::
+
+.. code-block::
+
     pip install git+https://github.com/oddt/oddt.git@master
 
 Finally you can install ODDT straight from the source
-::
+
+.. code-block::
+
     wget https://github.com/oddt/oddt/archive/0.3.2.tar.gz
     tar zxvf 0.3.2.tar.gz
     cd oddt-0.3.2/
@@ -65,7 +71,9 @@ Atom, residues, bonds iteration
 ```````````````````````````````
 
 One of the most common operation would be iterating through molecules atoms
-::
+
+.. code-block:: Python
+
     mol = oddt.toolkit.readstring(‘smi’, ‘c1cccc1’)
     for atom in mol:
         print(atom.idx)
@@ -73,18 +81,24 @@ One of the most common operation would be iterating through molecules atoms
 .. note:: mol.atoms, returns an object (:class:`~oddt.toolkit.AtomStack`) which can be access via indexes or iterated
 
 Iterating over residues is also very convenient, especially for proteins
-::
+
+.. code-block:: python
+
     for res in mol.residues:
         print(res.name)
 
 Additionally residues can fetch atoms belonging to them:
-::
+
+.. code-block:: python
+
     for res in mol.residues:
         for atom in res:
             print(atom.idx)
 
 Bonds are also iterable, similar to residues:
-::
+
+.. code-block:: python
+
     for bond in mol.bonds:
         print(bond.order)
         for atom in bond:
@@ -96,19 +110,25 @@ Reading molecules
 Reading molecules is mostly identical to `Pybel <https://open-babel.readthedocs.org/en/latest/UseTheLibrary/Python_Pybel.html>`_.
 
 Reading from file
-::
+
+.. code-block:: python
+
     for mol in oddt.toolkit.readfile(‘smi’, ‘test.smi’):
         print(mol.title)
 
 Reading from string
-::
+
+.. code-block:: python
+
     mol = oddt.toolkit.readstring(‘smi’, ‘c1ccccc1 benzene’):
         print(mol.title)
 
 .. note:: You can force molecules to be read in asynchronously, aka “lazy molecules”. Current default is not to produce lazy molecules due to OpenBabel’s Memory Leaks in OBConverter. Main advantage of lazy molecules is using them in multiprocessing, then conversion is spreaded on all jobs.
 
 Reading molecules from file in asynchronous manner
-::
+
+.. code-block:: python
+
     for mol in oddt.toolkit.readfile(‘smi’, ‘test.smi’, lazy=True):
         pass
 
@@ -130,7 +150,7 @@ Atom basic information
 * '*coords*', type: ``float32``, shape: (3) - atom coordinates
 * '*charge*', type: ``float32`` - atom's charge
 * '*atomicnum*', type: ``int8`` - atomic number
-* '*atomtype', type: ``a4`` - Sybyl atom's type
+* '*atomtype*', type: ``a4`` - Sybyl atom's type
 * '*hybridization*', type: ``int8`` - atoms hybrydization
 * '*neighbors*', type: ``float32``, shape: (4,3) - coordinates of non-H neighbors coordinates for angles (max of 4 neighbors should be enough)
 
@@ -181,7 +201,9 @@ res_dict
 .. note:: All aforementioned dictionaries are generated “on demand”, and are cached for molecule, thus can be shared between calculations. Caching of dictionaries brings incredible performance gain, since in some applications their generation is the major time consuming task.
 
 Get all acceptor atoms:
-::
+
+.. code-block:: python
+
     mol.atom_dict[‘is_acceptor’]
 
 
@@ -193,14 +215,19 @@ The most common usage
 ---------------------
 
 Firstly, loading files
-::
-  protein = next(oddt.toolkit.readfile('pdb', 'protein.pdb'))
-  protein.protein = True
-  ligand = next(oddt.toolkit.readfile('sdf', 'ligand.sdf'))
+
+.. code-block:: python
+
+    protein = next(oddt.toolkit.readfile('pdb', 'protein.pdb'))
+    protein.protein = True
+    ligand = next(oddt.toolkit.readfile('sdf', 'ligand.sdf'))
+
 .. note:: You have to mark a variable with file as protein, otherwise You won't be able to get access to e.g. 'resname; , 'resid' etc. It can be done as above.
 
 File with more than one molecule
-::
+
+.. code-block:: python
+
   mols = list(oddt.toolkit.readfile('sdf', 'ligands.sdf'))
 
 When files are loaded, You can check interactions between molecules. Let's find out, which amino acids creates hydrogen bonds
@@ -214,12 +241,16 @@ Or check hydrophobic contacts between molecules
   print(protein_atoms, ligand_atoms)
 
 But instead of checking interactions one by one, You can use fingerprints module.
-::
+
+.. code-block:: python
+
   IFP = InteractionFingerprint(ligand, protein)
   SIFP = SimpleInteractionFingerprint(ligand, protein)
 
 Very often we're looking for similar molecules. We can easily accomplish this by e.g.
-::
+
+.. code-block:: python
+
   results = []
   reference = SimpleInteractionFingerprint(ligand, protein)
   for el in query:
@@ -259,12 +290,16 @@ Three methods for molecular shape comparison are supported: USR and its two deri
 To find most similar molecules from the given set, each of these methods can be used.
 
 Loading files:
-::
+
+.. code-block:: python
+
     query = next(oddt.toolkit.readfile('sdf', 'query.sdf'))
     database = list(oddt.toolkit.readfile('sdf', 'database.sdf'))
 
 Example code to find similar molecules:
-::
+
+.. code-block:: python
+
     results = []
     query_shape = usr(query)
     for mol in database:
@@ -288,27 +323,37 @@ If output format is present and no output file is assigned, then molecules are p
 
 
 To list all the available options issue `-h` option:
-::
+
+.. code-block::
+
     oddt_cli -h
 
 Examples
 --------
 
 1. Docking ligand using Autodock Vina (construct box using ligand from crystal structure) with additional RFscore v2 rescoring:
-::
+
+.. code-block::
+
     oddt_cli input_ligands.sdf --dock autodock_vina --receptor rec.mol2 --auto_ligand crystal_ligand.mol2 --score rfscore_v2 -O output_ligands.sdf
 
 
 2. Filtering ligands using Lipinski RO5 and PAINS. Afterwards dock with Autodock Vina:
-::
+
+.. code-block::
+
     oddt_cli input_ligands.sdf --filter ro5 --filter pains --dock autodock_vina --receptor rec.mol2 --auto_ligand crystal_ligand.mol2 -O output_ligands.sdf
 
 3. Dock with Autodock Vina, with precise box position and dimensions. Fix seed for reproducibility and increase exhaustiveness:
-::
+
+.. code-block::
+
     oddt_cli ampc/actives_final.mol2.gz --dock autodock_vina --receptor ampc/receptor.pdb --size '(8,8,8)' --center '(1,2,0.5)' --exhaustiveness 20 --seed 1 -O ampc_docked.sdf
 
 4. Rescore ligands using 3 versions of RFscore and pre-trained scoring function (either pickle from ODDT or any other SF implementing :class:`oddt.scoring.scorer` API):
-::
+
+.. code-block::
+
     oddt_cli docked_ligands.sdf --receptor rec.mol2 --score rfscore_v1 --score rfscore_v2 --score rfscore_v3 --score TrainedNN.pickle -O docked_ligands_rescored.sdf
 
 
@@ -322,7 +367,7 @@ References
 
 To be announced.
 
-Docuimentation Indices and tables
+Documentation Indices and tables
 =================================
 
 * :ref:`genindex`
