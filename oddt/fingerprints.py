@@ -306,7 +306,7 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False):
             # for neighbor in mol.atoms[atom_idx].neighbors:
             #     if neighbor.atomicnum == 1:
             #         continue
-            #     n_idx = neighbor.idx - 1  # atom.idx is 1-based!
+            #     n_idx = neighbor.idx0
             #     if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
             #         tmp.append(n_idx)
             if (hasattr(oddt.toolkits, 'ob') and

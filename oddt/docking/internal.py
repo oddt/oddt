@@ -5,26 +5,24 @@ from oddt.spatial import distance, dihedral, rotate
 
 
 def get_children(molecule, mother, restricted):
-    # TODO: Fix RDKit 0-based indexes
     atoms = np.zeros(len(molecule.atoms), dtype=bool)
-    atoms[mother - 1] = True
+    atoms[mother] = True
     d = 1  # Pass first
     prev = 0
     while d > 0:
-        atoms[[n.idx - 1
-               for i in np.nonzero(atoms)[0] if i != restricted - 1
-               for n in molecule.atoms[i].neighbors if n.idx != restricted]] = True
+        atoms[[n.idx0
+               for i in np.nonzero(atoms)[0] if i != restricted
+               for n in molecule.atoms[i].neighbors if n.idx0 != restricted]] = True
         d = atoms.sum() - prev
         prev = atoms.sum()
     return atoms
 
 
 def get_close_neighbors(molecule, a_idx, num_bonds=1):
-    # TODO: Fix RDKit 0-based indexes
     atoms = np.zeros(len(molecule.atoms), dtype=bool)
-    atoms[a_idx - 1] = True
+    atoms[a_idx] = True
     for i in range(num_bonds):
-        atoms[[n.idx - 1
+        atoms[[n.idx0
                for i in np.nonzero(atoms)[0]
                for n in molecule.atoms[i].neighbors]] = True
     return atoms
@@ -116,7 +114,8 @@ class vina_docking(object):
         self.mask_intra = {}
 
         # Find distant members (min 3 consecutive bonds)
-        mask = np.vstack([~get_close_neighbors(lig, a1.idx, num_bonds=3) for a1 in lig])
+        mask = np.vstack([~get_close_neighbors(lig, i, num_bonds=3)
+                          for i in range(len(lig.atoms))])
         mask = mask[lig_hvy_mask[np.newaxis, :] * lig_hvy_mask[:, np.newaxis]]
         self.lig_distant_members = mask.reshape(lig_hvy_mask.sum(), lig_hvy_mask.sum())
 
@@ -124,15 +123,15 @@ class vina_docking(object):
         self.rotors = []
         for b in lig.bonds:
             if b.isrotor:
-                a2 = int(b.atoms[0].idx)
-                a3 = int(b.atoms[1].idx)
+                a2 = int(b.atoms[0].idx0)
+                a3 = int(b.atoms[1].idx0)
                 for n in b.atoms[0].neighbors:
-                    if a3 != int(n.idx) and n.atomicnum != 1:
-                        a1 = int(n.idx)
+                    if a3 != int(n.idx0) and n.atomicnum != 1:
+                        a1 = int(n.idx0)
                         break
                 for n in b.atoms[1].neighbors:
-                    if a2 != int(n.idx) and n.atomicnum != 1:
-                        a4 = int(n.idx)
+                    if a2 != int(n.idx0) and n.atomicnum != 1:
+                        a4 = int(n.idx0)
                         break
                 rot_mask = get_children(lig, a3, a2)[lig_hvy_mask]
                 # translate atom indicies to lig_dict indicies (heavy only)

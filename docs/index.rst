@@ -26,19 +26,19 @@ Requirements
 
 Most convenient way of installing ODDT is using PIP. All required python modules will be installed automatically, although toolkits, either OpenBabel (``pip install openbabel``) or RDKit need to be installed manually
 
-.. code-block::
+.. code-block:: bash
 
     pip install oddt
 
 If you want to install cutting edge version (master branch from GitHub) of ODDT also using PIP
 
-.. code-block::
+.. code-block:: bash
 
     pip install git+https://github.com/oddt/oddt.git@master
 
 Finally you can install ODDT straight from the source
 
-.. code-block::
+.. code-block:: bash
 
     wget https://github.com/oddt/oddt/archive/0.3.2.tar.gz
     tar zxvf 0.3.2.tar.gz
@@ -324,7 +324,7 @@ If output format is present and no output file is assigned, then molecules are p
 
 To list all the available options issue `-h` option:
 
-.. code-block::
+.. code-block:: bash
 
     oddt_cli -h
 
@@ -333,29 +333,36 @@ Examples
 
 1. Docking ligand using Autodock Vina (construct box using ligand from crystal structure) with additional RFscore v2 rescoring:
 
-.. code-block::
+.. code-block:: bash
 
     oddt_cli input_ligands.sdf --dock autodock_vina --receptor rec.mol2 --auto_ligand crystal_ligand.mol2 --score rfscore_v2 -O output_ligands.sdf
 
 
 2. Filtering ligands using Lipinski RO5 and PAINS. Afterwards dock with Autodock Vina:
 
-.. code-block::
+.. code-block:: bash
 
     oddt_cli input_ligands.sdf --filter ro5 --filter pains --dock autodock_vina --receptor rec.mol2 --auto_ligand crystal_ligand.mol2 -O output_ligands.sdf
 
 3. Dock with Autodock Vina, with precise box position and dimensions. Fix seed for reproducibility and increase exhaustiveness:
 
-.. code-block::
+.. code-block:: bash
 
     oddt_cli ampc/actives_final.mol2.gz --dock autodock_vina --receptor ampc/receptor.pdb --size '(8,8,8)' --center '(1,2,0.5)' --exhaustiveness 20 --seed 1 -O ampc_docked.sdf
 
 4. Rescore ligands using 3 versions of RFscore and pre-trained scoring function (either pickle from ODDT or any other SF implementing :class:`oddt.scoring.scorer` API):
 
-.. code-block::
+.. code-block:: bash
 
     oddt_cli docked_ligands.sdf --receptor rec.mol2 --score rfscore_v1 --score rfscore_v2 --score rfscore_v3 --score TrainedNN.pickle -O docked_ligands_rescored.sdf
 
+Development and contributions guide
+===========================================
+
+1. Indicies
+All indicies within toolkit are 0-based, but for backward compatibility with OpenBabel there is ``mol.idx`` property.
+If you develop using ODDT you are encouraged to use 0-based indicies and/or ``mol.idx0`` and ``mol.idx1`` properties to be exact which convention you adhere to.
+Otherwise you can run into bags which are hard to catch, when writing toolkit independent code.
 
 ODDT API documentation
 ======================

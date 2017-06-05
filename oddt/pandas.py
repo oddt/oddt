@@ -467,7 +467,6 @@ class ChemDataFrame(pd.DataFrame):
         molecule_column_idx = columns.index(molecule_column)
         if 'index' not in kwargs or ('index' in kwargs and kwargs['index']):
             molecule_column_idx += 1
-            print('blah', kwargs)
         size = kwargs.pop('size') if 'size' in kwargs else (200, 200)
         excel_writer = pd.ExcelWriter(args[0], engine='xlsxwriter')
 

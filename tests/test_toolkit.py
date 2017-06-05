@@ -138,12 +138,12 @@ def test_dicts():
     mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
     list(map(lambda x: x.addh(only_polar=True), mols))
 
-    skip_cols = ['radius', 'charge',
+    skip_cols = ['radius', 'charge', 'id',
                  # following fields need to be standarized
                  'hybridization',
                  ]
     all_cols = [name for name in mols[0].atom_dict.dtype.names
-                if name not in ['coords', 'neighbors']]
+                if name not in ['coords', 'neighbors', 'neighbors_id']]
     common_cols = [name for name in all_cols if name not in skip_cols]
 
     # Small molecules
@@ -185,7 +185,7 @@ def test_dicts():
     rec.protein = True
     rec.addh(only_polar=True)
 
-    skip_cols = ['radius', 'charge', 'resid',
+    skip_cols = ['radius', 'charge', 'resid', 'id',
                  # following fields need to be standarized
                  'hybridization',
                  ]
@@ -236,7 +236,11 @@ def test_ss():
     # print(protein.res_dict['isalpha'])
     # print(protein.res_dict['isbeta'])
 
+    isalpha = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+               18, 19, 20, 21, 22, 23, 24, 25, 26]
+
     assert_equal(len(protein.res_dict), 29)
+    assert_array_equal(np.where(protein.res_dict['isalpha'])[0], isalpha)
     assert_equal(protein.res_dict['isalpha'].sum(), 27)
     assert_equal(protein.res_dict['isbeta'].sum(), 0)
 
@@ -252,7 +256,10 @@ def test_ss():
     #                            np.argwhere(np.diff(np.argwhere(protein.res_dict['isbeta']).flatten()) != 1).flatten() + 1):
     #         print(mask_group + 1, protein.res_dict[mask_group]['resname'])
 
+    isbeta = [2, 3, 4, 5, 10, 11, 12, 13]
+
     assert_equal(len(protein.res_dict), 29)
+    assert_array_equal(np.where(protein.res_dict['isbeta'])[0], isbeta)
     assert_equal(protein.res_dict['isbeta'].sum(), 8)
     assert_equal(protein.res_dict['isalpha'].sum(), 0)
 
@@ -271,6 +278,13 @@ def test_ss():
     #                            np.argwhere(np.diff(np.argwhere(protein.res_dict['isbeta']).flatten()) != 1).flatten() + 1):
     #         print(mask_group + 1, protein.res_dict[mask_group]['resname'])
 
+    isalpha = [15, 16, 17, 18, 19, 20, 28, 29, 30, 31, 32, 33, 63, 64, 65, 66,
+               67, 68, 69, 70, 75, 76, 77, 78, 79, 80, 83, 84, 85, 86, 87, 88,
+               89, 90, 91, 121, 122, 123, 124, 125, 126, 127, 128]
+    isbeta = [36, 37, 38, 45, 46, 47, 52, 53, 54]
+
+    assert_array_equal(np.where(protein.res_dict['isalpha'])[0], isalpha)
+    assert_array_equal(np.where(protein.res_dict['isbeta'])[0], isbeta)
     assert_equal(len(protein.res_dict), 136)
     assert_equal(protein.res_dict['isalpha'].sum(), 43)
     assert_equal(protein.res_dict['isbeta'].sum(), 9)

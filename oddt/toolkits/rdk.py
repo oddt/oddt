@@ -28,6 +28,7 @@ from collections import OrderedDict
 
 from six import next, BytesIO, PY3
 import numpy as np
+from sklearn.utils.deprecation import deprecated
 
 import rdkit
 from rdkit import Chem
@@ -575,6 +576,7 @@ class Molecule(object):
         return self
 
     def _dicts(self):
+        max_neighbors = 4  # max of 4 neighbors should be enough
         # Atoms
         atom_dtype = [('id', np.int16),
                       # atom info
@@ -584,7 +586,8 @@ class Molecule(object):
                       ('atomicnum', np.int8),
                       ('atomtype', 'U5' if PY3 else 'a5'),
                       ('hybridization', np.int8),
-                      ('neighbors', np.float32, (4, 3)),  # non-H neighbors coordinates for angles (max of 6 neighbors should be enough)
+                      ('neighbors_id', np.int16, max_neighbors),
+                      ('neighbors', np.float32, (max_neighbors, 3)),
                       # residue info
                       ('resid', np.int16),
                       ('resname', 'U3' if PY3 else 'a3'),
@@ -626,18 +629,21 @@ class Molecule(object):
                 residue = False
 
             # get neighbors, but only for those atoms which realy need them
-            neighbors = np.zeros(4, dtype=[('coords', np.float32, 3),
-                                           ('atomicnum', np.int8)])
+            neighbors = np.zeros(max_neighbors, dtype=[('id', np.int16),
+                                                       ('coords', np.float32, 3),
+                                                       ('atomicnum', np.int8)])
             neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
-                neighbors[n] = (nbr_atom.coords, nbr_atom.atomicnum)
-            atom_dict[i] = (atom.idx,
+                neighbors[n] = (nbr_atom.idx0, nbr_atom.coords, nbr_atom.atomicnum)
+            assert i == atom.idx0
+            atom_dict[i] = (atom.idx0,
                             coords,
                             elementtable.GetRvdw(atomicnum),
                             partialcharge if atomicnum > 1 else 0,
                             atomicnum,
                             atomtype,
                             np.clip(atom.Atom.GetHybridization() - 1, 0, 3),
+                            neighbors['id'],
                             neighbors['coords'],
                             # residue info
                             residue.GetResidueNumber() if residue else 0,
@@ -1109,10 +1115,23 @@ class Atom(object):
 
     # ODDT #
     @property
+    @deprecated('RDKit is 0-based and OpenBabel is 1-based. '
+                'State which convention you desire and use `idx0` or `idx1`.')
     def idx(self):
-        """ Note that this index is 1-based and RDKit's internal index in 0-based.
+        """Note that this index is 1-based and RDKit's internal index in 0-based.
+        Changed to be compatible with OpenBabel"""
+        return self.idx1
+
+    @property
+    def idx1(self):
+        """Note that this index is 1-based and RDKit's internal index in 0-based.
         Changed to be compatible with OpenBabel"""
         return self.Atom.GetIdx() + 1
+
+    @property
+    def idx0(self):
+        """ Note that this index is 0-based as RDKit's"""
+        return self.Atom.GetIdx()
 
     @property
     def neighbors(self):

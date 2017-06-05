@@ -14,6 +14,7 @@ from tempfile import NamedTemporaryFile
 import gzip
 from base64 import b64encode
 from six import PY3, text_type
+from sklearn.utils.deprecation import deprecated
 import pybel
 from pybel import *
 import numpy as np
@@ -333,6 +334,7 @@ class Molecule(pybel.Molecule):
         return self
 
     def _dicts(self):
+        max_neighbors = 4  # max of 4 neighbors should be enough
         # Atoms
         atom_dtype = [('id', np.int16),
                       # atom info
@@ -342,7 +344,8 @@ class Molecule(pybel.Molecule):
                       ('atomicnum', np.int8),
                       ('atomtype', 'U5' if PY3 else 'a5'),
                       ('hybridization', np.int8),
-                      ('neighbors', np.float32, (4, 3)),  # max of 4 neighbors should be enough
+                      ('neighbors_id', np.int16, max_neighbors),
+                      ('neighbors', np.float32, (max_neighbors, 3)),
                       # residue info
                       ('resid', np.int16),
                       ('resname', 'U3' if PY3 else 'a3'),
@@ -386,22 +389,26 @@ class Molecule(pybel.Molecule):
                 residue = False
 
             # get neighbors, but only for those atoms which realy need them
-            neighbors = np.zeros(4, dtype=[('coords', np.float32, 3), ('atomicnum', np.int8)])
+            neighbors = np.zeros(max_neighbors, dtype=[('id', np.int16),
+                                                       ('coords', np.float32, 3),
+                                                       ('atomicnum', np.int8)])
             neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
                 # concider raising neighbors list to 6, but must do some benchmarks
                 if n > 3:
                     break
                 nbr_atomicnum = nbr_atom.atomicnum
-                neighbors[n] = (nbr_atom.coords, nbr_atomicnum)
-            atom_dict[i] = (atom.idx,
+                neighbors[n] = (nbr_atom.idx0, nbr_atom.coords, nbr_atomicnum)
+            assert i == atom.idx0
+            atom_dict[i] = (i,
                             coords,
                             elementtable.GetVdwRad(atomicnum),
                             partialcharge,
                             atomicnum,
                             atomtype,
                             atom.OBAtom.GetHyb(),
-                            neighbors['coords'],  # n_coords,
+                            neighbors['id'],
+                            neighbors['coords'],
                             # residue info
                             residue.idx if residue else 0,
                             residue.name if residue else '',
@@ -444,7 +451,7 @@ class Molecule(pybel.Molecule):
         matches = np.array(patt.findall(self)).flatten()
         if len(matches) > 0:
             atom_dict['isdonor'][np.intersect1d(matches - 1, not_carbon)] = True
-            atom_dict['isdonorh'][[n.idx - 1
+            atom_dict['isdonorh'][[n.idx0
                                    for idx in np.argwhere(atom_dict['isdonor']).flatten()
                                    for n in self.atoms[int(idx)].neighbors
                                    if n.atomicnum == 1]] = True
@@ -577,6 +584,24 @@ class AtomStack(object):
 
 
 class Atom(pybel.Atom):
+    @property
+    @deprecated('RDKit is 0-based and OpenBabel is 1-based. '
+                'State which convention you desire and use `idx0` or `idx1`.')
+    def idx(self):
+        """Note that this index is 1-based as OpenBabel's internal index."""
+        return self.idx1
+
+    @property
+    def idx1(self):
+        """Note that this index is 1-based as OpenBabel's internal index."""
+        return self.OBAtom.GetIdx()
+
+    @property
+    def idx0(self):
+        """Note that this index is 0-based and OpenBabel's internal index in
+        1-based. Changed to be compatible with RDKit"""
+        return self.OBAtom.GetIdx() - 1
+
     @property
     def neighbors(self):
         return [Atom(a) for a in OBAtomAtomIter(self.OBAtom)]
