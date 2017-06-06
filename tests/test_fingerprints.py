@@ -23,6 +23,18 @@ ligand = next(oddt.toolkit.readfile('sdf', os.path.join(
 ligand.addh(only_polar=True)
 
 
+def shuffle_mol(mol):
+    new_mol = mol.clone
+    new_order = list(range(len(mol.atoms)))
+    shuffle(new_order)
+    if (hasattr(oddt.toolkits, 'ob') and
+            isinstance(mol, oddt.toolkits.ob.Molecule)):
+        new_mol.OBMol.RenumberAtoms([i+1 for i in new_order])
+    else:
+        new_mol.Mol = oddt.toolkits.rdk.Chem.RenumberAtoms(new_mol.Mol, new_order)
+    return new_mol
+
+
 def test_InteractionFingerprint():
     """Interaction Fingerprint test"""
     if oddt.toolkit.backend == 'ob':
@@ -280,15 +292,10 @@ def test_fcfp():
 def test_ecfp_invaraiants():
     """ECFP: test random reordering"""
     sildenafil = oddt.toolkit.readstring("smi", "CCCc1nn(C)c2c(=O)[nH]c(-c3cc(S(=O)(=O)N4CCN(C)CC4)ccc3OCC)nc12")
-    new_order = list(range(len(sildenafil.atoms)))
 
     params = {'depth': 4, 'size': 4096, 'sparse': True}
     fp = ECFP(sildenafil, **params)
 
     for n in range(10):
-        shuffle(new_order)
-        if oddt.toolkit.backend == 'ob':
-            sildenafil.OBMol.RenumberAtoms([i+1 for i in new_order])
-        else:
-            sildenafil.Mol = oddt.toolkit.Chem.RenumberAtoms(sildenafil.Mol, new_order)
+        sildenafil = shuffle_mol(sildenafil)
         assert_array_equal(fp, ECFP(sildenafil, **params))

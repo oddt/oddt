@@ -17,7 +17,8 @@ def MolFromPDBBlock(molBlock,
                                sanitize=sanitize,
                                removeHs=removeHs,
                                flavor=flavor)
-
+    if mol is None:
+        return None
     # Adjust connectivity
     for atom in mol.GetAtoms():
         res = atom.GetPDBResidueInfo()
