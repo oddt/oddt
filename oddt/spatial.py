@@ -134,11 +134,12 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
             if a_type != 'H' or not ignore_h:
                 mol_idx = np.argwhere(mol.atom_dict['atomtype'] == a_type).flatten()
                 ref_idx = np.argwhere(ref.atom_dict['atomtype'] == a_type).flatten()
+                assert len(mol_idx) == len(ref_idx), 'Unequal no. atoms of type: %s' % a_type
                 if len(mol_idx) == 1:
                     mol_map.append(mol_idx)
                     ref_map.append(ref_idx)
                     continue
-                M = distance(mol.atom_dict['coords'][ref_idx], ref.atom_dict['coords'][ref_idx])
+                M = distance(mol.atom_dict['coords'][mol_idx], ref.atom_dict['coords'][ref_idx])
                 M = M - M.min(axis=0) - M.min(axis=1).reshape(-1, 1)
                 tmp_mol, tmp_ref = linear_sum_assignment(M)
                 mol_map.append(mol_idx[tmp_mol])
