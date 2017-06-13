@@ -3,13 +3,17 @@ from random import shuffle
 import numpy as np
 from sklearn.utils.testing import (assert_array_equal,
                                    assert_array_almost_equal,
+                                   assert_equal,
                                    assert_almost_equal)
 import pandas as pd
 import oddt
 from oddt.fingerprints import (InteractionFingerprint,
                                SimpleInteractionFingerprint,
                                ECFP,
-                               dice, tanimoto)
+                               SPLIF,
+                               similarity_SPLIF,
+                               dice,
+                               tanimoto)
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -29,7 +33,7 @@ def shuffle_mol(mol):
     shuffle(new_order)
     if (hasattr(oddt.toolkits, 'ob') and
             isinstance(mol, oddt.toolkits.ob.Molecule)):
-        new_mol.OBMol.RenumberAtoms([i+1 for i in new_order])
+        new_mol.OBMol.RenumberAtoms([i + 1 for i in new_order])
     else:
         new_mol.Mol = oddt.toolkits.rdk.Chem.RenumberAtoms(new_mol.Mol, new_order)
     return new_mol
@@ -247,8 +251,10 @@ def test_fcfp():
     mol1 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
     mol2 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
 
-    mol1_fp = ECFP(mol1, depth=8, size=4096, sparse=False, use_pharm_features=True)
-    mol2_fp = ECFP(mol2, depth=8, size=4096, sparse=False, use_pharm_features=True)
+    mol1_fp = ECFP(mol1, depth=8, size=4096,
+                   sparse=False, use_pharm_features=True)
+    mol2_fp = ECFP(mol2, depth=8, size=4096,
+                   sparse=False, use_pharm_features=True)
 
     ref1 = [
         46, 111, 305, 310, 362, 384, 410, 451, 467, 548, 572, 595, 607, 609,
@@ -299,3 +305,85 @@ def test_ecfp_invaraiants():
     for n in range(10):
         sildenafil = shuffle_mol(sildenafil)
         assert_array_equal(fp, ECFP(sildenafil, **params))
+
+
+def test_splif():
+    """SPLIF fingerprints"""
+    mols = list(oddt.toolkit.readfile('sdf', os.path.join(
+        test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+    mols = list(filter(lambda x: x.title == '312335', mols))
+    list(map(lambda x: x.addh(only_polar=True), mols))
+    receptor = next(oddt.toolkit.readfile('pdb', os.path.join(
+        test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    receptor.protein = True
+    receptor.addh(only_polar=True)
+    # splif = SPLIF(mols[0], receptor)
+    # shaped_splif = np.hstack((splif['hash'].reshape((len(splif['hash']), 1)),
+    # splif['ligand_coords'].reshape((len(splif['ligand_coords']),  15)),
+    # splif['protein_coords'].reshape((len(splif['protein_coords']),  15))))
+    # np.savetxt('test_splif.csv', np.nan_to_num(reshaped_splif), delimiter=',', fmt='%.3f')
+    splif = SPLIF(mols[0], receptor)
+    if oddt.toolkit.backend == 'ob':
+        reference = np.array([38, 53, 53, 53, 70, 81, 81, 125, 125, 127, 216,
+                              219, 242, 249, 262, 262, 279, 279, 330, 396, 423, 423,
+                              424, 498, 498, 570, 592, 622, 625, 626, 676, 676, 817,
+                              818, 818, 818, 818, 884, 888, 895, 907, 914, 935, 1030,
+                              1041, 1082, 1082, 1115, 1143, 1184, 1184, 1191, 1199, 1264, 1269,
+                              1275, 1275, 1275, 1283, 1316, 1316, 1316, 1328, 1328, 1344, 1392,
+                              1396, 1435, 1466, 1495, 1502, 1502, 1502, 1502, 1506, 1569, 1569,
+                              1569, 1569, 1569, 1569, 1617, 1641, 1645, 1697, 1697, 1747, 1796,
+                              1938, 1979, 1997, 2000, 2007, 2007, 2021, 2150, 2179, 2196, 2225,
+                              2229, 2415, 2417, 2417, 2485, 2510, 2511, 2579, 2579, 2579, 2625,
+                              2637, 2666, 2678, 2737, 2776, 2776, 2790, 2857, 2863, 2863, 2895,
+                              2924, 2945, 2945, 3035, 3058, 3074, 3074, 3074, 3074, 3080, 3138,
+                              3160, 3160, 3167, 3219, 3219, 3279, 3279, 3282, 3339, 3353, 3361,
+                              3369, 3388, 3606, 3606, 3610, 3616, 3621, 3637, 3651, 3689, 3689,
+                              3714, 3714, 3717, 3717, 3730, 3732, 3770, 3844, 3855, 3872, 3913,
+                              3928, 3987, 3995, 3995, 4070, 4088, 4088])
+    else:
+        reference = np.array([38, 53, 53, 53, 70, 81, 81, 125, 125, 127, 216,
+                              219, 242, 249, 262, 262, 279, 279, 330, 396, 423, 423,
+                              424, 498, 498, 570, 592, 622, 625, 626, 676, 676, 817,
+                              818, 818, 818, 818, 884, 888, 895, 907, 914, 935, 1030,
+                              1041, 1082, 1082, 1115, 1143, 1184, 1184, 1191, 1199, 1264, 1269,
+                              1275, 1275, 1275, 1283, 1316, 1316, 1316, 1328, 1328, 1344, 1392,
+                              1396, 1435, 1466, 1495, 1502, 1502, 1502, 1502, 1506, 1569, 1569,
+                              1569, 1569, 1569, 1569, 1617, 1641, 1645, 1697, 1697, 1747, 1796,
+                              1938, 1979, 1997, 2000, 2007, 2007, 2021, 2150, 2179, 2196, 2225,
+                              2229, 2415, 2417, 2417, 2485, 2510, 2511, 2579, 2579, 2579, 2625,
+                              2637, 2666, 2678, 2737, 2776, 2776, 2790, 2857, 2863, 2863, 2895,
+                              2924, 2945, 2945, 3035, 3058, 3074, 3074, 3074, 3074, 3080, 3138,
+                              3160, 3160, 3167, 3219, 3219, 3279, 3279, 3282, 3339, 3353, 3361,
+                              3369, 3388, 3606, 3606, 3610, 3616, 3621, 3637, 3651, 3689, 3689,
+                              3714, 3714, 3717, 3717, 3730, 3732, 3770, 3844, 3855, 3872, 3913,
+                              3928, 3987, 3995, 3995, 4070, 4088, 4088])
+    assert_equal(splif['hash'].shape, (172,))
+    assert_array_equal(splif['ligand_coords'].shape, (172, 5, 3))
+    assert_array_equal(splif['protein_coords'].shape, (172, 5, 3))
+    assert_array_almost_equal(reference, splif['hash'], decimal=2)
+
+
+def test_splif_similarity():
+    """SPLIF similarity"""
+    mols = list(oddt.toolkit.readfile('sdf', os.path.join(
+        test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+    mols = list(filter(lambda x: x.title == '312335', mols))
+    list(map(lambda x: x.addh(only_polar=True), mols))
+    receptor = next(oddt.toolkit.readfile('pdb', os.path.join(
+        test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    receptor.protein = True
+    receptor.addh(only_polar=True)
+    # print(outcome)
+    ref = SPLIF(mols[0], receptor)
+    outcome = [similarity_SPLIF(ref, SPLIF(mol, receptor)) for mol in mols[1:]]
+    if oddt.toolkit.backend == 'ob':
+        target_outcome = np.array([0.751, 0.705, 0.76, 0.674, 0.745,
+                                   0.45, 0.754, 0.477, 0.614, 0.737,
+                                   0.727, 0.772, 0.747, 0.585, 0.535,
+                                   0.681, 0.554, 0.736, 0.729])
+    else:
+        target_outcome = np.array([0.751, 0.705, 0.76, 0.674, 0.745,
+                                   0.467, 0.754, 0.485, 0.637, 0.737,
+                                   0.727, 0.772, 0.747, 0.585, 0.535,
+                                   0.681, 0.554, 0.736, 0.729])
+    assert_array_almost_equal(outcome, target_outcome, decimal=3)

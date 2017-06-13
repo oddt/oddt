@@ -3,7 +3,7 @@
     creates interacion fingerprints.
 
 """
-
+from __future__ import division
 from itertools import chain
 import numpy as np
 import oddt
@@ -12,44 +12,47 @@ from oddt.interactions import (pi_stacking,
                                hbond_acceptor_donor,
                                salt_bridge_plus_minus,
                                hydrophobic_contacts,
-                               acceptor_metal)
+                               acceptor_metal,
+                               close_contacts)
+
 
 __all__ = ['InteractionFingerprint',
            'SimpleInteractionFingerprint',
+           'SPLIF',
+           'similarity_SPLIF',
            'ECFP',
            'dice',
            'tanimoto']
 
 
 def InteractionFingerprint(ligand, protein, strict=True):
-    """
-        Interaction fingerprint accomplished by converting the molecular
-        interaction of ligand-protein into bit array according to
-        the residue of choice and the interaction. For every residue
-        (One row = one residue) there are eight bits which represent
-        eight type of interactions:
+    """Interaction fingerprint accomplished by converting the molecular
+    interaction of ligand-protein into bit array according to
+    the residue of choice and the interaction. For every residue
+    (One row = one residue) there are eight bits which represent
+    eight type of interactions:
 
-        - (Column 0) hydrophobic contacts
-        - (Column 1) aromatic face to face
-        - (Column 2) aromatic edge to face
-        - (Column 3) hydrogen bond (protein as hydrogen bond donor)
-        - (Column 4) hydrogen bond (protein as hydrogen bond acceptor)
-        - (Column 5) salt bridges (protein positively charged)
-        - (Column 6) salt bridges (protein negatively charged)
-        - (Column 7) salt bridges (ionic bond with metal ion)
+    - (Column 0) hydrophobic contacts
+    - (Column 1) aromatic face to face
+    - (Column 2) aromatic edge to face
+    - (Column 3) hydrogen bond (protein as hydrogen bond donor)
+    - (Column 4) hydrogen bond (protein as hydrogen bond acceptor)
+    - (Column 5) salt bridges (protein positively charged)
+    - (Column 6) salt bridges (protein negatively charged)
+    - (Column 7) salt bridges (ionic bond with metal ion)
 
-        Parameters
-        ----------
-        ligand, protein : oddt.toolkit.Molecule object
-            Molecules to check interactions between them
-        strict : bool (deafult = True)
-            If False, do not include condition, which informs whether atoms
-            form 'strict' H-bond (pass all angular cutoffs).
+    Parameters
+    ----------
+    ligand, protein : oddt.toolkit.Molecule object
+        Molecules, which are analysed in order to find interactions.
+    strict : bool (deafult = True)
+        If False, do not include condition, which informs whether atoms
+        form 'strict' H-bond (pass all angular cutoffs).
 
-        Returns
-        -------
-        InteractionFingerprint : numpy array
-            Vector of calculated IFP (size = no residues * 8 type of interaction)
+    Returns
+    -------
+    InteractionFingerprint : numpy array
+        Vector of calculated IFP (size = no residues * 8 type of interaction)
 
     """
     resids = np.unique(protein.atom_dict['resid'])
@@ -98,38 +101,37 @@ def InteractionFingerprint(ligand, protein, strict=True):
 
 
 def SimpleInteractionFingerprint(ligand, protein, strict=True):
-    """
-        Based on http://dx.doi.org/10.1016/j.csbj.2014.05.004
-        Every IFP consists of 8 bits per amino acid (One row = one amino acid)
-        and present eight type of interaction:
+    """Based on http://dx.doi.org/10.1016/j.csbj.2014.05.004.
+    Every IFP consists of 8 bits per amino acid (One row = one amino acid)
+    and present eight type of interaction:
 
-        - (Column 0) hydrophobic contacts
-        - (Column 1) aromatic face to face
-        - (Column 2) aromatic edge to face
-        - (Column 3) hydrogen bond (protein as hydrogen bond donor)
-        - (Column 4) hydrogen bond (protein as hydrogen bond acceptor)
-        - (Column 5) salt bridges (protein positively charged)
-        - (Column 6) salt bridges (protein negatively charged)
-        - (Column 7) salt bridges (ionic bond with metal ion)
+    - (Column 0) hydrophobic contacts
+    - (Column 1) aromatic face to face
+    - (Column 2) aromatic edge to face
+    - (Column 3) hydrogen bond (protein as hydrogen bond donor)
+    - (Column 4) hydrogen bond (protein as hydrogen bond acceptor)
+    - (Column 5) salt bridges (protein positively charged)
+    - (Column 6) salt bridges (protein negatively charged)
+    - (Column 7) salt bridges (ionic bond with metal ion)
 
-        Returns matrix, which is sorted acordingly to this pattern : 'ALA',
-        'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU',
-        'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL', ''.
-        The '' means cofactor. Index of amino acid in pattern coresponds
-        to row in returned matrix.
+    Returns matrix, which is sorted acordingly to this pattern : 'ALA',
+    'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU',
+    'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL', ''.
+    The '' means cofactor. Index of amino acid in pattern coresponds
+    to row in returned matrix.
 
-        Parameters
-        ----------
-        ligand, protein : oddt.toolkit.Molecule object
-            Molecules to check interactions beetwen them
-        strict : bool (deafult = True)
-            If False, do not include condition, which informs whether atoms
-            form 'strict' H-bond (pass all angular cutoffs).
+    Parameters
+    ----------
+    ligand, protein : oddt.toolkit.Molecule object
+        Molecules, which are analysed in order to find interactions.
+    strict : bool (deafult = True)
+        If False, do not include condition, which informs whether atoms
+        form 'strict' H-bond (pass all angular cutoffs).
 
-        Returns
-        -------
-        InteractionFingerprint : numpy array
-            Vector of calculated IFP (size = 168)
+    Returns
+    -------
+    InteractionFingerprint : numpy array
+        Vector of calculated IFP (size = 168)
 
     """
 
@@ -192,6 +194,12 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
         amino_acids, metal[strict2]['resname']), 7], 1)
 
     return IFP.flatten()
+
+
+def fold(a, size):
+    """Folding array a to given size"""
+    return np.floor((np.array(a).astype(np.float64) - MIN_HASH_VALUE) /
+                    int(abs(MAX_HASH_VALUE - MIN_HASH_VALUE) / size))
 
 
 # ranges for hashing function
@@ -332,7 +340,8 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False):
     # Get atom invariants
     out_hash = []
     for layer in atom_env:
-        layer_invariant = tuple(sorted([a_repr for aidx, a_repr in zip(layer, atom_repr)]))
+        layer_invariant = tuple(
+            sorted([a_repr for aidx, a_repr in zip(layer, atom_repr)]))
         out_hash.append(hash32(layer_invariant))
     return out_hash
 
@@ -387,8 +396,7 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
     mol_hashed = np.array(sorted(chain(*mol_hashed)))
 
     # folding
-    mol_hashed = np.floor((mol_hashed.astype(np.float64) - MIN_HASH_VALUE) /
-                          int(abs(MAX_HASH_VALUE - MIN_HASH_VALUE) / size))
+    mol_hashed = fold(mol_hashed, size)
 
     # cast to minimum unsigned integer dtype
     mol_hashed = mol_hashed.astype(np.min_scalar_type(size))
@@ -405,23 +413,139 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
     return mol_hashed
 
 
+def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
+    """Calculates structural protein-ligand interaction fingerprint (SPLIF),
+    based on http://pubs.acs.org/doi/abs/10.1021/ci500319f.
+
+    Parameters
+    ----------
+    ligand, protein : oddt.toolkit.Molecule object
+            Molecules, which are analysed in order to find interactions.
+    depth : int (deafult = 1)
+        The depth of the fingerprint, i.e. the number of bonds in Morgan
+        algorithm. Note: For ECFP2: depth = 1, ECFP4: depth = 2, etc.
+    size: int (default = 4096)
+        SPLIF is folded to given size.
+    distance_cutoff: float (default=4.5)
+        Cutoff distance for close contacts.
+
+    Returns
+    -------
+    SPLIF : numpy array
+        Calculated SPLIF.shape = (no. of atoms, ). Every row consists of three elements:
+            row[0] = index of hashed atoms
+            row[1].shape = (5, 3) -> ligand's atom coords and 4 his neigbor's
+            row[2].shape = (5, 3) -> protein's atom coords and 4 his neigbor's
+
+    """
+
+    # removing h
+    protein_dict = protein.atom_dict[protein.atom_dict['atomicnum'] != 1]
+    ligand_dict = ligand.atom_dict[ligand.atom_dict['atomicnum'] != 1]
+
+    protein_atoms, ligand_atoms = close_contacts(
+        protein_dict, ligand_dict, cutoff=distance_cutoff)
+    splif = np.zeros((len(ligand_atoms)),
+                     dtype=[('hash', int), ('ligand_coords', np.float32, (5, 3)),
+                            ('protein_coords', np.float32, (5, 3))])
+    for i, (ligand_atom, protein_atom) in enumerate(zip(ligand_atoms, protein_atoms)):
+        if ligand_atom['atomicnum'] == 1 or protein_atom['atomicnum'] == 1:
+            continue
+        # function sorted used below solves isue, when order of parameteres
+        # is not correct -> splif(protein, ligand)
+        splif[i] = (hash32(tuple(sorted((
+            _ECFP_atom_hash(ligand, int(ligand_atom['id']), depth=depth)[-1],
+            _ECFP_atom_hash(protein, int(protein_atom['id']), depth=depth)[-1])))),
+            np.vstack((ligand_atom['coords'].reshape((1, 3)),
+                       ligand_atom['neighbors'])),
+            np.vstack((protein_atom['coords'].reshape((1, 3)),
+                       protein_atom['neighbors'])))
+
+    # folding
+    splif['hash'] = fold(splif['hash'], size)
+    return np.sort(splif)
+
+
+def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
+    """Calculates similarity between structural interaction fingerprints,
+    based on doi:http://pubs.acs.org/doi/abs/10.1021/ci500319f.
+
+    Parameters
+    ----------
+    reference, query: numpy.array
+        SPLIFs, which are compared in order to determine similarity.
+    rmsd_cutoff : int (default = 1)
+        Specific treshold for which, bits are considered as fully matching.
+
+    Returns
+    -------
+    SimilarityScore : float
+        Similarity between given fingerprints.
+
+    """
+
+    # intersection of reference and query hashed atoms
+    index = np.intersect1d(reference['hash'], query['hash'])
+
+    ref_intersection = reference[np.where(np.in1d(reference['hash'], index))]
+    ref_group_intersection = np.split(ref_intersection, np.searchsorted(
+        ref_intersection['hash'], index[1:]))  # reference
+
+    query_intersection = query[np.where(np.in1d(query['hash'], index))]
+    query_group_intersection = np.split(query_intersection, np.searchsorted(
+        query_intersection['hash'], index[1:]))  # query
+
+    numla = 0  # number of unique matching ligand atoms
+    nula = 0  # number of unique ligand atoms
+    numpa = 0  # number of unique matching protein atoms
+    nupa = 0  # number of unique protein atoms
+
+    def combinatorial_rmsd(reference, query):
+        """Calculates root mean square deviation between groups of points. It
+        takes two matrices of shapes e.g (2, 5, 3) and (4, 5, 3) -> (2, 4)."""
+        return np.sqrt(np.nansum(np.mean(
+            (reference[:, np.newaxis, ...] - query)**2, axis=-1), axis=-1))
+
+    for pair in range(len(ref_group_intersection)):
+        # reference protein-ligand pair
+        ref_pair = ref_group_intersection[pair]
+        # query protein-ligand pair
+        query_pair = query_group_intersection[pair]
+        ref_ligand = ref_pair['ligand_coords']
+        ref_protein = ref_pair['protein_coords']
+        query_ligand = query_pair['ligand_coords']
+        query_protein = query_pair['protein_coords']
+        rmsd_ligand = combinatorial_rmsd(ref_ligand, query_ligand)
+        rmsd_protein = combinatorial_rmsd(ref_protein, query_protein)
+        n_matching = ((rmsd_ligand < rmsd_cutoff) & (rmsd_protein < rmsd_cutoff)).sum()
+        numla += n_matching
+        numpa += n_matching
+        nula += (rmsd_ligand < rmsd_cutoff).sum()
+        nupa += (rmsd_protein < rmsd_cutoff).sum()
+    if nula == 0 or nupa == 0:
+        return 0.
+    else:
+        return np.sqrt((numla / nula) * (numpa / nupa))
+
+
 def dice(a, b, sparse=False):
     """Calculates the Dice coefficient, the ratio of the bits in common to
-        the arithmetic mean of the number of 'on' bits in the two fingerprints.
-        Supports integer and boolean fingerprints.
+    the arithmetic mean of the number of 'on' bits in the two fingerprints.
+    Supports integer and boolean fingerprints.
 
-        Parameters
-        ----------
-        a, b : numpy array
-            Interaction fingerprints to check similarity between them.
+    Parameters
+    ----------
+    a, b : numpy array
+        Interaction fingerprints, which are compared
+        in order to determine similarity.
 
-        sparse : bool (default=False)
-            Type of FPs to use. Defaults to dense form.
+    sparse : bool (default=False)
+        Type of FPs to use. Defaults to dense form.
 
-        Returns
-        -------
-        score : float
-            Similarity between a, b.
+    Returns
+    -------
+    score : float
+        Similarity between a, b.
 
     """
     if sparse:
@@ -429,7 +553,8 @@ def dice(a, b, sparse=False):
         a_counts = np.bincount(inv)
         b_unique, inv = np.unique(b, return_inverse=True)
         b_counts = np.bincount(inv)
-        a_b_intersection = np.intersect1d(a_unique, b_unique, assume_unique=True)
+        a_b_intersection = np.intersect1d(
+            a_unique, b_unique, assume_unique=True)
         a_b = np.minimum(a_counts[np.in1d(a_unique, a_b_intersection)],
                          b_counts[np.in1d(b_unique, a_b_intersection)]).sum()
         return 2 * a_b.astype(float) / (len(a) + len(b))
@@ -439,22 +564,22 @@ def dice(a, b, sparse=False):
 
 
 def tanimoto(a, b, sparse=False):
-    """
-        Tanimoto coefficient, supports boolean fingerprints.
-        Integer fingerprints are casted to boolean.
+    """Tanimoto coefficient, supports boolean fingerprints.
+    Integer fingerprints are casted to boolean.
 
-        Parameters
-        ----------
-        a, b : numpy array
-            Interaction fingerprints to check similarity between them.
+    Parameters
+    ----------
+    a, b : numpy array
+        Interaction fingerprints, which are compared
+        in order to determine similarity.
 
-        sparse : bool (default=False)
-            Type of FPs to use. Defaults to dense form.
+    sparse : bool (default=False)
+        Type of FPs to use. Defaults to dense form.
 
-        Returns
-        -------
-        score : float
-            Similarity between a, b.
+    Returns
+    -------
+    score : float
+        Similarity between a, b.
 
     """
 
