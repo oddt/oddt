@@ -4,6 +4,7 @@
 
 """
 from __future__ import division
+from six.moves import zip_longest
 from itertools import chain
 import numpy as np
 import oddt
@@ -21,6 +22,7 @@ __all__ = ['InteractionFingerprint',
            'SPLIF',
            'similarity_SPLIF',
            'ECFP',
+           'PLEC',
            'dice',
            'tanimoto']
 
@@ -207,6 +209,14 @@ def fold(fp, size):
     else:
         fp = fp.astype(np.uint64)
     return fp
+
+
+def sparse_to_dense(fp, size, count_bits=True):
+    """Converts sparse fingerprint (consists only 'on' bits)
+    to dense (consists all bits)"""
+    sparsed_fp = np.zeros(size, dtype=np.uint8 if count_bits else bool)
+    np.add.at(sparsed_fp, fp, 1)
+    return sparsed_fp
 
 
 # ranges for hashing function
@@ -419,9 +429,7 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
 
     # dense or sparse FP
     if not sparse:
-        tmp = np.zeros(size, dtype=np.uint8 if count_bits else bool)
-        np.add.at(tmp, mol_hashed, 1)
-        mol_hashed = tmp
+        mol_hashed = sparse_to_dense(mol_hashed, size=size)
 
     return mol_hashed
 
@@ -539,6 +547,71 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
         return 0.
     else:
         return np.sqrt((numla / nula) * (numpa / nupa))
+
+
+def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
+           size=16384, count_bits=True, sparse=True):
+    """Protein ligand extended connectivity fingerprint. For every pair of
+    atoms in contact, compute ECFP and then hash every single, corresponding depth.
+
+    Parameters
+    ----------
+    ligand, protein : oddt.toolkit.Molecule object
+            Molecules, which are analysed in order to find interactions.
+    depth_ligand, depth_protein : int (deafult = (2, 4))
+        The depth of the fingerprint, i.e. the number of bonds in Morgan
+        algorithm. Note: For ECFP2: depth = 1, ECFP4: depth = 2, etc.
+    size: int (default = 16384)
+        SPLIF is folded to given size.
+    distance_cutoff: float (default=4.5)
+        Cutoff distance for close contacts.
+    sparse : bool (default = True)
+        Should fingerprints be dense (contain all bits) or sparse (just the on
+        bits).
+    count_bits : bool (default = True)
+        Should the bits be counted or unique. In dense representation it
+        translates to integer array (count_bits=True) or boolean array if False.
+
+    Returns
+    -------
+    PLEC : numpy array
+        Calculated fp (size = no. of atoms in contacts * max(depth_protein, depth_ligand))
+
+    """
+    result = []
+    # removing h
+    protein_dict = protein.atom_dict[protein.atom_dict['atomicnum'] != 1]
+    ligand_dict = ligand.atom_dict[ligand.atom_dict['atomicnum'] != 1]
+
+    # atoms in contact
+    protein_atoms, ligand_atoms = close_contacts(
+        protein_dict, ligand_dict, cutoff=distance_cutoff)
+
+    for ligand_atom, protein_atom in zip(ligand_atoms, protein_atoms):
+        ligand_ecfp = _ECFP_atom_hash(ligand, int(ligand_atom['id']), depth=depth_ligand)
+        protein_ecfp = _ECFP_atom_hash(protein, int(protein_atom['id']), depth=depth_protein)
+        assert len(ligand_ecfp) == depth_ligand + 1
+        assert len(protein_ecfp) == depth_protein + 1
+        # fillvalue is parameter from zip_longest
+        # it's used, when ligand_ecfp and protein_ecfp are not the same size,
+        # so if one is shorter the last given ECFP is used
+        if depth_ligand < depth_protein:
+            fillvalue = ligand_ecfp[-1]
+        else:
+            fillvalue = protein_ecfp[-1]
+        for pair in zip_longest(ligand_ecfp, protein_ecfp, fillvalue=fillvalue):
+                result.append(hash32(pair))
+    # folding and sorting
+    plec = np.sort(fold(np.array(result), size=size))
+
+    # count_bits
+    if not count_bits:
+        plec = np.unique(plec)
+
+    # sparse or dense FP
+    if not sparse:
+        plec = sparse_to_dense(plec, size=size)
+    return plec
 
 
 def dice(a, b, sparse=False):
