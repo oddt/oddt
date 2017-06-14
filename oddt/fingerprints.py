@@ -274,7 +274,8 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
                     int(atom.GetIsAromatic()),)
 
 
-def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False):
+def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
+                    atom_repr_dict=None):
     """Generate hashed environments for single atom up to certain depth
     (bond-wise). Hydrogens are ignored during neighbor lookup.
 
@@ -335,13 +336,15 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False):
         atom_env.append(atom_env[r - 1] + tmp)
 
     # Get atom representation only once, pull indices from largest env
-    atom_repr = [_ECFP_atom_repr(mol, aidx, use_pharm_features=use_pharm_features)
-                 for aidx in atom_env[-1]]
+    if atom_repr_dict is None:
+        atom_repr = [_ECFP_atom_repr(mol, aidx, use_pharm_features=use_pharm_features)
+                     for aidx in atom_env[-1]]
+    else:
+        atom_repr = [atom_repr_dict[aidx] for aidx in atom_env[-1]]
     # Get atom invariants
     out_hash = []
     for layer in atom_env:
-        layer_invariant = tuple(
-            sorted([a_repr for aidx, a_repr in zip(layer, atom_repr)]))
+        layer_invariant = tuple(sorted(atom_repr[:len(layer)]))
         out_hash.append(hash32(layer_invariant))
     return out_hash
 
@@ -388,11 +391,17 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
     """
     # Hash atom environments
     mol_hashed = []
+    atom_repr_dict = {}
     for idx, atom in enumerate(mol.atoms):
         if atom.atomicnum == 1:
             continue
+        atom_repr_dict[idx] = _ECFP_atom_repr(mol, idx, use_pharm_features=use_pharm_features)
+    if not atom_repr_dict:
+        atom_repr_dict = None
+    for idx in atom_repr_dict.keys():
         mol_hashed.append(_ECFP_atom_hash(mol, idx, depth=depth,
-                                          use_pharm_features=use_pharm_features))
+                                          use_pharm_features=use_pharm_features,
+                                          atom_repr_dict=atom_repr_dict))
     mol_hashed = np.array(sorted(chain(*mol_hashed)))
 
     # folding
