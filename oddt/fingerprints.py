@@ -566,10 +566,15 @@ def dice(a, b, sparse=False):
             a_unique, b_unique, assume_unique=True)
         a_b = np.minimum(a_counts[np.in1d(a_unique, a_b_intersection)],
                          b_counts[np.in1d(b_unique, a_b_intersection)]).sum()
-        return 2 * a_b.astype(float) / (len(a) + len(b))
+        denominator = len(a) + len(b)
+        if denominator > 0:
+            return 2 * a_b.astype(float) / denominator
     else:
         a_b = np.vstack((a, b)).min(axis=0).sum()
-        return 2 * a_b.astype(float) / (a.sum() + b.sum())
+        denominator = a.sum() + b.sum()
+        if denominator > 0:
+            return 2 * a_b.astype(float) / denominator
+    return 0.
 
 
 def tanimoto(a, b, sparse=False):
@@ -596,9 +601,14 @@ def tanimoto(a, b, sparse=False):
         a = np.unique(a)
         b = np.unique(b)
         a_b = float(len(np.intersect1d(a, b, assume_unique=True)))
-        return a_b / (len(a) + len(b) - a_b)
+        denominator = len(a) + len(b) - a_b
+        if denominator > 0:
+            return a_b / denominator
     else:
         a = a.astype(bool)
         b = b.astype(bool)
         a_b = (a & b).sum().astype(float)
-        return a_b / (a.sum() + b.sum() - a_b)
+        denominator = a.sum() + b.sum() - a_b
+        if denominator > 0:
+            return a_b / denominator
+    return 0.

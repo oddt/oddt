@@ -180,8 +180,12 @@ def test_sparse_similarity():
 
     assert_almost_equal(dice(mol1_fp_sparse, mol2_fp_sparse, sparse=True),
                         dice(mol1_fp_dense, mol2_fp_dense))
+    assert_equal(dice([], [], sparse=True), 0.)
+    assert_equal(dice(np.zeros(10), np.zeros(10), sparse=False), 0.)
     assert_almost_equal(tanimoto(mol1_fp_sparse, mol2_fp_sparse, sparse=True),
                         tanimoto(mol1_fp_dense, mol2_fp_dense))
+    assert_equal(tanimoto([], [], sparse=True), 0.)
+    assert_equal(tanimoto(np.zeros(10), np.zeros(10), sparse=False), 0.)
 
 
 def test_ecfp():
