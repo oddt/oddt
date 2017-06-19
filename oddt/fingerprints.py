@@ -196,10 +196,17 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
     return IFP.flatten()
 
 
-def fold(a, size):
-    """Folding array a to given size"""
-    return np.floor((np.array(a).astype(np.float64) - MIN_HASH_VALUE) /
-                    int(abs(MAX_HASH_VALUE - MIN_HASH_VALUE) / size))
+def fold(fp, size):
+    """Folding array a to given size and cast to most compact dtype"""
+    fp = np.floor((np.array(fp).astype(np.float64) - MIN_HASH_VALUE) /
+                  (abs(MAX_HASH_VALUE - MIN_HASH_VALUE) / (size - 1)))
+    if size < 65535:
+        fp = fp.astype(np.uint16)
+    elif size < 4294967295:
+        fp = fp.astype(np.uint32)
+    else:
+        fp = fp.astype(np.uint64)
+    return fp
 
 
 # ranges for hashing function
@@ -406,9 +413,6 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
 
     # folding
     mol_hashed = fold(mol_hashed, size)
-
-    # cast to minimum unsigned integer dtype
-    mol_hashed = mol_hashed.astype(np.min_scalar_type(size))
 
     if not count_bits:
         mol_hashed = np.unique(mol_hashed)
