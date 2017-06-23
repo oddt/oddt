@@ -266,8 +266,7 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
                 int(atom_dict['isaromatic']))
 
     else:
-        if (hasattr(oddt.toolkits, 'ob') and
-                isinstance(mol, oddt.toolkits.ob.Molecule)):
+        if hasattr(mol, 'OBMol'):
             atom = mol.OBMol.GetAtom(idx + 1)
             if atom.GetAtomicNum() == 1:
                 raise Exception('ECFP should not hash Hydrogens')
@@ -292,7 +291,7 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
 
 
 def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
-                    atom_repr_dict=None):
+                    atom_repr_dict=None, return_smiles=False, return_env=False):
     """Generate hashed environments for single atom up to certain depth
     (bond-wise). Hydrogens are ignored during neighbor lookup.
 
@@ -316,10 +315,22 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
         Switch to use pharmacophoric features as atom representation instead of
         explicit atomic numbers etc.
 
+    return_smiles : bool (default=False)
+        Switch for output of SMILES along environment hashes.
+
+    return_env : bool (default=False)
+        Switch for returning atom indices (0-based) of given environment
+
     Returns
     -------
     environment_hashes : list of ints
         Hashed environments for certain atom
+
+    environment_smiles : list of strings (optional)
+        SMILES of environments for certain atom
+
+    environment_atom_idxs : list of integer lists (optional)
+        Atom indices of environments for certain atom
     """
     atom_env = [[idx]]
     for r in range(1, depth + 1):
@@ -335,9 +346,8 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
             #     n_idx = neighbor.idx0
             #     if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
             #         tmp.append(n_idx)
-            if (hasattr(oddt.toolkits, 'ob') and
-                    isinstance(mol, oddt.toolkits.ob.Molecule)):
-                for neighbor in oddt.toolkit.OBAtomAtomIter(mol.OBMol.GetAtom(atom_idx + 1)):
+            if hasattr(mol, 'OBMol'):
+                for neighbor in oddt.toolkits.ob.OBAtomAtomIter(mol.OBMol.GetAtom(atom_idx + 1)):
                     if neighbor.GetAtomicNum() == 1:
                         continue
                     n_idx = neighbor.GetIdx() - 1
@@ -360,10 +370,34 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
         atom_repr = [atom_repr_dict[aidx] for aidx in atom_env[-1]]
     # Get atom invariants
     out_hash = []
+    out_smiles = []
     for layer in atom_env:
         layer_invariant = tuple(sorted(atom_repr[:len(layer)]))
         out_hash.append(hash32(layer_invariant))
-    return out_hash
+        if return_smiles:
+            if hasattr(mol, 'OBMol'):
+                smi = (mol
+                       .write('smi',
+                              opt={'F': ' '.join(map(str, (i + 1 for i in layer))),
+                                   'f': layer[0] + 1, 'i': None, 'c': None})
+                       .split()[0]
+                       .strip())
+            else:
+                smi = oddt.toolkits.rdk.Chem.MolFragmentToSmiles(mol_rdk.Mol,
+                                                                 layer,
+                                                                 rootedAtAtom=layer[0],
+                                                                 isomericSmiles=False)
+            out_smiles.append(smi)
+
+    if return_smiles or return_env:
+        out = [out_hash]
+        if return_smiles:
+            out.append(out_smiles)
+        if return_env:
+            out.append(atom_env)
+        return out
+    else:
+        return out_hash
 
 
 def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
