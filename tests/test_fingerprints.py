@@ -57,6 +57,10 @@ def test_folding():
     assert_array_equal(fold([MIN_HASH_VALUE], MAX_HASH_VALUE / 2), [0])
     assert_array_equal(fold([MIN_HASH_VALUE], MAX_HASH_VALUE - 1), [0])
 
+    # Range check
+    fp = np.arange(1, MAX_HASH_VALUE, 1e6, dtype=int)
+    assert_array_equal(fold(fp, MAX_HASH_VALUE), fp - 1)
+
 
 def test_InteractionFingerprint():
     """Interaction Fingerprint test"""
