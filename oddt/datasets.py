@@ -1,4 +1,6 @@
 """ Datasets wrapped in conviniet models """
+import os
+import sys
 import csv
 from os.path import isfile, join
 
@@ -121,5 +123,83 @@ class _pdbbind_id(object):
         f = join(self.home, self.id, '%s_ligand.sdf' % self.id)
         if isfile(f):
             return next(toolkit.readfile('sdf', f, lazy=True, opt=self.opt))
+        else:
+            return None
+
+
+class dude(object):
+
+    def __init__(self, home):
+        self.home = home
+        if not os.path.isdir(home):
+            raise Exception("Directory doesn't exist")
+
+        self.ids = []
+        files = ['receptor.pdb', 'crystal_ligand.mol2', 'actives_final.mol2.gz', 'decoys_final.mol2.gz']
+        all_ids = ['aa2ar', 'aldr', 'cp2c9', 'esr1', 'gcr', 'hs90a',
+                   'lck', 'nos1', 'ppard', 'sahh', 'wee1', 'abl1',
+                   'ampc', 'cp3a4', 'esr2', 'glcm', 'hxk4', 'lkha4',
+                   'nram', 'pparg', 'src', 'xiap', 'ace', 'andr',
+                   'csf1r', 'fa10', 'gria2', 'igf1r', 'mapk2', 'pa2ga',
+                   'prgr', 'tgfr1', 'aces', 'aofb', 'cxcr4', 'fa7',
+                   'grik1', 'inha', 'mcr', 'parp1', 'ptn1', 'thb',
+                   'ada', 'bace1', 'def', 'fabp4', 'hdac2', 'ital',
+                   'met', 'pde5a', 'pur2', 'thrb', 'ada17', 'braf',
+                   'dhi1', 'fak1', 'hdac8', 'jak2', 'mk01', 'pgh1',
+                   'pygm', 'try1', 'adrb1', 'cah2', 'dpp4', 'fgfr1',
+                   'hivint', 'kif11', 'mk10', 'pgh2', 'pyrd', 'tryb1',
+                   'adrb2', 'casp3', 'drd3', 'fkb1a', 'hivpr', 'kit',
+                   'mk14', 'plk1', 'reni', 'tysy', 'akt1', 'cdk2',
+                   'dyr', 'fnta', 'hivrt', 'kith', 'mmp13', 'pnph',
+                   'rock1', 'urok', 'akt2', 'comt', 'egfr', 'fpps',
+                   'hmdh', 'kpcb', 'mp2k1', 'ppara', 'rxra', 'vgfr2']
+        for i in all_ids:
+            if os.path.isdir(home + i):
+                self.ids.append(i)
+                for file in files:
+                    if not os.path.isfile(home + i + '/' + file):
+                        print("Target " + i + " doesn't have file " + file, file=sys.stderr)
+
+    def __iter__(self):
+        for dude_id in self.ids:
+            yield _dude_target(self.home, dude_id)
+
+    def __getitem__(self, dude_id):
+        if dude_id in self.ids:
+            return _dude_target(self.home, dude_id)
+        else:
+            raise Exception("Directory doesn't exist")
+
+class _dude_target(object):
+
+    def __init__(self, home, dude_id):
+        self.home = home
+        self.id = dude_id
+
+    @property
+    def protein(self):
+        if isfile(self.home + self.id + "/receptor.pdb"):
+            return next(toolkit.readfile("pdb", self.home + self.id + "/receptor.pdb"))
+        else:
+            return None
+
+    @property
+    def ligand(self):
+        if isfile(self.home + self.id + "/crystal_ligand.mol2"):
+            return next(toolkit.readfile("mol2", self.home + self.id + "/crystal_ligand.mol2"))
+        else:
+            return None
+
+    @property
+    def actives(self):
+        if isfile(self.home + self.id + "/actives_final.mol2.gz"):
+            return list(toolkit.readfile("mol2", self.home + self.id + "/actives_final.mol2.gz"))
+        else:
+            return None
+
+    @property
+    def decoys(self):
+        if isfile(self.home + self.id + "/decoys_final.mol2.gz"):
+            return list(toolkit.readfile("mol2", self.home + self.id + "/decoys_final.mol2.gz"))
         else:
             return None
