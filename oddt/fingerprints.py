@@ -373,10 +373,10 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
                        .split()[0]
                        .strip())
             else:
-                smi = Chem.MolFragmentToSmiles(mol_rdk.Mol,
-                                               layer,
-                                               rootedAtAtom=layer[0],
-                                               isomericSmiles=False)
+                smi = oddt.toolkits.rdk.Chem.MolFragmentToSmiles(mol_rdk.Mol,
+                                                                 layer,
+                                                                 rootedAtAtom=layer[0],
+                                                                 isomericSmiles=False)
             out_smiles.append(smi)
 
     if return_smiles or return_env:
