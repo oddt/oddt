@@ -281,7 +281,7 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
 
 
 def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
-                    atom_repr_dict=None, return_smiles=False):
+                    atom_repr_dict=None, return_smiles=False, return_env=False):
     """Generate hashed environments for single atom up to certain depth
     (bond-wise). Hydrogens are ignored during neighbor lookup.
 
@@ -308,6 +308,9 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
     return_smiles : bool (default=False)
         Switch for output of SMILES along environment hashes.
 
+    return_env : bool (default=False)
+        Switch for returning atom indices (0-based) of given environment
+
     Returns
     -------
     environment_hashes : list of ints
@@ -315,6 +318,9 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
 
     environment_smiles : list of strings (optional)
         SMILES of environments for certain atom
+
+    environment_atom_idxs : list of integer lists (optional)
+        Atom indices of environments for certain atom
     """
     atom_env = [[idx]]
     for r in range(1, depth + 1):
@@ -372,8 +378,14 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
                                                rootedAtAtom=layer[0],
                                                isomericSmiles=False)
             out_smiles.append(smi)
-    if return_smiles:
-        return out_hash, out_smiles
+
+    if return_smiles or return_env:
+        out = [out_hash]
+        if return_smiles:
+            out.append(out_smiles)
+        if return_env:
+            out.append(atom_env)
+        return out
     else:
         return out_hash
 
