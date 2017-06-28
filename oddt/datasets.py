@@ -1,11 +1,8 @@
-""" Datasets wrapped in conviniet models """
-from __future__ import print_function
-import os
-import sys
+""" Datasets wrapped in convenient models """
 import csv
-
-from six import next
-import pandas as pd
+import six
+from os.path import isfile, isdir
+from os import listdir
 
 from oddt import toolkit
 
@@ -229,3 +226,76 @@ class _dude_target(object):
             return toolkit.readfile('mol2', f[:-3])
         else:
             return None
+
+
+class CASF:
+    def __init__(self, home):
+        self.home = home
+        self.index = '%s/coreset/index/' % self.home
+        self.pdbids = []
+
+        if isdir(self.index):
+            file = listdir(self.index)[0]  # both files in 'index' directory have all ids
+            index_file = open(self.index + file)
+            for line in index_file.readlines():
+                if not line.startswith('#'):  # skip comments
+                    pdbid = line.split()[0]
+                    self.pdbids.append(pdbid)
+
+    def __iter__(self):
+        for pdbid in self.pdbids:
+            yield _CASFTarget(self.home, pdbid)
+
+    def __getitem__(self, item):
+        if item in self.pdbids:
+            return _CASFTarget(self.home, item)
+        elif type(item) is int and item < len(self.pdbids):
+            return _CASFTarget(self.home, self.pdbids[item])
+        else:
+            raise KeyError
+
+
+class _CASFTarget:
+    def __init__(self, home, pdbid):
+        self.home = home
+        self.pdbid = pdbid
+
+    @property
+    def protein(self):
+        filepath = '%s/coreset/%s/%s_protein.mol2' % (
+            self.home, self.pdbid, self.pdbid)
+        if isfile(filepath):
+            protein = six.next(toolkit.readfile('mol2', filepath))
+            return protein
+        return None
+
+    @property
+    def ligand(self):
+        filepath = '%s/coreset/%s/%s_ligand.mol2' % (
+            self.home, self.pdbid, self.pdbid)
+        if isfile(filepath):
+            ligand = six.next(toolkit.readfile('mol2', filepath))
+            return ligand
+        return None
+
+    @property
+    def decoys_docking(self):
+        filepath = '%s/decoys_docking/%s_decoys.mol2' % (self.home, self.pdbid)
+        if isfile(filepath):
+            decoys = list(toolkit.readfile('mol2', filepath))
+            return decoys
+        return None
+
+    @property
+    def decoys_screening(self):
+        dirpath = '%s/decoys_screening/%s' % (self.home, self.pdbid)
+        if isdir(dirpath):
+            decoys = []
+            for file in listdir(dirpath):
+                decoys.append(six.next(toolkit.readfile('mol2', dirpath + '/' + file)))
+            return decoys
+        return None
+
+    @property
+    def scores(self):
+        pass
