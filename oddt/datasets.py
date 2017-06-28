@@ -1,8 +1,9 @@
 """ Datasets wrapped in convenient models """
-import csv
-import six
 from os.path import isfile, isdir
 from os import listdir
+import csv
+import pandas as pd
+import six
 
 from oddt import toolkit
 
@@ -232,15 +233,12 @@ class CASF:
     def __init__(self, home):
         self.home = home
         self.index = '%s/coreset/index/' % self.home
-        self.pdbids = []
 
         if isdir(self.index):
-            file = listdir(self.index)[0]  # both files in 'index' directory have all ids
-            index_file = open(self.index + file)
-            for line in index_file.readlines():
-                if not line.startswith('#'):  # skip comments
-                    pdbid = line.split()[0]
-                    self.pdbids.append(pdbid)
+            filepath = '%s/2013_core_data.lst' % self.index
+            self.index_data = pd.read_csv(filepath, sep='\s+', comment='#', header=None,
+                                          names=['pdbid', 'act', 'cluster'],  usecols=[0, 1, 5])
+            self.pdbids = self.index_data['pdbid']
 
     def __iter__(self):
         for pdbid in self.pdbids:
@@ -249,10 +247,30 @@ class CASF:
     def __getitem__(self, item):
         if item in self.pdbids:
             return _CASFTarget(self.home, item)
-        elif type(item) is int and item < len(self.pdbids):
+        elif isinstance(int, item) and item < len(self.pdbids):
             return _CASFTarget(self.home, self.pdbids[item])
         else:
             raise KeyError
+
+    @property
+    def precomputed_score(self):
+        examples_dir = '%s/power_scoring/examples' % self.home
+        functions = listdir(examples_dir)
+        functions.remove('README')
+        scores = {}
+
+        for fun in functions:
+            file_score = '%s/%s' % (examples_dir, fun)
+            file_act = open('%s/2013_core_data.lst' % self.index)
+
+            score = pd.read_csv(file_score, comment='#', sep='\s+', header=None,
+                                names=['pdbid', 'score_crystal', 'score_opt'])
+            act = self.index_data[['pdbid', 'act']]
+
+            frame = score.merge(act)
+            scores[fun.rstrip('.TXT')] = frame
+
+        return scores
 
 
 class _CASFTarget:
@@ -297,5 +315,5 @@ class _CASFTarget:
         return None
 
     @property
-    def scores(self):
+    def precomputed_screen(self):
         pass
