@@ -252,25 +252,77 @@ class CASF:
         else:
             raise KeyError
 
-    @property
-    def precomputed_score(self):
+    def precomputed_score(self, scoring_function=None):
         examples_dir = '%s/power_scoring/examples' % self.home
-        functions = listdir(examples_dir)
-        functions.remove('README')
-        scores = {}
+        if scoring_function is not None:
+            functions = [scoring_function]
+        else:
+            functions = listdir(examples_dir)
+            functions.remove('README')
+
+        frames = []
 
         for fun in functions:
             file_score = '%s/%s' % (examples_dir, fun)
-            file_act = open('%s/2013_core_data.lst' % self.index)
+            if not isfile(file_score):
+                raise FileNotFoundError('Invalid scoring function name')
 
             score = pd.read_csv(file_score, comment='#', sep='\s+', header=None,
                                 names=['pdbid', 'score_crystal', 'score_opt'])
             act = self.index_data[['pdbid', 'act']]
 
-            frame = score.merge(act)
-            scores[fun.rstrip('.TXT')] = frame
+            scores = pd.merge(score, act)
+            scores['scoring_function'] = pd.Series([fun] * 195, name='Scoring function')
+            frames.append(scores)
 
-        return scores
+        return pd.concat(frames)
+
+    def precomputed_screening(self, scoring_function=None, cluster_id=None):
+        screening_dir = '%s/power_screening' % self.home
+        examples_dir = '%s/examples' % screening_dir
+        if scoring_function is not None:
+            functions = [scoring_function]
+        else:
+            functions = listdir(examples_dir)
+
+        cluster_frame = pd.DataFrame(columns=['cluster_id', 'protein_structure', 'cluster_proteins'])
+        data_file = open('%s/TargetInfo.dat' % screening_dir)
+
+        for cluster, line in enumerate(filter(lambda x: not x.startswith('#'), data_file.readlines())):
+            line = line.split()
+            protein_structure = line[0]
+            cluster_proteins = line[1:]
+            cluster_frame.loc[cluster] = [cluster + 1, protein_structure, cluster_proteins]
+
+        frames = []
+        for fun in functions:
+            file_dir = '%s/%s' % (examples_dir, fun)
+            if not isdir(file_dir):
+                raise FileNotFoundError('Invalid scoring function name')
+            if cluster_id:
+                protein = cluster_frame.iloc[cluster_id - 1]['protein_structure']
+                frame = pd.read_csv('%s/%s_score.dat' % (file_dir, protein), sep='\s+',
+                                    header=None, names=['name', 'score'])
+                frame['pdbid'] = [name[:4] for name in frame['name']]
+                frame['scoring_function'] = [fun] * len(frame)
+                frame = frame.merge(self.index_data[['pdbid', 'act']])
+                frames.append(frame)
+
+            else:
+                for row in cluster_frame.itertuples():
+                    protein = row[2]
+                    frame = pd.read_csv('%s/%s_score.dat' % (file_dir, protein), sep='\s+',
+                                        header=None, names=['name', 'score'])
+                    x = row[1]
+                    frame['cluster_id'] = [x] * len(frame)
+                    frame['protein_structure'] = [protein] * len(frame)
+                    frame['cluster_proteins'] = [row[3]] * len(frame)
+                    frame['pdbid'] = [name[:4] for name in frame['name']]
+                    frame['scoring_function'] = [fun] * len(frame)
+                    frame = frame.merge(self.index_data[['pdbid', 'act']])
+                    frames.append(frame)
+
+        return pd.concat(frames, ignore_index=True)
 
 
 class _CASFTarget:
@@ -313,7 +365,3 @@ class _CASFTarget:
                 decoys.append(six.next(toolkit.readfile('mol2', dirpath + '/' + file)))
             return decoys
         return None
-
-    @property
-    def precomputed_screen(self):
-        pass
