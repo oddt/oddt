@@ -576,7 +576,7 @@ class Molecule(object):
         return self
 
     def _dicts(self):
-        max_neighbors = 4  # max of 4 neighbors should be enough
+        max_neighbors = 6  # max of 6 neighbors should be enough
         # Atoms
         atom_dtype = [('id', np.int16),
                       # atom info

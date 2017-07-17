@@ -334,7 +334,7 @@ class Molecule(pybel.Molecule):
         return self
 
     def _dicts(self):
-        max_neighbors = 4  # max of 4 neighbors should be enough
+        max_neighbors = 6  # max of 6 neighbors should be enough
         # Atoms
         atom_dtype = [('id', np.int16),
                       # atom info
@@ -394,9 +394,6 @@ class Molecule(pybel.Molecule):
                                                        ('atomicnum', np.int8)])
             neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
-                # concider raising neighbors list to 6, but must do some benchmarks
-                if n > 3:
-                    break
                 nbr_atomicnum = nbr_atom.atomicnum
                 neighbors[n] = (nbr_atom.idx0, nbr_atom.coords, nbr_atomicnum)
             assert i == atom.idx0
