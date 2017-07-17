@@ -364,8 +364,8 @@ def test_splif():
                  3871, 3912, 3927, 3986, 3994, 3994, 4069, 4087, 4087]
 
     assert_equal(splif['hash'].shape, (172,))
-    assert_array_equal(splif['ligand_coords'].shape, (172, 5, 3))
-    assert_array_equal(splif['protein_coords'].shape, (172, 5, 3))
+    assert_array_equal(splif['ligand_coords'].shape, (172, 7, 3))
+    assert_array_equal(splif['protein_coords'].shape, (172, 7, 3))
     assert_array_almost_equal(reference, splif['hash'], decimal=2)
 
 

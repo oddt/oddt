@@ -447,8 +447,8 @@ def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
     SPLIF : numpy array
         Calculated SPLIF.shape = (no. of atoms, ). Every row consists of three elements:
             row[0] = index of hashed atoms
-            row[1].shape = (5, 3) -> ligand's atom coords and 4 his neigbor's
-            row[2].shape = (5, 3) -> protein's atom coords and 4 his neigbor's
+            row[1].shape = (7, 3) -> ligand's atom coords and 6 his neigbor's
+            row[2].shape = (7, 3) -> protein's atom coords and 6 his neigbor's
 
     """
 
@@ -459,8 +459,8 @@ def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
     protein_atoms, ligand_atoms = close_contacts(
         protein_dict, ligand_dict, cutoff=distance_cutoff)
     splif = np.zeros((len(ligand_atoms)),
-                     dtype=[('hash', int), ('ligand_coords', np.float32, (5, 3)),
-                            ('protein_coords', np.float32, (5, 3))])
+                     dtype=[('hash', int), ('ligand_coords', np.float32, (7, 3)),
+                            ('protein_coords', np.float32, (7, 3))])
     for i, (ligand_atom, protein_atom) in enumerate(zip(ligand_atoms, protein_atoms)):
         if ligand_atom['atomicnum'] == 1 or protein_atom['atomicnum'] == 1:
             continue
