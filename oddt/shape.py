@@ -1,3 +1,5 @@
+from __future__ import print_function
+import sys
 import numpy as np
 from numpy.linalg import norm
 from scipy.stats import moment
@@ -153,10 +155,14 @@ def electroshape(mol):
     if (mol.atom_dict['coords'] == 0).all():
         raise Exception('Molecule needs 3D coordinates')
 
+    if np.isnan(mol.atom_dict['charge']).any():
+        print('Nan values in charge values of molecule ' + mol.title, file=sys.stderr)
+
+    charge = np.nan_to_num(mol.atom_dict['charge'])
+
     mi = 25  # scaling factor converting electron charges to Angstroms
 
-    four_dimensions = np.column_stack((mol.atom_dict['coords'],
-                                       mol.atom_dict['charge'] * mi))
+    four_dimensions = np.column_stack((mol.atom_dict['coords'], charge * mi))
 
     c1 = four_dimensions.mean(0)  # geometric centre of the molecule
     distances_c1 = norm(four_dimensions - c1, axis=1)
@@ -177,8 +183,8 @@ def electroshape(mol):
 
     vector_c1s = c1[:3]
 
-    max_charge = np.array(np.amax(mol.atom_dict['charge']) * mi)
-    min_charge = np.array(np.amin(mol.atom_dict['charge']) * mi)
+    max_charge = np.array(np.amax(charge) * mi)
+    min_charge = np.array(np.amin(charge) * mi)
 
     c4 = np.append(vector_c1s + vector_c, max_charge)
     c5 = np.append(vector_c1s + vector_c, min_charge)
