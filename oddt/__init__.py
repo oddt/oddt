@@ -50,7 +50,7 @@ else:
 def get_version():
     home = os.path.dirname(__file__)
     git_v = None
-    v = '0.3.3'
+    v = '0.4'
     if os.path.isdir(home + '/../.git'):
         try:
             git_v = str(subprocess.check_output(['git',
