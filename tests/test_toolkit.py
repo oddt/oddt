@@ -11,9 +11,11 @@ from sklearn.utils.testing import (assert_true,
                                    assert_dict_equal,
                                    assert_array_equal,
                                    assert_array_almost_equal,
-                                   assert_warns)
+                                   assert_warns,
+                                   assert_raises)
 
 import oddt
+from oddt.spatial import rmsd
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -158,6 +160,58 @@ def test_pickle():
     for mol, pickled_mol in zip(mols, pickled_mols):
         assert_dict_equal(dict(mol.data),
                           dict(pickled_mol.data))
+
+
+def test_diverse_conformers():
+    # FIXME: make toolkit a module so we can import from it
+    diverse_conformers_generator = oddt.toolkit.diverse_conformers_generator
+
+    mol = oddt.toolkit.readstring("smi", "CN1CCN(S(=O)(C2=CC=C(OCC)C(C3=NC4=C(N(C)N=C4CCC)C(N3)=O)=C2)=O)CC1")
+    mol.make3D()
+
+    if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
+        assert_raises(NotImplementedError, diverse_conformers_generator, mol)
+        return None  # skip test for older OB
+
+    res = []
+    for conf in diverse_conformers_generator(mol, seed=123456):
+        res.append(rmsd(mol, conf))
+
+    assert_equal(len(res), 10)
+    if oddt.toolkit.backend == 'ob':
+        assert_array_almost_equal(res, [0., 3.043712, 3.897143, 3.289482,
+                                        3.066374, 2.909683, 2.913927,
+                                        3.488244, 3.70603, 3.597467])
+    # else:
+    #     if oddt.toolkit.__version__ > '2016.03.9':
+    #         assert_array_almost_equal(res, [1.237538, 2.346984, 0.900624,
+    #                                         3.469511, 1.886213, 2.128909,
+    #                                         2.852608, 1.312513, 1.291595,
+    #                                         1.326843])
+    #     else:
+    #         assert_array_almost_equal(res, [3.08995, 2.846358, 3.021795,
+    #                                         1.720319, 2.741972, 2.965332,
+    #                                         2.925344, 2.930157, 2.934049,
+    #                                         3.009545])
+
+    # check all implemented methods
+    if oddt.toolkit.backend == 'ob':
+        methods = ['ga', 'confab']
+    else:
+        methods = ['dg', 'etkdg', 'kdg', 'etdg']
+    for method in methods:
+        assert_equal(len(diverse_conformers_generator(mol,
+                                                      seed=123456,
+                                                      n_conf=5,
+                                                      method=method)), 5)
+        assert_equal(len(diverse_conformers_generator(mol,
+                                                      seed=123456,
+                                                      n_conf=10,
+                                                      method=method)), 10)
+        assert_equal(len(diverse_conformers_generator(mol,
+                                                      seed=123456,
+                                                      n_conf=20,
+                                                      method=method)), 20)
 
 
 def test_indices():

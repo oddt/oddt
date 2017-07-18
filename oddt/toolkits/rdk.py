@@ -57,6 +57,7 @@ from oddt.toolkits.extras.rdkit import (_sybyl_atom_type,
 _descDict = dict(Descriptors.descList)
 
 backend = 'rdk'
+__version__ = rdkit.__version__
 image_backend = 'png'  # png or svg
 image_size = (200, 200)
 
@@ -1089,6 +1090,67 @@ class Molecule(object):
         self._atom_dict = state['dicts']['atom_dict']
         self._ring_dict = state['dicts']['ring_dict']
         self._res_dict = state['dicts']['res_dict']
+
+
+def diverse_conformers_generator(mol, n_conf=10, method='etkdg', seed=None,
+                                 rmsd=0.5):
+    """Produce diverse conformers using current conformer as starting point.
+     Each conformer is a copy of original molecule object.
+
+    Parameters
+    ----------
+    mol : oddt.toolkit.Molecule object
+        Molecule for which generating conformers
+
+    n_conf : int (default=10)
+        Targer number of conformers
+
+    method : string (default='etkdg')
+        Method for generating conformers. Supported methods: "etkdg", "etdg",
+        "kdg", "dg".
+
+    seed : None or int (default=None)
+        Random seed
+
+    rmsd : float (default=0.5)
+        The minimum RMSD that separates conformers to be ratained (otherwise,
+        they will be pruned).
+
+    Returns
+    -------
+    mols : list of oddt.toolkit.Molecule objects
+        Molecules with diverse conformers
+    """
+    mol_clone = mol.clone
+    if method == 'etkdg':
+        params = {'useExpTorsionAnglePrefs': True,
+                  'useBasicKnowledge': True}
+    elif method == 'etdg':
+        params = {'useExpTorsionAnglePrefs': True,
+                  'useBasicKnowledge': False}
+    elif method == 'kdg':
+        params = {'useExpTorsionAnglePrefs': False,
+                  'useBasicKnowledge': True}
+    elif method == 'dg':
+        params = {}
+    else:
+        raise ValueError('Method %s is not implemented' % method)
+    params['pruneRmsThresh'] = rmsd
+    if seed is None:
+        seed = -1
+    AllChem.EmbedMultipleConfs(mol_clone.Mol, numConfs=n_conf, randomSeed=seed,
+                               **params)
+    AllChem.AlignMol(mol_clone.Mol, mol.Mol)
+    AllChem.AlignMolConformers(mol_clone.Mol)
+
+    out = []
+    mol_clone2 = mol.clone
+    mol_clone2.Mol.RemoveAllConformers()
+    for conformer in mol_clone.Mol.GetConformers():
+        mol_output_clone = mol_clone2.clone
+        mol_output_clone.Mol.AddConformer(conformer)
+        out.append(mol_output_clone)
+    return out
 
 
 class AtomStack(object):

@@ -556,7 +556,7 @@ def test_plec_binded_hoh():
 
     if (oddt.toolkit.backend == 'ob' or
             (oddt.toolkit.backend == 'rdk' and
-             oddt.toolkit.rdkit.__version__ >= '2017.03')):
+             oddt.toolkit.__version__ >= '2017.03')):
         ligand = next(oddt.toolkit.readfile('sdf', os.path.join(
             test_data_dir, 'data', 'pdb', '3kwa_ligand.sdf')))
         protein = next(oddt.toolkit.readfile('pdb', os.path.join(
