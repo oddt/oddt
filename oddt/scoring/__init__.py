@@ -38,7 +38,7 @@ def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
             R^2 score for each of generated folds
     """
     if shuffle:
-        cv = KFold(len(cv_target), n_folds=n, shuffle=True)
+        cv = KFold(n_splits=n, shuffle=True)
     else:
         cv = n
     return cross_val_score(model, cv_set, cv_target, cv=cv, n_jobs=n_jobs)
