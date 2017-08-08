@@ -394,8 +394,18 @@ class Molecule(pybel.Molecule):
                                                        ('atomicnum', np.int8)])
             neighbors['coords'].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
-                nbr_atomicnum = nbr_atom.atomicnum
-                neighbors[n] = (nbr_atom.idx0, nbr_atom.coords, nbr_atomicnum)
+                if n >= max_neighbors:
+                    warnings.warn('Error while parsing molecule "%s" '
+                                  'for `atom_dict`. Atom #%i (%s) has %i '
+                                  'neighbors (max_neighbors=%i). Additional '
+                                  'neighbors are ignored.' % (self.title,
+                                                              atom.idx0,
+                                                              atomtype,
+                                                              len(atom.neighbors),
+                                                              max_neighbors),
+                                  UserWarning)
+                    break
+                neighbors[n] = (nbr_atom.idx0, nbr_atom.coords, nbr_atom.atomicnum)
             assert i == atom.idx0
             atom_dict[i] = (i,
                             coords,
