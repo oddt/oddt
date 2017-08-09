@@ -103,7 +103,7 @@ class nnscore(scorer):
         # make nets reproducible
         random_seed(1)
         seeds = np.random.randint(123456789, size=n)
-        trained_nets = (Parallel(n_jobs=self.n_jobs, verbose=10)
+        trained_nets = (Parallel(n_jobs=self.n_jobs, verbose=10, pre_dispatch='all')
                         (delayed(_parallel_helper)(neuralnetwork((5,),
                                                                  random_state=seeds[i],
                                                                  activation='logistic',

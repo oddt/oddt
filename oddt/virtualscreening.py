@@ -208,9 +208,16 @@ class virtualscreening:
             engine: string
                 Which docking engine to use.
 
+        Returns
+        -------
+            None
+
         Note
         ----
             Additional parameters are passed directly to the engine.
+            Following docking engines are supported:
+
+            1. Audodock Vina (``engine="autodock_vina"``), see `oddt.docking.autodock_vina`.
         """
         if engine.lower() == 'autodock_vina':
             from oddt.docking import autodock_vina
