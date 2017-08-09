@@ -1,6 +1,10 @@
 ### Development version (Git)
 
 
+### Version 0.4.1 (2017-08-09)
+* Issue warning if maximum allowed neighbor count is reached in `atom_dict`
+
+
 ### Version 0.4 (2017-07-17)
 * Interaction Fingerprints (IFP and SIFP);
     by Michał Kukiełka (@mkukielka)

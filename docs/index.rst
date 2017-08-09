@@ -40,9 +40,9 @@ Finally you can install ODDT straight from the source
 
 .. code-block:: bash
 
-    wget https://github.com/oddt/oddt/archive/0.4.tar.gz
-    tar zxvf 0.4.tar.gz
-    cd oddt-0.4/
+    wget https://github.com/oddt/oddt/archive/0.4.1.tar.gz
+    tar zxvf 0.4.1.tar.gz
+    cd oddt-0.4.1/
     python setup.py install
 
 Common installation problems
