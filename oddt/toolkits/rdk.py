@@ -382,7 +382,7 @@ class Molecule(object):
 
         self.Mol = Mol
         # ODDT #
-        self.protein = protein
+        self._protein = protein
         # caches
         self._atom_dict = None
         self._res_dict = None
@@ -503,6 +503,20 @@ class Molecule(object):
             else:
                 self._residues = [tuple(range(self.Mol.GetNumAtoms()))]
         return ResidueStack(self.Mol, self._residues)
+
+    @property
+    def protein(self):
+        """
+        A flag for identifing the protein molecules, for which `atom_dict`
+        procedures may differ.
+        """
+        return self._protein
+
+    @protein.setter
+    def protein(self, protein):
+        """atom_dict caches must be cleared due to property change"""
+        self._clear_cache()
+        self._protein = protein
 
     @property
     def sssr(self):
@@ -1048,7 +1062,8 @@ class Molecule(object):
         if self._source is None:
             state = {'Mol': self.Mol,
                      'source': None,
-                     'data': dict([(k, self.Mol.GetProp(k)) for k in self.Mol.GetPropNames(includePrivate=True)]),
+                     'protein': self.protein,
+                     'data': self.Mol.GetPropsAsDict(includePrivate=True),
                      'dicts': {'atom_dict': self._atom_dict,
                                'ring_dict': self._ring_dict,
                                'res_dict': self._res_dict,
@@ -1058,6 +1073,7 @@ class Molecule(object):
             state = {'Mol': None,
                      'source': self._source,
                      'data': {},
+                     'protein': self.protein,
                      'dicts': {'atom_dict': None,
                                'ring_dict': None,
                                'res_dict': None,
@@ -1066,7 +1082,9 @@ class Molecule(object):
         return state
 
     def __setstate__(self, state):
-        Molecule.__init__(self, Mol=state['Mol'], source=state['source'])
+        Molecule.__init__(self, Mol=state['Mol'],
+                          source=state['source'],
+                          protein=state['protein'])
         if state['data']:
             self.data.update(state['data'])
         self._atom_dict = state['dicts']['atom_dict']

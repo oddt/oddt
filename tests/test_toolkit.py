@@ -7,6 +7,8 @@ import pandas as pd
 
 from nose.tools import nottest, assert_in, assert_not_in, assert_equal
 from sklearn.utils.testing import (assert_true,
+                                   assert_false,
+                                   assert_dict_equal,
                                    assert_array_equal,
                                    assert_array_almost_equal)
 
@@ -88,11 +90,15 @@ def test_pickle():
                                       os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
 
+    assert_array_equal(list(map(lambda x: x.title, mols)),
+                       list(map(lambda x: x.title, pickled_mols)))
+
     assert_array_equal(list(map(lambda x: x.smiles, mols)),
                        list(map(lambda x: x.smiles, pickled_mols)))
 
-    assert_array_equal(list(map(lambda x: dict(x.data), mols)),
-                       list(map(lambda x: dict(x.data), pickled_mols)))
+    for mol, pickled_mol in zip(mols, pickled_mols):
+        assert_dict_equal(dict(mol.data),
+                          dict(pickled_mol.data))
 
     # Test pickling of atom_dicts
     assert_array_equal(list(map(lambda x: x._atom_dict is None, mols)),
@@ -119,11 +125,38 @@ def test_pickle():
     assert_array_equal(list(map(lambda x: x._source is not None, pickled_mols)),
                        [True] * len(mols))
 
+    assert_array_equal(list(map(lambda x: x.title, mols)),
+                       list(map(lambda x: x.title, pickled_mols)))
+
     assert_array_equal(list(map(lambda x: x.smiles, mols)),
                        list(map(lambda x: x.smiles, pickled_mols)))
 
-    assert_array_equal(list(map(lambda x: dict(x.data), mols)),
-                       list(map(lambda x: dict(x.data), pickled_mols)))
+    for mol, pickled_mol in zip(mols, pickled_mols):
+        assert_dict_equal(dict(mol.data),
+                          dict(pickled_mol.data))
+
+
+def test_pickle_protein():
+    """Pickle proteins"""
+    # Proteins
+    rec = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    # generate atom_dict
+    assert_false(rec.atom_dict is None)
+
+    assert_false(rec._atom_dict is None)
+    pickled_rec = loads(dumps(rec))
+    assert_false(pickled_rec.protein)
+    assert_false(pickled_rec._atom_dict is None)
+
+    rec.protein = True
+    # setting protein property should clean atom_dict cache
+    assert_true(rec._atom_dict is None)
+    # generate atom_dict
+    assert_false(rec.atom_dict is None)
+
+    pickled_rec = loads(dumps(rec))
+    assert_true(pickled_rec.protein)
+    assert_false(pickled_rec._atom_dict is None)
 
 
 if oddt.toolkit.backend == 'rdk':

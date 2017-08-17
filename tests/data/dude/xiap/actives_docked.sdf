@@ -1071,7 +1071,7 @@ C[C@@H](C(=O)N[C@H](C(=O)N1CCC[C@H]1C(=O)NC2CCCc3c2cccc3)C(C)(C)C)NC
 CN[C@@H](C)C(=O)N[C@H](C(=O)N1CCC[C@H]1C(=O)NC1CCCc2ccccc21)C(C)(C)C
 
 >  <score>
--53.10
+-53.1
 
 >  <subset>
 actives
@@ -5534,7 +5534,7 @@ CC(C(=O)N[C@@H](C1CCCCC1)C(=O)N2CCC[C@H]2C(=O)NC3CCCc4c3cccc4)NC
 CNC(C)C(=O)N[C@H](C(=O)N1CCC[C@H]1C(=O)NC1CCCc2ccccc21)C1CCCCC1
 
 >  <score>
--48.40
+-48.4
 
 >  <subset>
 actives
@@ -8136,7 +8136,7 @@ C[C@@H](C(=O)N[C@H](C(=O)N1CC[C@@H]2[C@H]1[C@H](CC2)NC(=O)c3coc4c3cccc4)C(C)(C)C
 CN[C@@H](C)C(=O)N[C@H](C(=O)N1CC[C@H]2CC[C@H](NC(=O)c3coc4ccccc34)[C@H]21)C(C)(C)C
 
 >  <score>
--46.80
+-46.8
 
 >  <subset>
 actives
@@ -9107,7 +9107,7 @@ C[C@@H](C(=O)N[C@@H](C(C)C)C(=O)N1CCC[C@H]1C(=O)N[C@@H](Cc2ccccc2)C(=O)N[C@@H](C
 CC(C)[C@H](NC(=O)[C@H](Cc1ccccc1)NC(=O)[C@@H]1CCCN1C(=O)[C@@H](NC(=O)[C@H](C)N)C(C)C)C(=O)O
 
 >  <score>
--46.20
+-46.2
 
 >  <subset>
 actives
@@ -9507,7 +9507,7 @@ CC(C(=O)N[C@@H](C1CCCCC1)C(=O)N2CCC[C@H]2C(=O)NC3CCCc4c3cccc4)NC
 CNC(C)C(=O)N[C@H](C(=O)N1CCC[C@H]1C(=O)NC1CCCc2ccccc21)C1CCCCC1
 
 >  <score>
--46.10
+-46.1
 
 >  <subset>
 actives
@@ -10351,7 +10351,7 @@ C[C@@H](C(=O)N[C@@H](C(C)C)C(=O)N1CCC[C@H]1C(=O)N[C@@H](c2ccccc2)C(=O)N[C@@H](Cc
 CC(C)[C@H](NC(=O)[C@H](C)N)C(=O)N1CCC[C@H]1C(=O)N[C@H](C(=O)N[C@@H](Cc1ccc(O)cc1)C(=O)O)c1ccccc1
 
 >  <score>
--45.70
+-45.7
 
 >  <subset>
 actives
@@ -13471,7 +13471,7 @@ CC[C@@H](C(=O)N[C@@H](C(C)C)C(=O)N1CCC[C@H]1C(=O)NCc2ccccc2)N
 CC[C@H](N)C(=O)N[C@H](C(=O)N1CCC[C@H]1C(=O)NCc1ccccc1)C(C)C
 
 >  <score>
--44.40
+-44.4
 
 >  <subset>
 actives

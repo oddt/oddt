@@ -126,7 +126,7 @@ class Molecule(pybel.Molecule):
         # call parent constructor
         super(Molecule, self).__init__(OBMol)
 
-        self.protein = protein
+        self._protein = protein
 
         # ob.DeterminePeptideBackbone(molecule.OBMol)
         # percieve chains in residues
@@ -223,6 +223,20 @@ class Molecule(pybel.Molecule):
                 return self._repr_svg_(size=image_size)
         else:
             return super(Molecule, self).__repr__()
+
+    @property
+    def protein(self):
+        """
+        A flag for identifing the protein molecules, for which `atom_dict`
+        procedures may differ.
+        """
+        return self._protein
+
+    @protein.setter
+    def protein(self, protein):
+        """atom_dict caches must be cleared due to property change"""
+        self._clear_cache()
+        self._protein = protein
 
     def addh(self, only_polar=False):
         """Add hydrogens"""
@@ -553,6 +567,7 @@ class Molecule(pybel.Molecule):
         return {'fmt': self._source['fmt'] if self._source else pickle_format,
                 'string': self._source['string'] if self._source else self.write(pickle_format),
                 'data': dict(self.data.items()) if self._source is None else {},
+                'protein': self.protein,
                 'dicts': {'atom_dict': self._atom_dict,
                           'ring_dict': self._ring_dict,
                           'res_dict': self._res_dict,
@@ -560,7 +575,7 @@ class Molecule(pybel.Molecule):
                 }
 
     def __setstate__(self, state):
-        Molecule.__init__(self, source=state)
+        Molecule.__init__(self, source=state, protein=state['protein'])
         if state['data']:
             self.data.update(state['data'])
         self._atom_dict = state['dicts']['atom_dict']
