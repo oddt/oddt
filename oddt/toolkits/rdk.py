@@ -1060,14 +1060,11 @@ class Molecule(object):
 
     def __getstate__(self):
         if self._source is None:
-            data = self.Mol.GetPropsAsDict(includePrivate=True)
-            # fix RDKit casting names to floats
-            if '_Name' in data and not isinstance(data['_Name'], string_types):
-                data['_Name'] = self.title
             state = {'Mol': self.Mol,
                      'source': None,
                      'protein': self.protein,
-                     'data': data,
+                     'data': dict([(k, self.Mol.GetProp(k))
+                                   for k in self.Mol.GetPropNames(includePrivate=True)]),
                      'dicts': {'atom_dict': self._atom_dict,
                                'ring_dict': self._ring_dict,
                                'res_dict': self._res_dict,
