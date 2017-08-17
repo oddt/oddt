@@ -48,7 +48,7 @@ typetable.SetToType('SYB')
 elementtable = ob.OBElementTable()
 
 # hash OB!
-pybel.ob.obErrorLog.StopLogging()
+ob.obErrorLog.StopLogging()
 
 
 def _filereader_mol2(filename, opt=None):
@@ -745,21 +745,9 @@ class Outputfile(pybel.Outputfile):
 class Fingerprint(pybel.Fingerprint):
     @property
     def raw(self):
-        return np.array(_unrollbits(self.fp, pybel.ob.OBFingerprint.Getbitsperint()))
-
-
-def _unrollbits(fp, bitsperint):
-    """ Unroll unsigned int fingerprint to bool """
-    ans = np.zeros(len(fp) * bitsperint)
-    start = 1
-    for x in fp:
-        i = start
-        while x > 0:
-            ans[i] = x % 2
-            x >>= 1
-            i += 1
-        start += bitsperint
-    return ans
+        fp = np.zeros(len(self.fp) * ob.OBFingerprint.Getbitsperint(), dtype=int)
+        np.add.at(fp, np.array(self.bits) - 1, 1)  # self.bits is 1-based
+        return fp
 
 
 pybel.Fingerprint = Fingerprint
