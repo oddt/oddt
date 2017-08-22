@@ -1,8 +1,8 @@
 """ Datasets wrapped in conviniet models """
 import csv
-import six
-from os.path import isfile
+from os.path import isfile, join
 
+from six import next
 from oddt import toolkit
 
 
@@ -24,7 +24,13 @@ class pdbbind(object):
                  opt=None):
         version = int(version)
         self.home = home
-        self.default_set = default_set if default_set else 'general' if version == 2007 else 'general_PL'
+        if default_set:
+            self.default_set = default_set
+        else:
+            if version == 2007:
+                self.default_set = 'general'
+            else:
+                self.default_set = 'general_PL'
         self.opt = opt or {}
         self.sets = {}
         self._set_ids = {}
@@ -39,22 +45,28 @@ class pdbbind(object):
                 if data_file:
                     csv_file = data_file
                 elif version == 2007:
-                    csv_file = '%s/INDEX.%i.%s.data' % (self.home, version, pdbind_set)
+                    csv_file = join(self.home,
+                                    'INDEX.%i.%s.data' % (version, pdbind_set))
                 elif version == 2016:
-                    csv_file = '%s/index/INDEX_%s_data.%i' % (self.home, pdbind_set, version)
+                    csv_file = join(self.home,
+                                    'index',
+                                    'INDEX_%s_data.%i' % (pdbind_set, version))
                 else:
-                    csv_file = '%s/INDEX_%s_data.%i' % (self.home, pdbind_set, version)
+                    csv_file = join(self.home,
+                                    'INDEX_%s_data.%i' % (pdbind_set, version))
 
                 if isfile(csv_file):
                     self._set_ids[pdbind_set] = []
                     self._set_act[pdbind_set] = []
                     for row in csv.reader(_csv_file_filter(csv_file), delimiter=' '):
                         pdbid = row[0]
-                        if not isfile('%s/%s/%s_pocket.pdb' % (self.home, pdbid, pdbid)):
+                        f = join(self.home, self.id, '%s_pocket.pdb' % self.id)
+                        if not isfile(f):
                             continue
                         self._set_ids[pdbind_set].append(pdbid)
                         self._set_act[pdbind_set].append(float(row[3]))
-                    self.sets[pdbind_set] = dict(zip(self._set_ids[pdbind_set], self._set_act[pdbind_set]))
+                    self.sets[pdbind_set] = dict(zip(self._set_ids[pdbind_set],
+                                                     self._set_act[pdbind_set]))
             if len(self.sets) == 0:
                 raise Exception('There is no PDBbind set availabe')
         else:
@@ -90,30 +102,24 @@ class _pdbbind_id(object):
 
     @property
     def protein(self):
-        if isfile('%s/%s/%s_protein.pdb' % (self.home, self.id, self.id)):
-            return six.next(toolkit.readfile('pdb',
-                                             '%s/%s/%s_protein.pdb' % (self.home, self.id, self.id),
-                                             lazy=True,
-                                             opt=self.opt))
+        f = join(self.home, self.id, '%s_protein.pdb' % self.id)
+        if isfile(f):
+            return next(toolkit.readfile('pdb', f, lazy=True, opt=self.opt))
         else:
             return None
 
     @property
     def pocket(self):
-        if isfile('%s/%s/%s_pocket.pdb' % (self.home, self.id, self.id)):
-            return six.next(toolkit.readfile('pdb',
-                                             '%s/%s/%s_pocket.pdb' % (self.home, self.id, self.id),
-                                             lazy=True,
-                                             opt=self.opt))
+        f = join(self.home, self.id, '%s_pocket.pdb' % self.id)
+        if isfile(f):
+            return next(toolkit.readfile('pdb', f, lazy=True, opt=self.opt))
         else:
             return None
 
     @property
     def ligand(self):
-        if isfile('%s/%s/%s_ligand.sdf' % (self.home, self.id, self.id)):
-            return six.next(toolkit.readfile('sdf',
-                                             '%s/%s/%s_ligand.sdf' % (self.home, self.id, self.id),
-                                             lazy=True,
-                                             opt=self.opt))
+        f = join(self.home, self.id, '%s_ligand.sdf' % self.id)
+        if isfile(f):
+            return next(toolkit.readfile('sdf', f, lazy=True, opt=self.opt))
         else:
             return None
