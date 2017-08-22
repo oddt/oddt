@@ -163,7 +163,7 @@ class dude(object):
                 self.ids.append(i)
                 for file in files:
                     f = join(self.home, i, file)
-                    if not isfile(f) and not (isfile(f[:-3]) and file[-3:] == '.gz'):
+                    if not isfile(f) and not (file[-3:] == '.gz' and isfile(f[:-3])):
                         print('Target %s doesn\'t have file %s' % (i, file), file=sys.stderr)
         if not self.ids:
             print('No targets in directory %s' % (self.home), file=sys.stderr)
