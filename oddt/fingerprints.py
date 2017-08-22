@@ -6,6 +6,7 @@
 from __future__ import division
 from itertools import chain
 import numpy as np
+from scipy.spatial import cKDTree
 import oddt
 from oddt.interactions import (pi_stacking,
                                pi_cation,
@@ -281,7 +282,8 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
 
 
 def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
-                    atom_repr_dict=None, return_smiles=False, return_env=False):
+                    atom_repr_dict=None, return_smiles=False, return_env=False,
+                    mode='bond', kd_tree=None):
     """Generate hashed environments for single atom up to certain depth
     (bond-wise). Hydrogens are ignored during neighbor lookup.
 
@@ -311,6 +313,14 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
     return_env : bool (default=False)
         Switch for returning atom indices (0-based) of given environment
 
+    kd_tree : scipy.spatial.cKDTree object or None (default=None)
+        A kd-tree for quick nearest-neighbor lookup. Required only if
+        mode is set to 'spherical'
+
+    mode : 'bond' or 'spherical' (default='bond')
+        If 'bond', we consider bond-wise enviroments. If 'spherical', we
+        consider spherical enviroments of increasing radius.
+
     Returns
     -------
     environment_hashes : list of ints
@@ -323,34 +333,60 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
         Atom indices of environments for certain atom
     """
     atom_env = [[idx]]
-    for r in range(1, depth + 1):
-        prev_atom_env = atom_env[r - 1]
-        if r > 2:  # prune visited atoms
-            prev_atom_env = prev_atom_env[len(atom_env[r - 2]):]
-        tmp = []
-        for atom_idx in prev_atom_env:
-            # Toolkit independent version (slower 30%)
-            # for neighbor in mol.atoms[atom_idx].neighbors:
-            #     if neighbor.atomicnum == 1:
-            #         continue
-            #     n_idx = neighbor.idx0
-            #     if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
-            #         tmp.append(n_idx)
-            if hasattr(mol, 'OBMol'):
-                for neighbor in oddt.toolkits.ob.OBAtomAtomIter(mol.OBMol.GetAtom(atom_idx + 1)):
-                    if neighbor.GetAtomicNum() == 1:
+    if mode == 'spherical':
+        for r in range(1, depth + 1):
+            tmp = []
+            neighbors = kd_tree.query_ball_point(mol.coords[idx], r=r*2)
+            if (hasattr(oddt.toolkits, 'ob') and
+                    isinstance(mol, oddt.toolkits.ob.Molecule)):
+                for neighbor in neighbors:
+                    atom = mol.OBMol.GetAtom(neighbor + 1)
+                    if atom.GetAtomicNum() == 1:
                         continue
-                    n_idx = neighbor.GetIdx() - 1
+                    n_idx = atom.GetIdx() - 1
                     if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
                         tmp.append(n_idx)
             else:
-                for neighbor in mol.Mol.GetAtomWithIdx(atom_idx).GetNeighbors():
-                    if neighbor.GetAtomicNum() == 1:
+                for neighbor in neighbors:
+                    atom = mol.Mol.GetAtomWithIdx(neighbor)
+                    if atom.GetAtomicNum() == 1:
                         continue
-                    n_idx = neighbor.GetIdx()
+                    n_idx = atom.GetIdx()
                     if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
                         tmp.append(n_idx)
-        atom_env.append(atom_env[r - 1] + tmp)
+            atom_env.append(atom_env[r - 1] + tmp)
+
+    elif mode == 'bond':
+        for r in range(1, depth + 1):
+            tmp = []
+            prev_atom_env = atom_env[r - 1]
+            if r > 2:  # prune visited atoms
+                prev_atom_env = prev_atom_env[len(atom_env[r - 2]):]
+            for atom_idx in prev_atom_env:
+                # Toolkit independent version (slower 30%)
+                # for neighbor in mol.atoms[atom_idx].neighbors:
+                #     if neighbor.atomicnum == 1:
+                #         continue
+                #     n_idx = neighbor.idx0
+                #     if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
+                #         tmp.append(n_idx)
+                if (hasattr(oddt.toolkits, 'ob') and
+                        isinstance(mol, oddt.toolkits.ob.Molecule)):
+                    for neighbor in oddt.toolkit.OBAtomAtomIter(mol.OBMol.GetAtom(atom_idx + 1)):
+                        if neighbor.GetAtomicNum() == 1:
+                            continue
+                        n_idx = neighbor.GetIdx() - 1
+                        if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
+                            tmp.append(n_idx)
+                else:
+                    for neighbor in mol.Mol.GetAtomWithIdx(atom_idx).GetNeighbors():
+                        if neighbor.GetAtomicNum() == 1:
+                            continue
+                        n_idx = neighbor.GetIdx()
+                        if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
+                            tmp.append(n_idx)
+            atom_env.append(atom_env[r - 1] + tmp)
+
 
     # Get atom representation only once, pull indices from largest env
     if atom_repr_dict is None:
@@ -391,7 +427,7 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
 
 
 def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
-         use_pharm_features=False):
+         use_pharm_features=False, mode='bond', subset=None, return_smiles=False):
     """Extended connectivity fingerprints (ECFP) with an option to include
     atom features (FCPF). Depth of a fingerprint is counted as bond-steps, thus
     the depth for ECFP2 = 1, ECPF4 = 2, ECFP6 = 3, etc.
@@ -424,6 +460,17 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
         Switch to use pharmacophoric features as atom representation instead of
         explicit atomic numbers etc.
 
+    mode : 'bond' or 'spherical' (default='bond')
+        If 'bond', we consider bond-wise enviroments. If 'spherical', we
+        consider spherical enviroments of increasing radius.
+
+    subset : array_like of integers or None (default=None)
+        Indices of atoms to consider in a molecule. If none, uses all atoms
+        to generate a fingerprint.
+
+    return_smiles : bool (default=False)
+        Switch for output of SMILES along environment hashes.
+
     Returns
     -------
     fingerprint : numpy array
@@ -432,6 +479,7 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
     """
     # Hash atom environments
     mol_hashed = []
+    mol_smiles = []
     atom_repr_dict = {}
     for idx, atom in enumerate(mol.atoms):
         if atom.atomicnum == 1:
@@ -439,14 +487,38 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
         atom_repr_dict[idx] = _ECFP_atom_repr(mol, idx, use_pharm_features=use_pharm_features)
     if not atom_repr_dict:
         atom_repr_dict = None
-    for idx in atom_repr_dict.keys():
-        mol_hashed.append(_ECFP_atom_hash(mol, idx, depth=depth,
-                                          use_pharm_features=use_pharm_features,
-                                          atom_repr_dict=atom_repr_dict))
-    mol_hashed = np.array(sorted(chain(*mol_hashed)))
+    kd_tree = None
+    if mode == 'spherical':
+        kd_tree = cKDTree(mol.coords)
+    if subset is None:
+        subset = atom_repr_dict.keys()
 
+    if return_smiles is False:
+        for idx in subset:
+            if idx not in atom_repr_dict:
+                continue
+            mol_hashed.append(_ECFP_atom_hash(mol, int(idx), depth=depth,
+                                          use_pharm_features=use_pharm_features,
+                                          atom_repr_dict=atom_repr_dict,
+                                          kd_tree=kd_tree, mode=mode,
+                                          return_smiles=return_smiles))
+    else:
+        for idx in subset:
+            if idx not in atom_repr_dict:
+                continue
+            atom_hashed, smiles = _ECFP_atom_hash(mol, int(idx), depth=depth,
+                                                  use_pharm_features=use_pharm_features,
+                                                  atom_repr_dict=atom_repr_dict,
+                                                  kd_tree=kd_tree, mode=mode,
+                                                  return_smiles=return_smiles)
+            mol_smiles.append(smiles)
+            mol_hashed.append(atom_hashed)
+    mol_hashed = np.array(list(chain(*mol_hashed)))
+    if return_smiles is True:
+        idxs = np.argsort(mol_hashed)
+        sorted_smiles = np.array(list(chain(*mol_smiles)))[idxs].tolist()
     # folding
-    mol_hashed = fold(mol_hashed, size)
+    mol_hashed = np.sort(fold(mol_hashed, size))
 
     if not count_bits:
         mol_hashed = np.unique(mol_hashed)
@@ -456,9 +528,10 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
         tmp = np.zeros(size, dtype=np.uint8 if count_bits else bool)
         np.add.at(tmp, mol_hashed, 1)
         mol_hashed = tmp
-
-    return mol_hashed
-
+    if return_smiles is False:
+        return mol_hashed
+    else:
+        return mol_hashed, sorted_smiles
 
 def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
     """Calculates structural protein-ligand interaction fingerprint (SPLIF),
