@@ -218,6 +218,9 @@ class _dude_target(object):
         f = join(self.home, self.dude_id, 'actives_final.mol2.gz')
         if isfile(f):
             return toolkit.readfile('mol2', f)
+        # check if file is unpacked
+        elif isfile(f[:-3]):
+            return toolkit.readfile('mol2', f[:-3])
         else:
             return None
 
@@ -227,5 +230,8 @@ class _dude_target(object):
         f = join(self.home, self.dude_id, 'decoys_final.mol2.gz')
         if isfile(f):
             return toolkit.readfile('mol2', f)
+        # check if file is unpacked
+        elif isfile(f[:-3]):
+            return toolkit.readfile('mol2', f[:-3])
         else:
             return None
