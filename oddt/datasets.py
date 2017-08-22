@@ -1,10 +1,11 @@
 """ Datasets wrapped in conviniet models """
+from __future__ import print_function
 import os
 import sys
 import csv
-from os.path import isfile, join
+import six
 
-from six import next
+from os.path import isfile, join
 from oddt import toolkit
 
 
@@ -130,35 +131,41 @@ class _pdbbind_id(object):
 class dude(object):
 
     def __init__(self, home):
+        """A wrapper for DUD-E (A Database of Useful Decoys: Enhanced)
+        http://dude.docking.org/
+
+        Parameters
+        ----------
+        home : str
+            Path to files from dud-e
+
+        """
         self.home = home
-        if not os.path.isdir(home):
-            raise Exception("Directory doesn't exist")
+        if not os.path.isdir(self.home):
+            raise Exception('Directory %s doesn\'t exist' % self.home)
 
         self.ids = []
         files = ['receptor.pdb', 'crystal_ligand.mol2', 'actives_final.mol2.gz', 'decoys_final.mol2.gz']
-        all_ids = ['aa2ar', 'aldr', 'cp2c9', 'esr1', 'gcr', 'hs90a',
-                   'lck', 'nos1', 'ppard', 'sahh', 'wee1', 'abl1',
-                   'ampc', 'cp3a4', 'esr2', 'glcm', 'hxk4', 'lkha4',
-                   'nram', 'pparg', 'src', 'xiap', 'ace', 'andr',
-                   'csf1r', 'fa10', 'gria2', 'igf1r', 'mapk2', 'pa2ga',
-                   'prgr', 'tgfr1', 'aces', 'aofb', 'cxcr4', 'fa7',
-                   'grik1', 'inha', 'mcr', 'parp1', 'ptn1', 'thb',
-                   'ada', 'bace1', 'def', 'fabp4', 'hdac2', 'ital',
-                   'met', 'pde5a', 'pur2', 'thrb', 'ada17', 'braf',
-                   'dhi1', 'fak1', 'hdac8', 'jak2', 'mk01', 'pgh1',
-                   'pygm', 'try1', 'adrb1', 'cah2', 'dpp4', 'fgfr1',
-                   'hivint', 'kif11', 'mk10', 'pgh2', 'pyrd', 'tryb1',
-                   'adrb2', 'casp3', 'drd3', 'fkb1a', 'hivpr', 'kit',
-                   'mk14', 'plk1', 'reni', 'tysy', 'akt1', 'cdk2',
-                   'dyr', 'fnta', 'hivrt', 'kith', 'mmp13', 'pnph',
-                   'rock1', 'urok', 'akt2', 'comt', 'egfr', 'fpps',
-                   'hmdh', 'kpcb', 'mp2k1', 'ppara', 'rxra', 'vgfr2']
+        # ids sorted by size of protein
+        all_ids = ['fnta', 'dpp4', 'mmp13', 'hivpr', 'ada17', 'mk14', 'egfr', 'src', 'drd3', 'aa2ar',
+                   'cah2', 'parp1', 'cdk2', 'lck', 'pde5a', 'thrb', 'aces', 'try1', 'pparg', 'vgfr2',
+                   'pgh2', 'esr1', 'fa10', 'esr2', 'ppara', 'dhi1', 'hivrt', 'bace1', 'ace', 'dyr',
+                   'akt1', 'adrb1', 'prgr', 'gcr', 'adrb2', 'andr', 'ppard', 'csf1r', 'gria2', 'cp3a4',
+                   'met', 'pgh1', 'abl1', 'casp3', 'kit', 'hdac8', 'hdac2', 'braf', 'urok', 'lkha4',
+                   'igf1r', 'aldr', 'fpps', 'hmdh', 'kpcb', 'tgfr1', 'ital', 'mp2k1', 'nos1', 'tryb1',
+                   'rxra', 'thb', 'cp2c9', 'ptn1', 'reni', 'pnph', 'tysy', 'akt2', 'kif11', 'aofb',
+                   'plk1', 'hivint', 'mk10', 'pyrd', 'grik1', 'jak2', 'rock1', 'fa7', 'mapk2', 'nram',
+                   'wee1', 'fkb1a', 'def', 'ada', 'fak1', 'mcr', 'pa2ga', 'xiap', 'hs90a', 'hxk4',
+                   'mk01', 'pygm', 'glcm', 'comt', 'sahh', 'cxcr4', 'kith', 'ampc', 'pur2', 'fabp4',
+                   'inha', 'fgfr1']
         for i in all_ids:
-            if os.path.isdir(home + i):
+            if os.path.isdir(self.home + i):
                 self.ids.append(i)
-                for file in files:
-                    if not os.path.isfile(home + i + '/' + file):
-                        print("Target " + i + " doesn't have file " + file, file=sys.stderr)
+                for f in files:
+                    if not os.path.isfile(join(self.home, i, f)):
+                        print('Target %s doesn\'t have file %s' % (i, f), file=sys.stderr)
+        if not self.ids:
+            print('No targets in directory %s' % (self.home), file=sys.stderr)
 
     def __iter__(self):
         for dude_id in self.ids:
@@ -168,38 +175,54 @@ class dude(object):
         if dude_id in self.ids:
             return _dude_target(self.home, dude_id)
         else:
-            raise Exception("Directory doesn't exist")
+            raise Exception('Directory %s doesn\'t exist' % self.home)
+
 
 class _dude_target(object):
 
     def __init__(self, home, dude_id):
+        """Allows to read files of the dude target
+
+        Parameters
+        ----------
+        home : str
+            Directory to files from dud-e
+
+        dude_id : str
+            Target id
+        """
         self.home = home
         self.id = dude_id
+        self.dir = join(home, dude_id)
 
     @property
     def protein(self):
-        if isfile(self.home + self.id + "/receptor.pdb"):
-            return next(toolkit.readfile("pdb", self.home + self.id + "/receptor.pdb"))
+        """Read a protein file"""
+        if isfile('%s/receptor.pdb' % self.dir):
+            return six.next(toolkit.readfile('pdb', '%s/receptor.pdb' % self.dir))
         else:
             return None
 
     @property
     def ligand(self):
-        if isfile(self.home + self.id + "/crystal_ligand.mol2"):
-            return next(toolkit.readfile("mol2", self.home + self.id + "/crystal_ligand.mol2"))
+        """Read a ligand file"""
+        if isfile('%s/crystal_ligand.mol2' % self.dir):
+            return six.next(toolkit.readfile('mol2', '%s/crystal_ligand.mol2' % self.dir))
         else:
             return None
 
     @property
     def actives(self):
-        if isfile(self.home + self.id + "/actives_final.mol2.gz"):
-            return list(toolkit.readfile("mol2", self.home + self.id + "/actives_final.mol2.gz"))
+        """Read an actives file"""
+        if isfile('%s/actives_final.mol2.gz' % self.dir):
+            return toolkit.readfile('mol2', '%s/actives_final.mol2.gz' % self.dir)
         else:
             return None
 
     @property
     def decoys(self):
-        if isfile(self.home + self.id + "/decoys_final.mol2.gz"):
-            return list(toolkit.readfile("mol2", self.home + self.id + "/decoys_final.mol2.gz"))
+        """Read a decoys file"""
+        if isfile('%s/decoys_final.mol2.gz' % self.dir):
+            return toolkit.readfile('mol2', '%s/decoys_final.mol2.gz' % self.dir)
         else:
             return None
