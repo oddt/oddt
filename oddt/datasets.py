@@ -3,8 +3,8 @@ from __future__ import print_function
 import os
 import sys
 import csv
-import six
 
+from six import next
 from os.path import isfile, join
 from oddt import toolkit
 
@@ -193,36 +193,39 @@ class _dude_target(object):
         """
         self.home = home
         self.id = dude_id
-        self.dir = join(home, dude_id)
 
     @property
     def protein(self):
         """Read a protein file"""
-        if isfile('%s/receptor.pdb' % self.dir):
-            return six.next(toolkit.readfile('pdb', '%s/receptor.pdb' % self.dir))
+        f = join(self.home, self.dude_id, 'receptor.pdb')
+        if isfile(f):
+            return next(toolkit.readfile('pdb', f))
         else:
             return None
 
     @property
     def ligand(self):
         """Read a ligand file"""
-        if isfile('%s/crystal_ligand.mol2' % self.dir):
-            return six.next(toolkit.readfile('mol2', '%s/crystal_ligand.mol2' % self.dir))
+        f = join(self.home, self.dude_id, 'crystal_ligand.mol2')
+        if isfile(f):
+            return next(toolkit.readfile('mol2', f))
         else:
             return None
 
     @property
     def actives(self):
         """Read an actives file"""
-        if isfile('%s/actives_final.mol2.gz' % self.dir):
-            return toolkit.readfile('mol2', '%s/actives_final.mol2.gz' % self.dir)
+        f = join(self.home, self.dude_id, 'actives_final.mol2.gz')
+        if isfile(f):
+            return toolkit.readfile('mol2', f)
         else:
             return None
 
     @property
     def decoys(self):
         """Read a decoys file"""
-        if isfile('%s/decoys_final.mol2.gz' % self.dir):
-            return toolkit.readfile('mol2', '%s/decoys_final.mol2.gz' % self.dir)
+        f = join(self.home, self.dude_id, 'decoys_final.mol2.gz')
+        if isfile(f):
+            return toolkit.readfile('mol2', f)
         else:
             return None
