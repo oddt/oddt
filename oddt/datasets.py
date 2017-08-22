@@ -159,11 +159,12 @@ class dude(object):
                    'mk01', 'pygm', 'glcm', 'comt', 'sahh', 'cxcr4', 'kith', 'ampc', 'pur2', 'fabp4',
                    'inha', 'fgfr1']
         for i in all_ids:
-            if os.path.isdir(self.home + i):
+            if os.path.isdir(join(self.home, i)):
                 self.ids.append(i)
-                for f in files:
-                    if not os.path.isfile(join(self.home, i, f)):
-                        print('Target %s doesn\'t have file %s' % (i, f), file=sys.stderr)
+                for file in files:
+                    f = join(self.home, i, file)
+                    if not isfile(f) and not (isfile(f[:-3]) and file[-3:] == '.gz'):
+                        print('Target %s doesn\'t have file %s' % (i, file), file=sys.stderr)
         if not self.ids:
             print('No targets in directory %s' % (self.home), file=sys.stderr)
 
