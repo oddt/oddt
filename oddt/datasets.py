@@ -5,17 +5,9 @@ import sys
 import csv
 
 from six import next
-from os.path import isfile, join
+import pandas as pd
+
 from oddt import toolkit
-
-
-# skip comments and merge multiple spaces
-def _csv_file_filter(f):
-    for row in open(f, 'rb'):
-        row = row.decode('utf-8', 'ignore')
-        if row[0] == '#':
-            continue
-        yield ' '.join(row.split())
 
 
 class pdbbind(object):
@@ -48,26 +40,27 @@ class pdbbind(object):
                 if data_file:
                     csv_file = data_file
                 elif version == 2007:
-                    csv_file = join(self.home,
-                                    'INDEX.%i.%s.data' % (version, pdbind_set))
+                    csv_file = os.path.join(self.home,
+                                            'INDEX.%i.%s.data' % (version, pdbind_set))
                 elif version == 2016:
-                    csv_file = join(self.home,
-                                    'index',
-                                    'INDEX_%s_data.%i' % (pdbind_set, version))
+                    csv_file = os.path.join(self.home,
+                                            'index',
+                                            'INDEX_%s_data.%i' % (pdbind_set, version))
                 else:
-                    csv_file = join(self.home,
-                                    'INDEX_%s_data.%i' % (pdbind_set, version))
+                    csv_file = os.path.join(self.home,
+                                            'INDEX_%s_data.%i' % (pdbind_set, version))
 
-                if isfile(csv_file):
-                    self._set_ids[pdbind_set] = []
-                    self._set_act[pdbind_set] = []
-                    for row in csv.reader(_csv_file_filter(csv_file), delimiter=' '):
-                        pdbid = row[0]
-                        f = join(self.home, self.id, '%s_pocket.pdb' % self.id)
-                        if not isfile(f):
-                            continue
-                        self._set_ids[pdbind_set].append(pdbid)
-                        self._set_act[pdbind_set].append(float(row[3]))
+                if os.path.isfile(csv_file):
+                    data = pd.read_csv(csv_file,
+                                       sep='\s+',
+                                       usecols=[0, 1, 2, 3],
+                                       names=['pdbid',
+                                              'resolution',
+                                              'release_year',
+                                              'act'],
+                                       comment='#')
+                    self._set_ids[pdbind_set] = data['pdbid'].tolist()
+                    self._set_act[pdbind_set] = data['act'].tolist()
                     self.sets[pdbind_set] = dict(zip(self._set_ids[pdbind_set],
                                                      self._set_act[pdbind_set]))
             if len(self.sets) == 0:
@@ -105,24 +98,24 @@ class _pdbbind_id(object):
 
     @property
     def protein(self):
-        f = join(self.home, self.id, '%s_protein.pdb' % self.id)
-        if isfile(f):
+        f = os.path.join(self.home, self.id, '%s_protein.pdb' % self.id)
+        if os.path.isfile(f):
             return next(toolkit.readfile('pdb', f, lazy=True, opt=self.opt))
         else:
             return None
 
     @property
     def pocket(self):
-        f = join(self.home, self.id, '%s_pocket.pdb' % self.id)
-        if isfile(f):
+        f = os.path.join(self.home, self.id, '%s_pocket.pdb' % self.id)
+        if os.path.isfile(f):
             return next(toolkit.readfile('pdb', f, lazy=True, opt=self.opt))
         else:
             return None
 
     @property
     def ligand(self):
-        f = join(self.home, self.id, '%s_ligand.sdf' % self.id)
-        if isfile(f):
+        f = os.path.join(self.home, self.id, '%s_ligand.sdf' % self.id)
+        if os.path.isfile(f):
             return next(toolkit.readfile('sdf', f, lazy=True, opt=self.opt))
         else:
             return None
@@ -159,11 +152,11 @@ class dude(object):
                    'mk01', 'pygm', 'glcm', 'comt', 'sahh', 'cxcr4', 'kith', 'ampc', 'pur2', 'fabp4',
                    'inha', 'fgfr1']
         for i in all_ids:
-            if os.path.isdir(join(self.home, i)):
+            if os.path.isdir(os.path.join(self.home, i)):
                 self.ids.append(i)
                 for file in files:
-                    f = join(self.home, i, file)
-                    if not isfile(f) and not (file[-3:] == '.gz' and isfile(f[:-3])):
+                    f = os.path.join(self.home, i, file)
+                    if not os.path.isfile(f) and not (file[-3:] == '.gz' and os.path.isfile(f[:-3])):
                         print('Target %s doesn\'t have file %s' % (i, file), file=sys.stderr)
         if not self.ids:
             print('No targets in directory %s' % (self.home), file=sys.stderr)
@@ -198,8 +191,8 @@ class _dude_target(object):
     @property
     def protein(self):
         """Read a protein file"""
-        f = join(self.home, self.dude_id, 'receptor.pdb')
-        if isfile(f):
+        f = os.path.join(self.home, self.dude_id, 'receptor.pdb')
+        if os.path.isfile(f):
             return next(toolkit.readfile('pdb', f))
         else:
             return None
@@ -207,8 +200,8 @@ class _dude_target(object):
     @property
     def ligand(self):
         """Read a ligand file"""
-        f = join(self.home, self.dude_id, 'crystal_ligand.mol2')
-        if isfile(f):
+        f = os.path.join(self.home, self.dude_id, 'crystal_ligand.mol2')
+        if os.path.isfile(f):
             return next(toolkit.readfile('mol2', f))
         else:
             return None
@@ -216,11 +209,11 @@ class _dude_target(object):
     @property
     def actives(self):
         """Read an actives file"""
-        f = join(self.home, self.dude_id, 'actives_final.mol2.gz')
-        if isfile(f):
+        f = os.path.join(self.home, self.dude_id, 'actives_final.mol2.gz')
+        if os.path.isfile(f):
             return toolkit.readfile('mol2', f)
         # check if file is unpacked
-        elif isfile(f[:-3]):
+        elif os.path.isfile(f[:-3]):
             return toolkit.readfile('mol2', f[:-3])
         else:
             return None
@@ -228,11 +221,11 @@ class _dude_target(object):
     @property
     def decoys(self):
         """Read a decoys file"""
-        f = join(self.home, self.dude_id, 'decoys_final.mol2.gz')
-        if isfile(f):
+        f = os.path.join(self.home, self.dude_id, 'decoys_final.mol2.gz')
+        if os.path.isfile(f):
             return toolkit.readfile('mol2', f)
         # check if file is unpacked
-        elif isfile(f[:-3]):
+        elif os.path.isfile(f[:-3]):
             return toolkit.readfile('mol2', f[:-3])
         else:
             return None
