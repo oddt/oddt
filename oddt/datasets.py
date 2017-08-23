@@ -186,7 +186,7 @@ class _dude_target(object):
             Target id
         """
         self.home = home
-        self.id = dude_id
+        self.dude_id = dude_id
 
     @property
     def protein(self):
