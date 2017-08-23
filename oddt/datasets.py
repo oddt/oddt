@@ -1,8 +1,11 @@
 """ Datasets wrapped in conviniet models """
+from __future__ import print_function
+import os
+import sys
 import csv
-from os.path import isfile, join
 
 from six import next
+from os.path import isfile, join
 from oddt import toolkit
 
 
@@ -121,5 +124,115 @@ class _pdbbind_id(object):
         f = join(self.home, self.id, '%s_ligand.sdf' % self.id)
         if isfile(f):
             return next(toolkit.readfile('sdf', f, lazy=True, opt=self.opt))
+        else:
+            return None
+
+
+class dude(object):
+
+    def __init__(self, home):
+        """A wrapper for DUD-E (A Database of Useful Decoys: Enhanced)
+        http://dude.docking.org/
+
+        Parameters
+        ----------
+        home : str
+            Path to files from dud-e
+
+        """
+        self.home = home
+        if not os.path.isdir(self.home):
+            raise Exception('Directory %s doesn\'t exist' % self.home)
+
+        self.ids = []
+        files = ['receptor.pdb', 'crystal_ligand.mol2', 'actives_final.mol2.gz', 'decoys_final.mol2.gz']
+        # ids sorted by size of protein
+        all_ids = ['fnta', 'dpp4', 'mmp13', 'hivpr', 'ada17', 'mk14', 'egfr', 'src', 'drd3', 'aa2ar',
+                   'cah2', 'parp1', 'cdk2', 'lck', 'pde5a', 'thrb', 'aces', 'try1', 'pparg', 'vgfr2',
+                   'pgh2', 'esr1', 'fa10', 'esr2', 'ppara', 'dhi1', 'hivrt', 'bace1', 'ace', 'dyr',
+                   'akt1', 'adrb1', 'prgr', 'gcr', 'adrb2', 'andr', 'ppard', 'csf1r', 'gria2', 'cp3a4',
+                   'met', 'pgh1', 'abl1', 'casp3', 'kit', 'hdac8', 'hdac2', 'braf', 'urok', 'lkha4',
+                   'igf1r', 'aldr', 'fpps', 'hmdh', 'kpcb', 'tgfr1', 'ital', 'mp2k1', 'nos1', 'tryb1',
+                   'rxra', 'thb', 'cp2c9', 'ptn1', 'reni', 'pnph', 'tysy', 'akt2', 'kif11', 'aofb',
+                   'plk1', 'hivint', 'mk10', 'pyrd', 'grik1', 'jak2', 'rock1', 'fa7', 'mapk2', 'nram',
+                   'wee1', 'fkb1a', 'def', 'ada', 'fak1', 'mcr', 'pa2ga', 'xiap', 'hs90a', 'hxk4',
+                   'mk01', 'pygm', 'glcm', 'comt', 'sahh', 'cxcr4', 'kith', 'ampc', 'pur2', 'fabp4',
+                   'inha', 'fgfr1']
+        for i in all_ids:
+            if os.path.isdir(join(self.home, i)):
+                self.ids.append(i)
+                for file in files:
+                    f = join(self.home, i, file)
+                    if not isfile(f) and not (file[-3:] == '.gz' and isfile(f[:-3])):
+                        print('Target %s doesn\'t have file %s' % (i, file), file=sys.stderr)
+        if not self.ids:
+            print('No targets in directory %s' % (self.home), file=sys.stderr)
+
+    def __iter__(self):
+        for dude_id in self.ids:
+            yield _dude_target(self.home, dude_id)
+
+    def __getitem__(self, dude_id):
+        if dude_id in self.ids:
+            return _dude_target(self.home, dude_id)
+        else:
+            raise Exception('Directory %s doesn\'t exist' % self.home)
+
+
+class _dude_target(object):
+
+    def __init__(self, home, dude_id):
+        """Allows to read files of the dude target
+
+        Parameters
+        ----------
+        home : str
+            Directory to files from dud-e
+
+        dude_id : str
+            Target id
+        """
+        self.home = home
+        self.id = dude_id
+
+    @property
+    def protein(self):
+        """Read a protein file"""
+        f = join(self.home, self.dude_id, 'receptor.pdb')
+        if isfile(f):
+            return next(toolkit.readfile('pdb', f))
+        else:
+            return None
+
+    @property
+    def ligand(self):
+        """Read a ligand file"""
+        f = join(self.home, self.dude_id, 'crystal_ligand.mol2')
+        if isfile(f):
+            return next(toolkit.readfile('mol2', f))
+        else:
+            return None
+
+    @property
+    def actives(self):
+        """Read an actives file"""
+        f = join(self.home, self.dude_id, 'actives_final.mol2.gz')
+        if isfile(f):
+            return toolkit.readfile('mol2', f)
+        # check if file is unpacked
+        elif isfile(f[:-3]):
+            return toolkit.readfile('mol2', f[:-3])
+        else:
+            return None
+
+    @property
+    def decoys(self):
+        """Read a decoys file"""
+        f = join(self.home, self.dude_id, 'decoys_final.mol2.gz')
+        if isfile(f):
+            return toolkit.readfile('mol2', f)
+        # check if file is unpacked
+        elif isfile(f[:-3]):
+            return toolkit.readfile('mol2', f[:-3])
         else:
             return None
