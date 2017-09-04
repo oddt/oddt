@@ -217,10 +217,7 @@ class Molecule(pybel.Molecule):
 
     def __repr__(self):
         if ipython_notebook:
-            if image_backend == 'png':
-                return self._repr_png_(size=image_size)
-            else:
-                return self._repr_svg_(size=image_size)
+            return self._repr_html_(size=image_size)
         else:
             return super(Molecule, self).__repr__()
 
@@ -295,21 +292,35 @@ class Molecule(pybel.Molecule):
         return len(rot_bond.findall(self))
 
     def _repr_svg_(self, size=(200, 200)):
-        return self.clone.write('svg',
-                                opt={'d': None},
-                                size=size).replace('\n', '')
+        if image_backend == 'svg':
+            return self.clone.write('svg',
+                                    opt={'d': None,
+                                         't': None},
+                                    size=size).replace('\n', '')
+        else:
+            return None
 
     def _repr_png_(self, size=(200, 200)):
-        string = self.clone.write('png',
-                                  opt={'d': None,
-                                       't': None},
-                                  size=size)
-        if PY3 and isinstance(string, text_type):
-            string = string.encode('utf-8', errors='surrogateescape')
-        return '<img src="data:image/png;base64,%s" alt="%s">' % (
-            b64encode(string).decode('ascii'),
-            self.title
-        )
+        if image_backend == 'png':
+            string = self.clone.write('png',
+                                      opt={'d': None,
+                                           't': None},
+                                      size=size)
+            if PY3 and isinstance(string, text_type):
+                string = string.encode('utf-8', errors='surrogateescape')
+            return string
+        else:
+            return None
+
+    def _repr_html_(self, size=(200, 200)):
+        if image_backend == 'png':
+            return '<img src="data:image/png;base64,%s" alt="%s">' % (
+                b64encode(self._repr_png_(size=size)).decode('ascii'),
+                self.title)
+        elif image_backend == 'svg':
+            return self._repr_svg_(size=size)
+        else:
+            return None
 
     @property
     def canonic_order(self):

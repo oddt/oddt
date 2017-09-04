@@ -563,24 +563,35 @@ class Molecule(object):
         return Molecule(Chem.Mol(self.Mol.ToBinary()))
 
     def _repr_svg_(self, size=(200, 200)):
-        svg = self.write('svg', size=size)
-        return svg.replace('svg:', '').replace('\n', '')
+        if image_backend == 'svg':
+            svg = self.write('svg', size=size)
+            return svg.replace('svg:', '').replace('\n', '')
+        else:
+            return None
 
     def _repr_png_(self, size=(200, 200)):
-        png = self.write('png', size=size)
-        return '<img src="data:image/png;base64,%s" alt="%s">' % (
-            b64encode(png).decode('ascii'),
-            self.title)
+        if image_backend == 'png':
+            png = self.write('png', size=size)
+            return png
+        else:
+            return None
+
+    def _repr_html_(self, size=(200, 200)):
+        if image_backend == 'png':
+            return '<img src="data:image/png;base64,%s" alt="%s">' % (
+                b64encode(self._repr_png_(size=size)).decode('ascii'),
+                self.title)
+        elif image_backend == 'svg':
+            return self._repr_svg_(size=size)
+        else:
+            return None
 
     def __str__(self):
         return self.__repr__()
 
     def __repr__(self):
         if ipython_notebook:
-            if image_backend == 'png':
-                return self._repr_png_(size=image_size)
-            else:
-                return self._repr_svg_(size=image_size)
+            return self._repr_html_(size=image_size)
         else:
             return super(Molecule, self).__repr__()
 
