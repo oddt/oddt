@@ -230,14 +230,30 @@ class _dude_target(object):
 
 
 class CASF:
+    """Load CASF dataset as described in
+    Li, Y. et al. Comparative Assessment of Scoring Functions
+    on an Updated Benchmark: 2. Evaluation Methods and General
+    Results. J. Chem. Inf. Model. 54, 1717–1736. (2014)
+    http://dx.doi.org/10.1021/ci500081m
+
+    Parameters
+    ----------
+    home: string
+        Path to CASF dataset main directory
+    """
+
     def __init__(self, home):
         self.home = home
         self.index = '%s/coreset/index/' % self.home
 
         if isdir(self.index):
             filepath = '%s/2013_core_data.lst' % self.index
-            self.index_data = pd.read_csv(filepath, sep='\s+', comment='#', header=None,
-                                          names=['pdbid', 'act', 'cluster'],  usecols=[0, 1, 5])
+            self.index_data = pd.read_csv(filepath,
+                                          sep=r'\s+',
+                                          comment='#',
+                                          header=None,
+                                          names=['pdbid', 'act', 'cluster'],
+                                          usecols=[0, 1, 5])
             self.pdbids = self.index_data['pdbid']
 
     def __iter__(self):
@@ -253,6 +269,15 @@ class CASF:
             raise KeyError
 
     def precomputed_score(self, scoring_function=None):
+        """Load precomputed results of scoring power
+        test for various scoring functions.
+
+        Parameters
+        ----------
+        scoring_function: string (default=None)
+            Name of the scoring function to get results
+            If None, all results are returned.
+        """
         examples_dir = '%s/power_scoring/examples' % self.home
         if scoring_function is not None:
             functions = [scoring_function]
@@ -267,17 +292,32 @@ class CASF:
             if not isfile(file_score):
                 raise FileNotFoundError('Invalid scoring function name')
 
-            score = pd.read_csv(file_score, comment='#', sep='\s+', header=None,
+            score = pd.read_csv(file_score, comment='#',
+                                sep=r'\s+', header=None,
                                 names=['pdbid', 'score_crystal', 'score_opt'])
             act = self.index_data[['pdbid', 'act']]
 
             scores = pd.merge(score, act)
-            scores['scoring_function'] = pd.Series([fun] * 195, name='Scoring function')
+            scores['scoring_function'] = pd.Series([fun] * 195,
+                                                   name='Scoring function')
             frames.append(scores)
 
         return pd.concat(frames)
 
     def precomputed_screening(self, scoring_function=None, cluster_id=None):
+        """Load precomputed results of screening power
+        test for various scoring functions
+
+        Parameters
+        ----------
+        scoring_function: string (default=None)
+            Name of the scoring function to get results
+            If None, all results are returned
+
+        cluster_id: int (default=None)
+            Number of the protein cluster to get results
+            If None, all results are returned
+        """
         screening_dir = '%s/power_screening' % self.home
         examples_dir = '%s/examples' % screening_dir
         if scoring_function is not None:
@@ -285,14 +325,17 @@ class CASF:
         else:
             functions = listdir(examples_dir)
 
-        cluster_frame = pd.DataFrame(columns=['cluster_id', 'protein_structure', 'cluster_proteins'])
+        cluster_frame = pd.DataFrame(columns=['cluster_id',
+                                              'protein_structure',
+                                              'cluster_proteins'])
         data_file = open('%s/TargetInfo.dat' % screening_dir)
-
-        for cluster, line in enumerate(filter(lambda x: not x.startswith('#'), data_file.readlines())):
+        for cluster, line in enumerate(filter(lambda x: not x.startswith('#'),
+                                              data_file.readlines())):
             line = line.split()
             protein_structure = line[0]
             cluster_proteins = line[1:]
-            cluster_frame.loc[cluster] = [cluster + 1, protein_structure, cluster_proteins]
+            cluster_frame.loc[cluster] = [cluster + 1,
+                                          protein_structure, cluster_proteins]
 
         frames = []
         for fun in functions:
@@ -301,8 +344,9 @@ class CASF:
                 raise FileNotFoundError('Invalid scoring function name')
             if cluster_id:
                 protein = cluster_frame.iloc[cluster_id - 1]['protein_structure']
-                frame = pd.read_csv('%s/%s_score.dat' % (file_dir, protein), sep='\s+',
-                                    header=None, names=['name', 'score'])
+                frame = pd.read_csv('%s/%s_score.dat' % (file_dir, protein),
+                                    sep=r'\s+', header=None,
+                                    names=['name', 'score'])
                 frame['pdbid'] = [name[:4] for name in frame['name']]
                 frame['scoring_function'] = [fun] * len(frame)
                 frame = frame.merge(self.index_data[['pdbid', 'act']])
@@ -311,8 +355,9 @@ class CASF:
             else:
                 for row in cluster_frame.itertuples():
                     protein = row[2]
-                    frame = pd.read_csv('%s/%s_score.dat' % (file_dir, protein), sep='\s+',
-                                        header=None, names=['name', 'score'])
+                    frame = pd.read_csv('%s/%s_score.dat' % (file_dir, protein),
+                                        sep=r'\s+', header=None,
+                                        names=['name', 'score'])
                     x = row[1]
                     frame['cluster_id'] = [x] * len(frame)
                     frame['protein_structure'] = [protein] * len(frame)
@@ -326,12 +371,24 @@ class CASF:
 
 
 class _CASFTarget:
+    """
+    Used by CASF class.
+    Load CASF target (protein and ligand) with given ID.
+
+    Parameters
+    ----------
+    home: string
+        Path to CASF dataset main directory
+    pdbid: string
+        ID of target protein
+    """
     def __init__(self, home, pdbid):
         self.home = home
         self.pdbid = pdbid
 
     @property
     def protein(self):
+        """Load target protein from mol2 file as ob.Molecule object"""
         filepath = '%s/coreset/%s/%s_protein.mol2' % (
             self.home, self.pdbid, self.pdbid)
         if isfile(filepath):
@@ -341,6 +398,7 @@ class _CASFTarget:
 
     @property
     def ligand(self):
+        """Load target ligand from mol2 file as ob.Molecule object"""
         filepath = '%s/coreset/%s/%s_ligand.mol2' % (
             self.home, self.pdbid, self.pdbid)
         if isfile(filepath):
@@ -350,6 +408,8 @@ class _CASFTarget:
 
     @property
     def decoys_docking(self):
+        """Load decoys used for docking from mol2
+        file as list of ob.Molecule objects"""
         filepath = '%s/decoys_docking/%s_decoys.mol2' % (self.home, self.pdbid)
         if isfile(filepath):
             decoys = list(toolkit.readfile('mol2', filepath))
@@ -358,10 +418,13 @@ class _CASFTarget:
 
     @property
     def decoys_screening(self):
+        """Load decoys used for screening from mol2
+        files as list of ob.Molecule objects"""
         dirpath = '%s/decoys_screening/%s' % (self.home, self.pdbid)
         if isdir(dirpath):
             decoys = []
             for file in listdir(dirpath):
-                decoys.append(six.next(toolkit.readfile('mol2', dirpath + '/' + file)))
+                decoys.append(six.next(
+                    toolkit.readfile('mol2', dirpath + '/' + file)))
             return decoys
         return None
