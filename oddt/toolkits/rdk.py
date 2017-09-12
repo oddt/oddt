@@ -562,27 +562,43 @@ class Molecule(object):
     def clone(self):
         return Molecule(Chem.Mol(self.Mol.ToBinary()))
 
-    def _repr_svg_(self, size=(200, 200)):
+    def _repr_svg_(self):
+        if isinstance(image_size, int):
+            size = (image_size, image_size)
+        elif isinstance(image_size, (tuple, list)) and len(image_size) == 2:
+            size = tuple(image_size)
+        else:
+            raise ValueError('oddt.toolkit.image_size has bad value - '
+                             'it should be int or list/tuple of two ints. '
+                             'Got: %s ' % image_size)
         if image_backend == 'svg':
             svg = self.write('svg', size=size)
             return svg.replace('svg:', '').replace('\n', '')
         else:
             return None
 
-    def _repr_png_(self, size=(200, 200)):
+    def _repr_png_(self):
+        if isinstance(image_size, int):
+            size = (image_size, image_size)
+        elif isinstance(image_size, (tuple, list)) and len(image_size) == 2:
+            size = tuple(image_size)
+        else:
+            raise ValueError('oddt.toolkit.image_size has bad value - '
+                             'it should be int or list/tuple of two ints. '
+                             'Got: %s ' % image_size)
         if image_backend == 'png':
             png = self.write('png', size=size)
             return png
         else:
             return None
 
-    def _repr_html_(self, size=(200, 200)):
+    def _repr_html_(self):
         if image_backend == 'png':
             return '<img src="data:image/png;base64,%s" alt="%s">' % (
-                b64encode(self._repr_png_(size=size)).decode('ascii'),
+                b64encode(self._repr_png_()).decode('ascii'),
                 self.title)
         elif image_backend == 'svg':
-            return self._repr_svg_(size=size)
+            return self._repr_svg_()
         else:
             return None
 
@@ -591,7 +607,7 @@ class Molecule(object):
 
     def __repr__(self):
         if ipython_notebook:
-            return self._repr_html_(size=image_size)
+            return self._repr_html_()
         else:
             return super(Molecule, self).__repr__()
 
