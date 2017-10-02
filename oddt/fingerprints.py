@@ -550,7 +550,7 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
 
 
 def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
-           size=16384, count_bits=True, sparse=True):
+           size=16384, count_bits=True, sparse=True, ignore_hoh=True):
     """Protein ligand extended connectivity fingerprint. For every pair of
     atoms in contact, compute ECFP and then hash every single, corresponding depth.
 
@@ -571,6 +571,9 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     count_bits : bool (default = True)
         Should the bits be counted or unique. In dense representation it
         translates to integer array (count_bits=True) or boolean array if False.
+    ignore_hoh : bool (default = True)
+        Should the water molecules be ignored. This is based on the name of the
+        residue ('HOH').
 
     Returns
     -------
@@ -580,7 +583,10 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     """
     result = []
     # removing h
-    protein_dict = protein.atom_dict[protein.atom_dict['atomicnum'] != 1]
+    protein_mask = (protein.atom_dict['atomicnum'] != 1)
+    if ignore_hoh:
+        protein_mask = protein_mask & (protein.atom_dict['resname'] !='HOH')
+    protein_dict = protein.atom_dict[protein_mask]
     ligand_dict = ligand.atom_dict[ligand.atom_dict['atomicnum'] != 1]
 
     # atoms in contact
