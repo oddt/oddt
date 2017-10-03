@@ -593,9 +593,9 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     protein_atoms, ligand_atoms = close_contacts(
         protein_dict, ligand_dict, cutoff=distance_cutoff)
 
-    for ligand_atom, protein_atom in zip(ligand_atoms, protein_atoms):
-        ligand_ecfp = _ECFP_atom_hash(ligand, int(ligand_atom['id']), depth=depth_ligand)
-        protein_ecfp = _ECFP_atom_hash(protein, int(protein_atom['id']), depth=depth_protein)
+    for ligand_atom, protein_atom in zip(ligand_atoms['id'], protein_atoms['id']):
+        ligand_ecfp = _ECFP_atom_hash(ligand, int(ligand_atom), depth=depth_ligand)
+        protein_ecfp = _ECFP_atom_hash(protein, int(protein_atom), depth=depth_protein)
         assert len(ligand_ecfp) == depth_ligand + 1
         assert len(protein_ecfp) == depth_protein + 1
         # fillvalue is parameter from zip_longest
