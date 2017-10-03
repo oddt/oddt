@@ -1,7 +1,9 @@
 """Metrics for estimating performance of drug discovery methods implemented in ODDT"""
+from __future__ import division
 
 from math import ceil
 import numpy as np
+from scipy.stats import linregress
 from sklearn.metrics import roc_curve as roc, auc, mean_squared_error
 
 __all__ = ['roc', 'auc', 'roc_auc', 'roc_log_auc', 'enrichment_factor', 'random_roc_log_auc', 'rmse']
@@ -142,3 +144,31 @@ def random_roc_log_auc(log_min=0.001, log_max=1.):
             semi-log ROC AUC for random distribution
     """
     return (log_max-log_min)/(np.log(10)*np.log10(log_max/log_min))
+
+
+
+def standard_deviation_error(y_true, y_pred):
+    """Standard Deviation (SD) error implemented as used by Li et. al for
+    CASF-2013 (http://dx.doi.org/10.1021/ci500081m).
+
+    Parameters
+    ----------
+        y_true : array-like
+            True values.
+
+        y_pred : array-like
+            Prediction to be scored.
+
+    Returns
+    -------
+        sd : float
+            semi-log ROC AUC for random distribution
+
+
+    """
+    y_true = np.atleast_1d(y_true).flatten()
+    y_pred = np.atleast_1d(y_pred).flatten()
+    A, B = linregress(y_true, real)[:2]  # y = Ax + B
+    y_ = A * y_pred + B
+    sd = (((y_true - y_) ** 2).sum() / (len(y_pred) - 1)) ** 0.5
+    return sd
