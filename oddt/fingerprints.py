@@ -230,7 +230,7 @@ def hash32(value):
     return hash(value) & 0xffffffff
 
 
-def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
+def _ECFP_atom_repr(mol, idx, use_pharm_features=False, ignore_h=False):
     """Simple description of atoms used in ECFP/FCFP. Bonds are not described
     accounted for. Hydrogens are explicitly forbidden, they raise Exception.
 
@@ -274,7 +274,8 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
             return (atom.GetAtomicNum(),
                     atom.GetIsotope(),
                     atom.GetHvyValence(),
-                    atom.ImplicitHydrogenCount() + atom.ExplicitHydrogenCount(),
+                    0 if ignore_h else (atom.ImplicitHydrogenCount() +
+                                        atom.ExplicitHydrogenCount()),
                     atom.GetFormalCharge(),
                     int(atom.IsInRing()),
                     int(atom.IsAromatic()),)
@@ -285,7 +286,7 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
             return (atom.GetAtomicNum(),
                     atom.GetIsotope(),
                     atom.GetTotalDegree() - atom.GetTotalNumHs(includeNeighbors=True),
-                    atom.GetTotalNumHs(includeNeighbors=True),
+                    0 if ignore_h else atom.GetTotalNumHs(includeNeighbors=True),
                     atom.GetFormalCharge(),
                     int(atom.IsInRing()),
                     int(atom.GetIsAromatic()),)
