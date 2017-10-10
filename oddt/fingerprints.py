@@ -271,7 +271,9 @@ def sparse_to_csr_matrix(fp, size, count_bits=True):
     if fp.ndim > 1:
         raise ValueError("Input fingerprint must be a vector (1D)")
     if count_bits:
-        cols, values = np.unique(fp, return_counts=True)
+        ## TODO numpy 1.9.0 has return_counts
+        cols, inv = np.unique(fp, return_inverse=True)
+        values = np.bincount(inv)
     else:
         cols = np.unique(fp)
         values = np.ones_like(cols)
@@ -701,6 +703,7 @@ def dice(a, b, sparse=False):
 
     """
     if sparse:
+        ## TODO numpy 1.9.0 has return_counts
         a_unique, inv = np.unique(a, return_inverse=True)
         a_counts = np.bincount(inv)
         b_unique, inv = np.unique(b, return_inverse=True)
