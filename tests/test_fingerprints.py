@@ -1,6 +1,7 @@
 import os
 from random import shuffle
 import numpy as np
+from scipy.sparse import vstack as sparse_vstack
 from sklearn.utils.testing import (assert_array_equal,
                                    assert_array_almost_equal,
                                    assert_equal,
@@ -70,11 +71,23 @@ def test_sparse_densify():
     sparse_fp = [0, 33, 49, 53, 107, 156, 161, 203, 215, 230, 251, 269, 299,
                  323, 331, 376, 389, 410, 427, 430, 450, 484, 538, 592, 593,
                  636, 646, 658, 698, 699, 702, 741, 753, 807, 850, 861, 882,
-                 915, 969, 1023]
+                 915, 915, 915, 969, 969, 1023]
 
-    dense = sparse_to_dense(sparse_fp, size=1024).reshape(1, -1) # at least 2d
-    csr = sparse_to_csr_matrix(sparse_fp, size=1024)
+    # count vectors
+    dense = sparse_to_dense(sparse_fp, size=1024, count_bits=True)
+    csr = sparse_to_csr_matrix(sparse_fp, size=1024, count_bits=True)
+    assert_array_equal(dense.reshape(1, -1), csr.toarray())
 
+    # bool vectors
+    dense = sparse_to_dense(sparse_fp, size=1024, count_bits=False)
+    csr = sparse_to_csr_matrix(sparse_fp, size=1024, count_bits=False)
+    assert_array_equal(dense.reshape(1, -1), csr.toarray())
+
+    # test stacking
+    np.random.seed(0)
+    sparse_fps = np.random.randint(0, 1024, size=(20, 100))
+    dense = np.vstack(sparse_to_dense(fp, size=1024) for fp in sparse_fps)
+    csr = sparse_vstack(sparse_to_csr_matrix(fp, size=1024) for fp in sparse_fps)
     assert_array_equal(dense, csr.toarray())
 
 
