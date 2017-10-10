@@ -16,6 +16,8 @@ from oddt.fingerprints import (InteractionFingerprint,
                                fold,
                                MIN_HASH_VALUE,
                                MAX_HASH_VALUE,
+                               sparse_to_dense,
+                               sparse_to_csr_matrix,
                                dice,
                                tanimoto)
 
@@ -61,6 +63,19 @@ def test_folding():
     # Range check
     fp = np.arange(1, MAX_HASH_VALUE, 1e6, dtype=int)
     assert_array_equal(fold(fp, MAX_HASH_VALUE), fp - 1)
+
+
+def test_sparse_densify():
+    """FP densify"""
+    sparse_fp = [0, 33, 49, 53, 107, 156, 161, 203, 215, 230, 251, 269, 299,
+                 323, 331, 376, 389, 410, 427, 430, 450, 484, 538, 592, 593,
+                 636, 646, 658, 698, 699, 702, 741, 753, 807, 850, 861, 882,
+                 915, 969, 1023]
+
+    dense = sparse_to_dense(sparse_fp, size=1024).reshape(1, -1) # at least 2d
+    csr = sparse_to_csr_matrix(sparse_fp, size=1024)
+
+    assert_array_equal(dense, csr.toarray())
 
 
 def test_InteractionFingerprint():

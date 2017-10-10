@@ -7,6 +7,8 @@ from __future__ import division
 from six.moves import zip_longest
 from itertools import chain
 import numpy as np
+from scipy.spatial import cKDTree
+from scipy.sparse import csr_matrix
 import oddt
 from oddt.interactions import (pi_stacking,
                                pi_cation,
@@ -212,11 +214,69 @@ def fold(fp, size):
 
 
 def sparse_to_dense(fp, size, count_bits=True):
-    """Converts sparse fingerprint (consists only 'on' bits)
-    to dense (consists all bits)"""
+    """Converts sparse fingerprint (indices of 'on' bits) to dense (vector of
+    ints).
+
+    Parameters
+    ----------
+    fp : array-like
+        Fingerprint on indices. Can be dupplicated for count vectors.
+
+    size : int
+        The size of a final fingerprint.
+
+    count_bits : bool (default=True)
+        Should the output fingerprint be a count or boolean vector. If `True`
+        the dtype of output is `np.uint8`, otherwise it is bool.
+
+
+    Returns
+    -------
+    fp : np.array  (shape=[1, size])
+        Dense fingerprint in form of a np.array vector.
+    """
+    fp = np.asarray(fp, dtype=np.uint64)
+    if fp.ndim > 1:
+        raise ValueError("Input fingerprint must be a vector (1D)")
     sparsed_fp = np.zeros(size, dtype=np.uint8 if count_bits else bool)
     np.add.at(sparsed_fp, fp, 1)
     return sparsed_fp
+
+
+def sparse_to_csr_matrix(fp, size, count_bits=True):
+    """Converts sparse fingerprint (indices of 'on' bits) to
+    `scipy.sparse.csr_matrix`, which is memorty efficient yet supported widely
+    by scikit-learn and numpy/scipy.
+
+    Parameters
+    ----------
+    fp : array-like
+        Fingerprint on indices. Can be dupplicated for count vectors.
+
+    size : int
+        The size of a final fingerprint.
+
+    count_bits : bool (default=True)
+        Should the output fingerprint be a count or boolean vector. If `True`
+        the dtype of output is `np.uint8`, otherwise it is bool.
+
+
+    Returns
+    -------
+    fp : np.array (shape=[1, size])
+        Dense fingerprint in form of a `scipy.sparse.csr_matrix` of shape
+        (1, size).
+    """
+    fp = np.asarray(fp, dtype=np.uint64)
+    if fp.ndim > 1:
+        raise ValueError("Input fingerprint must be a vector (1D)")
+    if count_bits:
+        cols, values = np.unique(fp, return_counts=True)
+    else:
+        cols = np.unique(fp)
+        values = np.ones_like(cols)
+    rows = np.zeros_like(cols)
+    return csr_matrix((values, (rows, cols)), shape=(1, size))
 
 
 # ranges for hashing function
