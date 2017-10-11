@@ -118,7 +118,7 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
     - (Column 6) salt bridges (protein negatively charged)
     - (Column 7) salt bridges (ionic bond with metal ion)
 
-    Returns matrix, which is sorted acordingly to this pattern : 'ALA',
+    Returns matrix, which is sorted according to this pattern : 'ALA',
     'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU',
     'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL', ''.
     The '' means cofactor. Index of amino acid in pattern coresponds
