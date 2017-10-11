@@ -55,7 +55,7 @@ Usage Instructions
 Toolkits
 --------
 
-You can use any supported toolkit united under common API (for reference see `Pybel <https://open-babel.readthedocs.org/en/latest/UseTheLibrary/Python_Pybel.html>`_ or `Cinfony <https://code.google.com/p/cinfony/>`_). All methods and software which based on Pybel/Cinfony should be drop in compatible with ODDT toolkits. In contrast to it’s predecessors, which were aimed to have minimalistic API, ODDT introduces extended methods and additional handles. This extensions allow to use toolkits at all it’s grace and some features may be backported from others to introduce missing functionalities.
+You can use any supported toolkit united under common API (for reference see `Pybel <https://open-babel.readthedocs.org/en/latest/UseTheLibrary/Python_Pybel.html>`_ or `Cinfony <https://code.google.com/p/cinfony/>`_). All methods and software which based on Pybel/Cinfony should be drop in compatible with ODDT toolkits. In contrast to its predecessors, which were aimed to have minimalistic API, ODDT introduces extended methods and additional handles. This extensions allow to use toolkits at all its grace and some features may be backported from others to introduce missing functionalities.
 To name a few:
 
 * coordinates are returned as Numpy Arrays
