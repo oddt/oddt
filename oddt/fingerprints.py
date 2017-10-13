@@ -278,7 +278,9 @@ def sparse_to_csr_matrix(fp, size, count_bits=True):
         cols = np.unique(fp)
         values = np.ones_like(cols)
     rows = np.zeros_like(cols)
-    return csr_matrix((values, (rows, cols)), shape=(1, size))
+    return csr_matrix((values, (rows, cols)),
+                      shape=(1, size),
+                      dtype=np.uint8 if count_bits else bool)
 
 
 # ranges for hashing function
