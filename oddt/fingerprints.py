@@ -371,10 +371,11 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
             atom = mol.Mol.GetAtomWithIdx(idx)
             if atom.GetAtomicNum() == 1:
                 raise Exception('ECFP should not hash Hydrogens')
+            n_hs = atom.GetTotalNumHs(includeNeighbors=True)
             return (atom.GetAtomicNum(),
                     atom.GetIsotope(),
-                    atom.GetTotalDegree() - atom.GetTotalNumHs(includeNeighbors=True),
-                    atom.GetTotalNumHs(includeNeighbors=True),
+                    atom.GetTotalDegree() - n_hs,
+                    n_hs,
                     atom.GetFormalCharge(),
                     int(atom.IsInRing()),
                     int(atom.GetIsAromatic()),)
