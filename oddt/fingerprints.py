@@ -559,14 +559,24 @@ def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
     splif = np.zeros((len(ligand_atoms)),
                      dtype=[('hash', int), ('ligand_coords', np.float32, (7, 3)),
                             ('protein_coords', np.float32, (7, 3))])
+
+    lig_atom_repr = [_ECFP_atom_repr(ligand, int(aidx)) for aidx in ligand_dict['id']]
+    prot_atom_repr = [_ECFP_atom_repr(protein, int(aidx)) for aidx in protein_dict['id']]
+
     for i, (ligand_atom, protein_atom) in enumerate(zip(ligand_atoms, protein_atoms)):
         if ligand_atom['atomicnum'] == 1 or protein_atom['atomicnum'] == 1:
             continue
         # function sorted used below solves isue, when order of parameteres
         # is not correct -> splif(protein, ligand)
         splif[i] = (hash32(tuple(sorted((
-            _ECFP_atom_hash(ligand, int(ligand_atom['id']), depth=depth)[-1],
-            _ECFP_atom_hash(protein, int(protein_atom['id']), depth=depth)[-1])))),
+            _ECFP_atom_hash(ligand,
+                            int(ligand_atom['id']),
+                            depth=depth,
+                            atom_repr_dict=lig_atom_repr)[-1],
+            _ECFP_atom_hash(protein,
+                            int(protein_atom['id']),
+                            depth=depth,
+                            atom_repr_dict=prot_atom_repr)[-1])))),
             np.vstack((ligand_atom['coords'].reshape((1, 3)),
                        ligand_atom['neighbors'])),
             np.vstack((protein_atom['coords'].reshape((1, 3)),
@@ -675,7 +685,7 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     # removing h
     protein_mask = (protein.atom_dict['atomicnum'] != 1)
     if ignore_hoh:
-        protein_mask = protein_mask & (protein.atom_dict['resname'] !='HOH')
+        protein_mask = protein_mask & (protein.atom_dict['resname'] != 'HOH')
     protein_dict = protein.atom_dict[protein_mask]
     ligand_dict = ligand.atom_dict[ligand.atom_dict['atomicnum'] != 1]
 
@@ -683,9 +693,18 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     protein_atoms, ligand_atoms = close_contacts(
         protein_dict, ligand_dict, cutoff=distance_cutoff)
 
+    lig_atom_repr = [_ECFP_atom_repr(ligand, int(aidx)) for aidx in ligand_dict['id']]
+    prot_atom_repr = [_ECFP_atom_repr(protein, int(aidx)) for aidx in protein_dict['id']]
+
     for ligand_atom, protein_atom in zip(ligand_atoms['id'], protein_atoms['id']):
-        ligand_ecfp = _ECFP_atom_hash(ligand, int(ligand_atom), depth=depth_ligand)
-        protein_ecfp = _ECFP_atom_hash(protein, int(protein_atom), depth=depth_protein)
+        ligand_ecfp = _ECFP_atom_hash(ligand,
+                                      int(ligand_atom),
+                                      depth=depth_ligand,
+                                      atom_repr_dict=lig_atom_repr)
+        protein_ecfp = _ECFP_atom_hash(protein,
+                                       int(protein_atom),
+                                       depth=depth_protein,
+                                       atom_repr_dict=prot_atom_repr)
         assert len(ligand_ecfp) == depth_ligand + 1
         assert len(protein_ecfp) == depth_protein + 1
         # fillvalue is parameter from zip_longest
