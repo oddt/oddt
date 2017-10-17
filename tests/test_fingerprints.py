@@ -429,11 +429,11 @@ def test_plec():
     mols = list(oddt.toolkit.readfile('sdf', os.path.join(
         test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
     mols = list(filter(lambda x: x.title == '312335', mols))
-    list(map(lambda x: x.addh(only_polar=True), mols))
+    list(map(lambda x: x.removeh(), mols))
     receptor = next(oddt.toolkit.readfile('pdb', os.path.join(
         test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
     receptor.protein = True
-    receptor.addh(only_polar=True)
+    receptor.removeh()
     plec = PLEC(mols[0], receptor)
     reference = np.array([33,    50,    68,    80,    80,   120,   120,   120,   120,
                          126,   155,   155,   155,   155,   155,   155,   155,   180,
@@ -533,6 +533,17 @@ def test_plec():
                          16255, 16335, 16338, 16362, 16362])
     assert_array_equal(reference, plec)
     assert_array_equal(plec.shape, (860,))
+
+    # Hydrogens should not impact the PLEC fingerprint
+    list(map(lambda x: x.addh(only_polar=True), mols))
+    receptor.addh(only_polar=True)
+    plec = PLEC(mols[0], receptor)
+    assert_array_equal(reference, plec, "Polar Hs break PLEC")
+
+    list(map(lambda x: x.addh(), mols))
+    receptor.addh()
+    plec = PLEC(mols[0], receptor)
+    assert_array_equal(reference, plec, "Non-polar Hs break PLEC")
 
 
 def test_plec_similarity():
