@@ -283,6 +283,31 @@ def sparse_to_csr_matrix(fp, size, count_bits=True):
                       dtype=np.uint8 if count_bits else bool)
 
 
+def dense_to_sparse(fp):
+    """Sparsify a dense fingerprint.
+
+    Parameters
+    ----------
+    fp : array-like
+        Fingerprint in a dense form - numpy array of bools or integers.
+
+    Returns
+    -------
+    fp : np.array
+        Sparse fingerprint - an array of "on" integers. In cas of count vectors,
+        the indices are dupplicated according to count.
+    """
+
+    if fp.dtype == bool:
+        return np.where(fp)[0]
+    else: # count vectors
+        sparse_fp = []
+        ix = np.where(fp)[0]
+        for i, count in zip(ix, fp[ix]):
+            sparse_fp.extend([i] * count)
+    return np.array(sparse_fp)
+
+
 # ranges for hashing function
 MIN_HASH_VALUE = 0
 MAX_HASH_VALUE = 2 ** 32

@@ -19,6 +19,7 @@ from oddt.fingerprints import (InteractionFingerprint,
                                MAX_HASH_VALUE,
                                sparse_to_dense,
                                sparse_to_csr_matrix,
+                               dense_to_sparse,
                                dice,
                                tanimoto)
 
@@ -77,11 +78,15 @@ def test_sparse_densify():
     dense = sparse_to_dense(sparse_fp, size=1024, count_bits=True)
     csr = sparse_to_csr_matrix(sparse_fp, size=1024, count_bits=True)
     assert_array_equal(dense.reshape(1, -1), csr.toarray())
+    resparsed = dense_to_sparse(dense)
+    assert_array_equal(sparse_fp, resparsed)
 
     # bool vectors
     dense = sparse_to_dense(sparse_fp, size=1024, count_bits=False)
     csr = sparse_to_csr_matrix(sparse_fp, size=1024, count_bits=False)
     assert_array_equal(dense.reshape(1, -1), csr.toarray())
+    resparsed = dense_to_sparse(dense)
+    assert_array_equal(np.unique(sparse_fp), resparsed)
 
     # test stacking
     np.random.seed(0)
