@@ -84,6 +84,28 @@ def test_mol():
     assert_array_equal([len(res.atoms) for res in protein.residues], res_atoms_n)
 
 
+def test_toolkit_hoh():
+    """HOH residues splitting"""
+    pdb_block = """ATOM      1  C1  GLY     1       0.000   0.000   0.000  1.00  0.00           C
+ATOM      2  C2  GLY     1       0.000   0.000   0.000  1.00  0.00           C
+ATOM      3  O1  GLY     1       0.000   0.000   0.000  1.00  0.00           O
+ATOM      4  O2  GLY     1       0.000   0.000   0.000  1.00  0.00           O
+ATOM      5  N1  GLY     1       0.000   0.000   0.000  1.00  0.00           N
+ATOM      6  O3  HOH     2       0.000   0.000   0.000  1.00  0.00           O
+ATOM      7  O4  HOH     3       0.000   0.000   0.000  1.00  0.00           O
+ATOM      8  O5  HOH     4       0.000   0.000   0.000  1.00  0.00           O
+"""
+    protein = oddt.toolkit.readstring('pdb', pdb_block)
+    protein.protein = True
+    assert_equal(len(protein.residues), 4)
+
+    protein.addh(only_polar=True)
+    assert_equal(len(protein.residues), 4)
+
+    protein.addh()
+    assert_equal(len(protein.residues), 4)
+
+
 def test_pickle():
     """Pickle molecules"""
     mols = list(oddt.toolkit.readfile('sdf',

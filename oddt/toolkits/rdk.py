@@ -493,13 +493,23 @@ class Molecule(object):
     @property
     def residues(self):
         if self._residues is None:
-            res_idx = np.array([atom.GetPDBResidueInfo().GetResidueNumber()
-                                if atom.GetPDBResidueInfo() is not None else 0
-                                for atom in self.Mol.GetAtoms()])
-            if len(np.unique(res_idx)) > 1:
-                self._residues = np.split(np.argsort(res_idx, kind='mergesort'),
-                                          (np.argwhere(np.diff(np.sort(res_idx)) != 0)
-                                          .flatten() + 1))
+            res_idx = []
+            for atom in self.Mol.GetAtoms():
+                info = atom.GetPDBResidueInfo()
+                if info is None:
+                    res_idx.append(0)
+                else:
+                    res_idx.append('%s%05.i' % (info.GetChainId()
+                                                if info.GetChainId().split()
+                                                else '_',
+                                                info.GetResidueNumber()))
+            res_idx = np.array(res_idx)
+            res_idx_unique = np.unique(res_idx)
+            if len(res_idx_unique) > 1:
+                idx_sorted = np.argsort(res_idx, kind='mergesort')
+                self._residues = np.split(idx_sorted,
+                    np.where(np.diff(np.searchsorted(res_idx_unique,
+                                     res_idx[idx_sorted])) > 0)[0] + 1)
             else:
                 self._residues = [tuple(range(self.Mol.GetNumAtoms()))]
         return ResidueStack(self.Mol, self._residues)
@@ -874,18 +884,15 @@ class Molecule(object):
         self._clear_cache()
         # merge Hs to residues
         if self.protein:
-            for atom in self.Mol.GetAtoms():
+            for n, atom in enumerate(self.Mol.GetAtoms()):
                 if atom.GetAtomicNum() == 1:
                     assert atom.GetDegree() == 1
                     neighbor_atom = atom.GetNeighbors()[0]
                     res = neighbor_atom.GetPDBResidueInfo()
                     if res is not None:
-                        resid = res.GetResidueNumber()
-                        resname = res.GetResidueName()
-                        reschain = res.GetChainId()
                         atom.SetMonomerInfo(
                             Chem.AtomPDBResidueInfo(atomName=' H  ',
-                                                    serialNumber=res.GetSerialNumber(),
+                                                    serialNumber=n+1,
                                                     residueName=res.GetResidueName(),
                                                     residueNumber=res.GetResidueNumber(),
                                                     chainId=res.GetChainId(),
