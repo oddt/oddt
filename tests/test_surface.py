@@ -1,19 +1,22 @@
 import os
+from distutils.version import LooseVersion
+
+from nose.tools import assert_raises
+import numpy as np
+from sklearn.utils.testing import (assert_array_equal,
+                                   assert_equal)
+from skimage import __version__ as skimage_version
 
 import oddt
 from oddt.surface import (generate_surface_marching_cubes,
                           find_surface_residues)
-from sklearn.utils.testing import (assert_array_equal,
-                                   assert_equal)
-from nose.tools import assert_raises
-import numpy as np
-from skimage import __version__ as skimageversion
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 protein = next(oddt.toolkit.readfile('pdb', os.path.join(
     test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
 protein.protein = True
 protein.addh(only_polar=True)
+
 
 def test_generate_surface_marching_cubes():
     """Tests generating surfaces"""
@@ -28,7 +31,7 @@ def test_generate_surface_marching_cubes():
 
     # versions of skimage older than 0.12 use a slightly different version of the marching cubes algorithm
     # producing slightly different results
-    if float(skimageversion.rsplit('.', 1)[0]) >= 0.13:
+    if LooseVersion(skimage_version) >= LooseVersion('0.13'):
         if oddt.toolkit.backend == 'ob':
             ref_vert_shape_1 = (9040, 3)
             ref_face_shape_1 = (18094, 3)
@@ -82,6 +85,7 @@ def test_generate_surface_marching_cubes():
     assert_raises(TypeError, generate_surface_marching_cubes, molecule=1)
     assert_raises(ValueError, generate_surface_marching_cubes, molecule=protein, probe_radius=-1)
     assert_raises(ValueError, generate_surface_marching_cubes, molecule=protein, scaling=0.1)
+
 
 def test_find_surface_residues():
     """Tests finding residues on the surface"""

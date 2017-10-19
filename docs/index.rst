@@ -21,7 +21,7 @@ Requirements
 * Sklearn (0.18+)
 * joblib (0.8+)
 * pandas (0.13+)
-* Skimage (0.10+)
+* Skimage (0.10+) (optional, only for surface generation)
 
 .. note:: All installation methods assume that one of toolkits is installed. For detailed installation procedure visit toolkit’s website (OpenBabel, RDKit)
 
