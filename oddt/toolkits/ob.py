@@ -23,6 +23,8 @@ from openbabel import OBAtomAtomIter, OBAtomBondIter, OBTypeTable
 
 from oddt.toolkits.common import detect_secondary_structure
 
+ob.OBIterWithDepth.__next__ = ob.OBIterWithDepth.next
+
 backend = 'ob'
 image_backend = 'png'  # png or svg
 image_size = (200, 200)

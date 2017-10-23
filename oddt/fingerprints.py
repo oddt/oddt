@@ -6,6 +6,7 @@
 from __future__ import division
 from six.moves import zip_longest
 from itertools import chain
+from collections import defaultdict, OrderedDict
 import numpy as np
 from scipy.spatial import cKDTree
 from scipy.sparse import csr_matrix
@@ -411,36 +412,40 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
     environment_hashes : list of ints
         Hashed environments for certain atom
     """
-    atom_env = [[idx]]
-    for r in range(1, depth + 1):
-        prev_atom_env = atom_env[r - 1]
-        if r > 2:  # prune visited atoms
-            prev_atom_env = prev_atom_env[len(atom_env[r - 2]):]
-        tmp = []
-        for atom_idx in prev_atom_env:
-            # Toolkit independent version (slower 30%)
-            # for neighbor in mol.atoms[atom_idx].neighbors:
-            #     if neighbor.atomicnum == 1:
-            #         continue
-            #     n_idx = neighbor.idx0
-            #     if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
-            #         tmp.append(n_idx)
-            if (hasattr(oddt.toolkits, 'ob') and
-                    isinstance(mol, oddt.toolkits.ob.Molecule)):
-                for neighbor in oddt.toolkit.OBAtomAtomIter(mol.OBMol.GetAtom(atom_idx + 1)):
-                    if neighbor.GetAtomicNum() == 1:
-                        continue
-                    n_idx = neighbor.GetIdx() - 1
-                    if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
-                        tmp.append(n_idx)
-            else:
+    if (hasattr(oddt.toolkits, 'ob') and
+            isinstance(mol, oddt.toolkits.ob.Molecule)):
+        envs = OrderedDict([(i, []) for i in range(depth + 1)])
+        last_depth = 0
+        for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol, idx + 1):
+            # FIX for disconnected fragments in OB
+            if ((current_depth > depth + 1) or
+                (last_depth > current_depth) or
+                (last_depth == 1 and current_depth == 1)):
+                break
+            last_depth = current_depth
+            if atom.GetAtomicNum() == 1:
+                continue
+            envs[current_depth - 1].append(atom.GetIdx() - 1)
+        envs = list(envs.values())
+    else:
+        envs = [[idx]]
+        visited = [idx]
+        for r in range(1, depth + 1):
+            tmp = []
+            for atom_idx in envs[r - 1]:
                 for neighbor in mol.Mol.GetAtomWithIdx(atom_idx).GetNeighbors():
                     if neighbor.GetAtomicNum() == 1:
                         continue
                     n_idx = neighbor.GetIdx()
-                    if (n_idx not in atom_env[r - 1] and n_idx not in tmp):
+                    if n_idx not in visited and n_idx not in tmp:
                         tmp.append(n_idx)
-        atom_env.append(atom_env[r - 1] + tmp)
+                        visited.append(n_idx)
+            envs.append(tmp)
+
+    atom_env = []
+    for r in range(1, depth + 2):  # there are depth + 1 elements, so +2
+        atom_env.append(list(chain(*envs[:r])))
+
 
     # Get atom representation only once, pull indices from largest env
     if atom_repr_dict is None:
