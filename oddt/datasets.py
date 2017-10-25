@@ -1,9 +1,11 @@
 """ Datasets wrapped in convenient models """
+from __future__ import print_function
+import sys
+import os
+import six
+import pandas as pd
 from os.path import isfile, isdir
 from os import listdir
-import csv
-import pandas as pd
-import six
 
 from oddt import toolkit
 
