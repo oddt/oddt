@@ -23,6 +23,8 @@ def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
     # Original mol is not modified and mol2 can get all bonds single
     mol3 = Chem.Mol(mol)
 
+    visited_bonds = []
+
     # do the molecules match already?
     matches = mol2.GetSubstructMatches(refmol2)
     if not matches: # no, they don't match
@@ -69,6 +71,7 @@ def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
                     b2 = mol3.GetBondBetweenAtoms(atom1, atom2)
                 b2.SetBondType(b.GetBondType())
                 b2.SetIsAromatic(b.GetIsAromatic())
+                visited_bonds.append(b2.GetIdx())
 
             # apply matching: set atom properties
             for a in refmol3.GetAtoms():
@@ -88,7 +91,7 @@ def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
                         )
     if hasattr(mol3, '__sssAtoms'):
         mol3.__sssAtoms = None # we don't want all bonds highlighted
-    return mol3
+    return mol3, visited_bonds
 
 
 def PreparePDBMol(mol,
@@ -170,9 +173,22 @@ def PreparePDBMol(mol,
     #         raise ValueError('There is no template for residue "%s"' % resname)
 
     # reset B.O. using templates
+    visited_bonds = []
     for resname in residue_mols.keys():
         template = residue_mols[resname]
-        new_mol = AssignPDBResidueBondOrdersFromTemplate(template, new_mol)
+        new_mol, bonds = AssignPDBResidueBondOrdersFromTemplate(template, new_mol)
+        visited_bonds.extend(bonds)
+
+    # HACK: remove not-visited bonds
+    if visited_bonds:  # probably we dont want to delete all
+        new_mol = Chem.RWMol(new_mol)
+        all_bonds = set(range(new_mol.GetNumBonds()))
+        visited_bonds = set(visited_bonds)
+        for bid in sorted(all_bonds.difference(visited_bonds), reverse=True):
+            bond = new_mol.GetBondWithIdx(bid)
+            a1 = bond.GetBeginAtomIdx()
+            a2 = bond.GetEndAtomIdx()
+            new_mol.RemoveBond(a1, a2)
 
     # HACK: termini oxygens get matched twice due to removal from templates
     # TODO: remove by treatment of templates
