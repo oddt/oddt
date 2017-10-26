@@ -65,7 +65,7 @@ def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
                         mol3.RemoveBond(atom1, atom2)
                     continue
                 if b2 is None:
-                    idx = mol3.AddBond(atom1, atom2)
+                    mol3.AddBond(atom1, atom2)
                     b2 = mol3.GetBondBetweenAtoms(atom1, atom2)
                 b2.SetBondType(b.GetBondType())
                 b2.SetIsAromatic(b.GetIsAromatic())
@@ -86,8 +86,8 @@ def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
                          Chem.MolToSmarts(refmol2),
                          Chem.MolToSmarts(refmol3),
                         )
-    if hasattr(mol2, '__sssAtoms'):
-        mol2.__sssAtoms = None # we don't want all bonds highlighted
+    if hasattr(mol3, '__sssAtoms'):
+        mol3.__sssAtoms = None # we don't want all bonds highlighted
     return mol3
 
 
@@ -106,13 +106,17 @@ def PreparePDBMol(mol,
     """
     new_mol = Chem.RWMol(mol)
     removal_queue = []
+    resnames = []
     for aix, atom in enumerate(new_mol.GetAtoms()):
         atomicnum = atom.GetAtomicNum()
+        info = atom.GetPDBResidueInfo()
+        resname = info.GetResidueName().strip().upper()
+        resnames.append(resname)
         # Remove Hs by hard, Chem.RemoveHs does not remove double bonded Hs
         if removeHs and atomicnum == 1:
             removal_queue.append(aix)
         # Remove waters
-        elif removeHOHs and atomicnum in [1,8] and atom.GetPDBResidueInfo().GetResidueName() == 'HOH':
+        elif removeHOHs and atomicnum in [1,8] and resname == 'HOH':
             removal_queue.append(aix)
         # Break bonds with metals
         elif disconnect_metals and atomicnum in METALS:
@@ -121,9 +125,10 @@ def PreparePDBMol(mol,
     for aix in sorted(removal_queue, reverse=True):
         new_mol.RemoveAtom(aix)
 
+    # Deal with residue lists
     if residue_whitelist is None:
         # Get templates for all residues in molecules
-        unique_resname = set([atom.GetPDBResidueInfo().GetResidueName() for atom in mol.GetAtoms()])
+        unique_resname = set(resnames)
     else:
         unique_resname = set(residue_whitelist)
     if residue_blacklist is not None:
@@ -153,13 +158,16 @@ def PreparePDBMol(mol,
                 res.SetProp('_Name', data[0])  # Needed for residue type lookup
                 residue_mols[data[0]] = res
 
+    # remove single atom templates
+    residue_mols = dict((k, v) for k, v in residue_mols.items() if v.GetNumAtoms() > 1)
+
     # order residues by increasing size
     residue_mols = OrderedDict(sorted(residue_mols.items(), key=lambda x: x[1].GetNumAtoms()))
 
     # check if we have all templates
-    for resname in unique_resname:
-        if resname not in residue_mols and resname not in ['HOH']:
-            raise ValueError('There is no template for residue "%s"' % resname)
+    # for resname in unique_resname:
+    #     if resname not in residue_mols and resname not in ['HOH']:
+    #         raise ValueError('There is no template for residue "%s"' % resname)
 
     # reset B.O. using templates
     for resname in residue_mols.keys():
@@ -171,6 +179,8 @@ def PreparePDBMol(mol,
     # Terminus treatment
     for atom in new_mol.GetAtoms():
         if atom.GetAtomicNum() == 8 and atom.GetPDBResidueInfo().GetName().strip() == 'OXT':
-            atom.GetBonds()[0].SetBondType(BondType.SINGLE)
+            bonds = atom.GetBonds()
+            if len(bonds) > 0: # this should not happen at all
+                bonds[0].SetBondType(BondType.SINGLE)
 
     return new_mol
