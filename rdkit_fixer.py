@@ -7,9 +7,17 @@ from rdkit.Chem.AllChem import ReplaceSubstructs
 from rdkit.Chem import BondType
 
 
+METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+          37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 55, 56, 57,
+          58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74,
+          75, 76, 77, 78, 79, 80, 81, 82, 83, 87, 88, 89, 90, 91, 92, 93, 94,
+          95, 96, 97, 98, 99, 100, 101, 102, 103)
+
+
+
 def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
     refmol2 = Chem.Mol(refmol)
-    refmol3 = Chem.RWMol(refmol2) # copy of refmol without O TODO: remove that
+    refmol3 = Chem.RWMol(refmol)  # copy of refmol without O TODO: remove that
     mol2 = Chem.Mol(mol)
     # The mol3 is needed due to a partial match.
     # Original mol is not modified and mol2 can get all bonds single
@@ -40,6 +48,13 @@ def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
     if matches:
         mol3 = Chem.RWMol(mol3)
         for matching in matches:
+            # HACK: check if matching residue has good name
+            if mol3.GetAtomWithIdx(matching[0]).GetPDBResidueInfo().GetResidueName().strip().upper() != refmol.GetProp('_Name'):
+                # print(refmol.GetProp('_Name'),
+                #       '!=',
+                #       mol3.GetAtomWithIdx(matching[0]).GetPDBResidueInfo().GetResidueName().strip().upper())
+                continue
+
             # apply matching: set bond properties
             for (atom1, atom2), (refatom1, refatom2) in zip(product(matching, repeat=2),
                                                             product(range(len(matching)), repeat=2)):
@@ -76,7 +91,13 @@ def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
     return mol3
 
 
-def PreparePDBMol(mol, removeHs=True, removeHOHs=True, residue_whitelist=None, residue_blacklist=None):
+def PreparePDBMol(mol,
+                  removeHs=True,
+                  removeHOHs=True,
+                  residue_whitelist=None,
+                  residue_blacklist=None,
+                  disconnect_metals=True,
+                  ):
     """Prepares protein molecule by:
         - Removing Hs by hard using atomic number [default=True]
         - Removes HOH [default=True]
@@ -84,14 +105,21 @@ def PreparePDBMol(mol, removeHs=True, removeHOHs=True, residue_whitelist=None, r
         - Removes bonds to metals
     """
     new_mol = Chem.RWMol(mol)
-
-    # Remove Hs by hard, Chem.RemoveHs does not remove double bonded Hs
-    for aix in reversed(range(new_mol.GetNumAtoms())):
-        atom = new_mol.GetAtomWithIdx(aix)
-        if removeHs and atom.GetAtomicNum() == 1:
-            new_mol.RemoveAtom(aix)
-        elif removeHOHs and atom.GetPDBResidueInfo().GetResidueName() == 'HOH':
-            new_mol.RemoveAtom(aix)
+    removal_queue = []
+    for aix, atom in enumerate(new_mol.GetAtoms()):
+        atomicnum = atom.GetAtomicNum()
+        # Remove Hs by hard, Chem.RemoveHs does not remove double bonded Hs
+        if removeHs and atomicnum == 1:
+            removal_queue.append(aix)
+        # Remove waters
+        elif removeHOHs and atomicnum in [1,8] and atom.GetPDBResidueInfo().GetResidueName() == 'HOH':
+            removal_queue.append(aix)
+        # Break bonds with metals
+        elif disconnect_metals and atomicnum in METALS:
+            for n in atom.GetNeighbors():
+                new_mol.RemoveBond(atom.GetIdx(), n.GetIdx())
+    for aix in sorted(removal_queue, reverse=True):
+        new_mol.RemoveAtom(aix)
 
     if residue_whitelist is None:
         # Get templates for all residues in molecules
@@ -107,7 +135,7 @@ def PreparePDBMol(mol, removeHs=True, removeHOHs=True, residue_whitelist=None, r
         backbone = Chem.MolFromSmarts('[#8]-[#6](=[#8])-[#6]-[#7]')
         perm_backbone = Chem.MolFromSmarts('[#8,#7]-[#6](=[#8])-[#6]-[#7]')
         for n, line in enumerate(f):
-            if n == 0: continue
+            if n == 0: continue  # skip header
             data = line.split(',')
             if data[0] in unique_resname and data[0] != 'HOH': # skip waters
                 res = Chem.MolFromSmiles(data[1])
@@ -122,7 +150,7 @@ def PreparePDBMol(mol, removeHs=True, removeHOHs=True, residue_whitelist=None, r
                     res.RemoveAtom(match[0])
                     res = res.GetMol()
 
-                res.SetProp('_Name', data[0])
+                res.SetProp('_Name', data[0])  # Needed for residue type lookup
                 residue_mols[data[0]] = res
 
     # order residues by increasing size
@@ -138,21 +166,11 @@ def PreparePDBMol(mol, removeHs=True, removeHOHs=True, residue_whitelist=None, r
         template = residue_mols[resname]
         new_mol = AssignPDBResidueBondOrdersFromTemplate(template, new_mol)
 
-    metals = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-               30, 31, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
-               50, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68,
-               69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
-               87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
-               102, 103)
-    new_mol = Chem.RWMol(new_mol)
+    # HACK: termini oxygens get matched twice due to removal from templates
+    # TODO: remove by treatment of templates
+    # Terminus treatment
     for atom in new_mol.GetAtoms():
-        # HACK: termini oxygens get matched twice due to removal from templates
-        # Terminus treatment
-        if atom.GetPDBResidueInfo().GetName().strip() == 'OXT':
+        if atom.GetAtomicNum() == 8 and atom.GetPDBResidueInfo().GetName().strip() == 'OXT':
             atom.GetBonds()[0].SetBondType(BondType.SINGLE)
 
-        # break bonds with metals
-        if atom.GetAtomicNum() in metals:
-            for n in atom.GetNeighbors():
-                new_mol.RemoveBond(atom.GetIdx(), n.GetIdx())
-    return new_mol.GetMol()
+    return new_mol
