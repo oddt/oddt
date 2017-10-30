@@ -108,18 +108,24 @@ def PreparePDBMol(mol,
         - Removes bonds to metals
     """
     new_mol = Chem.RWMol(mol)
+    if removeHs:
+        new_mol = Chem.RWMol(Chem.RemoveHs(new_mol, sanitize=False))
     removal_queue = []
     resnames = []
-    for aix, atom in enumerate(new_mol.GetAtoms()):
+    for atom in new_mol.GetAtoms():
+        aix = atom.GetIdx()
         atomicnum = atom.GetAtomicNum()
         info = atom.GetPDBResidueInfo()
         resname = info.GetResidueName().strip().upper()
         resnames.append(resname)
         # Remove Hs by hard, Chem.RemoveHs does not remove double bonded Hs
-        if removeHs and atomicnum == 1:
-            removal_queue.append(aix)
+        #if removeHs and atomicnum == 1:
+        #    removal_queue.append(aix)
+        #    if atom.GetDegree() > 1:
+        #        for bond in atom.GetBonds():
+        #            bond.SetBondType(BondType.SINGLE)
         # Remove waters
-        elif removeHOHs and atomicnum in [1,8] and resname == 'HOH':
+        if removeHOHs and atomicnum in [1,8] and resname == 'HOH':
             removal_queue.append(aix)
         # Break bonds with metals
         elif disconnect_metals and atomicnum in METALS:
@@ -186,17 +192,18 @@ def PreparePDBMol(mol,
         visited_bonds = set(visited_bonds)
         for bid in sorted(all_bonds.difference(visited_bonds), reverse=True):
             bond = new_mol.GetBondWithIdx(bid)
-            a1 = bond.GetBeginAtomIdx()
-            a2 = bond.GetEndAtomIdx()
-            new_mol.RemoveBond(a1, a2)
+            a1 = bond.GetBeginAtom()
+            a2 = bond.GetEndAtom()
+            if a1.GetAtomicNum() > 1 and a2.GetAtomicNum() > 1:
+                new_mol.RemoveBond(a1.GetIdx(), a2.GetIdx())
 
-    # HACK: termini oxygens get matched twice due to removal from templates
-    # TODO: remove by treatment of templates
-    # Terminus treatment
-    for atom in new_mol.GetAtoms():
-        if atom.GetAtomicNum() == 8 and atom.GetPDBResidueInfo().GetName().strip() == 'OXT':
-            bonds = atom.GetBonds()
-            if len(bonds) > 0: # this should not happen at all
-                bonds[0].SetBondType(BondType.SINGLE)
+        # HACK: termini oxygens get matched twice due to removal from templates
+        # TODO: remove by treatment of templates
+        # Terminus treatment
+        for atom in new_mol.GetAtoms():
+            if atom.GetAtomicNum() == 8 and atom.GetPDBResidueInfo().GetName().strip() == 'OXT':
+                bonds = atom.GetBonds()
+                if len(bonds) > 0: # this should not happen at all
+                    bonds[0].SetBondType(BondType.SINGLE)
 
     return new_mol
