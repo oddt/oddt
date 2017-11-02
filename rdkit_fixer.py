@@ -227,6 +227,7 @@ def PreparePDBMol(mol,
 
     # reset B.O. using templates
     visited_bonds = []
+    bonds = []  # in case of error define it here
     for ((resnum, resname, chainid), residue, mol_to_res_amap, res_to_mol_amap) in residues:
         if resname not in unique_resname:
             continue
