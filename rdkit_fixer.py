@@ -112,9 +112,9 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
     else:
         raise ValueError("No matching found",
                          refmol.GetProp('_Name'),
-                         Chem.MolToSmarts(refmol),
-                         Chem.MolToSmarts(refmol2),
-                         Chem.MolToSmarts(mol),
+                         Chem.MolToSmiles(refmol),
+                         Chem.MolToSmiles(refmol2),
+                         Chem.MolToSmiles(mol),
                         )
     if hasattr(mol3, '__sssAtoms'):
         mol3.__sssAtoms = None # we don't want all bonds highlighted
@@ -144,6 +144,25 @@ def PreparePDBMol(mol,
 
     # TODO: if rdkit.__version__.split(',')[0] < '2018':
     # TODO: disconnect_metals and HOHs
+    if removeHOHs:
+        for i in reversed(range(new_mol.GetNumAtoms())):
+            atom = new_mol.GetAtomWithIdx(i)
+            if atom.GetPDBResidueInfo().GetResidueName() == 'HOH':
+                new_mol.RemoveAtom(i)
+    # disconnect_metals and HOHs  for older versions of RDKit
+    if rdkit.__version__.split(',')[0] < '2018':
+        for i in reversed(range(new_mol.GetNumAtoms())):
+            atom = new_mol.GetAtomWithIdx(i)
+            atom_info = atom.GetPDBResidueInfo()
+            if removeHOHs and atom_info.GetResidueName() == 'HOH':
+                for n in atom.GetNeighbors():
+                    n_info = n.GetPDBResidueInfo()
+                    if n_info.GetResidueNumber() != atom_info.GetResidueNumber():
+                        new_mol.RemoveBond(i, n.GetIdx())
+            if atom.GetAtomicNum() in METALS:
+                for n in atom.GetNeighbors():
+                    new_mol.RemoveBond(i, n.GetIdx())
+
 
     # list of unique residues and their atom indices
     unique_resname = set()
@@ -198,20 +217,11 @@ def PreparePDBMol(mol,
         unique_resname = unique_resname.difference(set(residue_blacklist))
     unique_resname = tuple(map(lambda x: x.strip().upper(), unique_resname))
 
-    # remove single atom templates
-    # template_mols = dict((k, v) for k, v in template_mols.items() if v.GetNumAtoms() > 1)
-
-    # order residues by increasing size
-    # template_mols = OrderedDict(sorted(template_mols.items(), key=lambda x: x[1].GetNumAtoms()))
-
-    # check if we have all templates
-    # for resname in unique_resname:
-    #     if resname not in residue_mols and resname not in ['HOH']:
-    #         raise ValueError('There is no template for residue "%s"' % resname)
-
     # reset B.O. using templates
     visited_bonds = []
     for ((resnum, resname, chainid), residue, mol_to_res_amap, res_to_mol_amap) in residues:
+        if resname not in template_mols:
+            raise ValueError('There is no template for residue "%s"' % resname)
         template = template_mols[resname]
         try:
             new_mol, bonds = AssignPDBResidueBondOrdersFromTemplate(new_mol,
@@ -233,7 +243,11 @@ def PreparePDBMol(mol,
             bond = new_mol.GetBondWithIdx(bid)
             a1 = bond.GetBeginAtom()
             a2 = bond.GetEndAtom()
-            if a1.GetAtomicNum() > 1 and a2.GetAtomicNum() > 1:
+            a1_num = a1.GetPDBResidueInfo().GetResidueNumber()
+            a2_num = a2.GetPDBResidueInfo().GetResidueNumber()
+            if (a1.GetAtomicNum() > 1 and
+                a2.GetAtomicNum() > 1 and
+                abs(a1_num - a2_num) > 1):  # FIXME: better avoid peptide bonds
                 new_mol.RemoveBond(a1.GetIdx(), a2.GetIdx())
 
         # HACK: termini oxygens get matched twice due to removal from templates
