@@ -1,5 +1,5 @@
-from collections import OrderedDict
-from itertools import product
+from collections import OrderedDict, defaultdict
+from itertools import product, combinations
 
 import rdkit
 from rdkit import Chem
@@ -14,8 +14,22 @@ METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
           95, 96, 97, 98, 99, 100, 101, 102, 103)
 
 
+def PathFromAtomList(mol, amap):
+    out = []
+    for i, j in combinations(amap, 2):
+        bond = mol.GetBondBetweenAtoms(i, j)
+        if bond:
+            out.append(bond.GetIdx())
+    return out
 
-def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
+
+def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
+    """
+    protein: Mol with whole protein
+    mol: Mol with residue only
+    amap: atom map res->protein
+    refmol: residue template
+    """
     refmol2 = Chem.Mol(refmol)
     refmol3 = Chem.RWMol(refmol)  # copy of refmol without O TODO: remove that
     mol2 = Chem.Mol(mol)
@@ -48,50 +62,63 @@ def AssignPDBResidueBondOrdersFromTemplate(refmol, mol):
 
     # do the molecules match now?
     if matches:
-        mol3 = Chem.RWMol(mol3)
+        protein = Chem.RWMol(protein)
         for matching in matches:
-            # HACK: check if matching residue has good name
-            if mol3.GetAtomWithIdx(matching[0]).GetPDBResidueInfo().GetResidueName().strip().upper() != refmol.GetProp('_Name'):
-                # print(refmol.GetProp('_Name'),
-                #       '!=',
-                #       mol3.GetAtomWithIdx(matching[0]).GetPDBResidueInfo().GetResidueName().strip().upper())
-                continue
-
             # apply matching: set bond properties
+            if len(matching) > len(amap):
+                raise ValueError("Unequal amap and matching",
+                                 refmol.GetProp('_Name'),
+                                 Chem.MolToSmiles(refmol),
+                                 Chem.MolToSmiles(refmol2),
+                                 Chem.MolToSmiles(mol),
+                                 mol.GetNumAtoms(),
+                                 refmol.GetNumAtoms()
+                                )
             for (atom1, atom2), (refatom1, refatom2) in zip(product(matching, repeat=2),
                                                             product(range(len(matching)), repeat=2)):
                 b = refmol3.GetBondBetweenAtoms(refatom1, refatom2)
-                b2 = mol3.GetBondBetweenAtoms(atom1, atom2)
+                b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
                 if b is None:
                     if b2: # this bond is not there
-                        mol3.RemoveBond(atom1, atom2)
+                        protein.RemoveBond(amap[atom1], amap[atom2])
                     continue
                 if b2 is None:
-                    mol3.AddBond(atom1, atom2)
-                    b2 = mol3.GetBondBetweenAtoms(atom1, atom2)
+                    protein.AddBond(amap[atom1], amap[atom2])
+                    b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
                 b2.SetBondType(b.GetBondType())
                 b2.SetIsAromatic(b.GetIsAromatic())
                 visited_bonds.append(b2.GetIdx())
 
             # apply matching: set atom properties
             for a in refmol3.GetAtoms():
-                a2 = mol3.GetAtomWithIdx(matching[a.GetIdx()])
+                a2 = protein.GetAtomWithIdx(amap[matching[a.GetIdx()]])
                 a2.SetHybridization(a.GetHybridization())
                 a2.SetIsAromatic(a.GetIsAromatic())
+                # TODO: check for connected Hs
+                # n_hs = sum(n.GetAtomicNum() == 1 for n in a2.GetNeighbors())
+                # if a.GetNumExplicitHs() - n_hs < 0:
+                #     raise ValueError("Hssss",
+                #                      refmol.GetProp('_Name'),
+                #                      Chem.MolToSmiles(refmol),
+                #                      Chem.MolToSmiles(refmol2),
+                #                      Chem.MolToSmiles(mol),
+                #                      a.GetIdx(),
+                #                      a.GetSmarts(),
+                #                      a.GetNumExplicitHs(),
+                #                      n_hs
+                #                     )
                 a2.SetNumExplicitHs(a.GetNumExplicitHs())
                 a2.SetFormalCharge(a.GetFormalCharge())
-
-        mol3 = mol3.GetMol()
     else:
         raise ValueError("No matching found",
                          refmol.GetProp('_Name'),
                          Chem.MolToSmarts(refmol),
                          Chem.MolToSmarts(refmol2),
-                         Chem.MolToSmarts(refmol3),
+                         Chem.MolToSmarts(mol),
                         )
     if hasattr(mol3, '__sssAtoms'):
         mol3.__sssAtoms = None # we don't want all bonds highlighted
-    return mol3, visited_bonds
+    return protein, visited_bonds
 
 
 def PreparePDBMol(mol,
@@ -109,42 +136,38 @@ def PreparePDBMol(mol,
     """
     new_mol = Chem.RWMol(mol)
     if removeHs:
-        new_mol = Chem.RWMol(Chem.RemoveHs(new_mol, sanitize=False))
-    removal_queue = []
-    resnames = []
+        # new_mol = Chem.RWMol(Chem.RemoveHs(new_mol, sanitize=False))
+        for i in reversed(range(new_mol.GetNumAtoms())):
+            atom = new_mol.GetAtomWithIdx(i)
+            if atom.GetAtomicNum() == 1:
+                new_mol.RemoveAtom(i)
+
+    # TODO: if rdkit.__version__.split(',')[0] < '2018':
+    # TODO: disconnect_metals and HOHs
+
+    # list of unique residues and their atom indices
+    unique_resname = set()
+    resiues_atom_map = defaultdict(list)
     for atom in new_mol.GetAtoms():
-        aix = atom.GetIdx()
-        atomicnum = atom.GetAtomicNum()
+        # if atom.GetAtomicNum() > 1:
         info = atom.GetPDBResidueInfo()
-        resname = info.GetResidueName().strip().upper()
-        resnames.append(resname)
-        # Remove Hs by hard, Chem.RemoveHs does not remove double bonded Hs
-        #if removeHs and atomicnum == 1:
-        #    removal_queue.append(aix)
-        #    if atom.GetDegree() > 1:
-        #        for bond in atom.GetBonds():
-        #            bond.SetBondType(BondType.SINGLE)
-        # Remove waters
-        if removeHOHs and atomicnum in [1,8] and resname == 'HOH':
-            removal_queue.append(aix)
-        # Break bonds with metals
-        elif disconnect_metals and atomicnum in METALS:
-            for n in atom.GetNeighbors():
-                new_mol.RemoveBond(atom.GetIdx(), n.GetIdx())
-    for aix in sorted(removal_queue, reverse=True):
-        new_mol.RemoveAtom(aix)
+        res_id = (info.GetResidueNumber(), info.GetResidueName(), info.GetChainId())
+        resiues_atom_map[res_id].append(atom.GetIdx())
+        unique_resname.add(info.GetResidueName())
 
-    # Deal with residue lists
-    if residue_whitelist is None:
-        # Get templates for all residues in molecules
-        unique_resname = set(resnames)
-    else:
-        unique_resname = set(residue_whitelist)
-    if residue_blacklist is not None:
-        unique_resname = unique_resname.difference(set(residue_blacklist))
-    unique_resname = tuple(map(lambda x: x.strip().upper(), unique_resname))
+    # create a list of residue mols with atom maps in both ways (mol->res and res->mol)
+    residues = []
+    for i, amap in resiues_atom_map.items():
+        if len(amap) > 1:
+            path = PathFromAtomList(new_mol, amap)
+            mol_to_res_amap = {}
+            res = Chem.PathToSubmol(new_mol, path, atomMap=mol_to_res_amap)
+            res_to_mol_amap = sorted(mol_to_res_amap, key=mol_to_res_amap.get)
+            assert res.GetNumAtoms() == len(res_to_mol_amap)
+            residues.append((i, res, mol_to_res_amap, res_to_mol_amap))
 
-    residue_mols = {}
+    # load templates
+    template_mols = {}
     with open('pdbcodes_clean_smiles.csv') as f:
         backbone = Chem.MolFromSmarts('[#8]-[#6](=[#8])-[#6]-[#7]')
         perm_backbone = Chem.MolFromSmarts('[#8,#7]-[#6](=[#8])-[#6]-[#7]')
@@ -165,13 +188,21 @@ def PreparePDBMol(mol,
                     res = res.GetMol()
 
                 res.SetProp('_Name', data[0])  # Needed for residue type lookup
-                residue_mols[data[0]] = res
+                template_mols[data[0]] = res
+
+    # FIXME: this does not work correctly now
+    # Deal with residue lists
+    if residue_whitelist is not None:
+        unique_resname = set(residue_whitelist)
+    if residue_blacklist is not None:
+        unique_resname = unique_resname.difference(set(residue_blacklist))
+    unique_resname = tuple(map(lambda x: x.strip().upper(), unique_resname))
 
     # remove single atom templates
-    residue_mols = dict((k, v) for k, v in residue_mols.items() if v.GetNumAtoms() > 1)
+    # template_mols = dict((k, v) for k, v in template_mols.items() if v.GetNumAtoms() > 1)
 
     # order residues by increasing size
-    residue_mols = OrderedDict(sorted(residue_mols.items(), key=lambda x: x[1].GetNumAtoms()))
+    # template_mols = OrderedDict(sorted(template_mols.items(), key=lambda x: x[1].GetNumAtoms()))
 
     # check if we have all templates
     # for resname in unique_resname:
@@ -180,9 +211,17 @@ def PreparePDBMol(mol,
 
     # reset B.O. using templates
     visited_bonds = []
-    for resname in residue_mols.keys():
-        template = residue_mols[resname]
-        new_mol, bonds = AssignPDBResidueBondOrdersFromTemplate(template, new_mol)
+    for ((resnum, resname, chainid), residue, mol_to_res_amap, res_to_mol_amap) in residues:
+        template = template_mols[resname]
+        try:
+            new_mol, bonds = AssignPDBResidueBondOrdersFromTemplate(new_mol,
+                                                                    residue,
+                                                                    res_to_mol_amap,
+                                                                    template)
+        except ValueError as e:
+            print(resnum, resname, chainid, e)
+        except AssertionError as e:
+            print(resnum, resname, chainid, e)
         visited_bonds.extend(bonds)
 
     # HACK: remove not-visited bonds
