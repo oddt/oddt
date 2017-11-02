@@ -30,17 +30,14 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
     amap: atom map res->protein
     refmol: residue template
     """
+    # copies will have single bonds
     refmol2 = Chem.Mol(refmol)
-    refmol3 = Chem.RWMol(refmol)  # copy of refmol without O TODO: remove that
     mol2 = Chem.Mol(mol)
-    # The mol3 is needed due to a partial match.
-    # Original mol is not modified and mol2 can get all bonds single
-    mol3 = Chem.Mol(mol)
 
     visited_bonds = []
 
     # do the molecules match already?
-    matches = mol2.GetSubstructMatches(refmol2)
+    matches = mol2.GetSubstructMatches(refmol2, maxMatches=1)
     if not matches: # no, they don't match
         # check if bonds of mol are SINGLE
         for b in mol2.GetBonds():
@@ -58,7 +55,16 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
             a.SetFormalCharge(0)
             a.SetIsAromatic(False)
 
-        matches = mol2.GetSubstructMatches(refmol2)
+        matches = mol2.GetSubstructMatches(refmol2, maxMatches=1)
+
+    # inverse match
+    if not matches:
+        inverse_matches = refmol2.GetSubstructMatches(mol2, maxMatches=1)
+        if inverse_matches:
+            matches = []
+            for inverse_match in inverse_matches:
+                 matches.append(sorted(range(len(inverse_match)),
+                                       key=inverse_match.__getitem__))
 
     # do the molecules match now?
     if matches:
@@ -76,7 +82,7 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                                 )
             for (atom1, atom2), (refatom1, refatom2) in zip(product(matching, repeat=2),
                                                             product(range(len(matching)), repeat=2)):
-                b = refmol3.GetBondBetweenAtoms(refatom1, refatom2)
+                b = refmol.GetBondBetweenAtoms(refatom1, refatom2)
                 b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
                 if b is None:
                     if b2: # this bond is not there
@@ -90,7 +96,7 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                 visited_bonds.append(b2.GetIdx())
 
             # apply matching: set atom properties
-            for a in refmol3.GetAtoms():
+            for a in refmol.GetAtoms():
                 a2 = protein.GetAtomWithIdx(amap[matching[a.GetIdx()]])
                 a2.SetHybridization(a.GetHybridization())
                 a2.SetIsAromatic(a.GetIsAromatic())
@@ -116,8 +122,7 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                          Chem.MolToSmiles(refmol2),
                          Chem.MolToSmiles(mol),
                         )
-    if hasattr(mol3, '__sssAtoms'):
-        mol3.__sssAtoms = None # we don't want all bonds highlighted
+
     return protein, visited_bonds
 
 
