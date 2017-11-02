@@ -23,6 +23,19 @@ def PathFromAtomList(mol, amap):
     return out
 
 
+def AtomListToSubMol(mol, atomList):
+    submol = Chem.RWMol()
+    for aix in atomList:
+        submol.AddAtom(mol.GetAtomWithIdx(aix))
+    for i, j in combinations(atomList, 2):
+        bond = mol.GetBondBetweenAtoms(i, j)
+        if bond:
+            submol.AddBond(atomList.index(i),
+                           atomList.index(j),
+                           bond.GetBondType())
+    return submol
+
+
 def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
     """
     protein: Mol with whole protein
@@ -58,13 +71,13 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
         matches = mol2.GetSubstructMatches(refmol2, maxMatches=1)
 
     # inverse match
-    if not matches:
-        inverse_matches = refmol2.GetSubstructMatches(mol2, maxMatches=1)
-        if inverse_matches:
-            matches = []
-            for inverse_match in inverse_matches:
-                 matches.append(sorted(range(len(inverse_match)),
-                                       key=inverse_match.__getitem__))
+    # if not matches:
+    #     inverse_matches = refmol2.GetSubstructMatches(mol2, maxMatches=1)
+    #     if inverse_matches:
+    #         matches = []
+    #         for inverse_match in inverse_matches:
+    #              matches.append(sorted(range(len(inverse_match)),
+    #                                    key=inverse_match.__getitem__))
 
     # do the molecules match now?
     if matches:
@@ -102,17 +115,6 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                 a2.SetIsAromatic(a.GetIsAromatic())
                 # TODO: check for connected Hs
                 # n_hs = sum(n.GetAtomicNum() == 1 for n in a2.GetNeighbors())
-                # if a.GetNumExplicitHs() - n_hs < 0:
-                #     raise ValueError("Hssss",
-                #                      refmol.GetProp('_Name'),
-                #                      Chem.MolToSmiles(refmol),
-                #                      Chem.MolToSmiles(refmol2),
-                #                      Chem.MolToSmiles(mol),
-                #                      a.GetIdx(),
-                #                      a.GetSmarts(),
-                #                      a.GetNumExplicitHs(),
-                #                      n_hs
-                #                     )
                 a2.SetNumExplicitHs(a.GetNumExplicitHs())
                 a2.SetFormalCharge(a.GetFormalCharge())
     else:
@@ -169,11 +171,13 @@ def PreparePDBMol(mol,
 
     # list of unique residues and their atom indices
     unique_resname = set()
-    resiues_atom_map = defaultdict(list)
+    resiues_atom_map = OrderedDict()
     for atom in new_mol.GetAtoms():
         # if atom.GetAtomicNum() > 1:
         info = atom.GetPDBResidueInfo()
         res_id = (info.GetResidueNumber(), info.GetResidueName(), info.GetChainId())
+        if res_id not in resiues_atom_map:
+            resiues_atom_map[res_id] = []
         resiues_atom_map[res_id].append(atom.GetIdx())
         unique_resname.add(info.GetResidueName())
 
@@ -181,10 +185,13 @@ def PreparePDBMol(mol,
     residues = []
     for i, amap in resiues_atom_map.items():
         if len(amap) > 1:
-            path = PathFromAtomList(new_mol, amap)
+            # path = PathFromAtomList(new_mol, amap)
             mol_to_res_amap = {}
-            res = Chem.PathToSubmol(new_mol, path, atomMap=mol_to_res_amap)
-            res_to_mol_amap = sorted(mol_to_res_amap, key=mol_to_res_amap.get)
+            # res = Chem.PathToSubmol(new_mol, path, atomMap=mol_to_res_amap)
+            # res_to_mol_amap = sorted(mol_to_res_amap, key=mol_to_res_amap.get)
+
+            res = AtomListToSubMol(new_mol, amap)
+            res_to_mol_amap = amap
             residues.append((i, res, mol_to_res_amap, res_to_mol_amap))
 
     # load templates
