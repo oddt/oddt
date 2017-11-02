@@ -142,8 +142,6 @@ def PreparePDBMol(mol,
             if atom.GetAtomicNum() == 1:
                 new_mol.RemoveAtom(i)
 
-    # TODO: if rdkit.__version__.split(',')[0] < '2018':
-    # TODO: disconnect_metals and HOHs
     if removeHOHs:
         for i in reversed(range(new_mol.GetNumAtoms())):
             atom = new_mol.GetAtomWithIdx(i)
@@ -182,7 +180,6 @@ def PreparePDBMol(mol,
             mol_to_res_amap = {}
             res = Chem.PathToSubmol(new_mol, path, atomMap=mol_to_res_amap)
             res_to_mol_amap = sorted(mol_to_res_amap, key=mol_to_res_amap.get)
-            assert res.GetNumAtoms() == len(res_to_mol_amap)
             residues.append((i, res, mol_to_res_amap, res_to_mol_amap))
 
     # load templates
@@ -209,7 +206,6 @@ def PreparePDBMol(mol,
                 res.SetProp('_Name', data[0])  # Needed for residue type lookup
                 template_mols[data[0]] = res
 
-    # FIXME: this does not work correctly now
     # Deal with residue lists
     if residue_whitelist is not None:
         unique_resname = set(residue_whitelist)
@@ -220,6 +216,8 @@ def PreparePDBMol(mol,
     # reset B.O. using templates
     visited_bonds = []
     for ((resnum, resname, chainid), residue, mol_to_res_amap, res_to_mol_amap) in residues:
+        if resname not in unique_resname:
+            continue
         if resname not in template_mols:
             raise ValueError('There is no template for residue "%s"' % resname)
         template = template_mols[resname]
@@ -229,8 +227,6 @@ def PreparePDBMol(mol,
                                                                     res_to_mol_amap,
                                                                     template)
         except ValueError as e:
-            print(resnum, resname, chainid, e)
-        except AssertionError as e:
             print(resnum, resname, chainid, e)
         visited_bonds.extend(bonds)
 
@@ -259,4 +255,6 @@ def PreparePDBMol(mol,
                 if len(bonds) > 0: # this should not happen at all
                     bonds[0].SetBondType(BondType.SINGLE)
 
+    # be sure to recalculate stuff
+    new_mol.UpdatePropertyCache()
     return new_mol
