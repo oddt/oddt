@@ -241,9 +241,13 @@ def PreparePDBMol(mol,
             a2 = bond.GetEndAtom()
             a1_num = a1.GetPDBResidueInfo().GetResidueNumber()
             a2_num = a2.GetPDBResidueInfo().GetResidueNumber()
+            a1_name = a1.GetPDBResidueInfo().GetName().strip()
+            a2_name = a2.GetPDBResidueInfo().GetName().strip()
             if (a1.GetAtomicNum() > 1 and
                 a2.GetAtomicNum() > 1 and
-                abs(a1_num - a2_num) > 1):  # FIXME: better avoid peptide bonds
+                not (a1_name == 'N' and a2_name == 'C' or
+                     a1_name == 'C' and a2_name == 'N') and
+                abs(a1_num - a2_num) != 1):  # peptide bond diff = 1
                 new_mol.RemoveBond(a1.GetIdx(), a2.GetIdx())
 
         # HACK: termini oxygens get matched twice due to removal from templates
@@ -255,6 +259,4 @@ def PreparePDBMol(mol,
                 if len(bonds) > 0: # this should not happen at all
                     bonds[0].SetBondType(BondType.SINGLE)
 
-    # be sure to recalculate stuff
-    new_mol.UpdatePropertyCache()
     return new_mol
