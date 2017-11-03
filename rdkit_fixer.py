@@ -252,7 +252,13 @@ def PreparePDBMol(mol,
     if visited_bonds:  # probably we dont want to delete all
         new_mol = Chem.RWMol(new_mol)
         visited_bonds = set(visited_bonds)
-        for a1_ix, a2_ix in product(range(new_mol.GetNumAtoms()), repeat=2):
+        bonds_queue = []
+        for bond in new_mol.GetBonds():
+            a1 = bond.GetBeginAtomIdx()
+            a2 = bond.GetEndAtomIdx()
+            if (a1, a2) not in visited_bonds and (a1, a2) not in visited_bonds:
+                bonds_queue.append((a1, a2))
+        for a1_ix, a2_ix in bonds_queue:
             bond = new_mol.GetBondBetweenAtoms(a1_ix, a2_ix)
             if bond is None or (a1_ix, a2_ix) in visited_bonds or (a1_ix, a2_ix) in visited_bonds:
                 continue
