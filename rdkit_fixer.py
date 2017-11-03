@@ -119,7 +119,8 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                 a2.SetFormalCharge(a.GetFormalCharge())
     else:
         smi = Chem.MolToSmiles(mol)
-        if smi in ['CC(N)C=O', 'CCC(N)C=O']: # most common missing sidechain AA
+        # most common missing sidechain AA
+        if smi in ['CC(N)C=O', 'CCC(N)C=O', '[NH3+]CC=O']:
             msg = 'No matching found. Probably missing sidechain.'
         else:
             msg = 'No matching found'
@@ -260,8 +261,6 @@ def PreparePDBMol(mol,
                 bonds_queue.append((a1, a2))
         for a1_ix, a2_ix in bonds_queue:
             bond = new_mol.GetBondBetweenAtoms(a1_ix, a2_ix)
-            if bond is None or (a1_ix, a2_ix) in visited_bonds or (a1_ix, a2_ix) in visited_bonds:
-                continue
             a1 = new_mol.GetAtomWithIdx(a1_ix)
             a2 = new_mol.GetAtomWithIdx(a2_ix)
             a1_num = a1.GetPDBResidueInfo().GetResidueNumber()
@@ -270,12 +269,20 @@ def PreparePDBMol(mol,
             a2_name = a2.GetPDBResidueInfo().GetName().strip()
             if (a1.GetAtomicNum() > 1 and
                 a2.GetAtomicNum() > 1 and
-                not (a1_name == 'N' and a2_name == 'C' or  # peptide bond
-                     a1_name == 'C' and a2_name == 'N' or  # peptide bond
-                     a1_name == 'SG' and a2_name == 'SG'  # sulphur bridge
-                     ) and
-                abs(a1_num - a2_num) != 1):  # peptide bond diff = 1
-                new_mol.RemoveBond(a1.GetIdx(), a2.GetIdx())
+                not ((a1_name == 'N' and
+                      a2_name == 'C' and
+                      abs(a1_num - a2_num) == 1) or  # peptide bond
+                     (a1_name == 'C' and
+                      a2_name == 'N' and
+                      abs(a1_num - a2_num) == 1) or  # peptide bond
+                     (a1_name == 'SG' and
+                      a2_name == 'SG')  # sulphur bridge
+                     )):
+                # print('remove', a1_ix, a2_ix)
+                new_mol.RemoveBond(a1_ix, a2_ix)
+            else:
+                # print('not remove', a1_ix, a2_ix)
+                pass
 
         # HACK: termini oxygens get matched twice due to removal from templates
         # TODO: remove by treatment of templates
