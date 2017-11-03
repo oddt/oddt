@@ -1,5 +1,6 @@
 from collections import OrderedDict, defaultdict
 from itertools import product, combinations
+import sys
 
 import rdkit
 from rdkit import Chem
@@ -71,13 +72,15 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
         matches = mol2.GetSubstructMatches(refmol2, maxMatches=1)
 
     # inverse match
-    # if not matches:
-    #     inverse_matches = refmol2.GetSubstructMatches(mol2, maxMatches=1)
-    #     if inverse_matches:
-    #         matches = []
-    #         for inverse_match in inverse_matches:
-    #              matches.append(sorted(range(len(inverse_match)),
-    #                                    key=inverse_match.__getitem__))
+    if not matches:
+        inverse_matches = refmol.GetSubstructMatches(mol, maxMatches=1)
+        if not inverse_matches:
+            inverse_matches = inverse_matches = refmol2.GetSubstructMatches(mol2, maxMatches=1)
+        if inverse_matches:
+            matches = []
+            for inverse_match in inverse_matches:
+                matches.append(dict(zip(inverse_match,
+                                        range(len(inverse_match)))))
 
     # do the molecules match now?
     if matches:
@@ -93,8 +96,13 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                                  mol.GetNumAtoms(),
                                  refmol.GetNumAtoms()
                                 )
-            for (atom1, atom2), (refatom1, refatom2) in zip(product(matching, repeat=2),
-                                                            product(range(len(matching)), repeat=2)):
+            # Convert matches to dict to support partial match, where keys
+            # are not complete sequence, as in full match.
+            if isinstance(matching, (tuple, list)):
+                matching = dict(zip(range(len(matching)), matching))
+
+            for (atom1, atom2), (refatom1, refatom2) in zip(product(matching.values(), repeat=2),
+                                                            product(matching.keys(), repeat=2)):
                 b = refmol.GetBondBetweenAtoms(refatom1, refatom2)
                 b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
                 if b is None:
@@ -110,20 +118,28 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
 
             # apply matching: set atom properties
             for a in refmol.GetAtoms():
+                if a.GetIdx() not in matching:
+                    continue
                 a2 = protein.GetAtomWithIdx(amap[matching[a.GetIdx()]])
                 a2.SetHybridization(a.GetHybridization())
-                a2.SetIsAromatic(a.GetIsAromatic())
+                # partial match may not close ring
+                if len(matching) == refmol.GetNumAtoms():
+                    a2.SetIsAromatic(a.GetIsAromatic())
                 # TODO: check for connected Hs
                 # n_hs = sum(n.GetAtomicNum() == 1 for n in a2.GetNeighbors())
                 a2.SetNumExplicitHs(a.GetNumExplicitHs())
                 a2.SetFormalCharge(a.GetFormalCharge())
+        if len(matching) < refmol.GetNumAtoms():
+            print('Partial match. Probably incomplete sidechain.',
+                  refmol.GetProp('_Name'),
+                  Chem.MolToSmiles(refmol),
+                  Chem.MolToSmiles(refmol2),
+                  Chem.MolToSmiles(mol),
+                  sep='\t', file=sys.stderr)
     else:
         smi = Chem.MolToSmiles(mol)
         # most common missing sidechain AA
-        if smi in ['CC(N)C=O', 'CCC(N)C=O', '[NH3+]CC=O']:
-            msg = 'No matching found. Probably missing sidechain.'
-        else:
-            msg = 'No matching found'
+        msg = 'No matching found'
         raise ValueError(msg,
                          refmol.GetProp('_Name'),
                          Chem.MolToSmiles(refmol),
