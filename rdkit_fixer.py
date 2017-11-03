@@ -23,15 +23,15 @@ def PathFromAtomList(mol, amap):
     return out
 
 
-def AtomListToSubMol(mol, atomList):
+def AtomListToSubMol(mol, amap):
     submol = Chem.RWMol()
-    for aix in atomList:
+    for aix in amap:
         submol.AddAtom(mol.GetAtomWithIdx(aix))
-    for i, j in combinations(atomList, 2):
+    for i, j in combinations(amap, 2):
         bond = mol.GetBondBetweenAtoms(i, j)
         if bond:
-            submol.AddBond(atomList.index(i),
-                           atomList.index(j),
+            submol.AddBond(amap.index(i),
+                           amap.index(j),
                            bond.GetBondType())
     return submol
 
@@ -106,7 +106,7 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                     b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
                 b2.SetBondType(b.GetBondType())
                 b2.SetIsAromatic(b.GetIsAromatic())
-                visited_bonds.append(b2.GetIdx())
+                visited_bonds.append((amap[atom1], amap[atom2]))
 
             # apply matching: set atom properties
             for a in refmol.GetAtoms():
@@ -118,7 +118,12 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                 a2.SetNumExplicitHs(a.GetNumExplicitHs())
                 a2.SetFormalCharge(a.GetFormalCharge())
     else:
-        raise ValueError("No matching found",
+        smi = Chem.MolToSmiles(mol)
+        if smi in ['CC(N)C=O', 'CCC(N)C=O']: # most common missing sidechain AA
+            msg = 'No matching found. Probably missing sidechain.'
+        else:
+            msg = 'No matching found'
+        raise ValueError(msg,
                          refmol.GetProp('_Name'),
                          Chem.MolToSmiles(refmol),
                          Chem.MolToSmiles(refmol2),
@@ -227,13 +232,13 @@ def PreparePDBMol(mol,
 
     # reset B.O. using templates
     visited_bonds = []
-    bonds = []  # in case of error define it here
     for ((resnum, resname, chainid), residue, mol_to_res_amap, res_to_mol_amap) in residues:
         if resname not in unique_resname:
             continue
         if resname not in template_mols:
             raise ValueError('There is no template for residue "%s"' % resname)
         template = template_mols[resname]
+        bonds = []  # in case of error define it here
         try:
             new_mol, bonds = AssignPDBResidueBondOrdersFromTemplate(new_mol,
                                                                     residue,
@@ -246,20 +251,23 @@ def PreparePDBMol(mol,
     # HACK: remove not-visited bonds
     if visited_bonds:  # probably we dont want to delete all
         new_mol = Chem.RWMol(new_mol)
-        all_bonds = set(range(new_mol.GetNumBonds()))
         visited_bonds = set(visited_bonds)
-        for bid in sorted(all_bonds.difference(visited_bonds), reverse=True):
-            bond = new_mol.GetBondWithIdx(bid)
-            a1 = bond.GetBeginAtom()
-            a2 = bond.GetEndAtom()
+        for a1_ix, a2_ix in product(range(new_mol.GetNumAtoms()), repeat=2):
+            bond = new_mol.GetBondBetweenAtoms(a1_ix, a2_ix)
+            if bond is None or (a1_ix, a2_ix) in visited_bonds or (a1_ix, a2_ix) in visited_bonds:
+                continue
+            a1 = new_mol.GetAtomWithIdx(a1_ix)
+            a2 = new_mol.GetAtomWithIdx(a2_ix)
             a1_num = a1.GetPDBResidueInfo().GetResidueNumber()
             a2_num = a2.GetPDBResidueInfo().GetResidueNumber()
             a1_name = a1.GetPDBResidueInfo().GetName().strip()
             a2_name = a2.GetPDBResidueInfo().GetName().strip()
             if (a1.GetAtomicNum() > 1 and
                 a2.GetAtomicNum() > 1 and
-                not (a1_name == 'N' and a2_name == 'C' or
-                     a1_name == 'C' and a2_name == 'N') and
+                not (a1_name == 'N' and a2_name == 'C' or  # peptide bond
+                     a1_name == 'C' and a2_name == 'N' or  # peptide bond
+                     a1_name == 'SG' and a2_name == 'SG'  # sulphur bridge
+                     ) and
                 abs(a1_num - a2_num) != 1):  # peptide bond diff = 1
                 new_mol.RemoveBond(a1.GetIdx(), a2.GetIdx())
 
