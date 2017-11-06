@@ -45,6 +45,14 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
     amap: atom map res->protein
     refmol: residue template
     """
+    # Catch residues which do not have complete backbone, and template
+    # has more atoms than that.
+    if len(amap) < 4 and refmol.GetNumAtoms() > 4:
+        raise ValueError('The residue "%s" has incomplete backbone'
+                         % refmol.GetProp('_Name'),
+                         Chem.MolToSmiles(refmol),
+                         Chem.MolToSmiles(mol))
+
     # copies will have single bonds
     refmol2 = Chem.Mol(refmol)
     mol2 = Chem.Mol(mol)
