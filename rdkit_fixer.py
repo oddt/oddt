@@ -1,6 +1,7 @@
 from collections import OrderedDict, defaultdict
 from itertools import product, combinations
 import sys
+from distutils.version import LooseVersion
 
 import rdkit
 from rdkit import Chem
@@ -130,6 +131,7 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                 a2.SetNumExplicitHs(a.GetNumExplicitHs())
                 a2.SetFormalCharge(a.GetFormalCharge())
         if len(matching) < refmol.GetNumAtoms():
+            # TODO: replace following with warning/logging
             print('Partial match. Probably incomplete sidechain.',
                   refmol.GetProp('_Name'),
                   Chem.MolToSmiles(refmol),
@@ -177,11 +179,12 @@ def PreparePDBMol(mol,
             if atom.GetPDBResidueInfo().GetResidueName() == 'HOH':
                 new_mol.RemoveAtom(i)
     # disconnect_metals and HOHs  for older versions of RDKit
-    if rdkit.__version__.split(',')[0] < '2018':
+    # TODO: put here the RDKit version which includes PR #1629
+    if LooseVersion(rdkit.__version__) < LooseVersion('2018.03'):
         for i in reversed(range(new_mol.GetNumAtoms())):
             atom = new_mol.GetAtomWithIdx(i)
             atom_info = atom.GetPDBResidueInfo()
-            if removeHOHs and atom_info.GetResidueName() == 'HOH':
+            if not removeHOHs and atom_info.GetResidueName() == 'HOH':
                 for n in atom.GetNeighbors():
                     n_info = n.GetPDBResidueInfo()
                     if n_info.GetResidueNumber() != atom_info.GetResidueNumber():
@@ -273,7 +276,7 @@ def PreparePDBMol(mol,
         for bond in new_mol.GetBonds():
             a1 = bond.GetBeginAtomIdx()
             a2 = bond.GetEndAtomIdx()
-            if (a1, a2) not in visited_bonds and (a1, a2) not in visited_bonds:
+            if (a1, a2) not in visited_bonds and (a2, a1) not in visited_bonds:
                 bonds_queue.append((a1, a2))
         for a1_ix, a2_ix in bonds_queue:
             bond = new_mol.GetBondBetweenAtoms(a1_ix, a2_ix)
