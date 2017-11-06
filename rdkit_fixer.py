@@ -38,53 +38,52 @@ def AtomListToSubMol(mol, amap):
     return submol
 
 
-def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
+def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
     """
     protein: Mol with whole protein
-    mol: Mol with residue only
-    amap: atom map res->protein
-    refmol: residue template
+    residue: Mol with residue only
+    amap: atom map residue->protein
+    template: residue template
     """
     # Catch residues which do not have complete backbone, and template
     # has more atoms than that.
-    if len(amap) < 4 and refmol.GetNumAtoms() > 4:
+    if len(amap) < 4 and template.GetNumAtoms() > 4:
         raise ValueError('The residue "%s" has incomplete backbone'
-                         % refmol.GetProp('_Name'),
-                         Chem.MolToSmiles(refmol),
-                         Chem.MolToSmiles(mol))
+                         % template.GetProp('_Name'),
+                         Chem.MolToSmiles(template),
+                         Chem.MolToSmiles(residue))
 
     # copies will have single bonds
-    refmol2 = Chem.Mol(refmol)
-    mol2 = Chem.Mol(mol)
+    template2 = Chem.Mol(template)
+    residue2 = Chem.Mol(residue)
 
     visited_bonds = []
 
     # do the molecules match already?
-    matches = mol2.GetSubstructMatches(refmol2, maxMatches=1)
+    matches = residue2.GetSubstructMatches(template2, maxMatches=1)
     if not matches: # no, they don't match
-        # check if bonds of mol are SINGLE
-        for b in mol2.GetBonds():
+        # set the bonds orders to SINGLE
+        for b in residue2.GetBonds():
             b.SetBondType(BondType.SINGLE)
             b.SetIsAromatic(False)
-        # set the bonds of mol to SINGLE
-        for b in refmol2.GetBonds():
+        for b in template2.GetBonds():
             b.SetBondType(BondType.SINGLE)
             b.SetIsAromatic(False)
         # set atom charges to zero;
-        for a in mol2.GetAtoms():
+        for a in residue2.GetAtoms():
             a.SetFormalCharge(0)
             a.SetIsAromatic(False)
-        for a in refmol2.GetAtoms():
+        for a in template2.GetAtoms():
             a.SetFormalCharge(0)
             a.SetIsAromatic(False)
 
-        matches = mol2.GetSubstructMatches(refmol2, maxMatches=1)
+        matches = residue2.GetSubstructMatches(template2, maxMatches=1)
 
     # inverse match
     if not matches:
-        inverse_matches = refmol.GetSubstructMatches(mol, maxMatches=1)
+        inverse_matches = template.GetSubstructMatches(residue, maxMatches=1)
         if not inverse_matches:
-            inverse_matches = inverse_matches = refmol2.GetSubstructMatches(mol2, maxMatches=1)
+            inverse_matches = template2.GetSubstructMatches(residue2, maxMatches=1)
         if inverse_matches:
             matches = []
             for inverse_match in inverse_matches:
@@ -93,17 +92,16 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
 
     # do the molecules match now?
     if matches:
-        protein = Chem.RWMol(protein)
         for matching in matches:
             # apply matching: set bond properties
             if len(matching) > len(amap):
                 raise ValueError("Unequal amap and matching",
-                                 refmol.GetProp('_Name'),
-                                 Chem.MolToSmiles(refmol),
-                                 Chem.MolToSmiles(refmol2),
-                                 Chem.MolToSmiles(mol),
-                                 mol.GetNumAtoms(),
-                                 refmol.GetNumAtoms()
+                                 template.GetProp('_Name'),
+                                 Chem.MolToSmiles(template),
+                                 Chem.MolToSmiles(template2),
+                                 Chem.MolToSmiles(residue),
+                                 residue.GetNumAtoms(),
+                                 template.GetNumAtoms()
                                 )
             # Convert matches to dict to support partial match, where keys
             # are not complete sequence, as in full match.
@@ -112,7 +110,7 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
 
             for (atom1, atom2), (refatom1, refatom2) in zip(product(matching.values(), repeat=2),
                                                             product(matching.keys(), repeat=2)):
-                b = refmol.GetBondBetweenAtoms(refatom1, refatom2)
+                b = template.GetBondBetweenAtoms(refatom1, refatom2)
                 b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
                 if b is None:
                     if b2: # this bond is not there
@@ -126,35 +124,35 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, mol, amap, refmol):
                 visited_bonds.append((amap[atom1], amap[atom2]))
 
             # apply matching: set atom properties
-            for a in refmol.GetAtoms():
+            for a in template.GetAtoms():
                 if a.GetIdx() not in matching:
                     continue
                 a2 = protein.GetAtomWithIdx(amap[matching[a.GetIdx()]])
                 a2.SetHybridization(a.GetHybridization())
                 # partial match may not close ring
-                if len(matching) == refmol.GetNumAtoms():
+                if len(matching) == template.GetNumAtoms():
                     a2.SetIsAromatic(a.GetIsAromatic())
                 # TODO: check for connected Hs
                 # n_hs = sum(n.GetAtomicNum() == 1 for n in a2.GetNeighbors())
                 a2.SetNumExplicitHs(a.GetNumExplicitHs())
                 a2.SetFormalCharge(a.GetFormalCharge())
-        if len(matching) < refmol.GetNumAtoms():
+        if len(matching) < template.GetNumAtoms():
             # TODO: replace following with warning/logging
             print('Partial match. Probably incomplete sidechain.',
-                  refmol.GetProp('_Name'),
-                  Chem.MolToSmiles(refmol),
-                  Chem.MolToSmiles(refmol2),
-                  Chem.MolToSmiles(mol),
+                  template.GetProp('_Name'),
+                  Chem.MolToSmiles(template),
+                  Chem.MolToSmiles(template2),
+                  Chem.MolToSmiles(residue),
                   sep='\t', file=sys.stderr)
     else:
-        smi = Chem.MolToSmiles(mol)
+        smi = Chem.MolToSmiles(residue)
         # most common missing sidechain AA
         msg = 'No matching found'
         raise ValueError(msg,
-                         refmol.GetProp('_Name'),
-                         Chem.MolToSmiles(refmol),
-                         Chem.MolToSmiles(refmol2),
-                         Chem.MolToSmiles(mol),
+                         template.GetProp('_Name'),
+                         Chem.MolToSmiles(template),
+                         Chem.MolToSmiles(template2),
+                         Chem.MolToSmiles(residue),
                         )
 
     return protein, visited_bonds
