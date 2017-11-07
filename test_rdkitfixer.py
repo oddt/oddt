@@ -66,6 +66,7 @@ def test_metal_bonding():
     assert_equal(atom.GetAtomicNum(), 30)  # is it Zn
     assert_equal(atom.GetDegree(), 0)  # Zn should have no bonds
     assert_equal(atom.GetFormalCharge(), 2)
+    assert_equal(atom.GetNumExplicitHs(), 0)
 
     # mol can be sanitized
     assert_equal(int(Chem.SanitizeMol(mol)), 0)
