@@ -70,18 +70,6 @@ def test_metal_bonding():
     # mol can be sanitized
     assert_equal(int(Chem.SanitizeMol(mol)), 0)
 
-    if LooseVersion(rdkit.__version__) >= LooseVersion('2018.03'):
-        mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False,
-                                  proximityBonding=False)
-        # don't use templates
-        mol = rdkit_fixer.PreparePDBMol(mol, residue_whitelist=[])
-        atom = mol.GetAtomWithIdx(36)
-        assert_equal(atom.GetAtomicNum(), 30)  # is it Zn
-        assert_equal(atom.GetDegree(), 0)  # Zn should have no bonds
-
-        # mol can be sanitized
-        assert_equal(int(Chem.SanitizeMol(mol)), 0)
-
 
 def test_interresidue_bonding():
     """Test if fixer removes wrong connections between residues"""

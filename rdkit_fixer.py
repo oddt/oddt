@@ -1,11 +1,10 @@
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict
 from itertools import product, combinations
 import sys
 from distutils.version import LooseVersion
 
 import rdkit
 from rdkit import Chem
-from rdkit.Chem.AllChem import ReplaceSubstructs
 from rdkit.Chem import BondType
 
 
@@ -26,6 +25,20 @@ def PathFromAtomList(mol, amap):
 
 
 def AtomListToSubMol(mol, amap):
+    """
+    Parameters
+    ----------
+        mol: rdkit.Chem.rdchem.Mol
+            Molecule
+        amap: array-like
+            List of atom indices (zero-based)
+
+    Returns
+    -------
+        submol: rdkit.Chem.rdchem.RWMol
+            Submol determined by specified atom list
+    """
+
     submol = Chem.RWMol()
     for aix in amap:
         submol.AddAtom(mol.GetAtomWithIdx(aix))
@@ -40,20 +53,33 @@ def AtomListToSubMol(mol, amap):
 
 def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
     """
-    protein: Mol with whole protein
-    residue: Mol with residue only
-    amap: atom map residue->protein
-    template: residue template
+    Parameters
+    ----------
+        protein: rdkit.Chem.rdchem.Mol
+            Mol with whole protein
+        residue:
+            Mol with residue only
+        amap: dict
+            Dictionary mapping atom IDs in residue to atom IDs in whole protein
+        template:
+            Residue template
+    Returns
+    -------
+        protein: rdkit.Chem.rdchem.RWMol
+            Modified protein
+        visited_bonds: list
+            Bonds that match the template
     """
-    # Catch residues which do not have complete backbone, and template
-    # has more atoms than that.
+
+    # Catch residues which have less than 4 atoms (i.e. cannot have complete
+    # backbone), and template has more atoms than that.
     if len(amap) < 4 and template.GetNumAtoms() > 4:
         raise ValueError('The residue "%s" has incomplete backbone'
                          % template.GetProp('_Name'),
                          Chem.MolToSmiles(template),
                          Chem.MolToSmiles(residue))
 
-    # copies will have single bonds
+    # modify copies instead of original molecules
     template2 = Chem.Mol(template)
     residue2 = Chem.Mol(residue)
 
@@ -61,7 +87,7 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
 
     # do the molecules match already?
     matches = residue2.GetSubstructMatches(template2, maxMatches=1)
-    if not matches: # no, they don't match
+    if not matches:  # no, they don't match
         # set the bonds orders to SINGLE
         for b in residue2.GetBonds():
             b.SetBondType(BondType.SINGLE)
@@ -69,7 +95,7 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
         for b in template2.GetBonds():
             b.SetBondType(BondType.SINGLE)
             b.SetIsAromatic(False)
-        # set atom charges to zero;
+        # set atom charges to zero and remove aromaticity
         for a in residue2.GetAtoms():
             a.SetFormalCharge(0)
             a.SetIsAromatic(False)
@@ -77,11 +103,15 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
             a.SetFormalCharge(0)
             a.SetIsAromatic(False)
 
+        # matches is either tuple (if match was complete) or dict (if match
+        # was partial)
         matches = residue2.GetSubstructMatches(template2, maxMatches=1)
 
-    # inverse match
+    # try inverse match
     if not matches:
         inverse_matches = template.GetSubstructMatches(residue, maxMatches=1)
+        # if it failed try to match modified molecules (single bonds,
+        # no charges, no aromatic atoms)
         if not inverse_matches:
             inverse_matches = template2.GetSubstructMatches(residue2, maxMatches=1)
         if inverse_matches:
@@ -93,32 +123,41 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
     # do the molecules match now?
     if matches:
         for matching in matches:
-            # apply matching: set bond properties
-            if len(matching) > len(amap):
-                raise ValueError("Unequal amap and matching",
-                                 template.GetProp('_Name'),
-                                 Chem.MolToSmiles(template),
-                                 Chem.MolToSmiles(template2),
-                                 Chem.MolToSmiles(residue),
-                                 residue.GetNumAtoms(),
-                                 template.GetNumAtoms()
-                                )
+
+            assert len(matching) <= len(amap), \
+                'matching is bigger than amap for %s' \
+                '(%s / %s vs %s; %s atoms vs %s atoms)' % (
+                    template.GetProp('_Name'),
+                    Chem.MolToSmiles(template),
+                    Chem.MolToSmiles(template2),
+                    Chem.MolToSmiles(residue),
+                    residue.GetNumAtoms(),
+                    template.GetNumAtoms(),
+            )
+
             # Convert matches to dict to support partial match, where keys
             # are not complete sequence, as in full match.
             if isinstance(matching, (tuple, list)):
                 matching = dict(zip(range(len(matching)), matching))
 
-            for (atom1, atom2), (refatom1, refatom2) in zip(product(matching.values(), repeat=2),
-                                                            product(matching.keys(), repeat=2)):
+            # apply matching: set bond properties
+            for (atom1, atom2), (refatom1, refatom2) in \
+                zip(product(matching.values(), repeat=2),
+                    product(matching.keys(), repeat=2)):
+
                 b = template.GetBondBetweenAtoms(refatom1, refatom2)
+
                 b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
+                # remove extra bonds
                 if b is None:
-                    if b2: # this bond is not there
+                    if b2:  # this bond is not there
                         protein.RemoveBond(amap[atom1], amap[atom2])
                     continue
+                # add missing bonds
                 if b2 is None:
                     protein.AddBond(amap[atom1], amap[atom2])
                     b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
+                # set bond properties
                 b2.SetBondType(b.GetBondType())
                 b2.SetIsAromatic(b.GetIsAromatic())
                 visited_bonds.append((amap[atom1], amap[atom2]))
@@ -129,8 +168,11 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
                     continue
                 a2 = protein.GetAtomWithIdx(amap[matching[a.GetIdx()]])
                 a2.SetHybridization(a.GetHybridization())
-                # partial match may not close ring
+
+                # partial match may not close ring, so set aromacity only if
+                # there is complete match
                 if len(matching) == template.GetNumAtoms():
+
                     a2.SetIsAromatic(a.GetIsAromatic())
                 # TODO: check for connected Hs
                 # n_hs = sum(n.GetAtomicNum() == 1 for n in a2.GetNeighbors())
@@ -145,7 +187,6 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
                   Chem.MolToSmiles(residue),
                   sep='\t', file=sys.stderr)
     else:
-        smi = Chem.MolToSmiles(residue)
         # most common missing sidechain AA
         msg = 'No matching found'
         raise ValueError(msg,
@@ -153,7 +194,7 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
                          Chem.MolToSmiles(template),
                          Chem.MolToSmiles(template2),
                          Chem.MolToSmiles(residue),
-                        )
+                         )
 
     return protein, visited_bonds
 
@@ -163,17 +204,36 @@ def PreparePDBMol(mol,
                   removeHOHs=True,
                   residue_whitelist=None,
                   residue_blacklist=None,
-                  disconnect_metals=True,
                   ):
     """Prepares protein molecule by:
         - Removing Hs by hard using atomic number [default=True]
         - Removes HOH [default=True]
         - Assign bond orders from smiles of PDB residues (over 24k templates)
         - Removes bonds to metals
+
+    Parameters
+    ----------
+        mol: rdkit.Chem.rdchem.Mol
+            Mol with whole protein. Note that it is modified in place.
+        removeHs: bool, optional (default True)
+            If True, hydrogens will be forcefully removed
+        removeHOHs: bool, optional (default True)
+            If True, remove waters using residue name
+        residue_whitelist: array-like, optional (default None)
+            List of residues to clean. If not specified, all residues
+            present in the structure will be used.
+        residue_blacklist: array-like, optional (default None)
+            List of residues to ignore during cleaning. If not specified,
+            all residues present in the structure will be cleaned.
+
+    Returns
+    -------
+        new_mol: rdkit.Chem.rdchem.RWMol
+            Modified protein
     """
+
     new_mol = Chem.RWMol(mol)
     if removeHs:
-        # new_mol = Chem.RWMol(Chem.RemoveHs(new_mol, sanitize=False))
         for i in reversed(range(new_mol.GetNumAtoms())):
             atom = new_mol.GetAtomWithIdx(i)
             if atom.GetAtomicNum() == 1:
@@ -184,7 +244,7 @@ def PreparePDBMol(mol,
             atom = new_mol.GetAtomWithIdx(i)
             if atom.GetPDBResidueInfo().GetResidueName() == 'HOH':
                 new_mol.RemoveAtom(i)
-    # disconnect_metals and HOHs  for older versions of RDKit
+    # disconnect_metals and HOHs for older versions of RDKit
     # TODO: put here the RDKit version which includes PR #1629
     if LooseVersion(rdkit.__version__) < LooseVersion('2018.03'):
         for i in reversed(range(new_mol.GetNumAtoms())):
@@ -199,12 +259,13 @@ def PreparePDBMol(mol,
                 for n in atom.GetNeighbors():
                     new_mol.RemoveBond(i, n.GetIdx())
 
-
     # list of unique residues and their atom indices
     unique_resname = set()
+
+    # (res number, res name, chain id) --> [atom1 idx, atom2 idx, ...]
     resiues_atom_map = OrderedDict()
+
     for atom in new_mol.GetAtoms():
-        # if atom.GetAtomicNum() > 1:
         info = atom.GetPDBResidueInfo()
         res_id = (info.GetResidueNumber(), info.GetResidueName(), info.GetChainId())
         if res_id not in resiues_atom_map:
@@ -212,32 +273,25 @@ def PreparePDBMol(mol,
         resiues_atom_map[res_id].append(atom.GetIdx())
         unique_resname.add(info.GetResidueName())
 
-    # create a list of residue mols with atom maps in both ways (mol->res and res->mol)
+    # create a list of residue mols with atom maps
     residues = []
-    for i, amap in resiues_atom_map.items():
+    # residue_id == (res number, res name, chain id)
+    for residue_id, amap in resiues_atom_map.items():
+        # skip residues without bonding (waters, metals, ...)
         if len(amap) > 1:
-            # path = PathFromAtomList(new_mol, amap)
-            mol_to_res_amap = {}
-            # res = Chem.PathToSubmol(new_mol, path, atomMap=mol_to_res_amap)
-            # res_to_mol_amap = sorted(mol_to_res_amap, key=mol_to_res_amap.get)
-
             res = AtomListToSubMol(new_mol, amap)
-            res_to_mol_amap = amap
-            residues.append((i, res, mol_to_res_amap, res_to_mol_amap))
+            residues.append((residue_id, res, amap))
 
     # load templates
     template_mols = {}
     with open('pdbcodes_clean_smiles.csv') as f:
-        backbone = Chem.MolFromSmarts('[#8]-[#6](=[#8])-[#6]-[#7]')
-        perm_backbone = Chem.MolFromSmarts('[#8,#7]-[#6](=[#8])-[#6]-[#7]')
         for n, line in enumerate(f):
-            if n == 0: continue  # skip header
+            if n == 0:
+                continue  # skip header
             data = line.split(',')
-            if data[0] in unique_resname and data[0] != 'HOH': # skip waters
+            # TODO: skip all residues that have 1 heavy atom
+            if data[0] in unique_resname and data[0] != 'HOH':  # skip waters
                 res = Chem.MolFromSmiles(data[1])
-                # TODO: might multiple matches occur?
-                #res = ReplaceSubstructs(res, backbone, perm_backbone, replaceAll=True)[0]
-
                 # remove oxygen for peptide
                 # TODO: Remove that and treat the templates accordingly
                 match = res.GetSubstructMatch(Chem.MolFromSmiles('OC(=O)CN'))
@@ -258,21 +312,23 @@ def PreparePDBMol(mol,
 
     # reset B.O. using templates
     visited_bonds = []
-    for ((resnum, resname, chainid), residue, mol_to_res_amap, res_to_mol_amap) in residues:
+    for ((resnum, resname, chainid), residue, amap) in residues:
         if resname not in unique_resname:
             continue
         if resname not in template_mols:
             raise ValueError('There is no template for residue "%s"' % resname)
         template = template_mols[resname]
-        bonds = []  # in case of error define it here
+        bonds = []
+        # in case of error define it here
         try:
             new_mol, bonds = AssignPDBResidueBondOrdersFromTemplate(new_mol,
                                                                     residue,
-                                                                    res_to_mol_amap,
+                                                                    amap,
                                                                     template)
         except ValueError as e:
             print(resnum, resname, chainid, e)
-        visited_bonds.extend(bonds)
+        finally:
+            visited_bonds.extend(bonds)
 
     # HACK: remove not-visited bonds
     if visited_bonds:  # probably we dont want to delete all
@@ -288,12 +344,16 @@ def PreparePDBMol(mol,
             bond = new_mol.GetBondBetweenAtoms(a1_ix, a2_ix)
             a1 = new_mol.GetAtomWithIdx(a1_ix)
             a2 = new_mol.GetAtomWithIdx(a2_ix)
+            # get residue number
             a1_num = a1.GetPDBResidueInfo().GetResidueNumber()
             a2_num = a2.GetPDBResidueInfo().GetResidueNumber()
+            # get PDB atom names
             a1_name = a1.GetPDBResidueInfo().GetName().strip()
             a2_name = a2.GetPDBResidueInfo().GetName().strip()
             if (a1.GetAtomicNum() > 1 and
                 a2.GetAtomicNum() > 1 and
+                # don't remove bonds between residues in backbone
+                # and sulphur bridges
                 not ((a1_name == 'N' and
                       a2_name == 'C' and
                       abs(a1_num - a2_num) == 1) or  # peptide bond
@@ -303,10 +363,8 @@ def PreparePDBMol(mol,
                      (a1_name == 'SG' and
                       a2_name == 'SG')  # sulphur bridge
                      )):
-                # print('remove', a1_ix, a2_ix)
                 new_mol.RemoveBond(a1_ix, a2_ix)
             else:
-                # print('not remove', a1_ix, a2_ix)
                 pass
 
         # HACK: termini oxygens get matched twice due to removal from templates
@@ -315,7 +373,7 @@ def PreparePDBMol(mol,
         for atom in new_mol.GetAtoms():
             if atom.GetAtomicNum() == 8 and atom.GetPDBResidueInfo().GetName().strip() == 'OXT':
                 bonds = atom.GetBonds()
-                if len(bonds) > 0: # this should not happen at all
+                if len(bonds) > 0:  # this should not happen at all
                     bonds[0].SetBondType(BondType.SINGLE)
 
     return new_mol
