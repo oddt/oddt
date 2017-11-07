@@ -267,18 +267,19 @@ def PreparePDBMol(mol,
 
     for atom in new_mol.GetAtoms():
         info = atom.GetPDBResidueInfo()
-        res_id = (info.GetResidueNumber(), info.GetResidueName(), info.GetChainId())
+        res_id = (info.GetResidueNumber(), info.GetResidueName().strip(),
+                  info.GetChainId())
         if res_id not in resiues_atom_map:
             resiues_atom_map[res_id] = []
         resiues_atom_map[res_id].append(atom.GetIdx())
-        unique_resname.add(info.GetResidueName())
+        unique_resname.add(info.GetResidueName().strip())
 
     # create a list of residue mols with atom maps
     residues = []
     # residue_id == (res number, res name, chain id)
     for residue_id, amap in resiues_atom_map.items():
-        # skip residues without bonding (waters, metals, ...)
-        if len(amap) > 1:
+        # skip waters
+        if residue_id[1] != 'HOH':
             res = AtomListToSubMol(new_mol, amap)
             residues.append((residue_id, res, amap))
 

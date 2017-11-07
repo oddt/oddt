@@ -60,12 +60,12 @@ def test_metal_bonding():
     molfile = '1ps3_zn.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
 
-    # don't use templates
-    mol = rdkit_fixer.PreparePDBMol(mol, residue_whitelist=[])
+    mol = rdkit_fixer.PreparePDBMol(mol)
 
     atom = mol.GetAtomWithIdx(36)
     assert_equal(atom.GetAtomicNum(), 30)  # is it Zn
     assert_equal(atom.GetDegree(), 0)  # Zn should have no bonds
+    assert_equal(atom.GetFormalCharge(), 2)
 
     # mol can be sanitized
     assert_equal(int(Chem.SanitizeMol(mol)), 0)
