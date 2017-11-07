@@ -1,7 +1,11 @@
+from __future__ import division, print_function
 from collections import OrderedDict
-from itertools import product, combinations
+from itertools import product, combinations, chain
 import sys
 from distutils.version import LooseVersion
+
+import numpy as np
+from scipy.spatial.distance import cdist
 
 import rdkit
 from rdkit import Chem
@@ -57,6 +61,83 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
             new_conf.SetAtomPosition(i, conf.GetAtomPosition(amap[i]))
         submol.AddConformer(new_conf)
     return submol
+
+
+def ExtractPocketAndLigand(mol, cutoff = 12., expandResidues=True):
+    """Function extracting a ligand (the largest HETATM residue) and the protein
+    pocket within certain cutoff. The selection of pocket atoms can be expanded
+    to contain whole residues. The single atom HETATM residues are attributed
+    to pocket (metals and waters)
+
+    Parameters
+    ----------
+        mol: rdkit.Chem.rdchem.Mol
+            Molecule with a protein ligand complex
+        cutoff: float (default=12.)
+            Distance cutoff for the pocket atoms
+        includeConformer: bool (default=True)
+            Toogle to include atoms coordinates in submolecule.
+
+    Returns
+    -------
+        pocket: rdkit.Chem.rdchem.RWMol
+            Pocket constructed of protein residues/atoms around ligand
+        ligand: rdkit.Chem.rdchem.RWMol
+            Largest HETATM residue contained in input molecule
+    """
+    # Get heteroatom residues - connectivity still might be wrong, so GetFrags will fail
+    hetatm_residues = OrderedDict()  # This way A chain is prefered over B if ligands are equal
+    protein_residues = OrderedDict()
+    for atom in mol.GetAtoms():
+        info = atom.GetPDBResidueInfo()
+        res_id = (info.GetResidueNumber(), info.GetResidueName().strip(),
+                  info.GetChainId())
+        if info.GetIsHeteroAtom() and info.GetResidueName() != 'HOH':
+            if res_id not in hetatm_residues:
+                hetatm_residues[res_id] = []
+            hetatm_residues[res_id].append(atom.GetIdx())
+        else:
+            if res_id not in protein_residues:
+                protein_residues[res_id] = []
+            protein_residues[res_id].append(atom.GetIdx())
+
+    # Remove single atom residues (Metals)
+    for res_id in hetatm_residues.keys():
+        if len(hetatm_residues[res_id]) == 1:
+            pocket_residues[res_id] = hetatm_residues[res_id]
+            del hetatm_residues[res_id]
+
+    if len(hetatm_residues) == 0:
+        raise ValueError('No ligands')
+
+    # Take largest ligand
+    ligand_key = sorted(hetatm_residues, key=lambda x: len(hetatm_residues[x]), reverse=True)[0]
+    ligand_amap = hetatm_residues[ligand_key]
+    ligand = AtomListToSubMol(mol, ligand_amap, includeConformer=True)
+    ligand_coords = np.array(ligand.GetConformer(-1).GetPositions())
+
+    # Get protein and waters
+    blacklist_ids = list(chain(*hetatm_residues.values()))
+    protein_amap = [i for i in range(mol.GetNumAtoms()) if i not in blacklist_ids]
+    protein = AtomListToSubMol(mol, protein_amap, includeConformer=True)
+    protein_coords = np.array(protein.GetConformer(-1).GetPositions())
+
+    # Pocket selection based on cutoff
+    mask = (cdist(protein_coords, ligand_coords) <= cutoff).any(axis=1)
+    pocket_amap = np.where(mask)[0].tolist()  # ids strictly in within cutoff
+
+    # Expand pocket's residues
+    if expandResidues:
+        pocket_residues = OrderedDict()
+        for res_id in protein_residues.keys():
+            if any(1 for res_aix in protein_residues[res_id] if res_aix in pocket_amap):
+                pocket_residues[res_id] = protein_residues[res_id]
+        pocket_amap = list(chain(*pocket_residues.values()))
+
+    # Create pocket mol
+    pocket = AtomListToSubMol(protein, pocket_amap, includeConformer=True)
+
+    return pocket, ligand
 
 
 def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
