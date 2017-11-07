@@ -24,7 +24,7 @@ def PathFromAtomList(mol, amap):
     return out
 
 
-def AtomListToSubMol(mol, amap):
+def AtomListToSubMol(mol, amap, includeConformer=False):
     """
     Parameters
     ----------
@@ -32,6 +32,8 @@ def AtomListToSubMol(mol, amap):
             Molecule
         amap: array-like
             List of atom indices (zero-based)
+        includeConformer: bool (default=True)
+            Toogle to include atoms coordinates in submolecule.
 
     Returns
     -------
@@ -48,6 +50,12 @@ def AtomListToSubMol(mol, amap):
             submol.AddBond(amap.index(i),
                            amap.index(j),
                            bond.GetBondType())
+    if includeConformer:
+        conf = mol.GetConformer(-1)
+        new_conf = Chem.Conformer(len(amap))
+        for i in range(len(amap)):
+            new_conf.SetAtomPosition(i, conf.GetAtomPosition(amap[i]))
+        submol.AddConformer(new_conf)
     return submol
 
 
