@@ -180,11 +180,16 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
                 a2.SetFormalCharge(a.GetFormalCharge())
         if len(matching) < template.GetNumAtoms():
             # TODO: replace following with warning/logging
+            # Get atom map of fixed fragment
+            amap_frag = [amap[matching[a.GetIdx()]]
+                         for a in template.GetAtoms()
+                         if a.GetIdx() in matching]
             print('Partial match. Probably incomplete sidechain.',
                   template.GetProp('_Name'),
                   Chem.MolToSmiles(template),
                   Chem.MolToSmiles(template2),
                   Chem.MolToSmiles(residue),
+                  Chem.MolToSmiles(AtomListToSubMol(protein, amap_frag)),
                   sep='\t', file=sys.stderr)
     else:
         # most common missing sidechain AA
@@ -371,10 +376,10 @@ def PreparePDBMol(mol,
         # HACK: termini oxygens get matched twice due to removal from templates
         # TODO: remove by treatment of templates
         # Terminus treatment
-        for atom in new_mol.GetAtoms():
-            if atom.GetAtomicNum() == 8 and atom.GetPDBResidueInfo().GetName().strip() == 'OXT':
-                bonds = atom.GetBonds()
-                if len(bonds) > 0:  # this should not happen at all
-                    bonds[0].SetBondType(BondType.SINGLE)
+        # for atom in new_mol.GetAtoms():
+        #     if atom.GetAtomicNum() == 8 and atom.GetPDBResidueInfo().GetName().strip() == 'OXT':
+        #         bonds = atom.GetBonds()
+        #         if len(bonds) > 0:  # this should not happen at all
+        #             bonds[0].SetBondType(BondType.SINGLE)
 
     return new_mol
