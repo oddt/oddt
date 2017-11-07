@@ -164,3 +164,21 @@ def test_ring():
 
     # mol can be sanitized
     assert_equal(int(Chem.SanitizeMol(mol)), 0)
+
+
+def test_sulphur_bridge():
+    """Test sulphur bridges retention"""
+
+    molfile = '2qwe_Sbridge.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+
+    mol = rdkit_fixer.PreparePDBMol(mol)
+
+    atom1 = mol.GetAtomWithIdx(5)
+    atom2 = mol.GetAtomWithIdx(11)
+    bond = mol.GetBondBetweenAtoms(atom1.GetIdx(), atom2.GetIdx())
+    assert_equal(atom1.GetPDBResidueInfo().GetName().strip(), 'SG')
+    assert_equal(atom1.GetPDBResidueInfo().GetResidueNumber(), 92)
+    assert_equal(atom2.GetPDBResidueInfo().GetName().strip(), 'SG')
+    assert_equal(atom2.GetPDBResidueInfo().GetResidueNumber(), 417)
+    assert_not_equal(bond, None)
