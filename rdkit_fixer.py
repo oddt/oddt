@@ -290,14 +290,12 @@ def PreparePDBMol(mol,
 
     # load templates
     template_mols = {}
-    with open('pdbcodes_clean_smiles.csv') as f:
+    with open('pdb_residue_templates.smi') as f:
         for n, line in enumerate(f):
-            if n == 0:
-                continue  # skip header
-            data = line.split(',')
+            data = line.split()
             # TODO: skip all residues that have 1 heavy atom
-            if data[0] in unique_resname and data[0] != 'HOH':  # skip waters
-                res = Chem.MolFromSmiles(data[1])
+            if data[1] in unique_resname and data[1] != 'HOH':  # skip waters
+                res = Chem.MolFromSmiles(data[0])
                 # remove oxygen for peptide
                 # TODO: Remove that and treat the templates accordingly
                 match = res.GetSubstructMatch(Chem.MolFromSmiles('OC(=O)CN'))
@@ -306,8 +304,8 @@ def PreparePDBMol(mol,
                     res.RemoveAtom(match[0])
                     res = res.GetMol()
 
-                res.SetProp('_Name', data[0])  # Needed for residue type lookup
-                template_mols[data[0]] = res
+                res.SetProp('_Name', data[1])  # Needed for residue type lookup
+                template_mols[data[1]] = res
 
     # Deal with residue lists
     if residue_whitelist is not None:
