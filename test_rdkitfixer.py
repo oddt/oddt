@@ -17,6 +17,17 @@ def test_atom_list_to_submol():
     assert_equal(submol.GetBondBetweenAtoms(1, 2).GetBondType(),
                  rdkit.Chem.rdchem.BondType.DOUBLE)
 
+    molfile = '2qwe_Sbridge.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+    assert_equal(mol.GetConformer().Is3D(), True)
+    submol = rdkit_fixer.AtomListToSubMol(mol, range(6), includeConformer=True)
+    assert_equal(submol.GetConformer().Is3D(), True)
+
+    atom = submol.GetAtomWithIdx(0)
+    info = atom.GetPDBResidueInfo()
+    assert_equal(info.GetResidueName(), 'CYS')
+    assert_equal(info.GetResidueNumber(), 92)
+
 
 def test_multivalent_Hs():
     """Test if fixer deals with multivalent Hs"""
