@@ -64,7 +64,7 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
     return submol
 
 
-def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
+def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1):
     """Function extracting a ligand (the largest HETATM residue) and the protein
     pocket within certain cutoff. The selection of pocket atoms can be expanded
     to contain whole residues. The single atom HETATM residues are attributed
@@ -76,8 +76,11 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
             Molecule with a protein ligand complex
         cutoff: float (default=12.)
             Distance cutoff for the pocket atoms
-        includeConformer: bool (default=True)
-            Toogle to include atoms coordinates in submolecule.
+        expandResidues: bool (default=True)
+            Expand selection to whole residues within cutoff.
+        confId: int (default=-1)
+            The conformer index for the pocket coordinates. By default the first
+            one is used.
 
     Returns
     -------
@@ -94,7 +97,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
         info = atom.GetPDBResidueInfo()
         res_id = (info.GetResidueNumber(), info.GetResidueName().strip(),
                   info.GetChainId())
-        if info.GetIsHeteroAtom() and info.GetResidueName() != 'HOH':
+        if info.GetIsHeteroAtom():
             if res_id not in hetatm_residues:
                 hetatm_residues[res_id] = []
             hetatm_residues[res_id].append(atom.GetIdx())
@@ -103,7 +106,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
                 protein_residues[res_id] = []
             protein_residues[res_id].append(atom.GetIdx())
 
-    # Remove single atom residues (Metals)
+    # Treat single atom residues (waters + metals) as pocket residues
     for res_id in list(hetatm_residues.keys()):  # exhaust keys, since we modify
         if len(hetatm_residues[res_id]) == 1:
             protein_residues[res_id] = hetatm_residues[res_id]
@@ -127,7 +130,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
 
     # Pocket selection based on cutoff
     mask = (cdist(protein_coords, ligand_coords) <= cutoff).any(axis=1)
-    pocket_amap = np.where(mask)[0].tolist()  # ids strictly in within cutoff
+    pocket_amap = protein_amap[np.where(mask)[0]].tolist()  # ids strictly in within cutoff
 
     # Expand pocket's residues
     if expandResidues:
@@ -139,8 +142,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
         pocket_amap = list(chain(*pocket_residues.values()))
 
     # Create pocket mol, pocket_amap needs to be mapped to mol Idxs
-    pocket = AtomListToSubMol(mol, protein_amap[pocket_amap].tolist(),
-                              includeConformer=True)
+    pocket = AtomListToSubMol(mol, pocket_amap, includeConformer=True)
 
     return pocket, ligand
 
@@ -428,7 +430,7 @@ def PreparePDBMol(mol,
                                                                     amap,
                                                                     template)
         except ValueError as e:
-            print(resnum, resname, chainid, e)
+            print(resnum, resname, chainid, e, file=sys.stderr)
         finally:
             visited_bonds.extend(bonds)
 
