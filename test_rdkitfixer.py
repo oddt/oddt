@@ -5,12 +5,14 @@ from rdkit import Chem
 
 from nose.tools import assert_equal, assert_not_equal, assert_almost_equal
 
-import rdkit_fixer
+from rdkit_fixer import (AtomListToSubMol,
+                         PreparePDBMol,
+                         ExtractPocketAndLigand)
 
 
 def test_atom_list_to_submol():
     mol = Chem.MolFromSmiles('CCCCC(=O)O')
-    submol = rdkit_fixer.AtomListToSubMol(mol, range(3, 7))
+    submol = AtomListToSubMol(mol, range(3, 7))
     assert_equal(submol.GetNumAtoms(), 4)
     assert_equal(submol.GetNumAtoms(), 4)
     assert_equal(submol.GetNumBonds(), 3)
@@ -20,9 +22,10 @@ def test_atom_list_to_submol():
     molfile = '2qwe_Sbridge.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     assert_equal(mol.GetConformer().Is3D(), True)
-    submol = rdkit_fixer.AtomListToSubMol(mol, range(6), includeConformer=True)
+    submol = AtomListToSubMol(mol, range(6), includeConformer=True)
     assert_equal(submol.GetConformer().Is3D(), True)
 
+    # submol has residue info
     atom = submol.GetAtomWithIdx(0)
     info = atom.GetPDBResidueInfo()
     assert_equal(info.GetResidueName(), 'CYS')
@@ -31,7 +34,7 @@ def test_atom_list_to_submol():
     # test multiple conformers
     mol.AddConformer(mol.GetConformer())
     assert_equal(mol.GetNumConformers(), 2)
-    submol = rdkit_fixer.AtomListToSubMol(mol, range(6), includeConformer=True)
+    submol = AtomListToSubMol(mol, range(6), includeConformer=True)
     assert_equal(submol.GetNumConformers(), 2)
 
 
@@ -41,7 +44,7 @@ def test_multivalent_Hs():
     # TODO: require mol without Hs in the future (rdkit v. 2018)
     molfile = '2c92_hypervalentH.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
-    mol = rdkit_fixer.PreparePDBMol(mol, residue_whitelist=[], removeHs=False)
+    mol = PreparePDBMol(mol, residue_whitelist=[], removeHs=False)
 
     atom = mol.GetAtomWithIdx(84)
     assert_equal(atom.GetAtomicNum(), 1)  # is it H
@@ -52,7 +55,7 @@ def test_multivalent_Hs():
                      n.GetPDBResidueInfo().GetResidueName())
 
     # mol can be sanitized
-    assert_equal(int(Chem.SanitizeMol(mol)), 0)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
 
 def test_HOH_bonding():
@@ -61,14 +64,14 @@ def test_HOH_bonding():
     molfile = '2vnf_bindedHOH.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     # don't use templates and don't remove waters
-    mol = rdkit_fixer.PreparePDBMol(mol, residue_whitelist=[], removeHOHs=False)
+    mol = PreparePDBMol(mol, residue_whitelist=[], removeHOHs=False)
 
     atom = mol.GetAtomWithIdx(5)
     assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
     assert_equal(atom.GetDegree(), 0)  # HOH should have no bonds
 
     # mol can be sanitized
-    assert_equal(int(Chem.SanitizeMol(mol)), 0)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
 
 def test_metal_bonding():
@@ -77,7 +80,7 @@ def test_metal_bonding():
     molfile = '1ps3_zn.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
 
-    mol = rdkit_fixer.PreparePDBMol(mol)
+    mol = PreparePDBMol(mol)
 
     atom = mol.GetAtomWithIdx(36)
     assert_equal(atom.GetAtomicNum(), 30)  # is it Zn
@@ -86,7 +89,7 @@ def test_metal_bonding():
     assert_equal(atom.GetNumExplicitHs(), 0)
 
     # mol can be sanitized
-    assert_equal(int(Chem.SanitizeMol(mol)), 0)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
 
 def test_interresidue_bonding():
@@ -95,7 +98,7 @@ def test_interresidue_bonding():
     molfile = '4e6d_residues.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
 
-    mol = rdkit_fixer.PreparePDBMol(mol)
+    mol = PreparePDBMol(mol)
 
     # check if O from PRO
     atom1 = mol.GetAtomWithIdx(11)
@@ -109,7 +112,7 @@ def test_interresidue_bonding():
     assert_equal(mol.GetBondBetweenAtoms(11, 22), None)
 
     # mol can be sanitized
-    assert_equal(int(Chem.SanitizeMol(mol)), 0)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
 
 def test_intraresidue_bonding():
@@ -117,7 +120,7 @@ def test_intraresidue_bonding():
 
     molfile = '1idg_connectivity.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
-    mol = rdkit_fixer.PreparePDBMol(mol)
+    mol = PreparePDBMol(mol)
 
     # check if N and C from GLU20 are not connected
     atom1 = mol.GetAtomWithIdx(11)
@@ -132,7 +135,7 @@ def test_intraresidue_bonding():
     assert_equal(mol.GetBondBetweenAtoms(11, 13), None)
 
     # mol can be sanitized
-    assert_equal(int(Chem.SanitizeMol(mol)), 0)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
 
 def test_bondtype():
@@ -140,7 +143,7 @@ def test_bondtype():
 
     molfile = '3rsb_bondtype.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
-    mol = rdkit_fixer.PreparePDBMol(mol)
+    mol = PreparePDBMol(mol)
 
     # check if there is double bond between N and C from MSE
     atom1 = mol.GetAtomWithIdx(13)
@@ -156,7 +159,7 @@ def test_bondtype():
     assert_almost_equal(bond.GetBondTypeAsDouble(), 2.0)
 
     # mol can be sanitized
-    assert_equal(int(Chem.SanitizeMol(mol)), 0)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
 
 def test_ring():
@@ -164,7 +167,7 @@ def test_ring():
 
     molfile = '4yzm_ring.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
-    mol = rdkit_fixer.PreparePDBMol(mol)
+    mol = PreparePDBMol(mol)
 
     # check if there is double bond between N and C from MSE
     atom1 = mol.GetAtomWithIdx(12)
@@ -180,7 +183,7 @@ def test_ring():
     assert_almost_equal(bond.GetBondTypeAsDouble(), 1.5)
 
     # mol can be sanitized
-    assert_equal(int(Chem.SanitizeMol(mol)), 0)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
 
 def test_sulphur_bridge():
@@ -189,7 +192,7 @@ def test_sulphur_bridge():
     molfile = '2qwe_Sbridge.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
 
-    mol = rdkit_fixer.PreparePDBMol(mol)
+    mol = PreparePDBMol(mol)
 
     atom1 = mol.GetAtomWithIdx(5)
     atom2 = mol.GetAtomWithIdx(11)
@@ -199,3 +202,63 @@ def test_sulphur_bridge():
     assert_equal(atom2.GetPDBResidueInfo().GetName().strip(), 'SG')
     assert_equal(atom2.GetPDBResidueInfo().GetResidueNumber(), 417)
     assert_not_equal(bond, None)
+
+
+def test_pocket_extractor():
+    """Test extracting pocket and ligand"""
+
+    molfile = '5ar7.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+
+    # there should be no pocket at 1A
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=1., confId=-1)
+    assert_equal(pocket.GetNumAtoms(), 0)
+    assert_equal(ligand.GetNumAtoms(), 26)
+
+    # small pocket of 5A
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=12., confId=-1)
+    assert_equal(pocket.GetNumAtoms(), 928)
+    assert_equal(ligand.GetNumAtoms(), 26)
+
+    # check if HOH is in pocket
+    atom = pocket.GetAtomWithIdx(910)
+    assert_equal(atom.GetAtomicNum(), 8)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
+
+    # Prepare and sanitize pocket and ligand
+    pocket = PreparePDBMol(pocket)
+    ligand = PreparePDBMol(ligand)
+    assert_equal(Chem.SanitizeMol(pocket), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert_equal(Chem.SanitizeMol(ligand), Chem.SanitizeFlags.SANITIZE_NONE)
+
+    # Check atom/bond properies for both molecules
+    bond = pocket.GetBondWithIdx(39)
+    assert_equal(bond.GetIsAromatic(), True)
+    assert_equal(bond.GetBeginAtom().GetPDBResidueInfo().GetResidueName(), 'TYR')
+
+    atom = ligand.GetAtomWithIdx(22)
+    assert_equal(atom.GetAtomicNum(), 7)
+    assert_equal(atom.GetIsAromatic(), True)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'SR8')
+
+    # test if metal is in pocket
+    molfile = '4p6p_lig_zn.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+    assert_equal(mol.GetNumAtoms(), 176)
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=5., confId=-1)
+    assert_equal(pocket.GetNumAtoms(), 162)
+    assert_equal(ligand.GetNumAtoms(), 14)
+
+    atom = pocket.GetAtomWithIdx(153)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName().strip(), 'ZN')
+    atom = pocket.GetAtomWithIdx(160)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
+
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=5., expandResidues=False)
+    assert_equal(pocket.GetNumAtoms(), 74)
+    assert_equal(ligand.GetNumAtoms(), 14)
+
+    atom = pocket.GetAtomWithIdx(65)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName().strip(), 'ZN')
+    atom = pocket.GetAtomWithIdx(73)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
