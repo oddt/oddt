@@ -1,6 +1,6 @@
 from __future__ import division, print_function
 from collections import OrderedDict
-from itertools import product, combinations, chain
+from itertools import combinations, chain
 import sys
 from distutils.version import LooseVersion
 
@@ -238,8 +238,8 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
 
             # apply matching: set bond properties
             for (atom1, atom2), (refatom1, refatom2) in \
-                zip(product(matching.values(), repeat=2),
-                    product(matching.keys(), repeat=2)):
+                zip(combinations(matching.values(), 2),
+                    combinations(matching.keys(), 2)):
 
                 b = template.GetBondBetweenAtoms(refatom1, refatom2)
 
