@@ -63,8 +63,8 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
     """
     Parameters
     ----------
-        protein: rdkit.Chem.rdchem.Mol
-            Mol with whole protein
+        protein: rdkit.Chem.rdchem.RWMol
+            Mol with whole protein. Note that it is modified in place.
         residue:
             Mol with residue only
         amap: dict
@@ -227,7 +227,7 @@ def PreparePDBMol(mol,
     Parameters
     ----------
         mol: rdkit.Chem.rdchem.Mol
-            Mol with whole protein. Note that it is modified in place.
+            Mol with whole protein.
         removeHs: bool, optional (default True)
             If True, hydrogens will be forcefully removed
         removeHOHs: bool, optional (default True)
