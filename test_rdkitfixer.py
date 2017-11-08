@@ -34,6 +34,7 @@ def test_atom_list_to_submol():
     submol = rdkit_fixer.AtomListToSubMol(mol, range(6), includeConformer=True)
     assert_equal(submol.GetNumConformers(), 2)
 
+
 def test_multivalent_Hs():
     """Test if fixer deals with multivalent Hs"""
 
