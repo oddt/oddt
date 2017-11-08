@@ -28,6 +28,11 @@ def test_atom_list_to_submol():
     assert_equal(info.GetResidueName(), 'CYS')
     assert_equal(info.GetResidueNumber(), 92)
 
+    # test multiple conformers
+    mol.AddConformer(mol.GetConformer())
+    assert_equal(mol.GetNumConformers(), 2)
+    submol = rdkit_fixer.AtomListToSubMol(mol, range(6), includeConformer=True)
+    assert_equal(submol.GetNumConformers(), 2)
 
 def test_multivalent_Hs():
     """Test if fixer deals with multivalent Hs"""

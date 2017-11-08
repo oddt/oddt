@@ -55,15 +55,15 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
                            amap.index(j),
                            bond.GetBondType())
     if includeConformer:
-        conf = mol.GetConformer(-1)
-        new_conf = Chem.Conformer(len(amap))
-        for i in range(len(amap)):
-            new_conf.SetAtomPosition(i, conf.GetAtomPosition(amap[i]))
-        submol.AddConformer(new_conf)
+        for conf in mol.GetConformers():
+            new_conf = Chem.Conformer(len(amap))
+            for i in range(len(amap)):
+                new_conf.SetAtomPosition(i, conf.GetAtomPosition(amap[i]))
+            submol.AddConformer(new_conf)
     return submol
 
 
-def ExtractPocketAndLigand(mol, cutoff = 12., expandResidues=True):
+def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
     """Function extracting a ligand (the largest HETATM residue) and the protein
     pocket within certain cutoff. The selection of pocket atoms can be expanded
     to contain whole residues. The single atom HETATM residues are attributed
@@ -104,7 +104,7 @@ def ExtractPocketAndLigand(mol, cutoff = 12., expandResidues=True):
     # Remove single atom residues (Metals)
     for res_id in hetatm_residues.keys():
         if len(hetatm_residues[res_id]) == 1:
-            pocket_residues[res_id] = hetatm_residues[res_id]
+            protein_residues[res_id] = hetatm_residues[res_id]
             del hetatm_residues[res_id]
 
     if len(hetatm_residues) == 0:
