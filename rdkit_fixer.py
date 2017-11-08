@@ -44,7 +44,8 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
         submol: rdkit.Chem.rdchem.RWMol
             Submol determined by specified atom list
     """
-
+    if not isinstance(amap, list):
+        amap = list(amap)
     submol = Chem.RWMol()
     for aix in amap:
         submol.AddAtom(mol.GetAtomWithIdx(aix))
@@ -86,7 +87,8 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
             Largest HETATM residue contained in input molecule
     """
     # Get heteroatom residues - connectivity still might be wrong, so GetFrags will fail
-    hetatm_residues = OrderedDict()  # This way A chain is prefered over B if ligands are equal
+    # Use OrderDict, so that A chain is prefered (first over B if ligands are equal
+    hetatm_residues = OrderedDict()
     protein_residues = OrderedDict()
     for atom in mol.GetAtoms():
         info = atom.GetPDBResidueInfo()
@@ -102,7 +104,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
             protein_residues[res_id].append(atom.GetIdx())
 
     # Remove single atom residues (Metals)
-    for res_id in hetatm_residues.keys():
+    for res_id in list(hetatm_residues.keys()):  # exhaust keys, since we modify
         if len(hetatm_residues[res_id]) == 1:
             protein_residues[res_id] = hetatm_residues[res_id]
             del hetatm_residues[res_id]
@@ -111,16 +113,17 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
         raise ValueError('No ligands')
 
     # Take largest ligand
-    ligand_key = sorted(hetatm_residues, key=lambda x: len(hetatm_residues[x]), reverse=True)[0]
+    ligand_key = sorted(hetatm_residues, key=lambda x: len(hetatm_residues[x]),
+                        reverse=True)[0]
     ligand_amap = hetatm_residues[ligand_key]
     ligand = AtomListToSubMol(mol, ligand_amap, includeConformer=True)
     ligand_coords = np.array(ligand.GetConformer(-1).GetPositions())
 
     # Get protein and waters
     blacklist_ids = list(chain(*hetatm_residues.values()))
-    protein_amap = [i for i in range(mol.GetNumAtoms()) if i not in blacklist_ids]
-    protein = AtomListToSubMol(mol, protein_amap, includeConformer=True)
-    protein_coords = np.array(protein.GetConformer(-1).GetPositions())
+    protein_amap = np.array([i for i in range(mol.GetNumAtoms())
+                             if i not in blacklist_ids])
+    protein_coords = np.array(mol.GetConformer(-1).GetPositions())[protein_amap]
 
     # Pocket selection based on cutoff
     mask = (cdist(protein_coords, ligand_coords) <= cutoff).any(axis=1)
@@ -130,12 +133,14 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True):
     if expandResidues:
         pocket_residues = OrderedDict()
         for res_id in protein_residues.keys():
-            if any(1 for res_aix in protein_residues[res_id] if res_aix in pocket_amap):
+            if any(1 for res_aix in protein_residues[res_id]
+                   if res_aix in pocket_amap):
                 pocket_residues[res_id] = protein_residues[res_id]
         pocket_amap = list(chain(*pocket_residues.values()))
 
-    # Create pocket mol
-    pocket = AtomListToSubMol(protein, pocket_amap, includeConformer=True)
+    # Create pocket mol, pocket_amap needs to be mapped to mol Idxs
+    pocket = AtomListToSubMol(mol, protein_amap[pocket_amap].tolist(),
+                              includeConformer=True)
 
     return pocket, ligand
 
@@ -261,12 +266,13 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
                 # partial match may not close ring, so set aromacity only if
                 # there is complete match
                 if len(matching) == template.GetNumAtoms():
-
                     a2.SetIsAromatic(a.GetIsAromatic())
                 # TODO: check for connected Hs
                 # n_hs = sum(n.GetAtomicNum() == 1 for n in a2.GetNeighbors())
                 a2.SetNumExplicitHs(a.GetNumExplicitHs())
                 a2.SetFormalCharge(a.GetFormalCharge())
+                # Update computed properties for an atom
+                a2.UpdatePropertyCache(strict=False)
         if len(matching) < template.GetNumAtoms():
             # TODO: replace following with warning/logging
             # Get atom map of fixed fragment
@@ -385,16 +391,15 @@ def PreparePDBMol(mol,
             # TODO: skip all residues that have 1 heavy atom
             if data[1] in unique_resname and data[1] != 'HOH':  # skip waters
                 res = Chem.MolFromSmiles(data[0])
+                res.SetProp('_Name', data[1])  # Needed for residue type lookup
                 # remove oxygen for peptide
                 # TODO: Remove that and treat the templates accordingly
                 match = res.GetSubstructMatch(Chem.MolFromSmiles('OC(=O)CN'))
+                res2 = Chem.RWMol(res)
                 if match:
-                    res = Chem.RWMol(res)
-                    res.RemoveAtom(match[0])
-                    res = res.GetMol()
-
-                res.SetProp('_Name', data[1])  # Needed for residue type lookup
-                template_mols[data[1]] = res
+                    res2.RemoveAtom(match[0])
+                res2 = res2.GetMol()
+                template_mols[data[1]] = (res, res2)
 
     # Deal with residue lists
     if residue_whitelist is not None:
@@ -410,7 +415,11 @@ def PreparePDBMol(mol,
             continue
         if resname not in template_mols:
             raise ValueError('There is no template for residue "%s"' % resname)
-        template = template_mols[resname]
+        template_raw, template_chain = template_mols[resname]
+        if residue.GetNumAtoms() > template_chain.GetNumAtoms():
+            template = template_raw
+        else:
+            template = template_chain
         bonds = []
         # in case of error define it here
         try:
