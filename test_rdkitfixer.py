@@ -1,5 +1,3 @@
-from distutils.version import LooseVersion
-
 import rdkit
 from rdkit import Chem
 
