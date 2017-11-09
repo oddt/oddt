@@ -65,7 +65,9 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
     return submol
 
 
-def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1):
+def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1,
+                           ligand_residue=None, ligand_residue_blacklist=None,
+                           append_residues=None):
     """Function extracting a ligand (the largest HETATM residue) and the protein
     pocket within certain cutoff. The selection of pocket atoms can be expanded
     to contain whole residues. The single atom HETATM residues are attributed
@@ -82,6 +84,13 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1):
         confId: int (default=-1)
             The conformer index for the pocket coordinates. By default the first
             one is used.
+        ligand_residue: string (default None)
+            Residue name which explicitly pint to a ligand(s).
+        ligand_residue_blacklist: array-like, optional (default None)
+            List of residues to ignore during ligand lookup.
+        append_residues: array-like, optional (default None)
+            List of residues to append to pocket, even if they are HETATM, such
+            as MSE, ATP, AMP, ADP, etc.
 
     Returns
     -------
@@ -107,11 +116,25 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1):
                 protein_residues[res_id] = []
             protein_residues[res_id].append(atom.GetIdx())
 
-    # Treat single atom residues (waters + metals) as pocket residues
+    # check if desired ligand residue is present
+    if ligand_residue is not None and ligand_residue not in hetatm_residues:
+        ValueError('Threre is no residue named "%s" in the protein file' %
+                   ligand_residue)
+
     for res_id in list(hetatm_residues.keys()):  # exhaust keys, since we modify
-        if len(hetatm_residues[res_id]) == 1:
+        # Treat single atom residues (waters + metals) as pocket residues
+        # Also append listed residues to protein
+        if (len(hetatm_residues[res_id]) == 1 or
+                append_residues is not None and res_id[1] in append_residues):
             protein_residues[res_id] = hetatm_residues[res_id]
             del hetatm_residues[res_id]
+        # leave only the desired residues
+        elif ligand_residue is not None and res_id[1] != ligand_residue:
+            del hetatm_residues[res_id]
+        # remove blacklisted residues
+        elif (ligand_residue_blacklist is not None and
+              res_id[1] in ligand_residue_blacklist):
+                    del hetatm_residues[res_id]
 
     if len(hetatm_residues) == 0:
         raise ValueError('No ligands')
