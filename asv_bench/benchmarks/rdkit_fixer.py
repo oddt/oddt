@@ -5,7 +5,8 @@ from rdkit_fixer import (PreparePDBMol,
                          ExtractPocketAndLigand,
                          AtomListToSubMol)
 
-test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
+test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             '..', '..', 'test_data')
 
 
 class BenchRdkitFixer(object):
