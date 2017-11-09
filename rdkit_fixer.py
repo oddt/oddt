@@ -171,7 +171,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1,
     return pocket, ligand
 
 
-def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
+def PreparePDBResidue(protein, residue, amap, template):
     """
     Parameters
     ----------
@@ -456,7 +456,7 @@ def PreparePDBMol(mol,
         bonds = []
         # in case of error define it here
         try:
-            new_mol, bonds = AssignPDBResidueBondOrdersFromTemplate(new_mol,
+            new_mol, bonds = PreparePDBResidue(new_mol,
                                                                     residue,
                                                                     amap,
                                                                     template)
