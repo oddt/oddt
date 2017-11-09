@@ -265,6 +265,48 @@ def test_pocket_extractor():
     atom = pocket.GetAtomWithIdx(73)
     assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
 
+    # ligand and protein white/blacklist
+    molfile = test_dir + '1dy3_2LIG.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+
+    # by default the largest ligand - ATP
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=20.)
+    assert_equal(pocket.GetNumAtoms(), 304)
+    assert_equal(ligand.GetNumAtoms(), 31)
+
+    atom = ligand.GetAtomWithIdx(0)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'ATP')
+
+    # blacklist APT to get other largest ligand - 87Y
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=20.,
+                                            ligand_residue_blacklist=['ATP'])
+    assert_equal(pocket.GetNumAtoms(), 304)
+    assert_equal(ligand.GetNumAtoms(), 23)
+
+    atom = ligand.GetAtomWithIdx(0)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), '87Y')
+
+    # point to 87Y explicitly
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=20.,
+                                            ligand_residue='87Y')
+    assert_equal(pocket.GetNumAtoms(), 304)
+    assert_equal(ligand.GetNumAtoms(), 23)
+
+    atom = ligand.GetAtomWithIdx(0)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), '87Y')
+
+    # include APT in pocket to get other largest ligand - 87Y
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=20.,
+                                            append_residues=['ATP'])
+    assert_equal(pocket.GetNumAtoms(), 304+31)
+    assert_equal(ligand.GetNumAtoms(), 23)
+
+    atom = ligand.GetAtomWithIdx(0)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), '87Y')
+
+    atom = pocket.GetAtomWithIdx(310)
+    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'ATP')
+
 
 def test_aromatic_ring():
     """Test aromaticity for partial matches"""
