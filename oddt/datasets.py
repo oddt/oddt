@@ -3,6 +3,7 @@ from __future__ import print_function
 import sys
 import os
 import six
+from six import next
 import pandas as pd
 from os.path import isfile, isdir
 from os import listdir
@@ -235,7 +236,7 @@ class CASF:
     """Load CASF dataset as described in
     Li, Y. et al. Comparative Assessment of Scoring Functions
     on an Updated Benchmark: 2. Evaluation Methods and General
-    Results. J. Chem. Inf. Model. 54, 1717–1736. (2014)
+    Results. J. Chem. Inf. Model. 54, 1717-1736. (2014)
     http://dx.doi.org/10.1021/ci500081m
 
     Parameters
