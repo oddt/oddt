@@ -169,8 +169,10 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
     """
 
     # Catch residues which have less than 4 atoms (i.e. cannot have complete
-    # backbone), and template has more atoms than that.
-    if len(amap) < 4 and template.GetNumAtoms() > 4:
+    # backbone), and template has more atoms than that, or residues with
+    # many missing atoms, which lead to low number of bonds (less than 3)
+    if ((len(amap) < 4 or residue.GetNumBonds() < 3) and
+            template.GetNumAtoms() > 4):
         raise ValueError('The residue "%s" has incomplete backbone'
                          % template.GetProp('_Name'),
                          Chem.MolToSmiles(template),

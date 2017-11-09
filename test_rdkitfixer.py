@@ -305,3 +305,17 @@ def test_aromatic_ring():
     assert_equal(info.GetName().strip(), 'CG')
     assert_equal(atom.GetIsAromatic(), False)
     assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+
+
+def test_many_missing():
+    """Test parsing residues with **many** missing atoms and bonds"""
+
+    # ring is complete and should be aromatic
+    molfile = test_dir + '2wb5_GLN.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+    mol = PreparePDBMol(mol)
+
+    assert_equal(mol.GetNumAtoms(), 5)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+
+    assert_equal(mol.GetAtomWithIdx(4).GetDegree(), 0)
