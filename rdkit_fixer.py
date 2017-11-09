@@ -266,8 +266,8 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
                 a2.SetHybridization(a.GetHybridization())
 
                 # partial match may not close ring, so set aromacity only if
-                # there is complete match
-                if len(matching) == template.GetNumAtoms():
+                # atom is in ring
+                if a2.IsInRing():
                     a2.SetIsAromatic(a.GetIsAromatic())
                 # TODO: check for connected Hs
                 # n_hs = sum(n.GetAtomicNum() == 1 for n in a2.GetNeighbors())
@@ -281,12 +281,16 @@ def AssignPDBResidueBondOrdersFromTemplate(protein, residue, amap, template):
             amap_frag = [amap[matching[a.GetIdx()]]
                          for a in template.GetAtoms()
                          if a.GetIdx() in matching]
+            info = protein.GetAtomWithIdx(amap_frag[0]).GetPDBResidueInfo()
             print('Partial match. Probably incomplete sidechain.',
                   template.GetProp('_Name'),
                   Chem.MolToSmiles(template),
                   Chem.MolToSmiles(template2),
                   Chem.MolToSmiles(residue),
                   Chem.MolToSmiles(AtomListToSubMol(protein, amap_frag)),
+                  info.GetResidueName(),
+                  info.GetResidueNumber(),
+                  info.GetChainId(),
                   sep='\t', file=sys.stderr)
     else:
         # most common missing sidechain AA

@@ -262,3 +262,44 @@ def test_pocket_extractor():
     assert_equal(atom.GetPDBResidueInfo().GetResidueName().strip(), 'ZN')
     atom = pocket.GetAtomWithIdx(73)
     assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
+
+
+def test_aromatic_ring():
+    """Test aromaticity for partial matches"""
+
+    # ring is complete and should be aromatic
+    molfile = '5ar7_HIS.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+    mol = PreparePDBMol(mol)
+
+    atom = mol.GetAtomWithIdx(6)
+    assert_equal(atom.GetAtomicNum(), 7)
+    info = atom.GetPDBResidueInfo()
+    assert_equal(info.GetResidueName(), 'HIS')
+    assert_equal(info.GetResidueNumber(), 246)
+    assert_equal(info.GetName().strip(), 'ND1')
+    assert_equal(atom.GetIsAromatic(), True)
+
+    atom = mol.GetAtomWithIdx(9)
+    assert_equal(atom.GetAtomicNum(), 7)
+    info = atom.GetPDBResidueInfo()
+    assert_equal(info.GetResidueName(), 'HIS')
+    assert_equal(info.GetResidueNumber(), 246)
+    assert_equal(info.GetName().strip(), 'NE2')
+    assert_equal(atom.GetIsAromatic(), True)
+
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+
+    # there is only one atom from the ring and it shouldn't be aromatic
+    molfile = '3cx9_TYR.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+    mol = PreparePDBMol(mol)
+
+    atom = mol.GetAtomWithIdx(14)
+    assert_equal(atom.GetAtomicNum(), 6)
+    info = atom.GetPDBResidueInfo()
+    assert_equal(info.GetResidueName(), 'TYR')
+    assert_equal(info.GetResidueNumber(), 138)
+    assert_equal(info.GetName().strip(), 'CG')
+    assert_equal(atom.GetIsAromatic(), False)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
