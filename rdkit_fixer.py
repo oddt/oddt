@@ -457,9 +457,9 @@ def PreparePDBMol(mol,
         # in case of error define it here
         try:
             new_mol, bonds = PreparePDBResidue(new_mol,
-                                                                    residue,
-                                                                    amap,
-                                                                    template)
+                                               residue,
+                                               amap,
+                                               template)
         except ValueError as e:
             print(resnum, resname, chainid, e, file=sys.stderr)
         finally:
