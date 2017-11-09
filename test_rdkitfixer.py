@@ -9,6 +9,8 @@ from rdkit_fixer import (AtomListToSubMol,
                          PreparePDBMol,
                          ExtractPocketAndLigand)
 
+test_dir = './test_data/'
+
 
 def test_atom_list_to_submol():
     mol = Chem.MolFromSmiles('CCCCC(=O)O')
@@ -19,7 +21,7 @@ def test_atom_list_to_submol():
     assert_equal(submol.GetBondBetweenAtoms(1, 2).GetBondType(),
                  rdkit.Chem.rdchem.BondType.DOUBLE)
 
-    molfile = '2qwe_Sbridge.pdb'
+    molfile = test_dir + '2qwe_Sbridge.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     assert_equal(mol.GetConformer().Is3D(), True)
     submol = AtomListToSubMol(mol, range(6), includeConformer=True)
@@ -42,7 +44,7 @@ def test_multivalent_Hs():
     """Test if fixer deals with multivalent Hs"""
 
     # TODO: require mol without Hs in the future (rdkit v. 2018)
-    molfile = '2c92_hypervalentH.pdb'
+    molfile = test_dir + '2c92_hypervalentH.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol, residue_whitelist=[], removeHs=False)
 
@@ -61,7 +63,7 @@ def test_multivalent_Hs():
 def test_HOH_bonding():
     """Test if fixer unbinds HOH"""
 
-    molfile = '2vnf_bindedHOH.pdb'
+    molfile = test_dir + '2vnf_bindedHOH.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     # don't use templates and don't remove waters
     mol = PreparePDBMol(mol, residue_whitelist=[], removeHOHs=False)
@@ -77,7 +79,7 @@ def test_HOH_bonding():
 def test_metal_bonding():
     """Test if fixer disconnects metals"""
 
-    molfile = '1ps3_zn.pdb'
+    molfile = test_dir + '1ps3_zn.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
 
     mol = PreparePDBMol(mol)
@@ -95,7 +97,7 @@ def test_metal_bonding():
 def test_interresidue_bonding():
     """Test if fixer removes wrong connections between residues"""
 
-    molfile = '4e6d_residues.pdb'
+    molfile = test_dir + '4e6d_residues.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
 
     mol = PreparePDBMol(mol)
@@ -118,7 +120,7 @@ def test_interresidue_bonding():
 def test_intraresidue_bonding():
     """Test if fixer removes wrong connections within single residue"""
 
-    molfile = '1idg_connectivity.pdb'
+    molfile = test_dir + '1idg_connectivity.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol)
 
@@ -141,7 +143,7 @@ def test_intraresidue_bonding():
 def test_bondtype():
     """Test if fixer deals with non-standard residue and fixes bond types"""
 
-    molfile = '3rsb_bondtype.pdb'
+    molfile = test_dir + '3rsb_bondtype.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol)
 
@@ -165,7 +167,7 @@ def test_bondtype():
 def test_ring():
     """Test if fixer adds missing bond in ring"""
 
-    molfile = '4yzm_ring.pdb'
+    molfile = test_dir + '4yzm_ring.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol)
 
@@ -189,7 +191,7 @@ def test_ring():
 def test_sulphur_bridge():
     """Test sulphur bridges retention"""
 
-    molfile = '2qwe_Sbridge.pdb'
+    molfile = test_dir + '2qwe_Sbridge.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
 
     mol = PreparePDBMol(mol)
@@ -207,7 +209,7 @@ def test_sulphur_bridge():
 def test_pocket_extractor():
     """Test extracting pocket and ligand"""
 
-    molfile = '5ar7.pdb'
+    molfile = test_dir + '5ar7.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
 
     # there should be no pocket at 1A
@@ -242,7 +244,7 @@ def test_pocket_extractor():
     assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'SR8')
 
     # test if metal is in pocket
-    molfile = '4p6p_lig_zn.pdb'
+    molfile = test_dir + '4p6p_lig_zn.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     assert_equal(mol.GetNumAtoms(), 176)
     pocket, ligand = ExtractPocketAndLigand(mol, cutoff=5., confId=-1)
@@ -268,7 +270,7 @@ def test_aromatic_ring():
     """Test aromaticity for partial matches"""
 
     # ring is complete and should be aromatic
-    molfile = '5ar7_HIS.pdb'
+    molfile = test_dir + '5ar7_HIS.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol)
 
@@ -291,7 +293,7 @@ def test_aromatic_ring():
     assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
     # there is only one atom from the ring and it shouldn't be aromatic
-    molfile = '3cx9_TYR.pdb'
+    molfile = test_dir + '3cx9_TYR.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol)
 
