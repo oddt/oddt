@@ -1,4 +1,5 @@
 from __future__ import division, print_function
+import os
 from collections import OrderedDict
 from itertools import combinations, chain
 import sys
@@ -391,7 +392,8 @@ def PreparePDBMol(mol,
 
     # load templates
     template_mols = {}
-    with open('pdb_residue_templates.smi') as f:
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           'pdb_residue_templates.smi')) as f:
         for n, line in enumerate(f):
             data = line.split()
             # TODO: skip all residues that have 1 heavy atom
