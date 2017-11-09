@@ -171,7 +171,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1,
     return pocket, ligand
 
 
-def PreparePDBResidue(protein, residue, amap, template):
+def PreparePDBResidue(protein, residue, amap, template, remove_incomplete):
     """
     Parameters
     ----------
@@ -179,16 +179,22 @@ def PreparePDBResidue(protein, residue, amap, template):
             Mol with whole protein. Note that it is modified in place.
         residue:
             Mol with residue only
-        amap: dict
-            Dictionary mapping atom IDs in residue to atom IDs in whole protein
+        amap: list
+            List mapping atom IDs in residue to atom IDs in whole protein
+            (amap[i] = j means that i'th atom in residue corresponds to j'th
+            atom in protein)
         template:
             Residue template
+        remove_incomplete: bool
+            If True, remove residues that do not fully match the template
     Returns
     -------
         protein: rdkit.Chem.rdchem.RWMol
             Modified protein
         visited_bonds: list
             Bonds that match the template
+        atoms_to_del: list
+            List of atoms to delete
     """
 
     # Catch residues which have less than 4 atoms (i.e. cannot have complete
@@ -206,6 +212,7 @@ def PreparePDBResidue(protein, residue, amap, template):
     residue2 = Chem.Mol(residue)
 
     visited_bonds = []
+    atoms_to_del = []
 
     # do the molecules match already?
     matches = residue2.GetSubstructMatches(template2, maxMatches=1)
@@ -256,6 +263,9 @@ def PreparePDBResidue(protein, residue, amap, template):
                     residue.GetNumAtoms(),
                     template.GetNumAtoms(),
             )
+
+            if remove_incomplete and len(matching) < template.GetNumAtoms():
+                atoms_to_del.extend(amap)
 
             # Convert matches to dict to support partial match, where keys
             # are not complete sequence, as in full match.
@@ -328,7 +338,7 @@ def PreparePDBResidue(protein, residue, amap, template):
                          Chem.MolToSmiles(residue),
                          )
 
-    return protein, visited_bonds
+    return protein, visited_bonds, atoms_to_del
 
 
 def PreparePDBMol(mol,
@@ -336,6 +346,7 @@ def PreparePDBMol(mol,
                   removeHOHs=True,
                   residue_whitelist=None,
                   residue_blacklist=None,
+                  remove_incomplete=False,
                   ):
     """Prepares protein molecule by:
         - Removing Hs by hard using atomic number [default=True]
@@ -357,6 +368,8 @@ def PreparePDBMol(mol,
         residue_blacklist: array-like, optional (default None)
             List of residues to ignore during cleaning. If not specified,
             all residues present in the structure will be cleaned.
+        remove_incomplete: bool, optional (default False)
+            If True, remove residues that do not fully match the template
 
     Returns
     -------
@@ -443,6 +456,7 @@ def PreparePDBMol(mol,
 
     # reset B.O. using templates
     visited_bonds = []
+    atoms_to_del = []
     for ((resnum, resname, chainid), residue, amap) in residues:
         if resname not in unique_resname:
             continue
@@ -454,16 +468,19 @@ def PreparePDBMol(mol,
         else:
             template = template_chain
         bonds = []
+        atoms = []
         # in case of error define it here
         try:
-            new_mol, bonds = PreparePDBResidue(new_mol,
-                                               residue,
-                                               amap,
-                                               template)
+            new_mol, bonds, atoms = PreparePDBResidue(new_mol,
+                                                      residue,
+                                                      amap,
+                                                      template,
+                                                      remove_incomplete)
         except ValueError as e:
             print(resnum, resname, chainid, e, file=sys.stderr)
         finally:
             visited_bonds.extend(bonds)
+            atoms_to_del.extend(atoms)
 
     # HACK: remove not-visited bonds
     if visited_bonds:  # probably we dont want to delete all
@@ -501,6 +518,10 @@ def PreparePDBMol(mol,
                 new_mol.RemoveBond(a1_ix, a2_ix)
             else:
                 pass
+    if atoms_to_del:
+        new_mol = Chem.RWMol(new_mol)
+        for idx in sorted(atoms_to_del, reverse=True):
+            new_mol.RemoveAtom(idx)
 
         # HACK: termini oxygens get matched twice due to removal from templates
         # TODO: remove by treatment of templates

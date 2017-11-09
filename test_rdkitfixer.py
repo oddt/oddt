@@ -359,3 +359,28 @@ def test_many_missing():
     assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
     assert_equal(mol.GetAtomWithIdx(4).GetDegree(), 0)
+
+
+def test_remove_incomplete():
+    """Test removing residues with missing atoms"""
+
+    molfile = test_dir + '3cx9_TYR.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+
+    # keep all residues
+    new_mol = PreparePDBMol(mol, remove_incomplete=False)
+    assert_equal(new_mol.GetNumAtoms(), 23)
+    residues = set()
+    for atom in new_mol.GetAtoms():
+        residues.add(atom.GetPDBResidueInfo().GetResidueNumber())
+    assert_equal(residues, {137, 138, 139})
+    assert_equal(Chem.SanitizeMol(new_mol), Chem.SanitizeFlags.SANITIZE_NONE)
+
+    # remove residue with missing sidechain
+    new_mol = PreparePDBMol(mol, remove_incomplete=True)
+    assert_equal(new_mol.GetNumAtoms(), 17)
+    residues = set()
+    for atom in new_mol.GetAtoms():
+        residues.add(atom.GetPDBResidueInfo().GetResidueNumber())
+    assert_equal(residues, {137, 139})
+    assert_equal(Chem.SanitizeMol(new_mol), Chem.SanitizeFlags.SANITIZE_NONE)
