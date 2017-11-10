@@ -64,7 +64,7 @@ def test_HOH_bonding():
     molfile = test_dir + '2vnf_bindedHOH.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     # don't use templates and don't remove waters
-    mol = PreparePDBMol(mol, residue_whitelist=[], removeHOHs=False)
+    mol = PreparePDBMol(mol, removeHOHs=False)
 
     atom = mol.GetAtomWithIdx(5)
     assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
@@ -390,3 +390,33 @@ def test_remove_incomplete():
         residues.add(atom.GetPDBResidueInfo().GetResidueNumber())
     assert_equal(residues, {137, 139})
     assert_equal(Chem.SanitizeMol(new_mol), Chem.SanitizeFlags.SANITIZE_NONE)
+
+
+def test_custom_templates():
+    """Test using custom templates"""
+
+    molfile = test_dir + '3cx9_TYR.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+
+    templates = {
+        'TYR': 'CCC(N)C=O',
+        'LYS': 'NC(C(O)=O)CCCCN',
+        'LEU': 'CC(C)CC(N)C(=O)O',
+    }
+
+    mol_templates = {resname: Chem.MolFromSmiles(smi)
+                     for resname, smi in templates.items()}
+
+    for kwargs in ({'custom_templates': {'TYR': 'CCC(N)C=O'}},
+                   {'custom_templates': {'TYR': Chem.MolFromSmiles('CCC(N)C=O')}},
+                   {'custom_templates': templates, 'replace_default_templates': True},
+                   {'custom_templates': mol_templates, 'replace_default_templates': True}):
+
+        # use TYR without sidechain - all matches should be complete
+        new_mol = PreparePDBMol(mol, remove_incomplete=True, **kwargs)
+        assert_equal(new_mol.GetNumAtoms(), 23)
+        residues = set()
+        for atom in new_mol.GetAtoms():
+            residues.add(atom.GetPDBResidueInfo().GetResidueNumber())
+        assert_equal(residues, {137, 138, 139})
+        assert_equal(Chem.SanitizeMol(new_mol), Chem.SanitizeFlags.SANITIZE_NONE)

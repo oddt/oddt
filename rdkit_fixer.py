@@ -65,6 +65,34 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
     return submol
 
 
+def MolToTemplates(mol):
+    """Prepare set of templates for a given PDB residue."""
+
+    match = mol.GetSubstructMatch(Chem.MolFromSmiles('OC(=O)CN'))
+    mol2 = Chem.RWMol(mol)
+    if match:
+        mol2.RemoveAtom(match[0])
+    mol2 = mol2.GetMol()
+    return (mol, mol2)
+
+
+def ReadTemplates(filename, resnames):
+    """Load templates from file for specified residues"""
+
+    template_mols = {}
+
+    with open(filename) as f:
+        for n, line in enumerate(f):
+            data = line.split()
+            # TODO: skip all residues that have 1 heavy atom
+            if data[1] in resnames and data[1] != 'HOH':  # skip waters
+                res = Chem.MolFromSmiles(data[0])
+                res.SetProp('_Name', data[1])  # Needed for residue type lookup
+                template_mols[data[1]] = MolToTemplates(res)
+
+    return template_mols
+
+
 def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1,
                            ligand_residue=None, ligand_residue_blacklist=None,
                            append_residues=None):
@@ -340,6 +368,8 @@ def PreparePDBMol(mol,
                   residue_whitelist=None,
                   residue_blacklist=None,
                   remove_incomplete=False,
+                  custom_templates=None,
+                  replace_default_templates=False,
                   ):
     """Prepares protein molecule by:
         - Removing Hs by hard using atomic number [default=True]
@@ -363,6 +393,13 @@ def PreparePDBMol(mol,
             all residues present in the structure will be cleaned.
         remove_incomplete: bool, optional (default False)
             If True, remove residues that do not fully match the template
+        custom_templates: str or dict, optional (default None)
+            Custom templates for residues. Can be either path to SMILES file,
+            or dictionary mapping names to SMILES or Mol objects
+        replace_default_templates: bool, optional (default False)
+            Indicates whether default default templates should be replaced by
+            cusom ones. If False, default templates will be updated with custom
+            ones. This argument is ignored if custom_templates is None.
 
     Returns
     -------
@@ -382,20 +419,6 @@ def PreparePDBMol(mol,
             atom = new_mol.GetAtomWithIdx(i)
             if atom.GetPDBResidueInfo().GetResidueName() == 'HOH':
                 new_mol.RemoveAtom(i)
-    # disconnect_metals and HOHs for older versions of RDKit
-    # TODO: put here the RDKit version which includes PR #1629
-    if LooseVersion(rdkit.__version__) < LooseVersion('2018.03'):
-        for i in reversed(range(new_mol.GetNumAtoms())):
-            atom = new_mol.GetAtomWithIdx(i)
-            atom_info = atom.GetPDBResidueInfo()
-            if not removeHOHs and atom_info.GetResidueName() == 'HOH':
-                for n in atom.GetNeighbors():
-                    n_info = n.GetPDBResidueInfo()
-                    if n_info.GetResidueNumber() != atom_info.GetResidueNumber():
-                        new_mol.RemoveBond(i, n.GetIdx())
-            if atom.GetAtomicNum() in METALS:
-                for n in atom.GetNeighbors():
-                    new_mol.RemoveBond(i, n.GetIdx())
 
     # list of unique residues and their atom indices
     unique_resname = set()
@@ -421,24 +444,33 @@ def PreparePDBMol(mol,
             res = AtomListToSubMol(new_mol, amap)
             residues.append((residue_id, res, amap))
 
-    # load templates
-    template_mols = {}
-    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           'pdb_residue_templates.smi')) as f:
-        for n, line in enumerate(f):
-            data = line.split()
-            # TODO: skip all residues that have 1 heavy atom
-            if data[1] in unique_resname and data[1] != 'HOH':  # skip waters
-                res = Chem.MolFromSmiles(data[0])
-                res.SetProp('_Name', data[1])  # Needed for residue type lookup
-                # remove oxygen for peptide
-                # TODO: Remove that and treat the templates accordingly
-                match = res.GetSubstructMatch(Chem.MolFromSmiles('OC(=O)CN'))
-                res2 = Chem.RWMol(res)
-                if match:
-                    res2.RemoveAtom(match[0])
-                res2 = res2.GetMol()
-                template_mols[data[1]] = (res, res2)
+    # load cutom templates
+    if custom_templates is not None:
+        if isinstance(custom_templates, str):
+            custom_mols = ReadTemplates(custom_templates, unique_resname)
+        elif isinstance(custom_templates, dict):
+            custom_mols = {}
+            for resname, structure in custom_templates.items():
+                if isinstance(structure, str):
+                    structure = Chem.MolFromSmiles(structure)
+                    structure.SetProp('_Name', resname)
+                custom_mols[resname] = MolToTemplates(structure)
+        else:
+            raise TypeError('custom_templates should be file name on dict,'
+                            ' %s was given' % type(custom_templates))
+
+    if custom_templates is None or not replace_default_templates:
+        filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                'pdb_residue_templates.smi')
+        template_mols = ReadTemplates(filename, unique_resname)
+    else:
+        template_mols = {}
+
+    if custom_templates is not None:
+        if replace_default_templates:
+            template_mols = custom_mols
+        else:
+            template_mols.update(custom_mols)
 
     # Deal with residue lists
     if residue_whitelist is not None:
