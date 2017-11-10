@@ -171,7 +171,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1,
     return pocket, ligand
 
 
-def PreparePDBResidue(protein, residue, amap, template, remove_incomplete):
+def PreparePDBResidue(protein, residue, amap, template):
     """
     Parameters
     ----------
@@ -185,16 +185,14 @@ def PreparePDBResidue(protein, residue, amap, template, remove_incomplete):
             atom in protein)
         template:
             Residue template
-        remove_incomplete: bool
-            If True, remove residues that do not fully match the template
     Returns
     -------
         protein: rdkit.Chem.rdchem.RWMol
             Modified protein
         visited_bonds: list
             Bonds that match the template
-        atoms_to_del: list
-            List of atoms to delete
+        is_complete: bool
+            Indicates whether all atoms in template were found in residue
     """
 
     # Catch residues which have less than 4 atoms (i.e. cannot have complete
@@ -212,11 +210,10 @@ def PreparePDBResidue(protein, residue, amap, template, remove_incomplete):
     residue2 = Chem.Mol(residue)
 
     visited_bonds = []
-    atoms_to_del = []
 
     # do the molecules match already?
-    matches = residue2.GetSubstructMatches(template2, maxMatches=1)
-    if not matches:  # no, they don't match
+    match = residue2.GetSubstructMatch(template2)
+    if not match:  # no, they don't match
         # set the bonds orders to SINGLE
         for b in residue2.GetBonds():
             b.SetBondType(BondType.SINGLE)
@@ -232,91 +229,85 @@ def PreparePDBResidue(protein, residue, amap, template, remove_incomplete):
             a.SetFormalCharge(0)
             a.SetIsAromatic(False)
 
-        # matches is either tuple (if match was complete) or dict (if match
+        # match is either tuple (if match was complete) or dict (if match
         # was partial)
-        matches = residue2.GetSubstructMatches(template2, maxMatches=1)
+        match = residue2.GetSubstructMatch(template2)
 
     # try inverse match
-    if not matches:
-        inverse_matches = template.GetSubstructMatches(residue, maxMatches=1)
+    if not match:
+        inverse_match = template.GetSubstructMatch(residue)
         # if it failed try to match modified molecules (single bonds,
         # no charges, no aromatic atoms)
-        if not inverse_matches:
-            inverse_matches = template2.GetSubstructMatches(residue2, maxMatches=1)
-        if inverse_matches:
-            matches = []
-            for inverse_match in inverse_matches:
-                matches.append(dict(zip(inverse_match,
-                                        range(len(inverse_match)))))
+        if not inverse_match:
+            inverse_match = template2.GetSubstructMatch(residue2)
+        if inverse_match:
+            match = (dict(zip(inverse_match, range(len(inverse_match)))))
 
     # do the molecules match now?
-    if matches:
-        for matching in matches:
+    if match:
 
-            assert len(matching) <= len(amap), \
-                'matching is bigger than amap for %s' \
-                '(%s / %s vs %s; %s atoms vs %s atoms)' % (
-                    template.GetProp('_Name'),
-                    Chem.MolToSmiles(template),
-                    Chem.MolToSmiles(template2),
-                    Chem.MolToSmiles(residue),
-                    residue.GetNumAtoms(),
-                    template.GetNumAtoms(),
-            )
+        assert len(match) <= len(amap), \
+            'matching is bigger than amap for %s' \
+            '(%s / %s vs %s; %s atoms vs %s atoms)' % (
+                template.GetProp('_Name'),
+                Chem.MolToSmiles(template),
+                Chem.MolToSmiles(template2),
+                Chem.MolToSmiles(residue),
+                residue.GetNumAtoms(),
+                template.GetNumAtoms(),
+        )
 
-            if remove_incomplete and len(matching) < template.GetNumAtoms():
-                atoms_to_del.extend(amap)
+        # Convert matches to dict to support partial match, where keys
+        # are not complete sequence, as in full match.
+        if isinstance(match, (tuple, list)):
+            match = dict(zip(range(len(match)), match))
 
-            # Convert matches to dict to support partial match, where keys
-            # are not complete sequence, as in full match.
-            if isinstance(matching, (tuple, list)):
-                matching = dict(zip(range(len(matching)), matching))
+        # apply matching: set bond properties
+        for (atom1, atom2), (refatom1, refatom2) in \
+            zip(combinations(match.values(), 2),
+                combinations(match.keys(), 2)):
 
-            # apply matching: set bond properties
-            for (atom1, atom2), (refatom1, refatom2) in \
-                zip(combinations(matching.values(), 2),
-                    combinations(matching.keys(), 2)):
+            b = template.GetBondBetweenAtoms(refatom1, refatom2)
 
-                b = template.GetBondBetweenAtoms(refatom1, refatom2)
-
+            b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
+            # remove extra bonds
+            if b is None:
+                if b2:  # this bond is not there
+                    protein.RemoveBond(amap[atom1], amap[atom2])
+                continue
+            # add missing bonds
+            if b2 is None:
+                protein.AddBond(amap[atom1], amap[atom2])
                 b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
-                # remove extra bonds
-                if b is None:
-                    if b2:  # this bond is not there
-                        protein.RemoveBond(amap[atom1], amap[atom2])
-                    continue
-                # add missing bonds
-                if b2 is None:
-                    protein.AddBond(amap[atom1], amap[atom2])
-                    b2 = protein.GetBondBetweenAtoms(amap[atom1], amap[atom2])
-                # set bond properties
-                b2.SetBondType(b.GetBondType())
-                b2.SetIsAromatic(b.GetIsAromatic())
-                visited_bonds.append((amap[atom1], amap[atom2]))
+            # set bond properties
+            b2.SetBondType(b.GetBondType())
+            b2.SetIsAromatic(b.GetIsAromatic())
+            visited_bonds.append((amap[atom1], amap[atom2]))
 
-            # apply matching: set atom properties
-            for a in template.GetAtoms():
-                if a.GetIdx() not in matching:
-                    continue
-                a2 = protein.GetAtomWithIdx(amap[matching[a.GetIdx()]])
-                a2.SetHybridization(a.GetHybridization())
+        # apply matching: set atom properties
+        for a in template.GetAtoms():
+            if a.GetIdx() not in match:
+                continue
+            a2 = protein.GetAtomWithIdx(amap[match[a.GetIdx()]])
+            a2.SetHybridization(a.GetHybridization())
 
-                # partial match may not close ring, so set aromacity only if
-                # atom is in ring
-                if a2.IsInRing():
-                    a2.SetIsAromatic(a.GetIsAromatic())
-                # TODO: check for connected Hs
-                # n_hs = sum(n.GetAtomicNum() == 1 for n in a2.GetNeighbors())
-                a2.SetNumExplicitHs(a.GetNumExplicitHs())
-                a2.SetFormalCharge(a.GetFormalCharge())
-                # Update computed properties for an atom
-                a2.UpdatePropertyCache(strict=False)
-        if len(matching) < template.GetNumAtoms():
+            # partial match may not close ring, so set aromacity only if
+            # atom is in ring
+            if a2.IsInRing():
+                a2.SetIsAromatic(a.GetIsAromatic())
+            # TODO: check for connected Hs
+            # n_hs = sum(n.GetAtomicNum() == 1 for n in a2.GetNeighbors())
+            a2.SetNumExplicitHs(a.GetNumExplicitHs())
+            a2.SetFormalCharge(a.GetFormalCharge())
+            # Update computed properties for an atom
+            a2.UpdatePropertyCache(strict=False)
+        if len(match) < template.GetNumAtoms():
+            is_complete = False
             # TODO: replace following with warning/logging
             # Get atom map of fixed fragment
-            amap_frag = [amap[matching[a.GetIdx()]]
+            amap_frag = [amap[match[a.GetIdx()]]
                          for a in template.GetAtoms()
-                         if a.GetIdx() in matching]
+                         if a.GetIdx() in match]
             info = protein.GetAtomWithIdx(amap_frag[0]).GetPDBResidueInfo()
             print('Partial match. Probably incomplete sidechain.',
                   template.GetProp('_Name'),
@@ -328,6 +319,8 @@ def PreparePDBResidue(protein, residue, amap, template, remove_incomplete):
                   info.GetResidueNumber(),
                   info.GetChainId(),
                   sep='\t', file=sys.stderr)
+        else:
+            is_complete = True
     else:
         # most common missing sidechain AA
         msg = 'No matching found'
@@ -338,7 +331,7 @@ def PreparePDBResidue(protein, residue, amap, template, remove_incomplete):
                          Chem.MolToSmiles(residue),
                          )
 
-    return protein, visited_bonds, atoms_to_del
+    return protein, visited_bonds, is_complete
 
 
 def PreparePDBMol(mol,
@@ -467,20 +460,20 @@ def PreparePDBMol(mol,
             template = template_raw
         else:
             template = template_chain
+
         bonds = []
-        atoms = []
-        # in case of error define it here
+        complete_match = False
         try:
-            new_mol, bonds, atoms = PreparePDBResidue(new_mol,
-                                                      residue,
-                                                      amap,
-                                                      template,
-                                                      remove_incomplete)
+            new_mol, bonds, complete_match = PreparePDBResidue(new_mol,
+                                                               residue,
+                                                               amap,
+                                                               template)
         except ValueError as e:
             print(resnum, resname, chainid, e, file=sys.stderr)
         finally:
             visited_bonds.extend(bonds)
-            atoms_to_del.extend(atoms)
+            if remove_incomplete and not complete_match:
+                atoms_to_del.extend(amap)
 
     # HACK: remove not-visited bonds
     if visited_bonds:  # probably we dont want to delete all
@@ -522,14 +515,5 @@ def PreparePDBMol(mol,
         new_mol = Chem.RWMol(new_mol)
         for idx in sorted(atoms_to_del, reverse=True):
             new_mol.RemoveAtom(idx)
-
-        # HACK: termini oxygens get matched twice due to removal from templates
-        # TODO: remove by treatment of templates
-        # Terminus treatment
-        # for atom in new_mol.GetAtoms():
-        #     if atom.GetAtomicNum() == 8 and atom.GetPDBResidueInfo().GetName().strip() == 'OXT':
-        #         bonds = atom.GetBonds()
-        #         if len(bonds) > 0:  # this should not happen at all
-        #             bonds[0].SetBondType(BondType.SINGLE)
 
     return new_mol

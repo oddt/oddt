@@ -350,7 +350,6 @@ def test_aromatic_ring():
 def test_many_missing():
     """Test parsing residues with **many** missing atoms and bonds"""
 
-    # ring is complete and should be aromatic
     molfile = test_dir + '2wb5_GLN.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol)
@@ -359,6 +358,13 @@ def test_many_missing():
     assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
     assert_equal(mol.GetAtomWithIdx(4).GetDegree(), 0)
+
+    # test if removal works
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+    mol = PreparePDBMol(mol, remove_incomplete=True)
+
+    assert_equal(mol.GetNumAtoms(), 0)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
 
 
 def test_remove_incomplete():
