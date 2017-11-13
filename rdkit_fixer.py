@@ -362,7 +362,7 @@ def PreparePDBResidue(protein, residue, amap, template):
 
 
 def AddMissingAtoms(protein, residue, amap, template):
-    # TODO: Renumber atoms (added atoms are at the end)
+    # TODO: outpur idxs of added atoms and validate if all of missing atoms were added
     # TODO: minimize all added atoms in context of full protein
     # TODO: add backbone peptide bonds, if they were missing
     # TODO: try to better guess the types of atoms (if possible)
@@ -616,4 +616,16 @@ def PreparePDBMol(mol,
         for idx in sorted(atoms_to_del, reverse=True):
             new_mol.RemoveAtom(idx)
 
+    # if missing atoms were added we need to renumber them
+    if add_missing_atoms:
+        def atom_reorder_repr(i):
+            """Generate keys for each atom during sort"""
+            atom = new_mol.GetAtomWithIdx(i)
+            info = atom.GetPDBResidueInfo()
+            return (info.GetChainId(), info.GetResidueNumber(), i)
+
+        order = list(range(new_mol.GetNumAtoms()))
+        new_order = sorted(order, key=atom_reorder_repr)
+        if new_order != order:
+            new_mol = Chem.RenumberAtoms(new_mol, new_order)
     return new_mol
