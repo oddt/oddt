@@ -362,6 +362,30 @@ def PreparePDBResidue(protein, residue, amap, template):
 
 
 def AddMissingAtoms(protein, residue, amap, template):
+    """Add missing atoms to protein molecule only at the residue according to
+    template.
+
+    Parameters
+    ----------
+        protein: rdkit.Chem.rdchem.RWMol
+            Mol with whole protein. Note that it is modified in place.
+        residue:
+            Mol with residue only
+        amap: list
+            List mapping atom IDs in residue to atom IDs in whole protein
+            (amap[i] = j means that i'th atom in residue corresponds to j'th
+            atom in protein)
+        template:
+            Residue template
+    Returns
+    -------
+        protein: rdkit.Chem.rdchem.RWMol
+            Modified protein
+        visited_bonds: list
+            Bonds that match the template
+        is_complete: bool
+            Indicates whether all atoms in template were found in residue
+    """
     # TODO: outpur idxs of added atoms and validate if all of missing atoms were added
     # TODO: minimize all added atoms in context of full protein
     # TODO: add backbone peptide bonds, if they were missing
