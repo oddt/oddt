@@ -10,7 +10,7 @@ from scipy.spatial.distance import cdist
 
 import rdkit
 from rdkit import Chem
-from rdkit.Chem import BondType
+from rdkit.Chem.AllChem import ConstrainedEmbed
 
 
 METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
@@ -72,6 +72,7 @@ def MolToTemplates(mol):
     mol2 = Chem.RWMol(mol)
     if match:
         mol2.RemoveAtom(match[0])
+        Chem.SanitizeMol(mol2)
     mol2 = mol2.GetMol()
     return (mol, mol2)
 
@@ -91,6 +92,17 @@ def ReadTemplates(filename, resnames):
                 template_mols[data[1]] = MolToTemplates(res)
 
     return template_mols
+
+
+def SimplifyMol(mol):
+    """Change all bonds to single and discharge/dearomatize all atoms"""
+    for b in mol.GetBonds():
+        b.SetBondType(Chem.BondType.SINGLE)
+        b.SetIsAromatic(False)
+    for a in mol.GetAtoms():
+        a.SetFormalCharge(0)
+        a.SetIsAromatic(False)
+    return mol
 
 
 def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1,
@@ -242,21 +254,8 @@ def PreparePDBResidue(protein, residue, amap, template):
     # do the molecules match already?
     match = residue2.GetSubstructMatch(template2)
     if not match:  # no, they don't match
-        # set the bonds orders to SINGLE
-        for b in residue2.GetBonds():
-            b.SetBondType(BondType.SINGLE)
-            b.SetIsAromatic(False)
-        for b in template2.GetBonds():
-            b.SetBondType(BondType.SINGLE)
-            b.SetIsAromatic(False)
-        # set atom charges to zero and remove aromaticity
-        for a in residue2.GetAtoms():
-            a.SetFormalCharge(0)
-            a.SetIsAromatic(False)
-        for a in template2.GetAtoms():
-            a.SetFormalCharge(0)
-            a.SetIsAromatic(False)
-
+        residue2 = SimplifyMol(residue2)
+        template2 = SimplifyMol(template2)
         # match is either tuple (if match was complete) or dict (if match
         # was partial)
         match = residue2.GetSubstructMatch(template2)
@@ -362,12 +361,69 @@ def PreparePDBResidue(protein, residue, amap, template):
     return protein, visited_bonds, is_complete
 
 
+def AddMissingAtoms(protein, residue, amap, template):
+    # TODO: Renumber atoms (added atoms are at the end)
+    # TODO: minimize all added atoms in context of full protein
+    # TODO: add backbone peptide bonds, if they were missing
+
+    try:
+        fixed_residue = ConstrainedEmbed(template, residue)
+    except ValueError as e:
+        residue2 = SimplifyMol(Chem.Mol(residue))
+        template2 = SimplifyMol(Chem.Mol(template))
+        fixed_residue = ConstrainedEmbed(template2, residue2)
+    assert fixed_residue is not None
+    matched_atoms = fixed_residue.__sssAtoms
+    assert len(matched_atoms) > 0
+
+    new_amap = []
+    for i in range(fixed_residue.GetNumAtoms()):
+        if i not in matched_atoms:
+            atom = fixed_residue.GetAtomWithIdx(i)
+            info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+            new_info = Chem.AtomPDBResidueInfo(
+                atomName=' H  ',  # TODO fix atom name
+                serialNumber=1,  # TODO fix seral number after renumber
+                residueName=info.GetResidueName(),
+                residueNumber=info.GetResidueNumber(),
+                chainId=info.GetChainId(),
+                insertionCode=info.GetInsertionCode(),
+                isHeteroAtom=info.GetIsHeteroAtom()
+            )
+
+            atom.SetMonomerInfo(new_info)
+            new_id = protein.AddAtom(atom)
+            pos = fixed_residue.GetConformer().GetAtomPosition(i)
+            protein.GetConformer().SetAtomPosition(new_id, pos)
+            new_amap.append(new_id)
+        else:
+            new_amap.append(amap[matched_atoms.index(i)])
+
+    # add bonds in separate loop (we need all atoms added before that)
+    for i in range(fixed_residue.GetNumAtoms()):
+        if i not in matched_atoms:
+            atom = fixed_residue.GetAtomWithIdx(i)
+            for n in atom.GetNeighbors():
+                ni = n.GetIdx()
+                bond = fixed_residue.GetBondBetweenAtoms(i, ni)
+                # for multiple missing atoms we may hit bonds multiple times
+                new_bond = protein.GetBondBetweenAtoms(new_amap[i], new_amap[ni])
+                if new_bond is None:
+                    protein.AddBond(new_amap[i], new_amap[ni])
+                    new_bond = protein.GetBondBetweenAtoms(new_amap[i], new_amap[ni])
+                    new_bond.SetBondType(bond.GetBondType())
+
+    # run PreparePDBResidue again to fix atom properies
+    return PreparePDBResidue(protein, fixed_residue, new_amap, template)
+
+
 def PreparePDBMol(mol,
                   removeHs=True,
                   removeHOHs=True,
                   residue_whitelist=None,
                   residue_blacklist=None,
                   remove_incomplete=False,
+                  add_missing_atoms=False,
                   custom_templates=None,
                   replace_default_templates=False,
                   ):
@@ -393,6 +449,8 @@ def PreparePDBMol(mol,
             all residues present in the structure will be cleaned.
         remove_incomplete: bool, optional (default False)
             If True, remove residues that do not fully match the template
+        add_missing_atoms: bool (default=False)
+            Switch to add missing atoms accordingly to template SMILES structure.
         custom_templates: str or dict, optional (default None)
             Custom templates for residues. Can be either path to SMILES file,
             or dictionary mapping names to SMILES or Mol objects
@@ -406,6 +464,11 @@ def PreparePDBMol(mol,
         new_mol: rdkit.Chem.rdchem.RWMol
             Modified protein
     """
+
+    if remove_incomplete and add_missing_atoms:
+        raise ValueError('Arguments "remove_incomplete" and "add_missing_atoms"'
+                         ' are mutually exclusive and cannot be both set to'
+                         ' "True".')
 
     new_mol = Chem.RWMol(mol)
     if removeHs:
@@ -441,7 +504,7 @@ def PreparePDBMol(mol,
     for residue_id, amap in resiues_atom_map.items():
         # skip waters
         if residue_id[1] != 'HOH':
-            res = AtomListToSubMol(new_mol, amap)
+            res = AtomListToSubMol(new_mol, amap, includeConformer=True)
             residues.append((residue_id, res, amap))
 
     # load cutom templates
@@ -500,6 +563,11 @@ def PreparePDBMol(mol,
                                                                residue,
                                                                amap,
                                                                template)
+            if add_missing_atoms and not complete_match:
+                new_mol, bonds, complete_match = AddMissingAtoms(new_mol,
+                                                                 residue,
+                                                                 amap,
+                                                                 template)
         except ValueError as e:
             print(resnum, resname, chainid, e, file=sys.stderr)
         finally:
