@@ -386,7 +386,8 @@ def AddMissingAtoms(protein, residue, amap, template):
         is_complete: bool
             Indicates whether all atoms in template were found in residue
     """
-    # TODO: outpur idxs of added atoms and validate if all of missing atoms were added
+    # TODO: output idxs of added atoms alogn visited bonds
+    # TODO: validate the size of fixed residue and template
     # TODO: minimize all added atoms in context of full protein
     # TODO: add backbone peptide bonds, if they were missing
     # TODO: try to better guess the types of atoms (if possible)
