@@ -460,3 +460,12 @@ def test_add_missing_atoms():
     assert_equal(atom.IsInRing(), True)
     assert_equal(atom.GetIsAromatic(), True)
     assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+
+    # missing backbone atoms
+    molfile = test_dir + '5ar7_HIS.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=True)
+    mol = Chem.RemoveHs(mol, sanitize=False)
+
+    assert_equal(mol.GetNumAtoms(), 21)
+    mol = PreparePDBMol(mol, add_missing_atoms=True)
+    assert_equal(mol.GetNumAtoms(), 21)
