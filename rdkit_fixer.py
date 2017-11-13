@@ -365,6 +365,7 @@ def AddMissingAtoms(protein, residue, amap, template):
     # TODO: Renumber atoms (added atoms are at the end)
     # TODO: minimize all added atoms in context of full protein
     # TODO: add backbone peptide bonds, if they were missing
+    # TODO: try to better guess the types of atoms (if possible)
 
     try:
         fixed_residue = ConstrainedEmbed(template, residue)
@@ -382,8 +383,7 @@ def AddMissingAtoms(protein, residue, amap, template):
             atom = fixed_residue.GetAtomWithIdx(i)
             info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
             new_info = Chem.AtomPDBResidueInfo(
-                atomName=' H  ',  # TODO fix atom name
-                serialNumber=1,  # TODO fix seral number after renumber
+                atomName=' %-3s' % atom.GetSymbol(),
                 residueName=info.GetResidueName(),
                 residueNumber=info.GetResidueNumber(),
                 chainId=info.GetChainId(),
