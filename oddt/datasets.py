@@ -1,11 +1,12 @@
-""" Datasets wrapped in conviniet models """
+""" Datasets wrapped in convenient models """
 from __future__ import print_function
-import os
 import sys
-import csv
-
+import os
+import six
 from six import next
 import pandas as pd
+from os.path import isfile, isdir
+from os import listdir
 
 from oddt import toolkit
 
@@ -229,3 +230,204 @@ class _dude_target(object):
             return toolkit.readfile('mol2', f[:-3])
         else:
             return None
+
+
+class CASF:
+    """Load CASF dataset as described in
+    Li, Y. et al. Comparative Assessment of Scoring Functions
+    on an Updated Benchmark: 2. Evaluation Methods and General
+    Results. J. Chem. Inf. Model. 54, 1717-1736. (2014)
+    http://dx.doi.org/10.1021/ci500081m
+
+    Parameters
+    ----------
+    home: string
+        Path to CASF dataset main directory
+    """
+
+    def __init__(self, home):
+        self.home = home
+        self.index = '%s/coreset/index/' % self.home
+
+        if isdir(self.index):
+            filepath = '%s/2013_core_data.lst' % self.index
+            self.index_data = pd.read_csv(filepath,
+                                          sep=r'\s+',
+                                          comment='#',
+                                          header=None,
+                                          names=['pdbid', 'act', 'cluster'],
+                                          usecols=[0, 1, 5])
+            self.pdbids = self.index_data['pdbid']
+
+    def __iter__(self):
+        for pdbid in self.pdbids:
+            yield _CASFTarget(self.home, pdbid)
+
+    def __getitem__(self, item):
+        if item in self.pdbids:
+            return _CASFTarget(self.home, item)
+        elif isinstance(int, item) and item < len(self.pdbids):
+            return _CASFTarget(self.home, self.pdbids[item])
+        else:
+            raise KeyError
+
+    def precomputed_score(self, scoring_function=None):
+        """Load precomputed results of scoring power
+        test for various scoring functions.
+
+        Parameters
+        ----------
+        scoring_function: string (default=None)
+            Name of the scoring function to get results
+            If None, all results are returned.
+        """
+        examples_dir = '%s/power_scoring/examples' % self.home
+        if scoring_function is not None:
+            functions = [scoring_function]
+        else:
+            functions = listdir(examples_dir)
+            functions.remove('README')
+
+        frames = []
+
+        for fun in functions:
+            file_score = '%s/%s' % (examples_dir, fun)
+            if not isfile(file_score):
+                raise FileNotFoundError('Invalid scoring function name')
+
+            score = pd.read_csv(file_score, comment='#',
+                                sep=r'\s+', header=None,
+                                names=['pdbid', 'score_crystal', 'score_opt'])
+            act = self.index_data[['pdbid', 'act']]
+
+            scores = pd.merge(score, act)
+            scores['scoring_function'] = pd.Series([fun] * 195,
+                                                   name='Scoring function')
+            frames.append(scores)
+
+        return pd.concat(frames)
+
+    def precomputed_screening(self, scoring_function=None, cluster_id=None):
+        """Load precomputed results of screening power
+        test for various scoring functions
+
+        Parameters
+        ----------
+        scoring_function: string (default=None)
+            Name of the scoring function to get results
+            If None, all results are returned
+
+        cluster_id: int (default=None)
+            Number of the protein cluster to get results
+            If None, all results are returned
+        """
+        screening_dir = '%s/power_screening' % self.home
+        examples_dir = '%s/examples' % screening_dir
+        if scoring_function is not None:
+            functions = [scoring_function]
+        else:
+            functions = listdir(examples_dir)
+
+        cluster_frame = pd.DataFrame(columns=['cluster_id',
+                                              'protein_structure',
+                                              'cluster_proteins'])
+        data_file = open('%s/TargetInfo.dat' % screening_dir)
+        for cluster, line in enumerate(filter(lambda x: not x.startswith('#'),
+                                              data_file.readlines())):
+            line = line.split()
+            protein_structure = line[0]
+            cluster_proteins = line[1:]
+            cluster_frame.loc[cluster] = [cluster + 1,
+                                          protein_structure, cluster_proteins]
+
+        frames = []
+        for fun in functions:
+            file_dir = '%s/%s' % (examples_dir, fun)
+            if not isdir(file_dir):
+                raise FileNotFoundError('Invalid scoring function name')
+            if cluster_id:
+                protein = cluster_frame.iloc[cluster_id - 1]['protein_structure']
+                frame = pd.read_csv('%s/%s_score.dat' % (file_dir, protein),
+                                    sep=r'\s+', header=None,
+                                    names=['name', 'score'])
+                frame['pdbid'] = [name[:4] for name in frame['name']]
+                frame['scoring_function'] = [fun] * len(frame)
+                frame = frame.merge(self.index_data[['pdbid', 'act']])
+                frames.append(frame)
+
+            else:
+                for row in cluster_frame.itertuples():
+                    protein = row[2]
+                    frame = pd.read_csv('%s/%s_score.dat' % (file_dir, protein),
+                                        sep=r'\s+', header=None,
+                                        names=['name', 'score'])
+                    x = row[1]
+                    frame['cluster_id'] = [x] * len(frame)
+                    frame['protein_structure'] = [protein] * len(frame)
+                    frame['cluster_proteins'] = [row[3]] * len(frame)
+                    frame['pdbid'] = [name[:4] for name in frame['name']]
+                    frame['scoring_function'] = [fun] * len(frame)
+                    frame = frame.merge(self.index_data[['pdbid', 'act']])
+                    frames.append(frame)
+
+        return pd.concat(frames, ignore_index=True)
+
+
+class _CASFTarget:
+    """
+    Used by CASF class.
+    Load CASF target (protein and ligand) with given ID.
+
+    Parameters
+    ----------
+    home: string
+        Path to CASF dataset main directory
+    pdbid: string
+        ID of target protein
+    """
+    def __init__(self, home, pdbid):
+        self.home = home
+        self.pdbid = pdbid
+
+    @property
+    def protein(self):
+        """Load target protein from mol2 file as ob.Molecule object"""
+        filepath = '%s/coreset/%s/%s_protein.mol2' % (
+            self.home, self.pdbid, self.pdbid)
+        if isfile(filepath):
+            protein = six.next(toolkit.readfile('mol2', filepath))
+            return protein
+        return None
+
+    @property
+    def ligand(self):
+        """Load target ligand from mol2 file as ob.Molecule object"""
+        filepath = '%s/coreset/%s/%s_ligand.mol2' % (
+            self.home, self.pdbid, self.pdbid)
+        if isfile(filepath):
+            ligand = six.next(toolkit.readfile('mol2', filepath))
+            return ligand
+        return None
+
+    @property
+    def decoys_docking(self):
+        """Load decoys used for docking from mol2
+        file as list of ob.Molecule objects"""
+        filepath = '%s/decoys_docking/%s_decoys.mol2' % (self.home, self.pdbid)
+        if isfile(filepath):
+            decoys = list(toolkit.readfile('mol2', filepath))
+            return decoys
+        return None
+
+    @property
+    def decoys_screening(self):
+        """Load decoys used for screening from mol2
+        files as list of ob.Molecule objects"""
+        dirpath = '%s/decoys_screening/%s' % (self.home, self.pdbid)
+        if isdir(dirpath):
+            decoys = []
+            for file in listdir(dirpath):
+                decoys.append(six.next(
+                    toolkit.readfile('mol2', dirpath + '/' + file)))
+            return decoys
+        return None
