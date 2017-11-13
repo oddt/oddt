@@ -391,6 +391,16 @@ def AddMissingAtoms(protein, residue, amap, template):
     # TODO: add backbone peptide bonds, if they were missing
     # TODO: try to better guess the types of atoms (if possible)
 
+    num_backbone = sum(
+        atom.GetPDBResidueInfo().GetName().strip() in ['C', 'N', 'CA', 'O']
+        for atom in residue.GetAtoms())
+    if num_backbone < 4:  # allow one missing
+        raise ValueError('It apears that backbone is missing %i atoms.' % num_backbone,
+                         template.GetProp('_Name'),
+                         Chem.MolToSmiles(template),
+                         Chem.MolToSmiles(residue))
+
+    # we need the match anyway and ConstrainedEmbed does not outputs it
     matched_atoms = template.GetSubstructMatch(residue)
     if matched_atoms:  # instead of catching ValueError
         fixed_residue = ConstrainedEmbed(template, residue)
@@ -404,8 +414,7 @@ def AddMissingAtoms(protein, residue, amap, template):
             raise ValueError('No matching found at missing atom stage.',
                              template.GetProp('_Name'),
                              Chem.MolToSmiles(template),
-                             Chem.MolToSmiles(residue),
-                             )
+                             Chem.MolToSmiles(residue))
 
     new_amap = []
     for i in range(fixed_residue.GetNumAtoms()):
