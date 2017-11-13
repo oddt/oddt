@@ -420,3 +420,43 @@ def test_custom_templates():
             residues.add(atom.GetPDBResidueInfo().GetResidueNumber())
         assert_equal(residues, {137, 138, 139})
         assert_equal(Chem.SanitizeMol(new_mol), Chem.SanitizeFlags.SANITIZE_NONE)
+
+
+def test_add_missing_atoms():
+    # add missing atom at tryptophan
+    molfile = test_dir + '5dhh_missingatomTRP.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=True)
+    mol = Chem.RemoveHs(mol, sanitize=False)
+
+    assert_equal(mol.GetNumAtoms(), 26)
+    mol = PreparePDBMol(mol, add_missing_atoms=True)
+    assert_equal(mol.GetNumAtoms(), 27)
+
+    atom = mol.GetAtomWithIdx(21)
+    assert_equal(atom.GetAtomicNum(), 6)
+    info = atom.GetPDBResidueInfo()
+    assert_equal(info.GetResidueName(), 'TRP')
+    assert_equal(info.GetResidueNumber(), 175)
+    assert_equal(info.GetName().strip(), 'C')
+    assert_equal(atom.IsInRing(), True)
+    assert_equal(atom.GetIsAromatic(), True)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+
+    # add whole ring to tyrosine
+    molfile = test_dir + '3cx9_TYR.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=True)
+    mol = Chem.RemoveHs(mol, sanitize=False)
+
+    assert_equal(mol.GetNumAtoms(), 23)
+    mol = PreparePDBMol(mol, add_missing_atoms=True)
+    assert_equal(mol.GetNumAtoms(), 29)
+
+    atom = mol.GetAtomWithIdx(17)
+    assert_equal(atom.GetAtomicNum(), 6)
+    info = atom.GetPDBResidueInfo()
+    assert_equal(info.GetResidueName(), 'TYR')
+    assert_equal(info.GetResidueNumber(), 138)
+    assert_equal(info.GetName().strip(), 'C')
+    assert_equal(atom.IsInRing(), True)
+    assert_equal(atom.GetIsAromatic(), True)
+    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
