@@ -391,15 +391,21 @@ def AddMissingAtoms(protein, residue, amap, template):
     # TODO: add backbone peptide bonds, if they were missing
     # TODO: try to better guess the types of atoms (if possible)
 
-    try:
+    matched_atoms = template.GetSubstructMatch(residue)
+    if matched_atoms:  # instead of catching ValueError
         fixed_residue = ConstrainedEmbed(template, residue)
-    except ValueError as e:
+    else:
         residue2 = SimplifyMol(Chem.Mol(residue))
         template2 = SimplifyMol(Chem.Mol(template))
-        fixed_residue = ConstrainedEmbed(template2, residue2)
-    assert fixed_residue is not None
-    matched_atoms = fixed_residue.__sssAtoms
-    assert len(matched_atoms) > 0
+        matched_atoms = template2.GetSubstructMatch(residue2)
+        if matched_atoms:
+            fixed_residue = ConstrainedEmbed(template2, residue2)
+        else:
+            raise ValueError('No matching found at missing atom stage.',
+                             template.GetProp('_Name'),
+                             Chem.MolToSmiles(template),
+                             Chem.MolToSmiles(residue),
+                             )
 
     new_amap = []
     for i in range(fixed_residue.GetNumAtoms()):
