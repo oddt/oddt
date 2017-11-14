@@ -211,12 +211,12 @@ def test_pocket_extractor():
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
 
     # there should be no pocket at 1A
-    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=1., confId=-1)
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=1.)
     assert_equal(pocket.GetNumAtoms(), 0)
     assert_equal(ligand.GetNumAtoms(), 26)
 
     # small pocket of 5A
-    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=12., confId=-1)
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=12.)
     assert_equal(pocket.GetNumAtoms(), 928)
     assert_equal(ligand.GetNumAtoms(), 26)
 
@@ -245,7 +245,7 @@ def test_pocket_extractor():
     molfile = test_dir + '4p6p_lig_zn.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     assert_equal(mol.GetNumAtoms(), 176)
-    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=5., confId=-1)
+    pocket, ligand = ExtractPocketAndLigand(mol, cutoff=5.)
     assert_equal(pocket.GetNumAtoms(), 162)
     assert_equal(ligand.GetNumAtoms(), 14)
 
