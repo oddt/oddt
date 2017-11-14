@@ -69,11 +69,18 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
 def MolToTemplates(mol):
     """Prepare set of templates for a given PDB residue."""
 
-    match = mol.GetSubstructMatch(Chem.MolFromSmiles('OC(=O)CN'))
-    mol2 = Chem.RWMol(mol)
-    if match:
-        mol2.RemoveAtom(match[0])
-        Chem.SanitizeMol(mol2)
+    if mol.HasProp('_Name') and mol.GetProp('_Name') in ['DA', 'DG', 'DT', 'DC',
+                                                         'A', 'G', 'T', 'C', 'U']:
+        match = mol.GetSubstructMatch(Chem.MolFromSmiles('OP(=O)(O)OC'))
+        mol2 = Chem.RWMol(mol)
+        if match:
+            mol2.RemoveAtom(match[0])
+    else:
+        match = mol.GetSubstructMatch(Chem.MolFromSmiles('OC(=O)CN'))
+        mol2 = Chem.RWMol(mol)
+        if match:
+            mol2.RemoveAtom(match[0])
+    Chem.SanitizeMol(mol2)
     mol2 = mol2.GetMol()
     return (mol, mol2)
 
@@ -647,6 +654,12 @@ def PreparePDBMol(mol,
                      (a1_name == 'C' and
                       a2_name == 'N' and
                       abs(a1_num - a2_num) == 1) or  # peptide bond
+                     (a1_name == 'P' and
+                      a2_name == 'O3\'' and
+                      abs(a1_num - a2_num) == 1) or  # DNA
+                     (a1_name == 'O3\'' and
+                      a2_name == 'P' and
+                      abs(a1_num - a2_num) == 1) or  # DNA
                      (a1_name == 'SG' and
                       a2_name == 'SG')  # sulphur bridge
                      )):
@@ -668,7 +681,7 @@ def PreparePDBMol(mol,
                 continue
             ff.AddFixedPoint(i)
         ff.Initialize()
-        ff.Minimize(energyTol=1e-2, forceTol=1e-1, maxIts=20)
+        ff.Minimize(energyTol=1e-2, forceTol=1e-2, maxIts=2000)
         print('RMS after minimization of added atoms (%i):' % len(new_atoms),
               Chem.rdMolAlign.AlignMol(new_mol, old_new_mol),
               file=sys.stderr)
