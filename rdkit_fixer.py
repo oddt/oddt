@@ -96,7 +96,9 @@ def ReadTemplates(filename, resnames):
 
 
 def SimplifyMol(mol):
-    """Change all bonds to single and discharge/dearomatize all atoms"""
+    """Change all bonds to single and discharge/dearomatize all atoms.
+    The molecule is modified in-place (no copy is made).
+    """
     for b in mol.GetBonds():
         b.SetBondType(Chem.BondType.SINGLE)
         b.SetIsAromatic(False)
@@ -394,7 +396,7 @@ def AddMissingAtoms(protein, residue, amap, template):
         atom.GetPDBResidueInfo().GetName().strip() in ['C', 'N', 'CA', 'O']
         for atom in residue.GetAtoms())
     if num_backbone < 4:  # allow one missing
-        raise ValueError('It apears that backbone is missing %i atoms.' % num_backbone,
+        raise ValueError('It apears that backbone has only %i atoms.' % num_backbone,
                          template.GetProp('_Name'),
                          Chem.MolToSmiles(template),
                          Chem.MolToSmiles(residue))
@@ -505,11 +507,6 @@ def PreparePDBMol(mol,
         new_mol: rdkit.Chem.rdchem.RWMol
             Modified protein
     """
-
-    if remove_incomplete and add_missing_atoms:
-        raise ValueError('Arguments "remove_incomplete" and "add_missing_atoms"'
-                         ' are mutually exclusive and cannot be both set to'
-                         ' "True".')
 
     new_mol = Chem.RWMol(mol)
     if removeHs:
