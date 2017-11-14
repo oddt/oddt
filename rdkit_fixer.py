@@ -11,7 +11,9 @@ from scipy.spatial.distance import cdist
 import rdkit
 from rdkit import Chem
 from rdkit.Chem.AllChem import ConstrainedEmbed
-from rdkit.Chem.rdForceFieldHelpers import UFFGetMoleculeForceField
+from rdkit.Chem.rdForceFieldHelpers import (UFFGetMoleculeForceField, UFFOptimizeMolecule,
+                                            MMFFGetMoleculeProperties,
+                                            MMFFGetMoleculeForceField)
 
 
 METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
@@ -424,6 +426,20 @@ def AddMissingAtoms(protein, residue, amap, template):
                              Chem.MolToSmiles(template),
                              Chem.MolToSmiles(residue))
 
+    # initial minimization only on residue
+    fixed_residue2 = Chem.Mol(template)
+    fixed_residue2.RemoveAllConformers()
+    fixed_residue2.AddConformer(fixed_residue.GetConformer(-1))
+    fixed_residue = fixed_residue2
+    ff = UFFGetMoleculeForceField(fixed_residue, vdwThresh=5.,
+                                  ignoreInterfragInteractions=True)
+    for i in range(fixed_residue.GetNumAtoms()):
+        if i not in matched_atoms:
+            continue
+        ff.AddFixedPoint(i)
+    ff.Initialize()
+    ff.Minimize(energyTol=1e-2, forceTol=1e-2, maxIts=2000)
+
     new_atoms = []
     new_amap = []
     for i in range(fixed_residue.GetNumAtoms()):
@@ -677,6 +693,9 @@ def PreparePDBMol(mol,
         old_new_mol = Chem.RWMol(new_mol)
         ff = UFFGetMoleculeForceField(new_mol, vdwThresh=5.,
                                       ignoreInterfragInteractions=False)
+        # mp = MMFFGetMoleculeProperties(new_mol)
+        # ff = MMFFGetMoleculeForceField(new_mol, mp, nonBondedThresh=8.,
+        #                                ignoreInterfragInteractions=False)
         for i in range(new_mol.GetNumAtoms()):
             if i in new_atoms:
                 continue
