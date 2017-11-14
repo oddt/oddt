@@ -11,6 +11,7 @@ from scipy.spatial.distance import cdist
 import rdkit
 from rdkit import Chem
 from rdkit.Chem.AllChem import ConstrainedEmbed
+from rdkit.Chem.rdForceFieldHelpers import UFFGetMoleculeForceField
 
 
 METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
@@ -414,6 +415,7 @@ def AddMissingAtoms(protein, residue, amap, template):
                              Chem.MolToSmiles(template),
                              Chem.MolToSmiles(residue))
 
+    new_atoms = []
     new_amap = []
     for i in range(fixed_residue.GetNumAtoms()):
         if i not in matched_atoms:
@@ -430,6 +432,7 @@ def AddMissingAtoms(protein, residue, amap, template):
 
             atom.SetMonomerInfo(new_info)
             new_id = protein.AddAtom(atom)
+            new_atoms.append(new_id)
             pos = fixed_residue.GetConformer().GetAtomPosition(i)
             protein.GetConformer().SetAtomPosition(new_id, pos)
             new_amap.append(new_id)
@@ -451,7 +454,8 @@ def AddMissingAtoms(protein, residue, amap, template):
                     new_bond.SetBondType(bond.GetBondType())
 
     # run PreparePDBResidue again to fix atom properies
-    return PreparePDBResidue(protein, fixed_residue, new_amap, template)
+    out = PreparePDBResidue(protein, fixed_residue, new_amap, template)
+    return out + (new_atoms,)
 
 
 def PreparePDBMol(mol,
@@ -581,6 +585,7 @@ def PreparePDBMol(mol,
 
     # reset B.O. using templates
     visited_bonds = []
+    new_atoms = []
     atoms_to_del = []
     for ((resnum, resname, chainid), residue, amap) in residues:
         if resname not in unique_resname:
@@ -594,6 +599,7 @@ def PreparePDBMol(mol,
             template = template_chain
 
         bonds = []
+        atoms = []
         complete_match = False
         try:
             new_mol, bonds, complete_match = PreparePDBResidue(new_mol,
@@ -601,16 +607,18 @@ def PreparePDBMol(mol,
                                                                amap,
                                                                template)
             if add_missing_atoms and not complete_match:
-                new_mol, bonds, complete_match = AddMissingAtoms(new_mol,
-                                                                 residue,
-                                                                 amap,
-                                                                 template)
+                new_mol, bonds, complete_match, atoms = AddMissingAtoms(new_mol,
+                                                                        residue,
+                                                                        amap,
+                                                                        template)
         except ValueError as e:
             print(resnum, resname, chainid, e, file=sys.stderr)
         finally:
             visited_bonds.extend(bonds)
             if remove_incomplete and not complete_match:
                 atoms_to_del.extend(amap)
+            else:
+                new_atoms.extend(atoms)
 
     # HACK: remove not-visited bonds
     if visited_bonds:  # probably we dont want to delete all
@@ -653,16 +661,28 @@ def PreparePDBMol(mol,
         for idx in sorted(atoms_to_del, reverse=True):
             new_mol.RemoveAtom(idx)
 
+    # minimize new atoms
+    if new_atoms:
+        old_new_mol = Chem.RWMol(new_mol)
+        ff = UFFGetMoleculeForceField(new_mol, ignoreInterfragInteractions=False)
+        for i in range(new_mol.GetNumAtoms()):
+            if i in new_atoms:
+                continue
+            ff.AddFixedPoint(i)
+        ff.Initialize()
+        ff.Minimize(energyTol=1e-2, forceTol=1e-1, maxIts=200)
+        print('RMS after minimization of added atoms (%i):' % len(new_atoms),
+              Chem.rdMolAlign.AlignMol(new_mol, old_new_mol),
+              file=sys.stderr)
+
     # if missing atoms were added we need to renumber them
-    if add_missing_atoms:
+    if add_missing_atoms and new_atoms:
         def atom_reorder_repr(i):
             """Generate keys for each atom during sort"""
             atom = new_mol.GetAtomWithIdx(i)
             info = atom.GetPDBResidueInfo()
             return (info.GetChainId(), info.GetResidueNumber(), i)
-
         order = list(range(new_mol.GetNumAtoms()))
         new_order = sorted(order, key=atom_reorder_repr)
-        if new_order != order:
-            new_mol = Chem.RenumberAtoms(new_mol, new_order)
+        new_mol = Chem.RenumberAtoms(new_mol, new_order)
     return new_mol
