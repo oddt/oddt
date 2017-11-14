@@ -661,13 +661,14 @@ def PreparePDBMol(mol,
     # minimize new atoms
     if new_atoms:
         old_new_mol = Chem.RWMol(new_mol)
-        ff = UFFGetMoleculeForceField(new_mol, ignoreInterfragInteractions=False)
+        ff = UFFGetMoleculeForceField(new_mol, vdwThresh=5.,
+                                      ignoreInterfragInteractions=False)
         for i in range(new_mol.GetNumAtoms()):
             if i in new_atoms:
                 continue
             ff.AddFixedPoint(i)
         ff.Initialize()
-        ff.Minimize(energyTol=1e-2, forceTol=1e-1, maxIts=200)
+        ff.Minimize(energyTol=1e-2, forceTol=1e-1, maxIts=20)
         print('RMS after minimization of added atoms (%i):' % len(new_atoms),
               Chem.rdMolAlign.AlignMol(new_mol, old_new_mol),
               file=sys.stderr)
