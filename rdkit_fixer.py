@@ -105,7 +105,7 @@ def SimplifyMol(mol):
     return mol
 
 
-def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1,
+def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
                            ligand_residue=None, ligand_residue_blacklist=None,
                            append_residues=None):
     """Function extracting a ligand (the largest HETATM residue) and the protein
@@ -121,9 +121,6 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1,
             Distance cutoff for the pocket atoms
         expandResidues: bool (default=True)
             Expand selection to whole residues within cutoff.
-        confId: int (default=-1)
-            The conformer index for the pocket coordinates. By default the first
-            one is used.
         ligand_residue: string (default None)
             Residue name which explicitly pint to a ligand(s).
         ligand_residue_blacklist: array-like, optional (default None)
@@ -184,13 +181,13 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True, confId=-1,
                         reverse=True)[0]
     ligand_amap = hetatm_residues[ligand_key]
     ligand = AtomListToSubMol(mol, ligand_amap, includeConformer=True)
-    ligand_coords = np.array(ligand.GetConformer(-1).GetPositions())
+    ligand_coords = np.array(ligand.GetConformer().GetPositions())
 
     # Get protein and waters
     blacklist_ids = list(chain(*hetatm_residues.values()))
     protein_amap = np.array([i for i in range(mol.GetNumAtoms())
                              if i not in blacklist_ids])
-    protein_coords = np.array(mol.GetConformer(-1).GetPositions())[protein_amap]
+    protein_coords = np.array(mol.GetConformer().GetPositions())[protein_amap]
 
     # Pocket selection based on cutoff
     mask = (cdist(protein_coords, ligand_coords) <= cutoff).any(axis=1)
