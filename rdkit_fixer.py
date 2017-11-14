@@ -430,8 +430,9 @@ def AddMissingAtoms(protein, residue, amap, template):
         if i not in matched_atoms:
             atom = fixed_residue.GetAtomWithIdx(i)
             info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+            name = (atom.GetSymbol() + str(i)[:4-len(atom.GetSymbol())]).ljust(4)
             new_info = Chem.AtomPDBResidueInfo(
-                atomName=' %-3s' % atom.GetSymbol(),
+                atomName=name[-1:] + name[:-1],  # wrap around
                 residueName=info.GetResidueName(),
                 residueNumber=info.GetResidueNumber(),
                 chainId=info.GetChainId(),
