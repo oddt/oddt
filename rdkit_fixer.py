@@ -3,9 +3,14 @@ import os
 from collections import OrderedDict
 from itertools import combinations, chain
 import sys
+from io import BytesIO
+
+from six.moves import urllib
+
 from distutils.version import LooseVersion
 
 import numpy as np
+import pandas as pd
 from scipy.spatial.distance import cdist
 
 import rdkit
@@ -814,3 +819,169 @@ def PreparePDBMol(mol,
         new_order = sorted(order, key=atom_reorder_repr)
         new_mol = Chem.RenumberAtoms(new_mol, new_order)
     return new_mol
+
+
+def FetchAffinityTable(pdbids, affinity_types):
+
+    pdb_report_url = 'https://www.rcsb.org/pdb/rest/customReport.csv'
+    params = {'pdbids': ','.join(pdbids), 'service': 'wsfile', 'format': 'csv'}
+
+    params['reportName'] = 'Ligands'
+    ligand_data = urllib.parse.urlencode(params, doseq=False, safe=',')
+    ligand_data = ligand_data.encode()
+    req = urllib.request.Request(pdb_report_url, ligand_data)
+    with urllib.request.urlopen(req) as response:
+        report = response.read()
+        ligands = pd.read_csv(BytesIO(report))
+
+    ligands = ligands.dropna(subset=['structureId', 'ligandId'])
+
+    params['reportName'] = 'BindingAffinity'
+    affinity_data = urllib.parse.urlencode(params, doseq=False, safe=',')
+    affinity_data = affinity_data.encode()
+    req = urllib.request.Request(pdb_report_url, affinity_data)
+    with urllib.request.urlopen(req) as response:
+        report = response.read()
+        affinity = pd.read_csv(BytesIO(report))
+
+    affinity = affinity.rename(columns={'hetId': 'ligandId'})
+
+    ligand_affinity = (
+        pd.merge(ligands, affinity, sort=False)
+        .drop_duplicates(subset=['structureId', 'ligandId'])
+        .dropna(subset=affinity_types, how='all')
+        .fillna('')
+    )
+
+    for affinity_type in affinity_types:
+        ligand_affinity[affinity_type] = (
+            ligand_affinity[affinity_type]
+            .str
+            .split(' ', expand=True)[0]
+        )
+
+    columns = ['structureId', 'ligandId', 'ligandFormula',
+               'ligandMolecularWeight'] + affinity_types
+
+    return ligand_affinity[columns]
+
+
+def FetchStructure(pdbid, sanitize=False, removeHs=True):
+    req = urllib.request.Request('https://files.rcsb.org/view/%s.pdb' % pdbid)
+    with urllib.request.urlopen(req) as response:
+        pdb_block = response.read().decode()
+
+    mol = Chem.MolFromPDBBlock(pdb_block, sanitize=sanitize, removeHs=removeHs)
+
+    return mol
+
+
+def IsResidueConnected(mol, atom_ids):
+
+    residues = set()
+    for aid in atom_ids:
+        info = mol.GetAtomWithIdx(aid).GetPDBResidueInfo()
+        residue = (info.GetResidueName(), info.GetResidueNumber())
+        residues.add(residue)
+    if len(residues) > 1:
+        raise ValueError('Atoms belong to multiple residues:' + str(residues))
+    residue = residues.pop()
+
+    to_check = set(atom_ids)
+    visited_atoms = set()
+
+    while len(to_check) > 0:
+        aid = to_check.pop()
+        if aid in visited_atoms:
+            continue
+
+        visited_atoms.add(aid)
+        atom = mol.GetAtomWithIdx(aid)
+
+        for atom2 in atom.GetNeighbors():
+            if atom2 in visited_atoms:
+                continue
+
+            info = atom2.GetPDBResidueInfo()
+            if residue != (info.GetResidueName(), info.GetResidueNumber()):
+                # we got to different residue so it is connected
+                return True
+            else:
+                to_check.add(atom2.GetIdx())
+
+    return False
+
+
+def PrepareComplexes(pdbids, affinity_types=None):
+    if affinity_types is None:
+        affinity_types = ['Ki', 'Kd', 'EC50', 'IC50']
+
+    affinity_table = FetchAffinityTable(pdbids, affinity_types)
+
+    complexes = {}
+
+    for pdbid, tab in affinity_table.groupby('structureId'):
+        complexes[pdbid] = {}
+        complex_mol = FetchStructure(pdbid)
+
+        ligand_atoms = {res_name: {} for res_name in tab['ligandId']}
+        for atom in complex_mol.GetAtoms():
+            info = atom.GetPDBResidueInfo()
+            res_name = info.GetResidueName().strip()
+            if res_name not in ligand_atoms:
+                continue
+
+            res_id = (info.GetResidueNumber(), info.GetChainId())
+            if res_id not in ligand_atoms[res_name]:
+                ligand_atoms[res_name][res_id] = []
+            ligand_atoms[res_name][res_id].append(atom.GetIdx())
+
+        proper_ligands = []
+
+        for res_name, atoms_ids in ligand_atoms.items():
+            if not any(IsResidueConnected(complex_mol, atom_list)
+                       for atom_list in atoms_ids.values()):
+                proper_ligands.append(res_name)
+
+        for res_name in proper_ligands:
+            try:
+                pocket, ligand = ExtractPocketAndLigand(
+                    complex_mol,
+                    ligand_residue=res_name)
+            except:
+                print('Cant get pocket and ligand for %s and %s'
+                      % (pdbid, res_name))
+                continue
+
+            pocket = PreparePDBMol(pocket)
+            flag = Chem.SanitizeMol(pocket)
+            assert flag == Chem.SanitizeFlags.SANITIZE_NONE, \
+                'Cannot sanitize pocket for for %s and %s' % (pdbid, res_name)
+
+            flag = Chem.SanitizeMol(ligand)
+            assert flag == Chem.SanitizeFlags.SANITIZE_NONE, \
+                'Cannot sanitize ligand for for %s and %s' % (pdbid, res_name)
+
+            affinity_values = (
+                tab
+                .query('ligandId == @res_name')
+                [affinity_types]
+                .iloc[0]
+            )
+
+            for affinity_type, value in zip(affinity_types, affinity_values):
+                if len(value) == 0:
+                    continue
+
+                # parse values like ">1000" or "0.5-0.8"
+                value = [float(v) for v in value.strip('<>~').split('-')]
+                if len(value) == 1:
+                    value = value[0]
+                else:
+                    # it's range, use its middle
+                    assert len(value) == 2
+                    value = sum(value) / 2
+                ligand.SetProp(affinity_type, str(value))
+
+            complexes[pdbid][res_name] = (pocket, ligand)
+    return complexes
