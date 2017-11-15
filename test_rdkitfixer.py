@@ -1,11 +1,13 @@
 import rdkit
 from rdkit import Chem
 
-from nose.tools import assert_equal, assert_not_equal, assert_almost_equal
+from nose.tools import assert_equal, assert_not_equal, assert_almost_equal, assert_raises
 
 from rdkit_fixer import (AtomListToSubMol,
                          PreparePDBMol,
-                         ExtractPocketAndLigand)
+                         ExtractPocketAndLigand,
+                         IsResidueConnected,
+                         PrepareComplexes)
 
 test_dir = './test_data/'
 
@@ -482,3 +484,55 @@ def test_add_missing_atoms():
     mol = PreparePDBMol(mol, add_missing_atoms=True)
     assert_equal(mol.GetNumAtoms(), 328)
     assert_equal(mol.GetNumBonds(), 366)
+
+
+def test_connected_residues():
+    molfile = test_dir + '4p6p_lig_zn.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+
+    # residue which has neighbours
+    assert_equal(IsResidueConnected(mol, range(120, 127)), True)
+
+    # ligand
+    assert_equal(IsResidueConnected(mol, range(153, 167)), False)
+
+    # fragments of two residues
+    assert_raises(ValueError, IsResidueConnected, mol, range(5, 15))
+
+
+def test_prepare_complexes():
+    ids = [
+        '3WS9',    # simple case with everything fine
+        '3HLJ',    # ligand not in report
+        '3BYM',    # non-existing ligand and backbone residue in report
+        '2PIN',    # two ligands with binding affinities
+        '3CYU',    # can't parse ligands properly
+        '1A28',    # multiple affinity types
+    ]
+
+    complexes = PrepareComplexes(ids)
+    expected_values = {
+        '3WS9': {'X4D': {'IC50': 92.0}},
+        '3BYM': {'AM0': {'IC50': 6.0}},
+        '2PIN': {'LEG': {'IC50': 1500.0}, '4HY': {'IC50': 0.09535}},
+        '3CYU': {'0CR': {'Kd': 60.0}},
+        '1A28': {'STR': {'Ki': 6.9, 'EC50': 7.65, 'IC50': 8.6}},
+    }
+
+    values = {}
+    for pdbid, pairs in complexes.items():
+        values[pdbid] = {}
+        for resname, (pocket, ligand) in pairs.items():
+            values[pdbid][resname] = {k: float(v) for k, v
+                                      in ligand.GetPropsAsDict().items()}
+
+    assert_equal(expected_values.keys(), values.keys())
+
+    for pdbid in expected_values:
+        assert_equal(values[pdbid].keys(), expected_values[pdbid].keys())
+        for resname in values[pdbid]:
+            assert_equal(values[pdbid][resname].keys(),
+                         expected_values[pdbid][resname].keys())
+            for key, val in values[pdbid][resname].items():
+                assert_equal(key in expected_values[pdbid][resname], True)
+                assert_almost_equal(expected_values[pdbid][resname][key], val)
