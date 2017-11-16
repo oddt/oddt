@@ -7,13 +7,10 @@ from io import BytesIO
 
 from six.moves import urllib
 
-from distutils.version import LooseVersion
-
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cdist
 
-import rdkit
 from rdkit import Chem
 from rdkit.Chem.AllChem import ConstrainedEmbed
 from rdkit.Chem.rdForceFieldHelpers import UFFGetMoleculeForceField
@@ -822,10 +819,29 @@ def PreparePDBMol(mol,
 
 
 def FetchAffinityTable(pdbids, affinity_types):
+    """Fetch affinity data from RCSB PDB server.
+
+    Parameters
+    ----------
+        pdbids: array-like
+            List of PDB IDs of structres with protein-ligand complexes.
+        affinity_types: array-like
+            List of types of affinity data to retrieve. Available types are:
+            Ki, Kd, EC50, IC50, deltaG, deltaH, deltaS, Ka.
+
+    Returns
+    -------
+        ligand_affinity: pd.DataFrame
+            Table with protein-ligand binding affinities. Table contains
+            following columns: structureId, ligandId, ligandFormula,
+            ligandMolecularWeight + columns named after affinity types
+            specified byt the user.
+    """
 
     pdb_report_url = 'https://www.rcsb.org/pdb/rest/customReport.csv'
     params = {'pdbids': ','.join(pdbids), 'service': 'wsfile', 'format': 'csv'}
 
+    # get table with ligands
     params['reportName'] = 'Ligands'
     ligand_data = urllib.parse.urlencode(params)
     ligand_data = ligand_data.encode()
@@ -836,6 +852,7 @@ def FetchAffinityTable(pdbids, affinity_types):
 
     ligands = ligands.dropna(subset=['structureId', 'ligandId'])
 
+    # get table with binding affinites
     params['reportName'] = 'BindingAffinity'
     affinity_data = urllib.parse.urlencode(params)
     affinity_data = affinity_data.encode()
@@ -846,6 +863,7 @@ def FetchAffinityTable(pdbids, affinity_types):
 
     affinity = affinity.rename(columns={'hetId': 'ligandId'})
 
+    # inner join of two tables - all ligands with known affinities
     ligand_affinity = (
         pd.merge(ligands, affinity, sort=False)
         .drop_duplicates(subset=['structureId', 'ligandId'])
@@ -853,6 +871,7 @@ def FetchAffinityTable(pdbids, affinity_types):
         .fillna('')
     )
 
+    # remove comments from columns with affinity data
     for affinity_type in affinity_types:
         ligand_affinity[affinity_type] = (
             ligand_affinity[affinity_type]
@@ -867,6 +886,8 @@ def FetchAffinityTable(pdbids, affinity_types):
 
 
 def FetchStructure(pdbid, sanitize=False, removeHs=True):
+    """Fetch the structure from RCSB PDB server and read it with rdkit."""
+
     req = urllib.request.Request('https://files.rcsb.org/view/%s.pdb' % pdbid)
     response = urllib.request.urlopen(req)
     pdb_block = response.read().decode('utf-8')
@@ -877,6 +898,9 @@ def FetchStructure(pdbid, sanitize=False, removeHs=True):
 
 
 def IsResidueConnected(mol, atom_ids):
+    """Check if residue with given atom IDs is connected to other residues
+    in the molecule.
+    """
 
     residues = set()
     for aid in atom_ids:
@@ -893,7 +917,6 @@ def IsResidueConnected(mol, atom_ids):
 
     while len(to_check) > 0:
         aid = to_check.pop()
-        assert aid not in visited_atoms
 
         visited_atoms.add(aid)
         atom = mol.GetAtomWithIdx(aid)
@@ -915,6 +938,28 @@ def IsResidueConnected(mol, atom_ids):
 
 
 def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
+    """Fetch structures and affinity data from RCSB PDB server and prepare
+    ligand-pocket pairs for small molecules with known activites.
+
+    Parameters
+    ----------
+        pdbids: array-like
+            List of PDB IDs of structres with protein-ligand complexes.
+        pocket_dist_cutoff: float, optional (default 12.)
+            Distance cutoff for the pocket atoms
+        affinity_types: array-like, optional (default None)
+            List of types of affinity data to retrieve. Available types are:
+            Ki, Kd, EC50, IC50, deltaG, deltaH, deltaS, Ka. If not specified
+            Ki, Kd, EC50, and IC50 are used.
+
+    Returns
+    -------
+        complexes: dict
+            Dictionary with pocket-ligand paris, structured as follows:
+            {'pdbid': {'ligid': (pocket_mol, ligand_mol)}. Ligands have
+            binding affinity data stored as properties.
+    """
+
     if affinity_types is None:
         affinity_types = ['Ki', 'Kd', 'EC50', 'IC50']
 
@@ -943,6 +988,7 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
         proper_ligands = []
 
         for res_name, atoms_ids in ligand_atoms.items():
+            # ligand shouldn't be connected to other residues
             if not any(IsResidueConnected(complex_mol, atom_list)
                        for atom_list in atoms_ids.values()):
                 proper_ligands.append(res_name)
@@ -958,6 +1004,8 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
                       % (pdbid, res_name))
                 continue
 
+            # prepare the pocket
+            # TODO: add missing atoms
             pocket = PreparePDBMol(pocket)
             flag = Chem.SanitizeMol(pocket)
             assert flag == Chem.SanitizeFlags.SANITIZE_NONE, \
