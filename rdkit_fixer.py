@@ -115,6 +115,22 @@ def SimplifyMol(mol):
     return mol
 
 
+def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None):
+    """Minimize a molecule using UFF forcefield with a set of moving/fixed
+    atoms.
+    """
+    ff = UFFGetMoleculeForceField(mol, vdwThresh=5.,
+                                  ignoreInterfragInteractions=False)
+    if moving_atoms is not None:
+        fixed_atoms = [i for i in range(mol.GetNumAtoms())
+                       if i not in moving_atoms]
+    for i in fixed_atoms:
+        ff.AddFixedPoint(i)
+    ff.Initialize()
+    ff.Minimize(energyTol=1e-2, forceTol=1e-2, maxIts=200)
+    return mol
+
+
 def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
                            ligand_residue=None, ligand_residue_blacklist=None,
                            append_residues=None):
@@ -393,20 +409,7 @@ def AddMissingAtoms(protein, residue, amap, template):
         is_complete: bool
             Indicates whether all atoms in template were found in residue
     """
-    # TODO: output idxs of added atoms alogn visited bonds
-    # TODO: validate the size of fixed residue and template
-    # TODO: minimize all added atoms in context of full protein
-    # TODO: add backbone peptide bonds, if they were missing
     # TODO: try to better guess the types of atoms (if possible)
-
-    num_backbone = sum(
-        atom.GetPDBResidueInfo().GetName().strip() in ['C', 'N', 'CA', 'O']
-        for atom in residue.GetAtoms())
-    if num_backbone < 4:  # allow one missing
-        raise ValueError('It apears that backbone has only %i atoms.' % num_backbone,
-                         template.GetProp('_Name'),
-                         Chem.MolToSmiles(template),
-                         Chem.MolToSmiles(residue))
 
     # we need the match anyway and ConstrainedEmbed does not outputs it
     matched_atoms = template.GetSubstructMatch(residue)
@@ -418,25 +421,20 @@ def AddMissingAtoms(protein, residue, amap, template):
         matched_atoms = template2.GetSubstructMatch(residue2)
         if matched_atoms:
             fixed_residue = ConstrainedEmbed(template2, residue2)
+            # copy coordinates to molecule with appropriate bond orders
+            fixed_residue2 = Chem.Mol(template)
+            fixed_residue2.RemoveAllConformers()
+            fixed_residue2.AddConformer(fixed_residue.GetConformer(-1))
+            fixed_residue = fixed_residue2
+
+            # initial minimization only on residue
+            fixed_residue = UFFConstrainedOptimize(fixed_residue,
+                                                   fixed_atoms=matched_atoms)
         else:
             raise ValueError('No matching found at missing atom stage.',
                              template.GetProp('_Name'),
                              Chem.MolToSmiles(template),
                              Chem.MolToSmiles(residue))
-
-    # initial minimization only on residue
-    fixed_residue2 = Chem.Mol(template)
-    fixed_residue2.RemoveAllConformers()
-    fixed_residue2.AddConformer(fixed_residue.GetConformer(-1))
-    fixed_residue = fixed_residue2
-    ff = UFFGetMoleculeForceField(fixed_residue, vdwThresh=5.,
-                                  ignoreInterfragInteractions=True)
-    for i in range(fixed_residue.GetNumAtoms()):
-        if i not in matched_atoms:
-            continue
-        ff.AddFixedPoint(i)
-    ff.Initialize()
-    ff.Minimize(energyTol=1e-2, forceTol=1e-2, maxIts=2000)
 
     new_atoms = []
     new_amap = []
@@ -444,6 +442,8 @@ def AddMissingAtoms(protein, residue, amap, template):
         if i not in matched_atoms:
             atom = fixed_residue.GetAtomWithIdx(i)
             info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+            # we need to generate atom names like 'H123', these are
+            # "wrapped around" below when setting 'atomName' to '3H12'
             name = (atom.GetSymbol() + str(i)[:4-len(atom.GetSymbol())]).ljust(4)
             new_info = Chem.AtomPDBResidueInfo(
                 atomName=name[-1:] + name[:-1],  # wrap around
@@ -476,6 +476,49 @@ def AddMissingAtoms(protein, residue, amap, template):
                     protein.AddBond(new_amap[i], new_amap[ni])
                     new_bond = protein.GetBondBetweenAtoms(new_amap[i], new_amap[ni])
                     new_bond.SetBondType(bond.GetBondType())
+
+    if new_atoms:
+        # fix backbone if it was absent
+        # nucleotide
+        # nucleotide_match = fixed_residue.GetSubstructMatch(Chem.MolFromSmiles('P(=O)(O)OC'))
+
+        # protein
+        peptide_match = fixed_residue.GetSubstructMatch(Chem.MolFromSmiles('C(=O)CN'))
+        for i in new_atoms:
+            if new_amap.index(i) in peptide_match:
+                atom = protein.GetAtomWithIdx(i)
+                match_idx = peptide_match.index(new_amap.index(i))
+                types = {0: 'C', 1: 'O', 2: 'CA', 3: 'N'}
+                if match_idx == 0:  # C
+                    atom.GetPDBResidueInfo().SetName(' C ')
+                    # create peptide bond right (index down)
+                    res_num = (fixed_residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+                               .GetResidueNumber())
+                    # use original amap here to get the end of residue
+                    for j in range(amap[-1], protein.GetNumAtoms()):
+                        info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
+                        if info.GetResidueNumber() == res_num + 1:
+                            if info.GetName().strip() == 'N':
+                                protein.AddBond(i, j, Chem.BondType.SINGLE)
+                                break
+                        elif info.GetResidueNumber() > res_num + 1:
+                            break
+                elif match_idx == 3:  # N
+                    atom.GetPDBResidueInfo().SetName(' N  ')
+                    # create peptide bonde left (index up)
+                    res_num = (residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+                               .GetResidueNumber())
+                    # use original amap here to get the begining of residue
+                    for j in range(amap[0], -1, -1):
+                        info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
+                        if info.GetResidueNumber() == res_num - 1:
+                            if info.GetName().strip() == 'C':
+                                protein.AddBond(i, j, Chem.BondType.SINGLE)
+                                break
+                        elif info.GetResidueNumber() < res_num - 1:
+                            break
+                else:
+                    atom.GetPDBResidueInfo().SetName(' ' + types[match_idx].ljust(3))
 
     # run PreparePDBResidue again to fix atom properies
     out = PreparePDBResidue(protein, fixed_residue, new_amap, template)
@@ -689,14 +732,7 @@ def PreparePDBMol(mol,
     # minimize new atoms
     if new_atoms:
         old_new_mol = Chem.RWMol(new_mol)
-        ff = UFFGetMoleculeForceField(new_mol, vdwThresh=5.,
-                                      ignoreInterfragInteractions=False)
-        for i in range(new_mol.GetNumAtoms()):
-            if i in new_atoms:
-                continue
-            ff.AddFixedPoint(i)
-        ff.Initialize()
-        ff.Minimize(energyTol=1e-2, forceTol=1e-2, maxIts=2000)
+        new_mol = UFFConstrainedOptimize(new_mol, moving_atoms=new_atoms)
         print('RMS after minimization of added atoms (%i):' % len(new_atoms),
               Chem.rdMolAlign.AlignMol(new_mol, old_new_mol),
               file=sys.stderr)
