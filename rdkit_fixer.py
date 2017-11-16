@@ -11,9 +11,7 @@ from scipy.spatial.distance import cdist
 import rdkit
 from rdkit import Chem
 from rdkit.Chem.AllChem import ConstrainedEmbed
-from rdkit.Chem.rdForceFieldHelpers import (UFFGetMoleculeForceField, UFFOptimizeMolecule,
-                                            MMFFGetMoleculeProperties,
-                                            MMFFGetMoleculeForceField)
+from rdkit.Chem.rdForceFieldHelpers import UFFGetMoleculeForceField
 
 
 METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
@@ -693,9 +691,6 @@ def PreparePDBMol(mol,
         old_new_mol = Chem.RWMol(new_mol)
         ff = UFFGetMoleculeForceField(new_mol, vdwThresh=5.,
                                       ignoreInterfragInteractions=False)
-        # mp = MMFFGetMoleculeProperties(new_mol)
-        # ff = MMFFGetMoleculeForceField(new_mol, mp, nonBondedThresh=8.,
-        #                                ignoreInterfragInteractions=False)
         for i in range(new_mol.GetNumAtoms()):
             if i in new_atoms:
                 continue
