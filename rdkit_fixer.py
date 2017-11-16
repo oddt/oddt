@@ -117,8 +117,13 @@ def SimplifyMol(mol):
 
 def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None):
     """Minimize a molecule using UFF forcefield with a set of moving/fixed
-    atoms.
+    atoms. If both moving and fixed atom are provided, fixed_atoms parameter
+    will be ignored.
     """
+    if moving_atoms is None and fixed_atoms is None:
+        raise ValueError('You must supply at least one set of moving/fixed '
+                         'atoms.')
+
     ff = UFFGetMoleculeForceField(mol, vdwThresh=5.,
                                   ignoreInterfragInteractions=False)
     if moving_atoms is not None:
@@ -483,16 +488,16 @@ def AddMissingAtoms(protein, residue, amap, template):
         nucleotide_match = fixed_residue.GetSubstructMatch(Chem.MolFromSmiles('O=P(O)OCC1OC(CC1O)'))
         types = {0: 'OP1', 1: 'P', 2: 'OP2', 3: 'O5\'', 4: 'C5\'', 5: 'C4\'',
                  9: 'C3\'', 10: 'O3\''}
+        info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+        res_num = info.GetResidueNumber()
+        res_chain = info.GetChainId()
         for i in new_atoms:
             if new_amap.index(i) in nucleotide_match:
                 atom = protein.GetAtomWithIdx(i)
                 match_idx = nucleotide_match.index(new_amap.index(i))
-                info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
-                res_num = info.GetResidueNumber()
-                res_chain = info.GetChainId()
                 if match_idx == 1:  # P
                     atom.GetPDBResidueInfo().SetName(' P  ')
-                    # create peptide bond right (index down)
+                    # create phosphodiester bond right (index down)
                     # use original amap here to get the end of residue
                     for j in range(amap[0], -1, -1):
                         info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
@@ -506,7 +511,7 @@ def AddMissingAtoms(protein, residue, amap, template):
                             break
                 elif match_idx == 10:  # O3'
                     atom.GetPDBResidueInfo().SetName(' O3\'')
-                    # create peptide bonde left (index up)
+                    # create phosphodiester bond left (index up)
                     # use original amap here to get the begining of residue
                     for j in range(amap[-1], protein.GetNumAtoms()):
                         info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
@@ -524,13 +529,13 @@ def AddMissingAtoms(protein, residue, amap, template):
         # protein
         peptide_match = fixed_residue.GetSubstructMatch(Chem.MolFromSmiles('C(=O)CN'))
         types = {0: 'C', 1: 'O', 2: 'CA', 3: 'N'}
+        info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+        res_num = info.GetResidueNumber()
+        res_chain = info.GetChainId()
         for i in new_atoms:
             if new_amap.index(i) in peptide_match:
                 atom = protein.GetAtomWithIdx(i)
                 match_idx = peptide_match.index(new_amap.index(i))
-                info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
-                res_num = info.GetResidueNumber()
-                res_chain = info.GetChainId()
                 if match_idx == 0:  # C
                     atom.GetPDBResidueInfo().SetName(' C  ')
                     # create peptide bond right (index down)
@@ -547,7 +552,7 @@ def AddMissingAtoms(protein, residue, amap, template):
                             break
                 elif match_idx == 3:  # N
                     atom.GetPDBResidueInfo().SetName(' N  ')
-                    # create peptide bonde left (index up)
+                    # create peptide bond left (index up)
                     # use original amap here to get the begining of residue
                     for j in range(amap[0], -1, -1):
                         info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
