@@ -483,89 +483,50 @@ def AddMissingAtoms(protein, residue, amap, template):
                     new_bond.SetBondType(bond.GetBondType())
 
     if new_atoms:
-        # fix backbone if it was absent
-        # nucleotide
-        nucleotide_match = fixed_residue.GetSubstructMatch(Chem.MolFromSmiles('O=P(O)OCC1OC(CC1O)'))
-        types = {0: 'OP1', 1: 'P', 2: 'OP2', 3: 'O5\'', 4: 'C5\'', 5: 'C4\'',
-                 9: 'C3\'', 10: 'O3\''}
-        info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
-        res_num = info.GetResidueNumber()
-        res_chain = info.GetChainId()
-        for i in new_atoms:
-            if new_amap.index(i) in nucleotide_match:
-                atom = protein.GetAtomWithIdx(i)
-                match_idx = nucleotide_match.index(new_amap.index(i))
-                if match_idx == 1:  # P
-                    atom.GetPDBResidueInfo().SetName(' P  ')
-                    # create phosphodiester bond right (index down)
-                    # use original amap here to get the end of residue
-                    for j in range(amap[0], -1, -1):
-                        info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
-                        res2_num = info.GetResidueNumber()
-                        res2_chain = info.GetChainId()
-                        if res2_num == res_num - 1 and res_chain == res2_chain:
-                            if info.GetName().strip() == 'O3\'':
-                                protein.AddBond(i, j, Chem.BondType.SINGLE)
-                                break
-                        elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
-                            break
-                elif match_idx == 10:  # O3'
-                    atom.GetPDBResidueInfo().SetName(' O3\'')
-                    # create phosphodiester bond left (index up)
-                    # use original amap here to get the begining of residue
-                    for j in range(amap[-1], protein.GetNumAtoms()):
-                        info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
-                        res2_num = info.GetResidueNumber()
-                        res2_chain = info.GetChainId()
-                        if res2_num == res_num + 1 and res_chain == res2_chain:
-                            if info.GetName().strip() == 'P':
-                                protein.AddBond(i, j, Chem.BondType.SINGLE)
-                                break
-                        elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
-                            break
-                elif match_idx in types:
-                    atom.GetPDBResidueInfo().SetName(' ' + types[match_idx].ljust(3))
-
-        # protein
-        peptide_match = fixed_residue.GetSubstructMatch(Chem.MolFromSmiles('C(=O)CN'))
-        types = {0: 'C', 1: 'O', 2: 'CA', 3: 'N'}
-        info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
-        res_num = info.GetResidueNumber()
-        res_chain = info.GetChainId()
-        for i in new_atoms:
-            if new_amap.index(i) in peptide_match:
-                atom = protein.GetAtomWithIdx(i)
-                match_idx = peptide_match.index(new_amap.index(i))
-                if match_idx == 0:  # C
-                    atom.GetPDBResidueInfo().SetName(' C  ')
-                    # create peptide bond right (index down)
-                    # use original amap here to get the end of residue
-                    for j in range(amap[-1], protein.GetNumAtoms()):
-                        info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
-                        res2_num = info.GetResidueNumber()
-                        res2_chain = info.GetChainId()
-                        if res2_num == res_num + 1 and res_chain == res2_chain:
-                            if info.GetName().strip() == 'N':
-                                protein.AddBond(i, j, Chem.BondType.SINGLE)
-                                break
-                        elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
-                            break
-                elif match_idx == 3:  # N
-                    atom.GetPDBResidueInfo().SetName(' N  ')
-                    # create peptide bond left (index up)
-                    # use original amap here to get the begining of residue
-                    for j in range(amap[0], -1, -1):
-                        info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
-                        res2_num = info.GetResidueNumber()
-                        res2_chain = info.GetChainId()
-                        if res2_num == res_num - 1 and res_chain == res2_chain:
-                            if info.GetName().strip() == 'C':
-                                protein.AddBond(i, j, Chem.BondType.SINGLE)
-                                break
-                        elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
-                            break
-                elif match_idx in types:
-                    atom.GetPDBResidueInfo().SetName(' ' + types[match_idx].ljust(3))
+        backbone_definitions = [
+            # Disulfide Bond
+            {'smarts': Chem.MolFromSmiles('O=P(O)OCC1OC(CC1O)'),
+             'atom_types': {0: 'OP1', 1: 'P', 2: 'OP2', 3: 'O5\'', 4: 'C5\'',
+                            5: 'C4\'', 9: 'C3\'', 10: 'O3\''},
+             'bond_pair': ('O3\'', 'P')},
+            # Peptide Bond
+            {'smarts': Chem.MolFromSmiles('C(=O)CN'),
+             'atom_types': {0: 'C', 1: 'O', 2: 'CA', 3: 'N'},
+             'bond_pair': ('C', 'N')},
+        ]
+        for bond_def in backbone_definitions:
+            backbone_match = fixed_residue.GetSubstructMatch(bond_def['smarts'])
+            if backbone_match:
+                info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+                res_num = info.GetResidueNumber()
+                res_chain = info.GetChainId()
+                for i in new_atoms:
+                    if new_amap.index(i) in backbone_match:
+                        atom = protein.GetAtomWithIdx(i)
+                        match_idx = backbone_match.index(new_amap.index(i))
+                        # Set atom label if present in backbone definition
+                        if match_idx in bond_def['atom_types']:
+                            match_type = bond_def['atom_types'][match_idx]
+                            atom.GetPDBResidueInfo().SetName(' ' + match_type.ljust(3))
+                        else:  # if atom type is not defined we can skip that atom
+                            continue
+                        # define upstream and downstream bonds
+                        bonds = zip([bond_def['bond_pair'],
+                                     reversed(bond_def['bond_pair'])],
+                                    [1, -1])
+                        for (a1, a2), diff in bonds:
+                            if match_type == a1:
+                                limit = max(0, protein.GetNumAtoms() * diff)
+                                for j in range(amap[0], limit, diff):
+                                    info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
+                                    res2_num = info.GetResidueNumber()
+                                    res2_chain = info.GetChainId()
+                                    if res2_num == res_num + diff and res_chain == res2_chain:
+                                        if info.GetName().strip() == a2:
+                                            protein.AddBond(i, j, Chem.BondType.SINGLE)
+                                            break
+                                    elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
+                                        break
 
     # run PreparePDBResidue again to fix atom properies
     out = PreparePDBResidue(protein, fixed_residue, new_amap, template)
