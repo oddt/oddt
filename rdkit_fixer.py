@@ -881,7 +881,8 @@ def IsResidueConnected(mol, atom_ids):
     residues = set()
     for aid in atom_ids:
         info = mol.GetAtomWithIdx(aid).GetPDBResidueInfo()
-        residue = (info.GetResidueName(), info.GetResidueNumber())
+        residue = (info.GetResidueNumber(), info.GetResidueName().strip(),
+                   info.GetChainId())
         residues.add(residue)
     if len(residues) > 1:
         raise ValueError('Atoms belong to multiple residues:' + str(residues))
@@ -892,18 +893,19 @@ def IsResidueConnected(mol, atom_ids):
 
     while len(to_check) > 0:
         aid = to_check.pop()
-        if aid in visited_atoms:
-            continue
+        assert aid not in visited_atoms
 
         visited_atoms.add(aid)
         atom = mol.GetAtomWithIdx(aid)
 
         for atom2 in atom.GetNeighbors():
-            if atom2 in visited_atoms:
+            if atom2.GetIdx() in visited_atoms:
                 continue
 
             info = atom2.GetPDBResidueInfo()
-            if residue != (info.GetResidueName(), info.GetResidueNumber()):
+            if residue != (info.GetResidueNumber(),
+                           info.GetResidueName().strip(),
+                           info.GetChainId()):
                 # we got to different residue so it is connected
                 return True
             else:
