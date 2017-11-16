@@ -838,29 +838,19 @@ def FetchAffinityTable(pdbids, affinity_types):
             specified byt the user.
     """
 
-    pdb_report_url = 'https://www.rcsb.org/pdb/rest/customReport.csv'
-    params = {'pdbids': ','.join(pdbids), 'service': 'wsfile', 'format': 'csv'}
+    ids_string = ','.join(pdbids)
+    pdb_report_url = (
+        'https://www.rcsb.org/pdb/rest/customReport.csv?pdbids='
+        + ids_string
+        + '&reportName=%s&service=wsfile&format=csv'
+    )
 
     # get table with ligands
-    params['reportName'] = 'Ligands'
-    ligand_data = urllib.parse.urlencode(params)
-    ligand_data = ligand_data.encode()
-    req = urllib.request.Request(pdb_report_url, ligand_data)
-    response = urllib.request.urlopen(req)
-    report = response.read()
-    ligands = pd.read_csv(BytesIO(report))
-
+    ligands = pd.read_csv(pdb_report_url % ('Ligands'))
     ligands = ligands.dropna(subset=['structureId', 'ligandId'])
 
     # get table with binding affinites
-    params['reportName'] = 'BindingAffinity'
-    affinity_data = urllib.parse.urlencode(params)
-    affinity_data = affinity_data.encode()
-    req = urllib.request.Request(pdb_report_url, affinity_data)
-    response = urllib.request.urlopen(req)
-    report = response.read()
-    affinity = pd.read_csv(BytesIO(report))
-
+    affinity = pd.read_csv(pdb_report_url % ('BindingAffinity'))
     affinity = affinity.rename(columns={'hetId': 'ligandId'})
 
     # inner join of two tables - all ligands with known affinities
