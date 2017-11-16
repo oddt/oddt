@@ -480,44 +480,86 @@ def AddMissingAtoms(protein, residue, amap, template):
     if new_atoms:
         # fix backbone if it was absent
         # nucleotide
-        # nucleotide_match = fixed_residue.GetSubstructMatch(Chem.MolFromSmiles('P(=O)(O)OC'))
+        nucleotide_match = fixed_residue.GetSubstructMatch(Chem.MolFromSmiles('O=P(O)OCC1OC(CC1O)'))
+        types = {0: 'OP1', 1: 'P', 2: 'OP2', 3: 'O5\'', 4: 'C5\'', 5: 'C4\'',
+                 9: 'C3\'', 10: 'O3\''}
+        for i in new_atoms:
+            if new_amap.index(i) in nucleotide_match:
+                atom = protein.GetAtomWithIdx(i)
+                match_idx = nucleotide_match.index(new_amap.index(i))
+                info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+                res_num = info.GetResidueNumber()
+                res_chain = info.GetChainId()
+                if match_idx == 1:  # P
+                    atom.GetPDBResidueInfo().SetName(' P  ')
+                    # create peptide bond right (index down)
+                    # use original amap here to get the end of residue
+                    for j in range(amap[0], -1, -1):
+                        info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
+                        res2_num = info.GetResidueNumber()
+                        res2_chain = info.GetChainId()
+                        if res2_num == res_num - 1 and res_chain == res2_chain:
+                            if info.GetName().strip() == 'O3\'':
+                                protein.AddBond(i, j, Chem.BondType.SINGLE)
+                                break
+                        elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
+                            break
+                elif match_idx == 10:  # O3'
+                    atom.GetPDBResidueInfo().SetName(' O3\'')
+                    # create peptide bonde left (index up)
+                    # use original amap here to get the begining of residue
+                    for j in range(amap[-1], protein.GetNumAtoms()):
+                        info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
+                        res2_num = info.GetResidueNumber()
+                        res2_chain = info.GetChainId()
+                        if res2_num == res_num + 1 and res_chain == res2_chain:
+                            if info.GetName().strip() == 'P':
+                                protein.AddBond(i, j, Chem.BondType.SINGLE)
+                                break
+                        elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
+                            break
+                elif match_idx in types:
+                    atom.GetPDBResidueInfo().SetName(' ' + types[match_idx].ljust(3))
 
         # protein
         peptide_match = fixed_residue.GetSubstructMatch(Chem.MolFromSmiles('C(=O)CN'))
+        types = {0: 'C', 1: 'O', 2: 'CA', 3: 'N'}
         for i in new_atoms:
             if new_amap.index(i) in peptide_match:
                 atom = protein.GetAtomWithIdx(i)
                 match_idx = peptide_match.index(new_amap.index(i))
-                types = {0: 'C', 1: 'O', 2: 'CA', 3: 'N'}
+                info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+                res_num = info.GetResidueNumber()
+                res_chain = info.GetChainId()
                 if match_idx == 0:  # C
-                    atom.GetPDBResidueInfo().SetName(' C ')
+                    atom.GetPDBResidueInfo().SetName(' C  ')
                     # create peptide bond right (index down)
-                    res_num = (fixed_residue.GetAtomWithIdx(0).GetPDBResidueInfo()
-                               .GetResidueNumber())
                     # use original amap here to get the end of residue
                     for j in range(amap[-1], protein.GetNumAtoms()):
                         info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
-                        if info.GetResidueNumber() == res_num + 1:
+                        res2_num = info.GetResidueNumber()
+                        res2_chain = info.GetChainId()
+                        if res2_num == res_num + 1 and res_chain == res2_chain:
                             if info.GetName().strip() == 'N':
                                 protein.AddBond(i, j, Chem.BondType.SINGLE)
                                 break
-                        elif info.GetResidueNumber() > res_num + 1:
+                        elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
                             break
                 elif match_idx == 3:  # N
                     atom.GetPDBResidueInfo().SetName(' N  ')
                     # create peptide bonde left (index up)
-                    res_num = (residue.GetAtomWithIdx(0).GetPDBResidueInfo()
-                               .GetResidueNumber())
                     # use original amap here to get the begining of residue
                     for j in range(amap[0], -1, -1):
                         info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
-                        if info.GetResidueNumber() == res_num - 1:
+                        res2_num = info.GetResidueNumber()
+                        res2_chain = info.GetChainId()
+                        if res2_num == res_num - 1 and res_chain == res2_chain:
                             if info.GetName().strip() == 'C':
                                 protein.AddBond(i, j, Chem.BondType.SINGLE)
                                 break
-                        elif info.GetResidueNumber() < res_num - 1:
+                        elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
                             break
-                else:
+                elif match_idx in types:
                     atom.GetPDBResidueInfo().SetName(' ' + types[match_idx].ljust(3))
 
     # run PreparePDBResidue again to fix atom properies
@@ -732,6 +774,7 @@ def PreparePDBMol(mol,
     # minimize new atoms
     if new_atoms:
         old_new_mol = Chem.RWMol(new_mol)
+        Chem.GetSSSR(new_mol)  # we need to update fing info
         new_mol = UFFConstrainedOptimize(new_mol, moving_atoms=new_atoms)
         print('RMS after minimization of added atoms (%i):' % len(new_atoms),
               Chem.rdMolAlign.AlignMol(new_mol, old_new_mol),
