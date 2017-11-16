@@ -914,7 +914,7 @@ def IsResidueConnected(mol, atom_ids):
     return False
 
 
-def PrepareComplexes(pdbids, affinity_types=None):
+def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
     if affinity_types is None:
         affinity_types = ['Ki', 'Kd', 'EC50', 'IC50']
 
@@ -949,6 +949,7 @@ def PrepareComplexes(pdbids, affinity_types=None):
             try:
                 pocket, ligand = ExtractPocketAndLigand(
                     complex_mol,
+                    cutoff=pocket_dist_cutoff,
                     ligand_residue=res_name)
             except:
                 print('Cant get pocket and ligand for %s and %s'
