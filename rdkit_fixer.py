@@ -516,7 +516,7 @@ def AddMissingAtoms(protein, residue, amap, template):
                                     [1, -1])
                         for (a1, a2), diff in bonds:
                             if match_type == a1:
-                                limit = max(0, protein.GetNumAtoms() * diff)
+                                limit = max(-1, protein.GetNumAtoms() * diff)
                                 for j in range(amap[0], limit, diff):
                                     info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
                                     res2_num = info.GetResidueNumber()
