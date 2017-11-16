@@ -827,22 +827,22 @@ def FetchAffinityTable(pdbids, affinity_types):
     params = {'pdbids': ','.join(pdbids), 'service': 'wsfile', 'format': 'csv'}
 
     params['reportName'] = 'Ligands'
-    ligand_data = urllib.parse.urlencode(params, doseq=False, safe=',')
+    ligand_data = urllib.parse.urlencode(params)
     ligand_data = ligand_data.encode()
     req = urllib.request.Request(pdb_report_url, ligand_data)
-    with urllib.request.urlopen(req) as response:
-        report = response.read()
-        ligands = pd.read_csv(BytesIO(report))
+    response = urllib.request.urlopen(req)
+    report = response.read()
+    ligands = pd.read_csv(BytesIO(report))
 
     ligands = ligands.dropna(subset=['structureId', 'ligandId'])
 
     params['reportName'] = 'BindingAffinity'
-    affinity_data = urllib.parse.urlencode(params, doseq=False, safe=',')
+    affinity_data = urllib.parse.urlencode(params)
     affinity_data = affinity_data.encode()
     req = urllib.request.Request(pdb_report_url, affinity_data)
-    with urllib.request.urlopen(req) as response:
-        report = response.read()
-        affinity = pd.read_csv(BytesIO(report))
+    response = urllib.request.urlopen(req)
+    report = response.read()
+    affinity = pd.read_csv(BytesIO(report))
 
     affinity = affinity.rename(columns={'hetId': 'ligandId'})
 
@@ -868,8 +868,8 @@ def FetchAffinityTable(pdbids, affinity_types):
 
 def FetchStructure(pdbid, sanitize=False, removeHs=True):
     req = urllib.request.Request('https://files.rcsb.org/view/%s.pdb' % pdbid)
-    with urllib.request.urlopen(req) as response:
-        pdb_block = response.read().decode()
+    response = urllib.request.urlopen(req)
+    pdb_block = response.read().decode('utf-8')
 
     mol = Chem.MolFromPDBBlock(pdb_block, sanitize=sanitize, removeHs=removeHs)
 
@@ -925,6 +925,8 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
     for pdbid, tab in affinity_table.groupby('structureId'):
         complexes[pdbid] = {}
         complex_mol = FetchStructure(pdbid)
+        # we need to use fixer with rdkit < 2018
+        complex_mol = PreparePDBMol(complex_mol)
 
         ligand_atoms = {res_name: {} for res_name in tab['ligandId']}
         for atom in complex_mol.GetAtoms():

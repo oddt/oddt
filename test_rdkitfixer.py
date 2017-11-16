@@ -489,6 +489,7 @@ def test_add_missing_atoms():
 def test_connected_residues():
     molfile = test_dir + '4p6p_lig_zn.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
+    mol = PreparePDBMol(mol)    # we need to use fixer with rdkit < 2018
 
     # residue which has neighbours
     assert_equal(IsResidueConnected(mol, range(120, 127)), True)
