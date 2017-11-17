@@ -71,7 +71,7 @@ class SanitizeError(Exception):
     pass
 
 
-class NoSubstructureMatchError(Exception):
+class SubstructureMatchError(Exception):
     pass
 
 
@@ -450,12 +450,11 @@ def PreparePDBResidue(protein, residue, amap, template):
     else:
         # most common missing sidechain AA
         msg = 'No matching found'
-        raise NoSubstructureMatchError(msg,
-                                       template.GetProp('_Name'),
-                                       Chem.MolToSmiles(template),
-                                       Chem.MolToSmiles(template2),
-                                       Chem.MolToSmiles(residue),
-                                       )
+        raise SubstructureMatchError(msg,
+                                     template.GetProp('_Name'),
+                                     Chem.MolToSmiles(template),
+                                     Chem.MolToSmiles(template2),
+                                     Chem.MolToSmiles(residue))
 
     return protein, visited_bonds, is_complete
 
@@ -507,7 +506,7 @@ def AddMissingAtoms(protein, residue, amap, template):
             fixed_residue = UFFConstrainedOptimize(fixed_residue,
                                                    fixed_atoms=matched_atoms)
         else:
-            raise NoSubstructureMatchError(
+            raise SubstructureMatchError(
                 'No matching found at missing atom stage.',
                 template.GetProp('_Name'),
                 Chem.MolToSmiles(template),
