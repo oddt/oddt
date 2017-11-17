@@ -3,7 +3,6 @@ import os
 from collections import OrderedDict
 from itertools import combinations, chain
 import sys
-from io import BytesIO
 
 from six.moves import urllib
 
@@ -892,12 +891,7 @@ def IsResidueConnected(mol, atom_ids):
     in the molecule.
     """
 
-    residues = set()
-    for aid in atom_ids:
-        info = mol.GetAtomWithIdx(aid).GetPDBResidueInfo()
-        residue = (info.GetResidueNumber(), info.GetResidueName().strip(),
-                   info.GetChainId())
-        residues.add(residue)
+    residues = set(GetResidues(mol, atom_ids))
     if len(residues) > 1:
         raise ValueError('Atoms belong to multiple residues:' + str(residues))
     residue = residues.pop()
@@ -915,10 +909,7 @@ def IsResidueConnected(mol, atom_ids):
             if atom2.GetIdx() in visited_atoms:
                 continue
 
-            info = atom2.GetPDBResidueInfo()
-            if residue != (info.GetResidueNumber(),
-                           info.GetResidueName().strip(),
-                           info.GetChainId()):
+            if residue != GetAtomResidueId(atom2):
                 # we got to different residue so it is connected
                 return True
             else:
