@@ -71,15 +71,15 @@ def MolToTemplates(mol):
 
     if mol.HasProp('_Name') and mol.GetProp('_Name') in ['DA', 'DG', 'DT', 'DC',
                                                          'A', 'G', 'T', 'C', 'U']:
-        match = mol.GetSubstructMatch(Chem.MolFromSmiles('OP(=O)(O)OC'))
-        mol2 = Chem.RWMol(mol)
-        if match:
-            mol2.RemoveAtom(match[0])
+        backbone = 'OP(=O)(O)OC'
     else:
-        match = mol.GetSubstructMatch(Chem.MolFromSmiles('OC(=O)CN'))
-        mol2 = Chem.RWMol(mol)
-        if match:
-            mol2.RemoveAtom(match[0])
+        backbone = 'OC(=O)CN'
+
+    match = mol.GetSubstructMatch(Chem.MolFromSmiles(backbone))
+    mol2 = Chem.RWMol(mol)
+    if match:
+        mol2.RemoveAtom(match[0])
+
     Chem.SanitizeMol(mol2)
     mol2 = mol2.GetMol()
     return (mol, mol2)
@@ -117,7 +117,7 @@ def SimplifyMol(mol):
 
 def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None):
     """Minimize a molecule using UFF forcefield with a set of moving/fixed
-    atoms. If both moving and fixed atom are provided, fixed_atoms parameter
+    atoms. If both moving and fixed atoms are provided, fixed_atoms parameter
     will be ignored.
     """
     if moving_atoms is None and fixed_atoms is None:
@@ -168,7 +168,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
             Largest HETATM residue contained in input molecule
     """
     # Get heteroatom residues - connectivity still might be wrong, so GetFrags will fail
-    # Use OrderDict, so that A chain is prefered (first over B if ligands are equal
+    # Use OrderDict, so that A chain is prefered first over B if ligands are equal
     hetatm_residues = OrderedDict()
     protein_residues = OrderedDict()
     for atom in mol.GetAtoms():
@@ -189,7 +189,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
         ValueError('Threre is no residue named "%s" in the protein file' %
                    ligand_residue)
 
-    for res_id in list(hetatm_residues.keys()):  # exhaust keys, since we modify
+    for res_id in list(hetatm_residues.keys()):  # exhaust keys since we modify
         # Treat single atom residues (waters + metals) as pocket residues
         # Also append listed residues to protein
         if (len(hetatm_residues[res_id]) == 1 or
@@ -222,7 +222,8 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
 
     # Pocket selection based on cutoff
     mask = (cdist(protein_coords, ligand_coords) <= cutoff).any(axis=1)
-    pocket_amap = protein_amap[np.where(mask)[0]].tolist()  # ids strictly in within cutoff
+    # IDs of atoms within cutoff
+    pocket_amap = protein_amap[np.where(mask)[0]].tolist()
 
     # Expand pocket's residues
     if expandResidues:
@@ -443,13 +444,18 @@ def AddMissingAtoms(protein, residue, amap, template):
 
     new_atoms = []
     new_amap = []
+
+    info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+    protein_conformer = protein.GetConformer()
+    fixed_conformer = fixed_residue.GetConformer()
+
     for i in range(fixed_residue.GetNumAtoms()):
         if i not in matched_atoms:
             atom = fixed_residue.GetAtomWithIdx(i)
-            info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
             # we need to generate atom names like 'H123', these are
             # "wrapped around" below when setting 'atomName' to '3H12'
-            name = (atom.GetSymbol() + str(i)[:4-len(atom.GetSymbol())]).ljust(4)
+            atom_symbol = atom.GetSymbol()
+            name = (atom_symbol + str(i)[:4-len(atom_symbol)]).ljust(4)
             new_info = Chem.AtomPDBResidueInfo(
                 atomName=name[-1:] + name[:-1],  # wrap around
                 residueName=info.GetResidueName(),
@@ -462,8 +468,8 @@ def AddMissingAtoms(protein, residue, amap, template):
             atom.SetMonomerInfo(new_info)
             new_id = protein.AddAtom(atom)
             new_atoms.append(new_id)
-            pos = fixed_residue.GetConformer().GetAtomPosition(i)
-            protein.GetConformer().SetAtomPosition(new_id, pos)
+            pos = fixed_conformer.GetAtomPosition(i)
+            protein_conformer.SetAtomPosition(new_id, pos)
             new_amap.append(new_id)
         else:
             new_amap.append(amap[matched_atoms.index(i)])
@@ -476,15 +482,17 @@ def AddMissingAtoms(protein, residue, amap, template):
                 ni = n.GetIdx()
                 bond = fixed_residue.GetBondBetweenAtoms(i, ni)
                 # for multiple missing atoms we may hit bonds multiple times
-                new_bond = protein.GetBondBetweenAtoms(new_amap[i], new_amap[ni])
+                new_bond = protein.GetBondBetweenAtoms(new_amap[i],
+                                                       new_amap[ni])
                 if new_bond is None:
                     protein.AddBond(new_amap[i], new_amap[ni])
-                    new_bond = protein.GetBondBetweenAtoms(new_amap[i], new_amap[ni])
+                    new_bond = protein.GetBondBetweenAtoms(new_amap[i],
+                                                           new_amap[ni])
                     new_bond.SetBondType(bond.GetBondType())
 
     if new_atoms:
         backbone_definitions = [
-            # Disulfide Bond
+            # Phosphodiester Bond
             {'smarts': Chem.MolFromSmiles('O=P(O)OCC1OC(CC1O)'),
              'atom_types': {0: 'OP1', 1: 'P', 2: 'OP2', 3: 'O5\'', 4: 'C5\'',
                             5: 'C4\'', 9: 'C3\'', 10: 'O3\''},
@@ -494,22 +502,25 @@ def AddMissingAtoms(protein, residue, amap, template):
              'atom_types': {0: 'C', 1: 'O', 2: 'CA', 3: 'N'},
              'bond_pair': ('C', 'N')},
         ]
+        info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+        res_num = info.GetResidueNumber()
+        res_chain = info.GetChainId()
+
         for bond_def in backbone_definitions:
             backbone_match = fixed_residue.GetSubstructMatch(bond_def['smarts'])
             if backbone_match:
-                info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
-                res_num = info.GetResidueNumber()
-                res_chain = info.GetChainId()
                 for i in new_atoms:
                     if new_amap.index(i) in backbone_match:
                         atom = protein.GetAtomWithIdx(i)
                         match_idx = backbone_match.index(new_amap.index(i))
-                        # Set atom label if present in backbone definition
-                        if match_idx in bond_def['atom_types']:
-                            match_type = bond_def['atom_types'][match_idx]
-                            atom.GetPDBResidueInfo().SetName(' ' + match_type.ljust(3))
-                        else:  # if atom type is not defined we can skip that atom
+                        if match_idx not in bond_def['atom_types']:
+                            # if atom type is not defined we can skip that atom
                             continue
+
+                        # Set atom label if present in backbone definition
+                        match_type = bond_def['atom_types'][match_idx]
+                        atom.GetPDBResidueInfo().SetName(' ' + match_type.ljust(3))
+
                         # define upstream and downstream bonds
                         bonds = zip([bond_def['bond_pair'],
                                      reversed(bond_def['bond_pair'])],
@@ -518,17 +529,20 @@ def AddMissingAtoms(protein, residue, amap, template):
                             if match_type == a1:
                                 limit = max(-1, protein.GetNumAtoms() * diff)
                                 for j in range(amap[0], limit, diff):
-                                    info = protein.GetAtomWithIdx(j).GetPDBResidueInfo()
+                                    info = (protein.GetAtomWithIdx(j)
+                                            .GetPDBResidueInfo())
                                     res2_num = info.GetResidueNumber()
                                     res2_chain = info.GetChainId()
-                                    if res2_num == res_num + diff and res_chain == res2_chain:
+                                    if (res2_num == res_num + diff
+                                            and res_chain == res2_chain):
                                         if info.GetName().strip() == a2:
                                             protein.AddBond(i, j, Chem.BondType.SINGLE)
                                             break
-                                    elif abs(res2_num - res_num) > 1 or res_chain != res2_chain:
+                                    elif (abs(res2_num - res_num) > 1
+                                          or res_chain != res2_chain):
                                         break
 
-    # run PreparePDBResidue again to fix atom properies
+    # run PreparePDBResidue to fix atom properies
     out = PreparePDBResidue(protein, fixed_residue, new_amap, template)
     return out + (new_atoms,)
 
@@ -714,21 +728,10 @@ def PreparePDBMol(mol,
                 a2.GetAtomicNum() > 1 and
                 # don't remove bonds between residues in backbone
                 # and sulphur bridges
-                not ((a1_name == 'N' and
-                      a2_name == 'C' and
-                      abs(a1_num - a2_num) == 1) or  # peptide bond
-                     (a1_name == 'C' and
-                      a2_name == 'N' and
-                      abs(a1_num - a2_num) == 1) or  # peptide bond
-                     (a1_name == 'P' and
-                      a2_name == 'O3\'' and
-                      abs(a1_num - a2_num) == 1) or  # DNA
-                     (a1_name == 'O3\'' and
-                      a2_name == 'P' and
-                      abs(a1_num - a2_num) == 1) or  # DNA
-                     (a1_name == 'SG' and
-                      a2_name == 'SG')  # sulphur bridge
-                     )):
+                not (((a1_name, a2_name) in {('C', 'N'), ('N', 'C'),
+                                             ('P', 'O3\''), ('O3\'', 'P')} and
+                      abs(a1_num - a2_num) == 1) or  # peptide or DNA bond
+                     (a1_name == 'SG' and a2_name == 'SG'))):  # sulphur bridge
                 new_mol.RemoveBond(a1_ix, a2_ix)
             else:
                 pass
@@ -740,7 +743,7 @@ def PreparePDBMol(mol,
     # minimize new atoms
     if new_atoms:
         old_new_mol = Chem.RWMol(new_mol)
-        Chem.GetSSSR(new_mol)  # we need to update fing info
+        Chem.GetSSSR(new_mol)  # we need to update ring info
         new_mol = UFFConstrainedOptimize(new_mol, moving_atoms=new_atoms)
         print('RMS after minimization of added atoms (%i):' % len(new_atoms),
               Chem.rdMolAlign.AlignMol(new_mol, old_new_mol),
