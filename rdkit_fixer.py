@@ -125,7 +125,7 @@ def SimplifyMol(mol):
 
 
 def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
-                           cutoff=10.):
+                           cutoff=5.):
     """Minimize a molecule using UFF forcefield with a set of moving/fixed
     atoms. If both moving and fixed atoms are provided, fixed_atoms parameter
     will be ignored.  The minimization is done in-place (without copying
@@ -162,7 +162,15 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
     pos = np.array(mol.GetConformer(-1).GetPositions())
     mask = (cdist(pos, pos[moving_atoms]) <= cutoff).any(axis=1)
     amap = np.where(mask)[0].tolist()
-    # TODO: expand to whole residues?
+
+    # expand to whole residues
+    pocket_residues = OrderedDict()
+    protein_residues = GetResidues(mol)
+    for res_id in protein_residues.keys():
+        if any(1 for res_aix in protein_residues[res_id]
+               if res_aix in amap):
+            pocket_residues[res_id] = protein_residues[res_id]
+    amap = list(chain(*pocket_residues.values()))
 
     # TODO: above certain threshold its making a submolis redundant
     submol = AtomListToSubMol(mol, amap, includeConformer=True)
@@ -170,11 +178,11 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
     Chem.GetSSSR(submol)
     ff = UFFGetMoleculeForceField(submol, vdwThresh=cutoff,
                                   ignoreInterfragInteractions=False)
-    for i, atom_id in enumerate(amap):
+    for submol_id, atom_id in enumerate(amap):
         if atom_id not in moving_atoms:
-            ff.AddFixedPoint(i)
+            ff.AddFixedPoint(submol_id)
     ff.Initialize()
-    ff.Minimize(energyTol=1e-2, forceTol=1e-2, maxIts=200)
+    ff.Minimize(energyTol=1e-4, forceTol=1e-3, maxIts=2000)
 
     # get the positions backbone
     conf = mol.GetConformer(-1)
@@ -501,10 +509,6 @@ def AddMissingAtoms(protein, residue, amap, template):
             fixed_residue2.RemoveAllConformers()
             fixed_residue2.AddConformer(fixed_residue.GetConformer(-1))
             fixed_residue = fixed_residue2
-
-            # initial minimization only on residue
-            fixed_residue = UFFConstrainedOptimize(fixed_residue,
-                                                   fixed_atoms=matched_atoms)
         else:
             raise SubstructureMatchError(
                 'No matching found at missing atom stage.',
@@ -611,6 +615,9 @@ def AddMissingAtoms(protein, residue, amap, template):
                                     elif (abs(res2_num - res_num) > 1
                                           or res_chain != res2_chain):
                                         break
+
+    # run minimization just for this residue
+    protein = UFFConstrainedOptimize(protein, moving_atoms=new_atoms)
 
     # run PreparePDBResidue to fix atom properies
     out = PreparePDBResidue(protein, fixed_residue, new_amap, template)
@@ -829,6 +836,7 @@ def PreparePDBMol(mol,
             return (info.GetChainId(), info.GetResidueNumber(), i)
         order = list(range(new_mol.GetNumAtoms()))
         new_order = sorted(order, key=atom_reorder_repr)
+        Chem.GetSSSR(new_mol)
         new_mol = Chem.RenumberAtoms(new_mol, new_order)
     return new_mol
 
