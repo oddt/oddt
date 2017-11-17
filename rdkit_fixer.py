@@ -173,8 +173,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
     protein_residues = OrderedDict()
     for atom in mol.GetAtoms():
         info = atom.GetPDBResidueInfo()
-        res_id = (info.GetResidueNumber(), info.GetResidueName().strip(),
-                  info.GetChainId())
+        res_id = GetAtomResidueId(atom)
         if info.GetIsHeteroAtom():
             if res_id not in hetatm_residues:
                 hetatm_residues[res_id] = []
@@ -238,6 +237,33 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
     pocket = AtomListToSubMol(mol, pocket_amap, includeConformer=True)
 
     return pocket, ligand
+
+
+def GetAtomResidueId(atom):
+    """Return (residue number, residue name, chain id) for a given atom"""
+    info = atom.GetPDBResidueInfo()
+    res_id = (info.GetResidueNumber(), info.GetResidueName().strip(),
+              info.GetChainId())
+    return res_id
+
+
+def GetResidues(mol, atom_list=None):
+    """Create dictrionary that maps residues to atom IDs:
+    (res number, res name, chain id) --> [atom1 idx, atom2 idx, ...]
+    """
+
+    residues = OrderedDict()
+
+    if atom_list is None:
+        atom_list = range(mol.GetNumAtoms())
+
+    for aid in atom_list:
+        res_id = GetAtomResidueId(mol.GetAtomWithIdx(aid))
+        if res_id not in residues:
+            residues[res_id] = []
+        residues[res_id].append(aid)
+
+    return residues
 
 
 def PreparePDBResidue(protein, residue, amap, template):
@@ -610,23 +636,13 @@ def PreparePDBMol(mol,
 
     # list of unique residues and their atom indices
     unique_resname = set()
-
-    # (res number, res name, chain id) --> [atom1 idx, atom2 idx, ...]
-    resiues_atom_map = OrderedDict()
-
-    for atom in new_mol.GetAtoms():
-        info = atom.GetPDBResidueInfo()
-        res_id = (info.GetResidueNumber(), info.GetResidueName().strip(),
-                  info.GetChainId())
-        if res_id not in resiues_atom_map:
-            resiues_atom_map[res_id] = []
-        resiues_atom_map[res_id].append(atom.GetIdx())
-        unique_resname.add(info.GetResidueName().strip())
+    residues_atom_map = GetResidues(new_mol)
 
     # create a list of residue mols with atom maps
     residues = []
     # residue_id == (res number, res name, chain id)
-    for residue_id, amap in resiues_atom_map.items():
+    for residue_id, amap in residues_atom_map.items():
+        unique_resname.add(residue_id[1].strip())
         # skip waters
         if residue_id[1] != 'HOH':
             res = AtomListToSubMol(new_mol, amap, includeConformer=True)
