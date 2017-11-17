@@ -170,9 +170,9 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
     Chem.GetSSSR(submol)
     ff = UFFGetMoleculeForceField(submol, vdwThresh=cutoff,
                                   ignoreInterfragInteractions=False)
-    for i in fixed_atoms:
-        if i in amap:
-            ff.AddFixedPoint(amap.index(i))
+    for i, atom_id in enumerate(amap):
+        if atom_id not in moving_atoms:
+            ff.AddFixedPoint(i)
     ff.Initialize()
     ff.Minimize(energyTol=1e-2, forceTol=1e-2, maxIts=200)
 
@@ -769,13 +769,13 @@ def PreparePDBMol(mol,
         new_mol = Chem.RWMol(new_mol)
         visited_bonds = set(visited_bonds)
         bonds_queue = []
+        backbone_bonds = []  # a list of backbone bonds to re-check
         for bond in new_mol.GetBonds():
             a1 = bond.GetBeginAtomIdx()
             a2 = bond.GetEndAtomIdx()
             if (a1, a2) not in visited_bonds and (a2, a1) not in visited_bonds:
                 bonds_queue.append((a1, a2))
         for a1_ix, a2_ix in bonds_queue:
-            bond = new_mol.GetBondBetweenAtoms(a1_ix, a2_ix)
             a1 = new_mol.GetAtomWithIdx(a1_ix)
             a2 = new_mol.GetAtomWithIdx(a2_ix)
             # get residue number
@@ -784,21 +784,18 @@ def PreparePDBMol(mol,
             # get PDB atom names
             a1_name = a1.GetPDBResidueInfo().GetName().strip()
             a2_name = a2.GetPDBResidueInfo().GetName().strip()
-            if (a1.GetAtomicNum() > 1 and
-                a2.GetAtomicNum() > 1 and
+            if a1.GetAtomicNum() > 1 and a2.GetAtomicNum() > 1:
                 # don't remove bonds between residues in backbone
                 # and sulphur bridges
-                not (((a1_name, a2_name) in {('C', 'N'), ('N', 'C'),
-                                             ('P', 'O3\''), ('O3\'', 'P')} and
-                      abs(a1_num - a2_num) == 1) or  # peptide or DNA bond
-                     (a1_name == 'SG' and a2_name == 'SG'))):  # sulphur bridge
-                new_mol.RemoveBond(a1_ix, a2_ix)
+                if (((a1_name, a2_name) in {('C', 'N'), ('N', 'C'),
+                                            ('P', 'O3\''), ('O3\'', 'P')} and
+                     abs(a1_num - a2_num) == 1) or  # peptide or DNA bond
+                        (a1_name == 'SG' and a2_name == 'SG')):  # sulphur bridge
+                    backbone_bonds.append((a1_ix, a2_ix))
+                else:
+                    new_mol.RemoveBond(a1_ix, a2_ix)
             else:
                 pass
-    if atoms_to_del:
-        new_mol = Chem.RWMol(new_mol)
-        for idx in sorted(atoms_to_del, reverse=True):
-            new_mol.RemoveAtom(idx)
 
     # minimize new atoms
     if new_atoms:
@@ -808,6 +805,20 @@ def PreparePDBMol(mol,
         print('RMS after minimization of added atoms (%i):' % len(new_atoms),
               Chem.rdMolAlign.AlignMol(new_mol, old_new_mol),
               file=sys.stderr)
+
+    # remove all peptide, phosphodiester and sulfur bonds which are to long (<4A)
+    if visited_bonds and bonds_queue:
+        conf = new_mol.GetConformer(-1)
+        for a1_ix, a2_ix in backbone_bonds:
+            if np.linalg.norm(conf.GetAtomPosition(a1_ix) -
+                              conf.GetAtomPosition(a2_ix)) > 4:  # np.array
+                new_mol.RemoveBond(a1_ix, a2_ix)
+
+    # index change here
+    if atoms_to_del:
+        new_mol = Chem.RWMol(new_mol)
+        for idx in sorted(atoms_to_del, reverse=True):
+            new_mol.RemoveAtom(idx)
 
     # if missing atoms were added we need to renumber them
     if add_missing_atoms and new_atoms:
