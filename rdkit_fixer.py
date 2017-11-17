@@ -67,6 +67,14 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
     return submol
 
 
+class SanitizeError(Exception):
+    pass
+
+
+class NoSubstructureMatchError(Exception):
+    pass
+
+
 def MolToTemplates(mol):
     """Prepare set of templates for a given PDB residue."""
 
@@ -329,21 +337,19 @@ def PreparePDBResidue(protein, residue, amap, template):
             Indicates whether all atoms in template were found in residue
     """
 
+    visited_bonds = []
+    is_complete = False
+
     # Catch residues which have less than 4 atoms (i.e. cannot have complete
     # backbone), and template has more atoms than that, or residues with
     # many missing atoms, which lead to low number of bonds (less than 3)
     if ((len(amap) < 4 or residue.GetNumBonds() < 3) and
             template.GetNumAtoms() > 4):
-        raise ValueError('The residue "%s" has incomplete backbone'
-                         % template.GetProp('_Name'),
-                         Chem.MolToSmiles(template),
-                         Chem.MolToSmiles(residue))
+        return protein, visited_bonds, is_complete
 
     # modify copies instead of original molecules
     template2 = Chem.Mol(template)
     residue2 = Chem.Mol(residue)
-
-    visited_bonds = []
 
     # do the molecules match already?
     match = residue2.GetSubstructMatch(template2)
@@ -423,7 +429,6 @@ def PreparePDBResidue(protein, residue, amap, template):
             # Update computed properties for an atom
             a2.UpdatePropertyCache(strict=False)
         if len(match) < template.GetNumAtoms():
-            is_complete = False
             # TODO: replace following with warning/logging
             # Get atom map of fixed fragment
             amap_frag = [amap[match[a.GetIdx()]]
@@ -445,12 +450,12 @@ def PreparePDBResidue(protein, residue, amap, template):
     else:
         # most common missing sidechain AA
         msg = 'No matching found'
-        raise ValueError(msg,
-                         template.GetProp('_Name'),
-                         Chem.MolToSmiles(template),
-                         Chem.MolToSmiles(template2),
-                         Chem.MolToSmiles(residue),
-                         )
+        raise NoSubstructureMatchError(msg,
+                                       template.GetProp('_Name'),
+                                       Chem.MolToSmiles(template),
+                                       Chem.MolToSmiles(template2),
+                                       Chem.MolToSmiles(residue),
+                                       )
 
     return protein, visited_bonds, is_complete
 
@@ -502,10 +507,11 @@ def AddMissingAtoms(protein, residue, amap, template):
             fixed_residue = UFFConstrainedOptimize(fixed_residue,
                                                    fixed_atoms=matched_atoms)
         else:
-            raise ValueError('No matching found at missing atom stage.',
-                             template.GetProp('_Name'),
-                             Chem.MolToSmiles(template),
-                             Chem.MolToSmiles(residue))
+            raise NoSubstructureMatchError(
+                'No matching found at missing atom stage.',
+                template.GetProp('_Name'),
+                Chem.MolToSmiles(template),
+                Chem.MolToSmiles(residue))
 
     new_atoms = []
     new_amap = []
@@ -838,18 +844,15 @@ def FetchAffinityTable(pdbids, affinity_types):
     """
 
     ids_string = ','.join(pdbids)
-    pdb_report_url = (
-        'https://www.rcsb.org/pdb/rest/customReport.csv?pdbids='
-        + ids_string
-        + '&reportName=%s&service=wsfile&format=csv'
-    )
+    pdb_report_url = ('https://www.rcsb.org/pdb/rest/customReport.csv?'
+                      'pdbids=%s&reportName=%s&service=wsfile&format=csv')
 
     # get table with ligands
-    ligands = pd.read_csv(pdb_report_url % ('Ligands'))
+    ligands = pd.read_csv(pdb_report_url % (ids_string, 'Ligands'))
     ligands = ligands.dropna(subset=['structureId', 'ligandId'])
 
     # get table with binding affinites
-    affinity = pd.read_csv(pdb_report_url % ('BindingAffinity'))
+    affinity = pd.read_csv(pdb_report_url % (ids_string, 'BindingAffinity'))
     affinity = affinity.rename(columns={'hetId': 'ligandId'})
 
     # inner join of two tables - all ligands with known affinities
@@ -875,7 +878,23 @@ def FetchAffinityTable(pdbids, affinity_types):
 
 
 def FetchStructure(pdbid, sanitize=False, removeHs=True):
-    """Fetch the structure from RCSB PDB server and read it with rdkit."""
+    """Fetch the structure in PDB format from RCSB PDB server and read it with
+    rdkit.
+
+    Parameters
+    ----------
+        pdbid: str
+            PDB IDs of the structre
+        sanitize: bool, optional (default False)
+            Toggles molecule sanitation
+        removeHs: bool, optional (default False)
+            Indicates wheter Hs should be removed during reading
+
+    Returns
+    -------
+        mol: Chem.rdchem.Mol
+            Retrieved molecule
+"""
 
     req = urllib.request.Request('https://files.rcsb.org/view/%s.pdb' % pdbid)
     response = urllib.request.urlopen(req)
@@ -989,12 +1008,14 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
             # TODO: add missing atoms
             pocket = PreparePDBMol(pocket)
             flag = Chem.SanitizeMol(pocket)
-            assert flag == Chem.SanitizeFlags.SANITIZE_NONE, \
-                'Cannot sanitize pocket for for %s and %s' % (pdbid, res_name)
+            if flag != Chem.SanitizeFlags.SANITIZE_NONE:
+                raise SanitizeError('Cannot sanitize pocket for %s and %s'
+                                    % (pdbid, res_name))
 
             flag = Chem.SanitizeMol(ligand)
-            assert flag == Chem.SanitizeFlags.SANITIZE_NONE, \
-                'Cannot sanitize ligand for for %s and %s' % (pdbid, res_name)
+            if flag != Chem.SanitizeFlags.SANITIZE_NONE:
+                raise SanitizeError('Cannot sanitize ligand for %s and %s'
+                                    % (pdbid, res_name))
 
             affinity_values = (
                 tab
