@@ -115,24 +115,62 @@ def SimplifyMol(mol):
     return mol
 
 
-def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None):
+def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
+                           cutoff=10.):
     """Minimize a molecule using UFF forcefield with a set of moving/fixed
     atoms. If both moving and fixed atoms are provided, fixed_atoms parameter
-    will be ignored.
+    will be ignored.  The minimization is done in-place (without copying
+    molecule).
+
+    Parameters
+    ----------
+        mol: rdkit.Chem.rdchem.Mol
+            Molecule to be minimized.
+        moving_atoms: array-like (default=None)
+            Indices of freely moving atoms. If None, fixed atoms are assigned
+            based on `fixed_atoms`. These two arguments are mutually exclusive.
+        fixed_atoms: array-like (default=None)
+            Indices of fixed atoms. If None, fixed atoms are assigned based on
+            `moving_atoms`. These two arguments are mutually exclusive.
+        cutoff: float (default=10.)
+            Distance cutoff for the UFF minimization
+
+    Returns
+    -------
+        mol: rdkit.Chem.rdchem.Mol
+            Molecule with mimimized `moving_atoms`
     """
     if moving_atoms is None and fixed_atoms is None:
         raise ValueError('You must supply at least one set of moving/fixed '
                          'atoms.')
 
-    ff = UFFGetMoleculeForceField(mol, vdwThresh=5.,
+    all_atoms = set(range(mol.GetNumAtoms()))
+    if moving_atoms is None:
+        moving_atoms = list(all_atoms.difference(fixed_atoms))
+    else:
+        fixed_atoms = list(all_atoms.difference(moving_atoms))
+    # extract submolecules containing atoms within cutoff
+    pos = np.array(mol.GetConformer(-1).GetPositions())
+    mask = (cdist(pos, pos[moving_atoms]) <= cutoff).any(axis=1)
+    amap = np.where(mask)[0].tolist()
+    # TODO: expand to whole residues?
+
+    # TODO: above certain threshold its making a submolis redundant
+    submol = AtomListToSubMol(mol, amap, includeConformer=True)
+    # initialize ring info
+    Chem.GetSSSR(submol)
+    ff = UFFGetMoleculeForceField(submol, vdwThresh=cutoff,
                                   ignoreInterfragInteractions=False)
-    if moving_atoms is not None:
-        fixed_atoms = [i for i in range(mol.GetNumAtoms())
-                       if i not in moving_atoms]
     for i in fixed_atoms:
-        ff.AddFixedPoint(i)
+        if i in amap:
+            ff.AddFixedPoint(amap.index(i))
     ff.Initialize()
     ff.Minimize(energyTol=1e-2, forceTol=1e-2, maxIts=200)
+
+    # get the positions backbone
+    conf = mol.GetConformer(-1)
+    for idx, pos in zip(amap, submol.GetConformer(-1).GetPositions()):
+        conf.SetAtomPosition(idx, pos)
     return mol
 
 
