@@ -185,7 +185,7 @@ def _filereader_pdb(filename, opt=None):
         for line in f:
             line = line.decode('ascii')
             block += line
-            if line[:4] == 'ENDMDL':
+            if line[:6] == 'ENDMDL':
                 yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
                 n += 1
                 block = ''
@@ -200,7 +200,7 @@ def _filereader_pdbqt(filename, opt=None):
         for line in f:
             line = line.decode('ascii')
             block += line
-            if line[:4] == 'ENDMDL':
+            if line[:6] == 'ENDMDL':
                 yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt})
                 n += 1
                 block = ''
@@ -949,8 +949,8 @@ class Molecule(object):
             result = '%s\t%s\n' % (Chem.MolToSmiles(self.Mol, **kwargs), self.title)
         elif format in ["mol", "sdf"]:
             result = Chem.MolToMolBlock(self.Mol, **kwargs)
-        elif format == "mol2":
-            result = Chem.MolToMol2Block(self.Mol, **kwargs)
+        # elif format == "mol2":
+        #     result = MolToMol2Block(self.Mol, **kwargs)
         elif format == "pdb":
             result = Chem.MolToPDBBlock(self.Mol, **kwargs)
         elif format == "pdbqt":
