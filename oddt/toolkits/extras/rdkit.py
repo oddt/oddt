@@ -1,5 +1,8 @@
 from __future__ import absolute_import, print_function
+from itertools import chain
+
 from rdkit import Chem
+from rdkit.Chem import AllChem
 
 _metals = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
            30, 31, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
@@ -156,10 +159,228 @@ def _atom_matches_smarts(atom, smarts):
 def _amide_bond(bond):
     a1 = bond.GetBeginAtom()
     a2 = bond.GetEndAtom()
-    if a1.GetAtomicNum() == 6 and a2.GetAtomicNum() == 7 or a2.GetAtomicNum() == 6 and a1.GetAtomicNum() == 7:
+    if (a1.GetAtomicNum() == 6 and a2.GetAtomicNum() == 7 or
+            a2.GetAtomicNum() == 6 and a1.GetAtomicNum() == 7):
         # https://github.com/rdkit/rdkit/blob/master/Data/FragmentDescriptors.csv
         patt = Chem.MolFromSmarts('C(=O)-N')
         for m in bond.GetOwningMol().GetSubstructMatches(patt):
             if a1.GetIdx() in m and a2.GetIdx() in m:
                 return True
     return False
+
+
+def MolFromPDBQTBlock(block, template=None):
+    """Read PDBQT block to a RDKit Molecule
+
+    Parameters
+    ----------
+        block: string
+            Residue name which explicitly pint to a ligand(s).
+        mol: rdkit.Chem.rdchem.Mol (default=None)
+            A template used for assigning bond orders, as PDBQT does not encode
+            them at all.
+
+    Returns
+    -------
+        mol: rdkit.Chem.rdchem.Mol
+            Molecule read from PDBQT
+    """
+    lines = filter(lambda x: x.startswith('ATOM'), block.split('\n'))
+    lines = map(lambda x: x.replace('ATOM  ', 'HETATM'), lines)
+
+    pdb_lines = []
+    for line in lines:
+        pdb_line = line[:56]
+        pdb_line += '1.00  0.00           '
+
+        # Do proper atom type lookup
+        atom_type = line[71:].split()[1]
+        if atom_type == 'A':
+            atom_type = 'C'
+        elif atom_type[:1] == 'O':
+            atom_type = 'O'
+        elif atom_type[:1] == 'H':
+            atom_type = 'H'
+        elif atom_type == 'NA':
+            atom_type = 'N'
+
+        pdb_lines.append(pdb_line + atom_type)
+    mol = Chem.MolFromPDBBlock('\n'.join(pdb_lines))
+
+    # reorder atoms using serial
+    new_order = sorted(range(mol.GetNumAtoms()),
+                       key=lambda i: (mol.GetAtomWithIdx(i)
+                                      .GetPDBResidueInfo()
+                                      .GetSerialNumber()))
+    mol = Chem.RenumberAtoms(mol, new_order)
+
+    if template is not None:
+        mol = AllChem.AssignBondOrdersFromTemplate(template, mol)
+
+    return mol
+
+
+def PDBQTAtomLines(mol, donors, acceptors):
+    """Create a list with PDBQT atom lines for each atom in molecule"""
+
+    atom_lines = [line.replace('HETATM', 'ATOM  ')
+                  for line in Chem.MolToPDBBlock(mol).split('\n')
+                  if line.startswith('HETATM')]
+
+    pdbqt_lines = []
+    for idx, atom in enumerate(mol.GetAtoms()):
+        pdbqt_line = atom_lines[idx][:56]
+
+        pdbqt_line += '0.00  0.00    '  # append empty vdW and ele
+        # Get charge
+        charge = None
+        if atom.HasProp('_GasteigerCharge'):
+            charge = float(atom.GetProp('_GasteigerCharge'))
+        elif atom.GetAtomicNum() == 1:
+            root_atom = atom.GetNeighbors()[0]
+            if root_atom.HasProp('_GasteigerHCharge'):
+                charge = float(root_atom.GetProp('_GasteigerHCharge'))
+        if charge is None:
+            raise ValueError('No charge information')
+        pdbqt_line += ('%.3f' % charge).rjust(6)
+
+        # Get atom type
+        # TODO: do proper atom typing here
+        pdbqt_line += ' '
+        atomicnum = atom.GetAtomicNum()
+        if atomicnum == 6:
+            if atom.GetIsAromatic():
+                pdbqt_line += 'A'
+            else:
+                pdbqt_line += 'C'
+        elif atomicnum == 7 and idx in acceptors:
+            pdbqt_line += 'NA'
+        elif atomicnum == 8 and idx in acceptors:
+            pdbqt_line += 'OA'
+        elif atomicnum == 1:
+            if atom.GetNeighbors()[0].GetAtomicNum() in [7, 8]:
+                pdbqt_line += 'HD'
+            else:
+                pdbqt_line += 'H'  # TODO: this should not happen
+        else:
+            pdbqt_line += atom.GetSymbol()
+        pdbqt_lines.append(pdbqt_line)
+    return pdbqt_lines
+
+
+def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
+    """Write RDKit Molecule to a PDBQT MolToMolBlock
+
+    Parameters
+    ----------
+        mol: rdkit.Chem.rdchem.Mol
+            Molecule with a protein ligand complex
+        flexible: bool (default=True)
+            Should the molecule encode torsions. Ligands should be flexible,
+            proteins in turn can be rigid.
+        addHs: bool (default=True)
+            The PDBQT format requires at least polar Hs on donors. By default Hs
+            are added.
+        computeCharges: bool (default=True)
+            Partial charges are also required in PDBQT format. They are
+            automatically computed by default. If the Hs are added the charges
+            must and will be recomputed.
+
+    Returns
+    -------
+        block: str
+            String wit PDBQT encoded molecule
+    """
+    # make a copy of molecule
+    mol = Chem.Mol(mol)
+
+    # Acceptors
+    patt = Chem.MolFromSmarts('[$([O;H1;v2]),'
+                              '$([O;H0;v2;!$(O=N-*),'
+                              '$([O;-;!$(*-N=O)]),'
+                              '$([o;+0])]),'
+                              '$([n;+0;!X3;!$([n;H1](cc)cc),'
+                              '$([$([N;H0]#[C&v4])]),'
+                              '$([N&v3;H0;$(Nc)])]),'
+                              '$([F;$(F-[#6]);!$(FC[F,Cl,Br,I])])]')
+    acceptors = list(chain(*mol.GetSubstructMatches(patt, maxMatches=mol.GetNumAtoms())))
+    acceptors = [i for i in acceptors
+                 if mol.GetAtomWithIdx(i).GetAtomicNum() != 6]
+    # Donors
+    patt = Chem.MolFromSmarts('[$([N&!H0&v3,N&!H0&+1&v4,n&H1&+0,$([$([Nv3](-C)(-C)-C)]),'
+                              '$([$(n[n;H1]),'
+                              '$(nc[n;H1])])]),'
+                              # Guanidine can be tautormeic - e.g. Arginine
+                              '$([NX3,NX2]([!O,!S])!@C(!@[NX3,NX2]([!O,!S]))!@[NX3,NX2]([!O,!S])),'
+                              '$([O,S;H1;+0])]')
+    donors = list(chain(*mol.GetSubstructMatches(patt, maxMatches=mol.GetNumAtoms())))
+    donors = [i for i in donors
+              if mol.GetAtomWithIdx(i).GetAtomicNum() != 6]
+    if addHs:
+        mol = Chem.AddHs(mol, addCoords=True, onlyOnAtoms=donors, )
+    if addHs or computeCharges:
+        AllChem.ComputeGasteigerCharges(mol)
+
+    atom_lines = PDBQTAtomLines(mol, donors, acceptors)
+    assert len(atom_lines) == mol.GetNumAtoms()
+
+    if flexible:
+        pdbqt_lines = []
+        # TODO: add header
+        # TODO: add active/inactive torsions
+
+        rot_bond = Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
+                                      '!$(C(Cl)(Cl)Cl)&'
+                                      '!$(C(Br)(Br)Br)&'
+                                      '!$(C([CH3])([CH3])[CH3])&'
+                                      '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&'
+                                      '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&'
+                                      '!$([CD3](=[N+])-!@[#7!D1])&'
+                                      '!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&'
+                                      '!D1&!$(C(F)(F)F)&'
+                                      '!$(C(Cl)(Cl)Cl)&'
+                                      '!$(C(Br)(Br)Br)&'
+                                      '!$(C([CH3])([CH3])[CH3])]')
+        bond_atoms = mol.GetSubstructMatches(rot_bond)
+        bond_ids = [mol.GetBondBetweenAtoms(a1, a2).GetIdx()
+                    for a1, a2 in bond_atoms]
+
+        frags = list(Chem.GetMolFrags(
+            Chem.FragmentOnBonds(mol, bond_ids, addDummies=False)))
+        frags = sorted(frags, key=len, reverse=True)
+
+        pdbqt_lines.append('ROOT')
+        frag = frags.pop(0)
+        for idx in frag:
+            pdbqt_lines.append(atom_lines[idx])
+
+        branch_queue = []
+        current_root = frag
+        old_roots = [frag]
+        while len(frags):
+            end_branch = True
+            for a1, a2 in bond_atoms:
+                for i, frag in enumerate(frags):
+                    if (a1 in current_root and a2 in frag or
+                            a2 in current_root and a1 in frag):
+                        old_roots.append(current_root)
+                        current_root = frag
+                        frag = frags.pop(i)
+                        pdbqt_lines.append('BRANCH %i %i' % (a1 + 1, a2 + 1))
+                        for idx in frag:
+                            pdbqt_lines.append(atom_lines[idx])
+                        branch_queue.append('ENDBRANCH %i %i' % (a1 + 1, a2 + 1))
+                        end_branch = False
+                        break
+
+            if end_branch:
+                if len(branch_queue) > 0:
+                    pdbqt_lines.append(branch_queue.pop())
+                current_root = old_roots.pop()
+        while len(branch_queue):
+            pdbqt_lines.append(branch_queue.pop())
+        pdbqt_lines.append('TORSDOF %i' % len(bond_ids))
+    else:
+        pdbqt_lines = atom_lines
+
+    return '\n'.join(pdbqt_lines)

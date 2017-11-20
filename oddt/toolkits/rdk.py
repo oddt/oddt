@@ -192,7 +192,7 @@ def _filereader_pdb(filename, opt=None):
             yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
 
 
-def readfile(format, filename, lazy=False, opt=None, *args, **kwargs):
+def readfile(format, filename, lazy=False, opt=None, **kwargs):
     """Iterate over the molecules in a file.
 
     Required parameters:
@@ -231,13 +231,13 @@ def readfile(format, filename, lazy=False, opt=None, *args, **kwargs):
     elif format == "pdb":
         def mol_reader():
             with open(filename) as f:
-                yield Molecule(MolFromPDBBlock(f.read(), *args, **kwargs))
+                yield Molecule(MolFromPDBBlock(f.read(), **kwargs))
         return mol_reader()
     elif format == "mol2":
         return _filereader_mol2(filename)
     elif format == "smi":
         iterator = Chem.SmilesMolSupplier(filename, delimiter=" \t",
-                                          titleLine=False, *args, **kwargs)
+                                          titleLine=False, **kwargs)
 
         def smi_reader():
             for mol in iterator:
@@ -246,7 +246,7 @@ def readfile(format, filename, lazy=False, opt=None, *args, **kwargs):
     elif format == 'inchi' and Chem.INCHI_AVAILABLE:
         def inchi_reader():
             for line in open(filename):
-                mol = Chem.inchi.MolFromInchi(line.strip(), *args, **kwargs)
+                mol = Chem.inchi.MolFromInchi(line.strip(), **kwargs)
                 yield Molecule(mol)
         return inchi_reader()
     else:
