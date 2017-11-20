@@ -826,16 +826,15 @@ def PreparePDBMol(mol,
                 new_mol.RemoveBond(a1_ix, a2_ix)
 
     # check if new bonds have reasonable lengths
-    new_bonds = set()
-    for a in new_atoms:
-        new_bonds |= set(new_mol.GetAtomWithIdx(a).GetBonds())
+    new_bonds = set(chain(*(new_mol.GetAtomWithIdx(a).GetBonds()
+                            for a in new_atoms)))
 
     conformer = new_mol.GetConformer()
     for bond in new_bonds:
         a1 = bond.GetBeginAtomIdx()
         a2 = bond.GetEndAtomIdx()
-        bond_length = np.linalg.norm(conformer.GetAtomPosition(a1)
-                                     - conformer.GetAtomPosition(a2))
+        bond_length = np.linalg.norm(conformer.GetAtomPosition(a1) -
+                                     conformer.GetAtomPosition(a2))
         if bond_length > 3.0:
             res1 = '{1}{0}.{2}'.format(*GetAtomResidueId(new_mol.GetAtomWithIdx(a1)))
             res2 = '{1}{0}.{2}'.format(*GetAtomResidueId(new_mol.GetAtomWithIdx(a2)))
