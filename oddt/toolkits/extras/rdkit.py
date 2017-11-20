@@ -1,5 +1,6 @@
 from __future__ import absolute_import, print_function
 from itertools import chain
+from math import isfinite
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -225,7 +226,7 @@ def PDBQTAtomLines(mol, donors, acceptors):
 
     atom_lines = [line.replace('HETATM', 'ATOM  ')
                   for line in Chem.MolToPDBBlock(mol).split('\n')
-                  if line.startswith('HETATM')]
+                  if line.startswith('HETATM') or line.startswith('ATOM')]
 
     pdbqt_lines = []
     for idx, atom in enumerate(mol.GetAtoms()):
@@ -242,6 +243,8 @@ def PDBQTAtomLines(mol, donors, acceptors):
                 charge = float(root_atom.GetProp('_GasteigerHCharge'))
         if charge is None:
             raise ValueError('No charge information')
+        if not isfinite(charge):  # TODO: this should not happen, blame RDKit
+            charge = 0.
         pdbqt_line += ('%.3f' % charge).rjust(6)
 
         # Get atom type
@@ -324,11 +327,11 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
     atom_lines = PDBQTAtomLines(mol, donors, acceptors)
     assert len(atom_lines) == mol.GetNumAtoms()
 
-    if flexible:
-        pdbqt_lines = []
-        # TODO: add header
-        # TODO: add active/inactive torsions
+    pdbqt_lines = []
+    # TODO: add header
+    pdbqt_lines.append('REMARK  Name = ' + mol.GetProp('_Name'))
 
+    if flexible:
         rot_bond = Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
                                       '!$(C(Cl)(Cl)Cl)&'
                                       '!$(C(Br)(Br)Br)&'
@@ -345,6 +348,12 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
         bond_ids = [mol.GetBondBetweenAtoms(a1, a2).GetIdx()
                     for a1, a2 in bond_atoms]
 
+        pdbqt_lines.append('REMARK  %i active torsions:' % len(bond_ids))
+        pdbqt_lines.append('REMARK  status: (\'A\' for Active; \'I\' for Inactive)')
+        for i, (a1, a2) in enumerate(bond_atoms):
+            pdbqt_lines.append('REMARK%5.0i  A    between atoms: _%i  and  _%i'
+                               % (i, a1, a2))
+
         frags = list(Chem.GetMolFrags(
             Chem.FragmentOnBonds(mol, bond_ids, addDummies=False)))
         frags = sorted(frags, key=len, reverse=True)
@@ -353,6 +362,7 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
         frag = frags.pop(0)
         for idx in frag:
             pdbqt_lines.append(atom_lines[idx])
+        pdbqt_lines.append('ENDROOT')
 
         branch_queue = []
         current_root = frag
@@ -363,13 +373,21 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
                 for i, frag in enumerate(frags):
                     if (a1 in current_root and a2 in frag or
                             a2 in current_root and a1 in frag):
+                        # direction of bonds is important
+                        if a1 in current_root:
+                            bond_dir = '%i %i' % (a1 + 1, a2 + 1)
+                        else:
+                            bond_dir = '%i %i' % (a2 + 1, a1 + 1)
+                        pdbqt_lines.append('BRANCH %s' % bond_dir)
+
+                        # Overwrite current root and stash previous one in queue
                         old_roots.append(current_root)
                         current_root = frag
                         frag = frags.pop(i)
-                        pdbqt_lines.append('BRANCH %i %i' % (a1 + 1, a2 + 1))
+
                         for idx in frag:
                             pdbqt_lines.append(atom_lines[idx])
-                        branch_queue.append('ENDBRANCH %i %i' % (a1 + 1, a2 + 1))
+                        branch_queue.append('ENDBRANCH %s' % bond_dir)
                         end_branch = False
                         break
 
@@ -381,6 +399,6 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
             pdbqt_lines.append(branch_queue.pop())
         pdbqt_lines.append('TORSDOF %i' % len(bond_ids))
     else:
-        pdbqt_lines = atom_lines
+        pdbqt_lines.extend(atom_lines)
 
     return '\n'.join(pdbqt_lines)

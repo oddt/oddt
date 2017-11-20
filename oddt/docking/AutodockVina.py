@@ -5,6 +5,8 @@ import six
 import subprocess
 import numpy as np
 import re
+
+import oddt
 from oddt import toolkit
 
 
@@ -158,7 +160,14 @@ class autodock_vina(object):
                     self.protein_file = self.tmp_dir + '/protein.pdbqt'
                     # remove OB 2.3 ROOT/ENDROOT tags
                     with open(self.protein_file, 'w') as f:
-                        for line in self.protein.write('pdbqt', opt={'r': None, 'c': None}, overwrite=True).split('\n'):
+                        if (hasattr(oddt.toolkits, 'ob') and
+                                isinstance(self.protein, oddt.toolkits.ob.Molecule)):
+                            kwargs = {'opt': {'r': None, 'c': None}}
+                        else:
+                            kwargs = {'flexible': False}
+                        for line in self.protein.write('pdbqt',
+                                                       overwrite=True,
+                                                       **kwargs).split('\n'):
                             if line in ['ROOT', 'ENDROOT']:
                                 continue
                             elif line[:7] == 'TORSDOF':
@@ -170,7 +179,14 @@ class autodock_vina(object):
                 self.protein_file = self.tmp_dir + '/protein.pdbqt'
                 # remove OB 2.3 ROOT/ENDROOT tags
                 with open(self.protein_file, 'w') as f:
-                    for line in self.protein.write('pdbqt', opt={'r': None, 'c': None}, overwrite=True).split('\n'):
+                    if (hasattr(oddt.toolkits, 'ob') and
+                            isinstance(self.protein, oddt.toolkits.ob.Molecule)):
+                        kwargs = {'opt': {'r': None, 'c': None}}
+                    else:
+                        kwargs = {'flexible': False}
+                    for line in self.protein.write('pdbqt',
+                                                   overwrite=True,
+                                                   **kwargs).split('\n'):
                         if line in ['ROOT', 'ENDROOT']:
                             continue
                         elif line[:7] == 'TORSDOF':
@@ -210,7 +226,14 @@ class autodock_vina(object):
         for n, ligand in enumerate(ligands):
             # write ligand to file
             ligand_file = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '.pdbqt'
-            ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b': None})
+
+            if (hasattr(oddt.toolkits, 'ob') and
+                    isinstance(self.protein, oddt.toolkits.ob.Molecule)):
+                kwargs = {'opt': {'b': None}}
+            else:
+                kwargs = {'flexible': True}
+
+            ligand.write('pdbqt', ligand_file, overwrite=True, **kwargs)
             try:
                 scores = parse_vina_scoring_output(subprocess.check_output([self.executable,
                                                                             '--score_only',
@@ -220,7 +243,7 @@ class autodock_vina(object):
                                                                             ligand_file] + self.params,
                                                                            stderr=subprocess.STDOUT))
             except subprocess.CalledProcessError as e:
-                sys.stderr.write(e.output)
+                sys.stderr.write(e.output.decode('ascii'))
                 if self.skip_bad_mols:
                     continue
                 else:
@@ -263,7 +286,12 @@ class autodock_vina(object):
             # write ligand to file
             ligand_file = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '.pdbqt'
             ligand_outfile = ligand_dir + '/' + str(n) + '_' + re.sub('[^A-Za-z0-9]+', '_', ligand.title) + '_out.pdbqt'
-            ligand.write('pdbqt', ligand_file, overwrite=True, opt={'b': None})
+            if (hasattr(oddt.toolkits, 'ob') and
+                    isinstance(self.protein, oddt.toolkits.ob.Molecule)):
+                kwargs = {'opt': {'b': None}}
+            else:
+                kwargs = {'flexible': True}
+            ligand.write('pdbqt', ligand_file, overwrite=True, **kwargs)
             try:
                 vina = parse_vina_docking_output(subprocess.check_output([self.executable,
                                                                           '--receptor',
@@ -280,7 +308,12 @@ class autodock_vina(object):
             # HACK # overcome connectivity problems in obabel
             source_ligand = six.next(toolkit.readfile('pdbqt', ligand_file))
             del source_ligand.data['REMARK']
-            for lig, scores in zip([lig for lig in toolkit.readfile('pdbqt', ligand_outfile, opt={'b': None})], vina):
+            if (hasattr(oddt.toolkits, 'ob') and
+                    isinstance(self.protein, oddt.toolkits.ob.Molecule)):
+                kwargs = {'opt': {'b': None}}
+            else:
+                kwargs = {'flexible': True}
+            for lig, scores in zip([lig for lig in toolkit.readfile('pdbqt', ligand_outfile, **kwargs)], vina):
                 # HACK # copy data from source
                 clone = source_ligand.clone
                 clone.clone_coords(lig)
