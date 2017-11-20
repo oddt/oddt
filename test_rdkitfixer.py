@@ -7,6 +7,7 @@ from rdkit_fixer import (AtomListToSubMol,
                          PreparePDBMol,
                          ExtractPocketAndLigand,
                          IsResidueConnected,
+                         FixerError,
                          PrepareComplexes)
 
 test_dir = './test_data/'
@@ -484,6 +485,15 @@ def test_add_missing_atoms():
     mol = PreparePDBMol(mol, add_missing_atoms=True)
     assert_equal(mol.GetNumAtoms(), 328)
     assert_equal(mol.GetNumBonds(), 366)
+
+
+def test_bond_error():
+    # missing nucleotide backbone atoms
+    molfile = test_dir + '5ar7_longbond.pdb'
+    mol = Chem.MolFromPDBFile(molfile, sanitize=False)
+    mol = Chem.RemoveHs(mol, sanitize=False)
+
+    assert_raises(FixerError, PreparePDBMol, mol, add_missing_atoms=True)
 
 
 def test_connected_residues():
