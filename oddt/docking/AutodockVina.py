@@ -306,13 +306,15 @@ class autodock_vina(object):
                 else:
                     raise Exception('Autodock Vina failed. Command: "%s"' % ' '.join(e.cmd))
             # HACK # overcome connectivity problems in obabel
-            source_ligand = six.next(toolkit.readfile('pdbqt', ligand_file))
-            del source_ligand.data['REMARK']
             if (hasattr(oddt.toolkits, 'ob') and
                     isinstance(self.protein, oddt.toolkits.ob.Molecule)):
                 kwargs = {'opt': {'b': None}}
+                source_ligand = six.next(toolkit.readfile('pdbqt', ligand_file))
             else:
                 kwargs = {'flexible': True}
+                source_ligand = ligand  # rdkit perserves the order
+            if 'REMARK' in source_ligand.data:
+                del source_ligand.data['REMARK']
             for lig, scores in zip([lig for lig in toolkit.readfile('pdbqt', ligand_outfile, **kwargs)], vina):
                 # HACK # copy data from source
                 clone = source_ligand.clone

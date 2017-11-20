@@ -1,6 +1,6 @@
 from __future__ import absolute_import, print_function
 from itertools import chain
-from math import isfinite
+from math import isnan, isinf
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
@@ -170,13 +170,15 @@ def _amide_bond(bond):
     return False
 
 
-def MolFromPDBQTBlock(block, template=None):
+def MolFromPDBQTBlock(block, sanitize=True, removeHs=True, template=None):
     """Read PDBQT block to a RDKit Molecule
 
     Parameters
     ----------
         block: string
             Residue name which explicitly pint to a ligand(s).
+        sanitize: bool (default=True)
+            Should the sanitization be performed
         mol: rdkit.Chem.rdchem.Mol (default=None)
             A template used for assigning bond orders, as PDBQT does not encode
             them at all.
@@ -187,7 +189,6 @@ def MolFromPDBQTBlock(block, template=None):
             Molecule read from PDBQT
     """
     lines = filter(lambda x: x.startswith('ATOM'), block.split('\n'))
-    lines = map(lambda x: x.replace('ATOM  ', 'HETATM'), lines)
 
     pdb_lines = []
     for line in lines:
@@ -202,13 +203,22 @@ def MolFromPDBQTBlock(block, template=None):
             atom_type = 'O'
         elif atom_type[:1] == 'H':
             atom_type = 'H'
+            if removeHs:
+                continue
         elif atom_type == 'NA':
             atom_type = 'N'
 
         pdb_lines.append(pdb_line + atom_type)
-    mol = Chem.MolFromPDBBlock('\n'.join(pdb_lines))
+    mol = Chem.MolFromPDBBlock('\n'.join(pdb_lines), sanitize=False)
+
+    if removeHs:
+        mol = Chem.RemoveHs(mol, sanitize=sanitize)
+    elif sanitize:
+        Chem.SanitizeMol(mol)
 
     # reorder atoms using serial
+    if not sanitize:
+        Chem.GetSSSR(mol)
     new_order = sorted(range(mol.GetNumAtoms()),
                        key=lambda i: (mol.GetAtomWithIdx(i)
                                       .GetPDBResidueInfo()
@@ -243,7 +253,7 @@ def PDBQTAtomLines(mol, donors, acceptors):
                 charge = float(root_atom.GetProp('_GasteigerHCharge'))
         if charge is None:
             raise ValueError('No charge information')
-        if not isfinite(charge):  # TODO: this should not happen, blame RDKit
+        if isnan(charge) or isinf(charge):  # TODO: this should not happen, blame RDKit
             charge = 0.
         pdbqt_line += ('%.3f' % charge).rjust(6)
 
@@ -271,8 +281,8 @@ def PDBQTAtomLines(mol, donors, acceptors):
     return pdbqt_lines
 
 
-def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
-    """Write RDKit Molecule to a PDBQT MolToMolBlock
+def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
+    """Write RDKit Molecule to a PDBQT block
 
     Parameters
     ----------
@@ -281,7 +291,7 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
         flexible: bool (default=True)
             Should the molecule encode torsions. Ligands should be flexible,
             proteins in turn can be rigid.
-        addHs: bool (default=True)
+        addHs: bool (default=False)
             The PDBQT format requires at least polar Hs on donors. By default Hs
             are added.
         computeCharges: bool (default=True)
@@ -297,6 +307,7 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
     # make a copy of molecule
     mol = Chem.Mol(mol)
 
+    # Identify donors and acceptors for atom typing
     # Acceptors
     patt = Chem.MolFromSmarts('[$([O;H1;v2]),'
                               '$([O;H0;v2;!$(O=N-*),'
@@ -332,6 +343,7 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
     pdbqt_lines.append('REMARK  Name = ' + mol.GetProp('_Name'))
 
     if flexible:
+        # Find rotatable bonds
         rot_bond = Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
                                       '!$(C(Cl)(Cl)Cl)&'
                                       '!$(C(Br)(Br)Br)&'
@@ -345,31 +357,45 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
                                       '!$(C(Br)(Br)Br)&'
                                       '!$(C([CH3])([CH3])[CH3])]')
         bond_atoms = mol.GetSubstructMatches(rot_bond)
-        bond_ids = [mol.GetBondBetweenAtoms(a1, a2).GetIdx()
-                    for a1, a2 in bond_atoms]
 
-        pdbqt_lines.append('REMARK  %i active torsions:' % len(bond_ids))
+        # Active torsions header
+        pdbqt_lines.append('REMARK  %i active torsions:' % len(bond_atoms))
         pdbqt_lines.append('REMARK  status: (\'A\' for Active; \'I\' for Inactive)')
         for i, (a1, a2) in enumerate(bond_atoms):
             pdbqt_lines.append('REMARK%5.0i  A    between atoms: _%i  and  _%i'
-                               % (i, a1, a2))
+                               % (i+1, a1+1, a2+1))
 
+        # Fragment molecule on bonds to ge rigid fragments
+        bond_ids = [mol.GetBondBetweenAtoms(a1, a2).GetIdx()
+                    for a1, a2 in bond_atoms]
         frags = list(Chem.GetMolFrags(
             Chem.FragmentOnBonds(mol, bond_ids, addDummies=False)))
-        frags = sorted(frags, key=len, reverse=True)
+        # sort by the fragment size and the number of bonds (secondary)
+        frags = sorted(frags,
+                       key=lambda x: (len(x), sum(a1 in x or a2 in x
+                                                  for a1, a2 in bond_atoms)),
+                       reverse=True)
+        # also sort bonds by biggest connected fragment
+        bond_atoms = sorted(bond_atoms,
+                            key=lambda x: max(len(frag) for frag in frags
+                                              if x[0] in frag or x[1] in frag),
+                            reverse=True)
 
+        # Start writting the lines with ROOT
         pdbqt_lines.append('ROOT')
         frag = frags.pop(0)
         for idx in frag:
             pdbqt_lines.append(atom_lines[idx])
         pdbqt_lines.append('ENDROOT')
 
+        # Now build the tree of torsions usign DFS algorithm. Keep track of last
+        # route with following variables to move down the tree and close branches
         branch_queue = []
         current_root = frag
         old_roots = [frag]
         while len(frags):
             end_branch = True
-            for a1, a2 in bond_atoms:
+            for bond_num, (a1, a2) in enumerate(bond_atoms):
                 for i, frag in enumerate(frags):
                     if (a1 in current_root and a2 in frag or
                             a2 in current_root and a1 in frag):
@@ -378,6 +404,10 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=True, computeCharges=True):
                             bond_dir = '%i %i' % (a1 + 1, a2 + 1)
                         else:
                             bond_dir = '%i %i' % (a2 + 1, a1 + 1)
+                            # inverse definition lines
+                            # pdbqt_lines[bond_num+3] = (
+                            #     'REMARK%5.0i  I    between atoms: _%i  and  _%i'
+                            #     % (bond_num + 1, a2+1, a1+1))
                         pdbqt_lines.append('BRANCH %s' % bond_dir)
 
                         # Overwrite current root and stash previous one in queue
