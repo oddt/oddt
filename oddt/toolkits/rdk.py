@@ -20,14 +20,12 @@ Global variables:
 
 from __future__ import print_function
 import os
-from copy import copy
 import gzip
 from base64 import b64encode
-from itertools import combinations, chain
-from collections import OrderedDict
+from itertools import combinations
 import warnings
 
-from six import next, BytesIO, PY3, string_types
+from six import next, BytesIO, PY3
 import numpy as np
 from sklearn.utils.deprecation import deprecated
 
@@ -51,7 +49,10 @@ from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D, Generate
 
 from oddt.toolkits.common import detect_secondary_structure
-from oddt.toolkits.extras.rdkit import _sybyl_atom_type, MolFromPDBBlock
+from oddt.toolkits.extras.rdkit import (_sybyl_atom_type,
+                                        MolFromPDBBlock,
+                                        MolToPDBQTBlock,
+                                        MolFromPDBQTBlock)
 
 _descDict = dict(Descriptors.descList)
 
@@ -192,6 +193,21 @@ def _filereader_pdb(filename, opt=None):
             yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
 
 
+def _filereader_pdbqt(filename, opt=None):
+    block = ''
+    n = 0
+    with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
+        for line in f:
+            line = line.decode('ascii')
+            block += line
+            if line[:4] == 'ENDMDL':
+                yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt})
+                n += 1
+                block = ''
+        if block:  # open last molecule if any
+            yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt})
+
+
 def readfile(format, filename, lazy=False, opt=None, **kwargs):
     """Iterate over the molecules in a file.
 
@@ -229,10 +245,9 @@ def readfile(format, filename, lazy=False, opt=None, **kwargs):
             filename_handle = gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb')
             return (Molecule(Mol) for Mol in Chem.ForwardSDMolSupplier(filename_handle, **kwargs))
     elif format == "pdb":
-        def mol_reader():
-            with open(filename) as f:
-                yield Molecule(MolFromPDBBlock(f.read(), **kwargs))
-        return mol_reader()
+        return _filereader_pdb(filename)
+    elif format == "pdbqt":
+        return _filereader_pdbqt(filename)
     elif format == "mol2":
         return _filereader_mol2(filename)
     elif format == "smi":
@@ -278,6 +293,8 @@ def readstring(format, string, **kwargs):
         mol = Chem.MolFromMol2Block(string, **kwargs)
     elif format == "pdb":
         mol = MolFromPDBBlock(string, **kwargs)
+    elif format == 'pdbqt':
+        mol = MolFromPDBQTBlock(string, **kwargs)
     elif format == "smi":
         s = string.strip().split('\n')[0].strip().split()
         mol = Chem.MolFromSmiles(s[0], **kwargs)
@@ -317,7 +334,7 @@ class Outputfile(object):
             self._writer = Chem.SmilesWriter(self.filename, isomericSmiles=True, includeHeader=False)
         elif format in ('inchi', 'inchikey') and Chem.INCHI_AVAILABLE:
             self._writer = open(filename, 'w')
-        elif format in ('mol2'):
+        elif format in ('mol2', 'pdbqt'):
             self._writer = gzip.open(filename, 'w') if filename.split('.')[-1] == 'gz' else open(filename, 'w')
         elif format == "pdb":
             self._writer = Chem.PDBWriter(self.filename)
@@ -333,7 +350,7 @@ class Outputfile(object):
         """
         if not self.filename:
             raise IOError("Outputfile instance is closed.")
-        if self.format in ('inchi', 'inchikey', 'mol2'):
+        if self.format in ('inchi', 'inchikey', 'mol2', 'pdbqt'):
             self._writer.write(molecule.write(self.format) + '\n')
         else:
             self._writer.write(molecule.Mol)
@@ -507,7 +524,8 @@ class Molecule(object):
             res_idx_unique = np.unique(res_idx)
             if len(res_idx_unique) > 1:
                 idx_sorted = np.argsort(res_idx, kind='mergesort')
-                self._residues = np.split(idx_sorted,
+                self._residues = np.split(
+                    idx_sorted,
                     np.where(np.diff(np.searchsorted(res_idx_unique,
                                      res_idx[idx_sorted])) > 0)[0] + 1)
             else:
@@ -935,6 +953,8 @@ class Molecule(object):
             result = Chem.MolToMol2Block(self.Mol, **kwargs)
         elif format == "pdb":
             result = Chem.MolToPDBBlock(self.Mol, **kwargs)
+        elif format == "pdbqt":
+            result = MolToPDBQTBlock(self.Mol, **kwargs)
         elif format in ('inchi', 'inchikey') and Chem.INCHI_AVAILABLE:
             result = Chem.inchi.MolToInchi(self.Mol, **kwargs)
             if format == 'inchikey':
