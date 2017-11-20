@@ -75,6 +75,10 @@ class SubstructureMatchError(Exception):
     pass
 
 
+class FixerError(Exception):
+    pass
+
+
 def MolToTemplates(mol):
     """Prepare set of templates for a given PDB residue."""
 
@@ -821,6 +825,24 @@ def PreparePDBMol(mol,
                               conf.GetAtomPosition(a2_ix)) > 4:  # np.array
                 new_mol.RemoveBond(a1_ix, a2_ix)
 
+    # check if new bonds have reasonable lengths
+    new_bonds = set()
+    for a in new_atoms:
+        new_bonds |= set(new_mol.GetAtomWithIdx(a).GetBonds())
+
+    conformer = new_mol.GetConformer()
+    for bond in new_bonds:
+        a1 = bond.GetBeginAtomIdx()
+        a2 = bond.GetEndAtomIdx()
+        bond_length = np.linalg.norm(conformer.GetAtomPosition(a1)
+                                     - conformer.GetAtomPosition(a2))
+        if bond_length > 3.0:
+            res1 = '{1}{0}.{2}'.format(*GetAtomResidueId(new_mol.GetAtomWithIdx(a1)))
+            res2 = '{1}{0}.{2}'.format(*GetAtomResidueId(new_mol.GetAtomWithIdx(a2)))
+            raise FixerError('Cannot fix the structure. Bond between atoms '
+                             '%s (%s) and %s (%s) is too long.'
+                             % (a1, res1, a2, res2))
+
     # index change here
     if atoms_to_del:
         new_mol = Chem.RWMol(new_mol)
@@ -838,6 +860,7 @@ def PreparePDBMol(mol,
         new_order = sorted(order, key=atom_reorder_repr)
         Chem.GetSSSR(new_mol)
         new_mol = Chem.RenumberAtoms(new_mol, new_order)
+
     return new_mol
 
 
