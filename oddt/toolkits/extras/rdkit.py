@@ -253,7 +253,7 @@ def PDBQTAtomLines(mol, donors, acceptors):
                 charge = float(root_atom.GetProp('_GasteigerHCharge'))
         if charge is None:
             raise ValueError('No charge information')
-        if isnan(charge) or isinf(charge):  # TODO: this should not happen, blame RDKit
+        if isnan(charge) or isinf(charge):  # FIXME: this should not happen, blame RDKit
             charge = 0.
         pdbqt_line += ('%.3f' % charge).rjust(6)
 
@@ -271,10 +271,10 @@ def PDBQTAtomLines(mol, donors, acceptors):
         elif atomicnum == 8 and idx in acceptors:
             pdbqt_line += 'OA'
         elif atomicnum == 1:
-            if atom.GetNeighbors()[0].GetAtomicNum() in [7, 8]:
+            if atom.GetNeighbors()[0].GetIdx() in donors:
                 pdbqt_line += 'HD'
             else:
-                pdbqt_line += 'H'  # TODO: this should not happen
+                pdbqt_line += 'H'
         else:
             pdbqt_line += atom.GetSymbol()
         pdbqt_lines.append(pdbqt_line)
@@ -317,9 +317,8 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
                               '$([$([N;H0]#[C&v4])]),'
                               '$([N&v3;H0;$(Nc)])]),'
                               '$([F;$(F-[#6]);!$(FC[F,Cl,Br,I])])]')
-    acceptors = list(chain(*mol.GetSubstructMatches(patt, maxMatches=mol.GetNumAtoms())))
-    acceptors = [i for i in acceptors
-                 if mol.GetAtomWithIdx(i).GetAtomicNum() != 6]
+    acceptors = list(map(lambda x: x[0],
+                         mol.GetSubstructMatches(patt, maxMatches=mol.GetNumAtoms())))
     # Donors
     patt = Chem.MolFromSmarts('[$([N&!H0&v3,N&!H0&+1&v4,n&H1&+0,$([$([Nv3](-C)(-C)-C)]),'
                               '$([$(n[n;H1]),'
@@ -327,9 +326,8 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
                               # Guanidine can be tautormeic - e.g. Arginine
                               '$([NX3,NX2]([!O,!S])!@C(!@[NX3,NX2]([!O,!S]))!@[NX3,NX2]([!O,!S])),'
                               '$([O,S;H1;+0])]')
-    donors = list(chain(*mol.GetSubstructMatches(patt, maxMatches=mol.GetNumAtoms())))
-    donors = [i for i in donors
-              if mol.GetAtomWithIdx(i).GetAtomicNum() != 6]
+    donors = list(map(lambda x: x[0],
+                      mol.GetSubstructMatches(patt, maxMatches=mol.GetNumAtoms())))
     if addHs:
         mol = Chem.AddHs(mol, addCoords=True, onlyOnAtoms=donors, )
     if addHs or computeCharges:
@@ -339,9 +337,7 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
     assert len(atom_lines) == mol.GetNumAtoms()
 
     pdbqt_lines = []
-    # TODO: add header
     pdbqt_lines.append('REMARK  Name = ' + mol.GetProp('_Name'))
-
     if flexible:
         # Find rotatable bonds
         rot_bond = Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
@@ -356,31 +352,25 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
                                       '!$(C(Cl)(Cl)Cl)&'
                                       '!$(C(Br)(Br)Br)&'
                                       '!$(C([CH3])([CH3])[CH3])]')
-        bond_atoms = mol.GetSubstructMatches(rot_bond)
+        bond_atoms = list(mol.GetSubstructMatches(rot_bond))
+        num_torsions = len(bond_atoms)
 
         # Active torsions header
-        pdbqt_lines.append('REMARK  %i active torsions:' % len(bond_atoms))
+        pdbqt_lines.append('REMARK  %i active torsions:' % num_torsions)
         pdbqt_lines.append('REMARK  status: (\'A\' for Active; \'I\' for Inactive)')
         for i, (a1, a2) in enumerate(bond_atoms):
             pdbqt_lines.append('REMARK%5.0i  A    between atoms: _%i  and  _%i'
-                               % (i+1, a1+1, a2+1))
+                               % (i + 1, a1 + 1, a2 + 1))
 
         # Fragment molecule on bonds to ge rigid fragments
-        bond_ids = [mol.GetBondBetweenAtoms(a1, a2).GetIdx()
-                    for a1, a2 in bond_atoms]
         frags = list(Chem.GetMolFrags(
-            Chem.FragmentOnBonds(mol, bond_ids, addDummies=False)))
+            Chem.FragmentOnBonds(mol, [mol.GetBondBetweenAtoms(a1, a2).GetIdx()
+                                       for a1, a2 in bond_atoms], addDummies=False)))
         # sort by the fragment size and the number of bonds (secondary)
         frags = sorted(frags,
                        key=lambda x: (len(x), sum(a1 in x or a2 in x
                                                   for a1, a2 in bond_atoms)),
                        reverse=True)
-        # also sort bonds by biggest connected fragment
-        bond_atoms = sorted(bond_atoms,
-                            key=lambda x: max(len(frag) for frag in frags
-                                              if x[0] in frag or x[1] in frag),
-                            reverse=True)
-
         # Start writting the lines with ROOT
         pdbqt_lines.append('ROOT')
         frag = frags.pop(0)
@@ -393,10 +383,10 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
         branch_queue = []
         current_root = frag
         old_roots = [frag]
-        while len(frags):
+        while len(frags) > 0:
             end_branch = True
-            for bond_num, (a1, a2) in enumerate(bond_atoms):
-                for i, frag in enumerate(frags):
+            for i, frag in enumerate(frags):
+                for bond_num, (a1, a2) in enumerate(bond_atoms):
                     if (a1 in current_root and a2 in frag or
                             a2 in current_root and a1 in frag):
                         # direction of bonds is important
@@ -404,15 +394,14 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
                             bond_dir = '%i %i' % (a1 + 1, a2 + 1)
                         else:
                             bond_dir = '%i %i' % (a2 + 1, a1 + 1)
-                            # inverse definition lines
-                            # pdbqt_lines[bond_num+3] = (
-                            #     'REMARK%5.0i  I    between atoms: _%i  and  _%i'
-                            #     % (bond_num + 1, a2+1, a1+1))
                         pdbqt_lines.append('BRANCH %s' % bond_dir)
 
                         # Overwrite current root and stash previous one in queue
                         old_roots.append(current_root)
                         current_root = frag
+
+                        # remove used elements from stack
+                        bond_atoms.pop(bond_num)
                         frag = frags.pop(i)
 
                         for idx in frag:
@@ -424,10 +413,14 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
             if end_branch:
                 if len(branch_queue) > 0:
                     pdbqt_lines.append(branch_queue.pop())
-                current_root = old_roots.pop()
+                if old_roots:
+                    current_root = old_roots.pop()
+                else:  # go to next disconnected fragment
+                    current_root = frags.pop()
+
         while len(branch_queue):
             pdbqt_lines.append(branch_queue.pop())
-        pdbqt_lines.append('TORSDOF %i' % len(bond_ids))
+        pdbqt_lines.append('TORSDOF %i' % num_torsions)
     else:
         pdbqt_lines.extend(atom_lines)
 
