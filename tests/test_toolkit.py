@@ -1,5 +1,6 @@
 import os
 from tempfile import NamedTemporaryFile
+from collections import OrderedDict
 
 from six.moves.cPickle import loads, dumps
 import numpy as np
@@ -345,3 +346,38 @@ def test_ss():
     assert_equal(protein.res_dict['isbeta'].sum(), 9)
     assert_equal((protein.res_dict['isalpha'] & protein.res_dict['isbeta']).sum(), 0)  # Must be zero!
     assert_equal((~protein.res_dict['isalpha'] & ~protein.res_dict['isbeta']).sum(), 84)
+
+
+def test_rdkit_pdbqt():
+    """RDKit PDBQT writer and reader"""
+    # test loop breaks in DFS algorithm
+    mol = oddt.toolkit.readstring('smi', 'CCc1cc(C)c(C)cc1-c1ccc(-c2cccc(C)c2)cc1')
+    mol.make3D()
+
+    # roundtrip molecule with template
+    mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt'))
+    mol.removeh()
+
+    assert_equal(len(mol.atoms), len(mol2.atoms))
+
+    def nodes_size(block):
+        out = OrderedDict()
+        current_key = None
+        for line in block.split('\n'):
+            if line[:4] == 'ROOT' or line[:6] == 'BRANCH':
+                current_key = line.strip()
+                out[current_key] = 0
+            elif line[:4] == 'ATOM':
+                out[current_key] += 1
+        return list(out.values())
+
+    # check the branch order and size
+    if oddt.toolkit.backend == 'ob':
+        assert_array_equal(nodes_size(mol.write('pdbqt')),
+                           [6, 8, 2, 7])
+    else:
+        assert_array_equal(nodes_size(mol.write('pdbqt')),
+                           [8, 6, 7, 2])
+    mol = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf')))
+    assert_array_equal(nodes_size(mol.write('pdbqt')),
+                       [8, 3, 6, 6, 1, 6, 3, 2, 2])
