@@ -408,32 +408,41 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
         branch_queue = []
         current_root = frag
         old_roots = [frag]
-        while len(frags) > 0:
+
+        visited_frags = []
+        visited_bonds = []
+        while len(frags) > len(visited_frags):
             end_branch = True
-            for i, frag in enumerate(frags):
+            for frag_num, frag in enumerate(frags):
                 for bond_num, (a1, a2) in enumerate(bond_atoms):
-                    if (a1 in current_root and a2 in frag or
-                            a2 in current_root and a1 in frag):
+                    if (frag_num not in visited_frags and
+                        bond_num not in visited_bonds and
+                        (a1 in current_root and a2 in frag or
+                         a2 in current_root and a1 in frag)):
                         # direction of bonds is important
                         if a1 in current_root:
                             bond_dir = '%i %i' % (a1 + 1, a2 + 1)
                         else:
                             bond_dir = '%i %i' % (a2 + 1, a1 + 1)
                         pdbqt_lines.append('BRANCH %s' % bond_dir)
+                        for idx in frag:
+                            pdbqt_lines.append(atom_lines[idx])
+                        branch_queue.append('ENDBRANCH %s' % bond_dir)
 
                         # Overwrite current root and stash previous one in queue
                         old_roots.append(current_root)
                         current_root = frag
 
                         # remove used elements from stack
-                        bond_atoms.pop(bond_num)
-                        frag = frags.pop(i)
+                        visited_frags.append(frag_num)
+                        visited_bonds.append(bond_num)
 
-                        for idx in frag:
-                            pdbqt_lines.append(atom_lines[idx])
-                        branch_queue.append('ENDBRANCH %s' % bond_dir)
+                        # mark that we dont want to end branch yet
                         end_branch = False
                         break
+                    else:
+                        continue
+                    break
 
             if end_branch:
                 if len(branch_queue) > 0:
@@ -441,8 +450,10 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
                 if old_roots:
                     current_root = old_roots.pop()
                 else:  # go to next disconnected fragment
-                    current_root = frags.pop()
-
+                    next_frag = set(range(len(frag_num))).difference(visited_frags)[0]
+                    current_root = frags[next_frag]
+                    visited_frags.append(next_frag)
+        # close opened branches if any is open
         while len(branch_queue):
             pdbqt_lines.append(branch_queue.pop())
         pdbqt_lines.append('TORSDOF %i' % num_torsions)

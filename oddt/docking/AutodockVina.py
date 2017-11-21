@@ -5,6 +5,7 @@ from six import next
 import subprocess
 import numpy as np
 import re
+import os
 
 import oddt
 from oddt import toolkit
@@ -194,7 +195,7 @@ class autodock_vina(object):
         ligand_dir = mkdtemp(dir=self.tmp_dir, prefix='ligands_')
         output_array = []
         for n, ligand in enumerate(ligands):
-            ligand_file = write_vina_pdbqt(ligand, ligand_dir, n=n)
+            ligand_file = write_vina_pdbqt(ligand, ligand_dir, name_id=n)
             try:
                 scores = parse_vina_scoring_output(
                     subprocess.check_output([self.executable, '--score_only',
@@ -243,7 +244,7 @@ class autodock_vina(object):
         ligand_dir = mkdtemp(dir=self.tmp_dir, prefix='ligands_')
         output_array = []
         for n, ligand in enumerate(ligands):
-            ligand_file = write_vina_pdbqt(ligand, ligand_dir, n=n)
+            ligand_file = write_vina_pdbqt(ligand, ligand_dir, name_id=n)
             ligand_outfile = ligand_file[:-6] + '_out.pdbqt'
             try:
                 scores = parse_vina_docking_output(
@@ -265,6 +266,7 @@ class autodock_vina(object):
                     isinstance(self.protein, oddt.toolkits.ob.Molecule)):
                 # read back the PDBQT input ligand
                 kwargs = {'opt': {'b': None}}
+                # FIXME: automated bonding rather bad
                 source_ligand = next(toolkit.readfile('pdbqt', ligand_file))
                 if 'REMARK' in source_ligand.data:
                     del source_ligand.data['REMARK']
@@ -317,17 +319,21 @@ class autodock_vina(object):
         return self.score(ligands)
 
 
-def write_vina_pdbqt(mol, directory, flexible=True, n=None):
+def write_vina_pdbqt(mol, directory, flexible=True, name_id=None):
     """Write single PDBQT molecule to a given directory. For proteins use
-    `flexible=False` to avoid encoding torsions. Additionally an name ID (n) can
+    `flexible=False` to avoid encoding torsions. Additionally an name ID can
     be appended to a name to avoid conflicts.
     """
-    if n is None:
-        n = ''
-    mol_file = (directory + '/' +
-                '_'.join(filter(None, [str(n),
+    if name_id is None:
+        name_id = ''
+
+    # We expect name such as 0_ZINC123456.pdbqt or simply ZINC123456.pdbqt if no
+    # name_id is specified. All non alpha-numeric signs are replaced with underscore.
+    mol_file = ('_'.join(filter(None, [str(name_id),
                                        re.sub('[^A-Za-z0-9]+', '_', mol.title)]
                                 )) + '.pdbqt')
+    # prepend path to filename
+    mol_file = os.path.join(directory, mol_file)
 
     if (hasattr(oddt.toolkits, 'ob') and
             isinstance(mol, oddt.toolkits.ob.Molecule)):

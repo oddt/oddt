@@ -1,12 +1,7 @@
 import os
-from tempfile import NamedTemporaryFile
 
-import numpy as np
-import pandas as pd
-
-from nose.tools import nottest, assert_in, assert_not_in, assert_equal
-from sklearn.utils.testing import (assert_true,
-                                   assert_array_equal,
+from nose.tools import assert_in, assert_equal
+from sklearn.utils.testing import (assert_array_equal,
                                    assert_array_almost_equal)
 
 import oddt
@@ -41,10 +36,6 @@ def test_vs_scoring_vina():
 
 def test_vs_docking():
     """VS docking (Vina) tests"""
-    ref_mol = next(oddt.toolkit.readfile('sdf',
-                                         os.path.join(test_data_dir,
-                                                      'data/dude/xiap/crystal_ligand.sdf')))
-
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf'))
     vs.dock(engine='autodock_vina',
@@ -66,14 +57,20 @@ def test_vs_docking():
     else:
         vina_scores = [-6.3, -6.0, -5.1, -3.9, -3.5, -3.5, -3.5, -3.3, -2.5]
     assert_array_equal([float(m.data['vina_affinity']) for m in mols], vina_scores)
-    # assert_array_equal([mol.smiles for mol in mols], [ref_mol.smiles] * len(mols))
-    # if oddt.toolkit.backend == 'ob':
-    #     vina_rmsd = []
-    # else:
-    #     vina_rmsd = [4.572302, 4.381617, 5.924265, 6.800329, 6.516896, 6.219442,
-    #                  6.690042,  7.074162,  7.505027]
-    # assert_array_almost_equal([rmsd(ref_mol, mol) for mol in mols],
-    #                           vina_rmsd)
+
+    # verify the SMILES of molecules
+    ref_mol = next(
+        oddt.toolkit.readfile('sdf',
+                              os.path.join(test_data_dir,
+                                           'data/dude/xiap/crystal_ligand.sdf')))
+    if oddt.toolkit.backend == 'rdk':  # FIXME: Openbabel messes with Hs
+        assert_array_equal([mol.smiles for mol in mols],
+                           [ref_mol.smiles] * len(mols))
+
+        vina_rmsd = [8.247347, 5.316951, 7.964107, 7.445350, 8.127984, 7.465065,
+                     8.486132, 7.943340, 7.762220]
+        assert_array_almost_equal([rmsd(ref_mol, mol, method='min_symmetry')
+                                   for mol in mols], vina_rmsd)
 
 
 if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed
