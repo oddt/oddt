@@ -157,7 +157,6 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
             if oddt.toolkit.backend == 'ob':
                 match -= 1
             rmsd = np.sqrt(((mol_atoms - ref_atoms[match])**2).sum(axis=-1).mean())
-            print(rmsd, match)
             if min_rmsd is None or rmsd < min_rmsd:
                 min_rmsd = rmsd
         return min_rmsd
