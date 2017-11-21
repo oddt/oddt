@@ -350,8 +350,11 @@ class Outputfile(object):
         """
         if not self.filename:
             raise IOError("Outputfile instance is closed.")
-        if self.format in ('inchi', 'inchikey', 'mol2', 'pdbqt'):
+        if self.format in ('inchi', 'inchikey', 'mol2'):
             self._writer.write(molecule.write(self.format) + '\n')
+        if self.format == 'pdbqt':
+            self._writer.write('MODEL %i\n' % (self.total + 1) +
+                               molecule.write(self.format) + '\nENDMDL\n')
         else:
             self._writer.write(molecule.Mol)
         self.total += 1

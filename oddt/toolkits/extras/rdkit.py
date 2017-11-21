@@ -188,10 +188,23 @@ def MolFromPDBQTBlock(block, sanitize=True, removeHs=True, template=None):
         mol: rdkit.Chem.rdchem.Mol
             Molecule read from PDBQT
     """
-    lines = filter(lambda x: x.startswith('ATOM'), block.split('\n'))
-
     pdb_lines = []
-    for line in lines:
+    name = ''
+    data = {}
+    for line in block.split('\n'):
+        # Get all know data from REMARK section
+        if line[:12] == 'REMARK  Name':
+            name = line[15:].strip()
+        elif line[:18] == 'REMARK VINA RESULT':
+            tmp = line[19:].split()
+            data['vina_affinity'] = tmp[0]
+            data['vina_rmsd_lb'] = tmp[1]
+            data['vina_rmsd_ub'] = tmp[2]
+
+        # no more data to collect
+        if line[:4] != 'ATOM':
+            continue
+
         pdb_line = line[:56]
         pdb_line += '1.00  0.00           '
 
@@ -210,7 +223,9 @@ def MolFromPDBQTBlock(block, sanitize=True, removeHs=True, template=None):
 
         pdb_lines.append(pdb_line + atom_type)
     mol = Chem.MolFromPDBBlock('\n'.join(pdb_lines), sanitize=False)
-
+    mol.SetProp('_Name', name)
+    for k, v in data.items():
+        mol.SetProp(str(k), str(v))
     if removeHs:
         mol = Chem.RemoveHs(mol, sanitize=sanitize)
     elif sanitize:
@@ -337,7 +352,17 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
     assert len(atom_lines) == mol.GetNumAtoms()
 
     pdbqt_lines = []
-    pdbqt_lines.append('REMARK  Name = ' + mol.GetProp('_Name'))
+
+    # vina scores
+    if (mol.HasProp('vina_affinity') and mol.HasProp('vina_rmsd_lb') and
+            mol.HasProp('vina_rmsd_lb')):
+        pdbqt_lines.append('REMARK VINA RESULT:  ' +
+                           ('%.1f' % float(mol.GetProp('vina_affinity'))).rjust(8) +
+                           ('%.3f' % float(mol.GetProp('vina_rmsd_lb'))).rjust(11) +
+                           ('%.3f' % float(mol.GetProp('vina_rmsd_ub'))).rjust(11))
+
+    pdbqt_lines.append('REMARK  Name = ' +
+                       (mol.GetProp('_Name') if mol.HasProp('_Name') else ''))
     if flexible:
         # Find rotatable bonds
         rot_bond = Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
