@@ -391,11 +391,22 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
         frags = list(Chem.GetMolFrags(
             Chem.FragmentOnBonds(mol, [mol.GetBondBetweenAtoms(a1, a2).GetIdx()
                                        for a1, a2 in bond_atoms], addDummies=False)))
-        # sort by the fragment size and the number of bonds (secondary)
-        frags = sorted(frags,
-                       key=lambda x: (len(x), sum(a1 in x or a2 in x
-                                                  for a1, a2 in bond_atoms)),
-                       reverse=True)
+
+        def weigh_frags(frag):
+            """sort by the fragment size and the number of bonds (secondary)"""
+            num_bonds = 0
+            # bond_weight = 0
+            for a1, a2 in bond_atoms:
+                if a1 in frag or a2 in frag:
+                    num_bonds += 1
+                    # for frag2 in frags:
+                    #     if a1 in frag2 or a2 in frag2:
+                    #         bond_weight += len(frag2)
+
+            # changed signs are fixing mixed sorting type (ascending/descending)
+            return -len(frag), -num_bonds,  # bond_weight
+        frags = sorted(frags, key=weigh_frags)
+
         # Start writting the lines with ROOT
         pdbqt_lines.append('ROOT')
         frag = frags.pop(0)
