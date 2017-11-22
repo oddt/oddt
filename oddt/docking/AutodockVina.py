@@ -8,7 +8,7 @@ import re
 import os
 
 import oddt
-from oddt import toolkit
+from oddt.spatial import rmsd
 
 
 class autodock_vina(object):
@@ -80,7 +80,7 @@ class autodock_vina(object):
         if auto_ligand:
             if type(auto_ligand) is str:
                 extension = auto_ligand.split('.')[-1]
-                auto_ligand = next(toolkit.readfile(extension, auto_ligand))
+                auto_ligand = next(oddt.toolkit.readfile(extension, auto_ligand))
             self.center = tuple(np.array([atom.coords for atom in auto_ligand],
                                          dtype=np.float32).mean(axis=0))
         # autodetect Vina executable
@@ -152,10 +152,10 @@ class autodock_vina(object):
                 extension = protein.split('.')[-1]
                 if extension == 'pdbqt':
                     self.protein_file = protein
-                    self.protein = next(toolkit.readfile(extension, protein))
+                    self.protein = next(oddt.toolkit.readfile(extension, protein))
                     self.protein.protein = True
                 else:
-                    self.protein = next(toolkit.readfile(extension, protein))
+                    self.protein = next(oddt.toolkit.readfile(extension, protein))
                     self.protein.protein = True
             else:
                 self.protein = protein
@@ -263,23 +263,42 @@ class autodock_vina(object):
 
             # docked conformations may have wrong connectivity - use source ligand
             if (hasattr(oddt.toolkits, 'ob') and
-                    isinstance(self.protein, oddt.toolkits.ob.Molecule)):
-                # read back the PDBQT input ligand
-                kwargs = {'opt': {'b': None}}
-                # FIXME: automated bonding rather bad
-                source_ligand = next(toolkit.readfile('pdbqt', ligand_file))
-                if 'REMARK' in source_ligand.data:
-                    del source_ligand.data['REMARK']
-            else:
-                kwargs = {}
-                source_ligand = ligand  # rdkit perserves the order
+                    isinstance(ligand, oddt.toolkits.ob.Molecule)):
+                if oddt.toolkits.ob.__version__ >= '2.4.0':
+                    # find the order of PDBQT atoms assigned by OpenBabel
+                    with open(ligand_file) as f:
+                        write_order = [int(line[7:12].strip())
+                                       for line in f
+                                       if line[:4] == 'ATOM']
+                    new_order = sorted(range(len(write_order)),
+                                       key=write_order.__getitem__)
+                    new_order = [i + 1 for i in new_order]  # OBMol has 1 based idx
 
-            docked_ligands = toolkit.readfile('pdbqt', ligand_outfile, **kwargs)
-            for lig, scores in zip(docked_ligands, scores):
-                # HACK: copy docked coordinates onto source
-                clone = source_ligand.clone
-                clone.clone_coords(lig)
-                clone.data.update(scores)
+                    assert len(new_order) == len(ligand.atoms)
+                else:
+                    # Openbabel 2.3.2 does not support perserving atom order.
+                    # We read back the PDBQT ligand to get "correct" bonding.
+                    ligand = next(oddt.toolkit.readfile('pdbqt', ligand_file))
+                    if 'REMARK' in ligand.data:
+                        del ligand.data['REMARK']
+
+            docked_ligands = oddt.toolkit.readfile('pdbqt', ligand_outfile)
+            for docked_ligand, score in zip(docked_ligands, scores):
+                # Renumber atoms to match the input ligand
+                if (hasattr(oddt.toolkits, 'ob') and
+                        isinstance(docked_ligand, oddt.toolkits.ob.Molecule) and
+                        oddt.toolkits.ob.__version__ >= '2.4.0'):
+                    docked_ligand.OBMol.RenumberAtoms(new_order)
+                # HACK: copy docked coordinates onto source ligand
+                # We assume that the order of atoms match between ligands
+                clone = ligand.clone
+                clone.clone_coords(docked_ligand)
+                clone.data.update(score)
+
+                # Calculate RMSD to the input pose
+                clone.data['vina_rmsd_input'] = rmsd(ligand, clone)
+                clone.data['vina_rmsd_input_min'] = rmsd(ligand, clone,
+                                                         method='min_symmetry')
                 output_array.append(clone)
         rmtree(ligand_dir)
         return output_array
@@ -338,18 +357,19 @@ def write_vina_pdbqt(mol, directory, flexible=True, name_id=None):
     if (hasattr(oddt.toolkits, 'ob') and
             isinstance(mol, oddt.toolkits.ob.Molecule)):
         if flexible:
-            # enable automatic bonding
-            kwargs = {'opt': {'b': None}}
+            # auto bonding (b), perserve atom names (n) indices (p) and Hs (h)
+            kwargs = {'opt': {'b': None, 'p': None, 'h': None, 'n': None}}
         else:
             # for proteins write rigid mol (r) and combine all frags in one (c)
-            kwargs = {'opt': {'r': None, 'c': None}}
+            kwargs = {'opt': {'r': None, 'c': None, 'h': None}}
 
     else:
         kwargs = {'flexible': flexible}
 
     # HACK: fix OB 2.3.2 PDBQT bugs
-    if (hasattr(oddt.toolkits, 'ob') and
-            isinstance(mol, oddt.toolkits.ob.Molecule) and not flexible):
+    if (not flexible and hasattr(oddt.toolkits, 'ob') and
+            oddt.toolkits.ob.__version__ < '2.4.0' and
+            isinstance(mol, oddt.toolkits.ob.Molecule)):
         with open(mol_file, 'w') as f:
             for line in mol.write('pdbqt', overwrite=True, **kwargs).split('\n'):
                 # remove OB 2.3 ROOT/ENDROOT tags

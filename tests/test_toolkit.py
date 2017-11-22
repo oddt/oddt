@@ -348,7 +348,7 @@ def test_ss():
     assert_equal((~protein.res_dict['isalpha'] & ~protein.res_dict['isbeta']).sum(), 84)
 
 
-def test_rdkit_pdbqt():
+def test_pdbqt():
     """RDKit PDBQT writer and reader"""
     # test loop breaks in DFS algorithm
     mol = oddt.toolkit.readstring('smi', 'CCc1cc(C)c(C)cc1-c1ccc(-c2cccc(C)c2)cc1')
@@ -381,3 +381,11 @@ def test_rdkit_pdbqt():
     mol = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf')))
     assert_array_equal(nodes_size(mol.write('pdbqt')),
                        [8, 3, 6, 6, 1, 6, 3, 2, 2])
+
+    # roundtrip a disconnected fragments
+    mol = oddt.toolkit.readstring('smi', 'c1ccccc1.c1ccccc1C')
+
+    # roundtrip molecule with template
+    mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt', flexible=False))
+
+    assert_equal(len(mol.atoms), len(mol2.atoms))

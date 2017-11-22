@@ -52,7 +52,7 @@ def test_vs_docking():
     assert_in('vina_affinity', mol_data)
     assert_in('vina_rmsd_lb', mol_data)
     assert_in('vina_rmsd_ub', mol_data)
-    if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed
+    if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
         vina_scores = [-6.3, -6.0, -6.0, -5.9, -5.9, -5.8, -5.2, -4.2, -3.9]
     else:
         vina_scores = [-6.3, -6.0, -5.1, -3.9, -3.5, -3.5, -3.5, -3.3, -2.5]
@@ -63,12 +63,16 @@ def test_vs_docking():
         oddt.toolkit.readfile('sdf',
                               os.path.join(test_data_dir,
                                            'data/dude/xiap/crystal_ligand.sdf')))
-    if oddt.toolkit.backend == 'rdk':  # FIXME: Openbabel messes with Hs
+
+    if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
+        # OB 2.3.2 will fail the following, since Hs are removed, etc.
+        pass
+    else:
+        vina_rmsd = [8.247347, 5.316951, 7.964107, 7.445350, 8.127984, 7.465065,
+                     8.486132, 7.943340, 7.762220]
         assert_array_equal([mol.smiles for mol in mols],
                            [ref_mol.smiles] * len(mols))
 
-        vina_rmsd = [8.247347, 5.316951, 7.964107, 7.445350, 8.127984, 7.465065,
-                     8.486132, 7.943340, 7.762220]
         assert_array_almost_equal([rmsd(ref_mol, mol, method='min_symmetry')
                                    for mol in mols], vina_rmsd)
 

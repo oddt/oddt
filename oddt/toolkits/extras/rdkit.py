@@ -170,7 +170,7 @@ def _amide_bond(bond):
     return False
 
 
-def MolFromPDBQTBlock(block, sanitize=True, removeHs=True, template=None):
+def MolFromPDBQTBlock(block, sanitize=True, removeHs=True):
     """Read PDBQT block to a RDKit Molecule
 
     Parameters
@@ -179,9 +179,8 @@ def MolFromPDBQTBlock(block, sanitize=True, removeHs=True, template=None):
             Residue name which explicitly pint to a ligand(s).
         sanitize: bool (default=True)
             Should the sanitization be performed
-        mol: rdkit.Chem.rdchem.Mol (default=None)
-            A template used for assigning bond orders, as PDBQT does not encode
-            them at all.
+        removeHs: bool (default=True)
+            Should hydrogens be removed when reading molecule.
 
     Returns
     -------
@@ -226,9 +225,7 @@ def MolFromPDBQTBlock(block, sanitize=True, removeHs=True, template=None):
     mol.SetProp('_Name', name)
     for k, v in data.items():
         mol.SetProp(str(k), str(v))
-    if removeHs:
-        mol = Chem.RemoveHs(mol, sanitize=sanitize)
-    elif sanitize:
+    if sanitize:
         Chem.SanitizeMol(mol)
 
     # reorder atoms using serial
@@ -240,14 +237,13 @@ def MolFromPDBQTBlock(block, sanitize=True, removeHs=True, template=None):
                                       .GetSerialNumber()))
     mol = Chem.RenumberAtoms(mol, new_order)
 
-    if template is not None:
-        mol = AllChem.AssignBondOrdersFromTemplate(template, mol)
-
     return mol
 
 
 def PDBQTAtomLines(mol, donors, acceptors):
-    """Create a list with PDBQT atom lines for each atom in molecule"""
+    """Create a list with PDBQT atom lines for each atom in molecule. Donors
+    and acceptors are given as a list of atom indices.
+    """
 
     atom_lines = [line.replace('HETATM', 'ATOM  ')
                   for line in Chem.MolToPDBBlock(mol).split('\n')
@@ -259,44 +255,38 @@ def PDBQTAtomLines(mol, donors, acceptors):
 
         pdbqt_line += '0.00  0.00    '  # append empty vdW and ele
         # Get charge
-        charge = None
+        charge = 0.
         if atom.HasProp('_GasteigerCharge'):
             charge = float(atom.GetProp('_GasteigerCharge'))
+        if atom.HasProp('_TriposPartialCharge'):
+            charge = float(atom.GetProp('_TriposPartialCharge'))
         elif atom.GetAtomicNum() == 1:
             root_atom = atom.GetNeighbors()[0]
             if root_atom.HasProp('_GasteigerHCharge'):
                 charge = float(root_atom.GetProp('_GasteigerHCharge'))
-        if charge is None:
-            raise ValueError('No charge information')
-        if isnan(charge) or isinf(charge):  # FIXME: this should not happen, blame RDKit
+        # FIXME: this should not happen, blame RDKit
+        if isnan(charge) or isinf(charge):
             charge = 0.
         pdbqt_line += ('%.3f' % charge).rjust(6)
 
         # Get atom type
-        # TODO: do proper atom typing here
         pdbqt_line += ' '
         atomicnum = atom.GetAtomicNum()
-        if atomicnum == 6:
-            if atom.GetIsAromatic():
-                pdbqt_line += 'A'
-            else:
-                pdbqt_line += 'C'
+        if atomicnum == 6 and atom.GetIsAromatic():
+            pdbqt_line += 'A'
         elif atomicnum == 7 and idx in acceptors:
             pdbqt_line += 'NA'
         elif atomicnum == 8 and idx in acceptors:
             pdbqt_line += 'OA'
-        elif atomicnum == 1:
-            if atom.GetNeighbors()[0].GetIdx() in donors:
-                pdbqt_line += 'HD'
-            else:
-                pdbqt_line += 'H'
+        elif atomicnum == 1 and atom.GetNeighbors()[0].GetIdx() in donors:
+            pdbqt_line += 'HD'
         else:
             pdbqt_line += atom.GetSymbol()
         pdbqt_lines.append(pdbqt_line)
     return pdbqt_lines
 
 
-def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
+def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=False):
     """Write RDKit Molecule to a PDBQT block
 
     Parameters
@@ -309,10 +299,10 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
         addHs: bool (default=False)
             The PDBQT format requires at least polar Hs on donors. By default Hs
             are added.
-        computeCharges: bool (default=True)
-            Partial charges are also required in PDBQT format. They are
-            automatically computed by default. If the Hs are added the charges
-            must and will be recomputed.
+        computeCharges: bool (default=False)
+            Should the partial charges be automatically computed. If the Hs are
+            added the charges must and will be recomputed. If there are no
+            partial charge information, they are set to 0.0.
 
     Returns
     -------
@@ -453,7 +443,7 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
                         break
                     else:
                         continue
-                    break
+                    break  # break the outer loop as well
 
             if end_branch:
                 if len(branch_queue) > 0:
@@ -461,7 +451,8 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=True):
                 if old_roots:
                     current_root = old_roots.pop()
                 else:  # go to next disconnected fragment
-                    next_frag = set(range(len(frag_num))).difference(visited_frags)[0]
+                    next_frag = (frag for frag_num, frag in enumerate(frags)
+                                 if frag_num not in visited_frags)[0]
                     current_root = frags[next_frag]
                     visited_frags.append(next_frag)
         # close opened branches if any is open
