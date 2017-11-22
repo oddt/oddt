@@ -487,15 +487,6 @@ def test_add_missing_atoms():
     assert_equal(mol.GetNumBonds(), 366)
 
 
-def test_bond_error():
-    # missing nucleotide backbone atoms
-    molfile = test_dir + '5ar7_longbond.pdb'
-    mol = Chem.MolFromPDBFile(molfile, sanitize=False)
-    mol = Chem.RemoveHs(mol, sanitize=False)
-
-    assert_raises(FixerError, PreparePDBMol, mol, add_missing_atoms=True)
-
-
 def test_connected_residues():
     molfile = test_dir + '4p6p_lig_zn.pdb'
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
