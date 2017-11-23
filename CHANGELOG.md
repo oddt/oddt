@@ -1,4 +1,6 @@
 ### Development version (Git)
+* Protein-Ligand Extended Connectivity (PLEC) fingerprint
+* PDBQT reader and writer for RDKit + Vina support
 
 
 ### Version 0.4.1 (2017-08-09)
