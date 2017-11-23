@@ -1,5 +1,4 @@
 from __future__ import absolute_import, print_function
-from itertools import chain
 from math import isnan, isinf
 
 from rdkit import Chem
@@ -312,6 +311,12 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=False):
     # make a copy of molecule
     mol = Chem.Mol(mol)
 
+    # if flexible molecule contains multiple fragments write them separately
+    if flexible and len(Chem.GetMolFrags(mol)) > 1:
+        return ''.join(MolToPDBQTBlock(frag, flexible=flexible, addHs=addHs,
+                                       computeCharges=computeCharges)
+                       for frag in Chem.GetMolFrags(mol, asMols=True))
+
     # Identify donors and acceptors for atom typing
     # Acceptors
     patt = Chem.MolFromSmarts('[$([O;H1;v2]),'
@@ -378,9 +383,13 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=False):
                                % (i + 1, a1 + 1, a2 + 1))
 
         # Fragment molecule on bonds to ge rigid fragments
-        frags = list(Chem.GetMolFrags(
-            Chem.FragmentOnBonds(mol, [mol.GetBondBetweenAtoms(a1, a2).GetIdx()
-                                       for a1, a2 in bond_atoms], addDummies=False)))
+        bond_ids = [mol.GetBondBetweenAtoms(a1, a2).GetIdx()
+                    for a1, a2 in bond_atoms]
+        if bond_ids:
+            mol_rigid_frags = Chem.FragmentOnBonds(mol, bond_ids, addDummies=False)
+        else:
+            mol_rigid_frags = mol
+        frags = list(Chem.GetMolFrags(mol_rigid_frags))
 
         def weigh_frags(frag):
             """sort by the fragment size and the number of bonds (secondary)"""
@@ -446,15 +455,9 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=False):
                     break  # break the outer loop as well
 
             if end_branch:
-                if len(branch_queue) > 0:
-                    pdbqt_lines.append(branch_queue.pop())
+                pdbqt_lines.append(branch_queue.pop())
                 if old_roots:
                     current_root = old_roots.pop()
-                else:  # go to next disconnected fragment
-                    next_frag = (frag for frag_num, frag in enumerate(frags)
-                                 if frag_num not in visited_frags)[0]
-                    current_root = frags[next_frag]
-                    visited_frags.append(next_frag)
         # close opened branches if any is open
         while len(branch_queue):
             pdbqt_lines.append(branch_queue.pop())

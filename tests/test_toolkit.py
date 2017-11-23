@@ -1,12 +1,11 @@
 import os
-from tempfile import NamedTemporaryFile
 from collections import OrderedDict
 
 from six.moves.cPickle import loads, dumps
 import numpy as np
 import pandas as pd
 
-from nose.tools import nottest, assert_in, assert_not_in, assert_equal
+from nose.tools import assert_equal
 from sklearn.utils.testing import (assert_true,
                                    assert_false,
                                    assert_dict_equal,
@@ -32,7 +31,8 @@ def test_mol():
     assert_equal(len(mol.atoms), 7)
 
     # Hydrogen manipulation in proteins
-    protein = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    protein = next(oddt.toolkit.readfile(
+        'pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
     protein.protein = True
 
     res_atoms_n = [6, 10, 8, 8, 7, 11, 8, 7, 6, 8, 5, 8, 12, 9, 5, 11, 8,
@@ -384,8 +384,13 @@ def test_pdbqt():
 
     # roundtrip a disconnected fragments
     mol = oddt.toolkit.readstring('smi', 'c1ccccc1.c1ccccc1C')
+    if oddt.toolkit.backend == 'ob':
+        kwargs = {'opt': {'r': None}}
+    else:
+        kwargs = {'flexible': False}
 
-    # roundtrip molecule with template
-    mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt', flexible=False))
+    mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt', **kwargs))
+    assert_equal(len(mol.atoms), len(mol2.atoms))
 
+    mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt'))
     assert_equal(len(mol.atoms), len(mol2.atoms))
