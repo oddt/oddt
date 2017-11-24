@@ -1,5 +1,6 @@
 # -*. coding: utf-8 -*-
-# Copyright (c) 2008-2011, Noel O'Boyle; 2012, Adrià Cereto-Massagué; 2014-2017, Maciej Wójcikowski;
+# Copyright (c) 2008-2011, Noel O'Boyle; 2012, Adrià Cereto-Massagué;
+#               2014-2017, Maciej Wójcikowski;
 # All rights reserved.
 #
 #  This file is part of Cinfony and ODDT.
@@ -32,10 +33,7 @@ from sklearn.utils.deprecation import deprecated
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
-try:
-    from rdkit.Chem.Draw import rdMolDraw2D
-except ImportError as e:
-    pass
+from rdkit.Chem.Draw import rdMolDraw2D
 from rdkit.Chem import Descriptors
 from rdkit import RDConfig
 
@@ -47,12 +45,14 @@ import rdkit.Chem.AtomPairs.Torsions
 from rdkit.Chem.Lipinski import NumRotatableBonds
 from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D, Generate
+from rdkit.Chem import CanonicalRankAtoms
 
 from oddt.toolkits.common import detect_secondary_structure
 from oddt.toolkits.extras.rdkit import (_sybyl_atom_type,
                                         MolFromPDBBlock,
                                         MolToPDBQTBlock,
                                         MolFromPDBQTBlock)
+
 
 _descDict = dict(Descriptors.descList)
 
@@ -70,11 +70,6 @@ except NameError:
 
 elementtable = Chem.GetPeriodicTable()
 
-BOND_ORDERS = {Chem.BondType.SINGLE: 1.0,
-               Chem.BondType.DOUBLE: 2.0,
-               Chem.BondType.TRIPLE: 3.0,
-               Chem.BondType.AROMATIC: 1.5,
-               Chem.BondType.UNSPECIFIED: 0.0}
 SMARTS_DEF = {
     'rot_bond': Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
                                    '!$(C(Cl)(Cl)Cl)&'
@@ -89,26 +84,6 @@ SMARTS_DEF = {
                                    '!$(C(Br)(Br)Br)&'
                                    '!$(C([CH3])([CH3])[CH3])]').GetBonds()[0]
 }
-# trap errors since it's still new feature
-try:
-    from rdkit.Chem import CanonicalRankAtoms
-except ImportError:
-    pass
-
-# PIL and Tkinter
-try:
-    import Tkinter as tk
-    import Image as PIL
-    import ImageTk as PILtk
-except ImportError as e:
-    PILtk = None
-
-# Aggdraw
-try:
-    import aggdraw
-    from rdkit.Chem.Draw import aggCanvas
-except ImportError:
-    aggdraw = None
 
 fps = ['rdkit', 'layered', 'maccs', 'atompairs', 'torsions', 'morgan']
 """A list of supported fingerprint types"""
@@ -680,7 +655,6 @@ class Molecule(object):
                       ('isbeta', bool),
                       ]
 
-        a = []
         atom_dict = np.empty(self.Mol.GetNumAtoms(), dtype=atom_dtype)
         metals = [3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
                   30, 31, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
@@ -791,32 +765,9 @@ class Molecule(object):
         if len(matches) > 0:
             atom_dict['isminus'][np.intersect1d(matches, not_carbon)] = True
 
-        # Match features and mark them in atom_dict
-        translate_feats = {
-                        #    'Donor': 'isdonor',
-                        #    'Acceptor': 'isacceptor',
-                        #    'NegIonizable': 'isminus',
-                        #    'PosIonizable': 'isplus',
-                           }
-
         # build residue dictionary
         if self.protein:
             # for protein finding features per residue is much faster
-            for res in self.residues:
-                for f, field in translate_feats.items():
-                    feats = base_feature_factory.GetFeaturesForMol(res.Residue, includeOnly=f)
-                    atom_dict[field][[res.atommap[idx]
-                                      for feat in feats
-                                      for idx in feat.GetAtomIds()
-                                      if atom_dict['atomicnum'][res.atommap[idx]] > 1]] = True
-                    # Mark donor Hs
-                    if field == 'isdonor':
-                        atom_dict['isdonorh'][[res.atommap[n.GetIdx()]
-                                               for feat in feats
-                                               for idx in feat.GetAtomIds()
-                                               for n in res.Residue.GetAtomWithIdx(idx).GetNeighbors()
-                                               if n.GetAtomicNum() == 1]] = True
-
             res_dict = None
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', np.int16),
@@ -847,20 +798,6 @@ class Molecule(object):
             res_dict = detect_secondary_structure(res_dict)
             atom_dict['isalpha'][np.in1d(atom_dict['resid'], res_dict[res_dict['isalpha']]['id'])] = True
             atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_dict['isbeta']]['id'])] = True
-        else:
-            # find features for ligands
-            for f, field in translate_feats.items():
-                feats = base_feature_factory.GetFeaturesForMol(self.Mol, includeOnly=f)
-                atom_dict[field][[idx
-                                  for f in feats
-                                  for idx in f.GetAtomIds()
-                                  if atom_dict['atomicnum'][idx] > 1]] = True
-                if field == 'isdonor':
-                    atom_dict['isdonorh'][[n.GetIdx()
-                                           for f in feats
-                                           for idx in f.GetAtomIds()
-                                           for n in self.Mol.GetAtomWithIdx(idx).GetNeighbors()
-                                           if n.GetAtomicNum() == 1]] = True
 
         # FIX: remove acidic carbons from isminus group (they are part of smarts)
         atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
@@ -875,7 +812,11 @@ class Molecule(object):
                     coords = atoms['coords']
                     centroid = coords.mean(axis=0)
                     # get vector perpendicular to ring
-                    vector = np.cross(coords - np.vstack((coords[1:], coords[:1])), np.vstack((coords[1:], coords[:1])) - np.vstack((coords[2:], coords[:2]))).mean(axis=0) - centroid
+                    vector = np.cross(
+                        coords - np.vstack((coords[1:], coords[:1])),
+                        (np.vstack((coords[1:], coords[:1])) -
+                         np.vstack((coords[2:], coords[:2])))
+                        ).mean(axis=0) - centroid
                     r.append((centroid, vector, atom['resid'], atom['resname'], atom['isalpha'], atom['isbeta']))
         ring_dict = np.array(r, dtype=[('centroid', np.float32, 3),
                                        ('vector', np.float32, 3),
@@ -1271,7 +1212,7 @@ class Bond(object):
 
     @property
     def order(self):
-        return BOND_ORDERS[self.Bond.GetBondType()]
+        return self.Bond.GetBondTypeAsDouble()
 
     @property
     def atoms(self):

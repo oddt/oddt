@@ -8,10 +8,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.neural_network import MLPRegressor
-try:
-    from sklearn.cross_decomposition import PLSRegression as pls
-except ImportError:
-    from sklearn.pls import PLSRegression as pls
+from sklearn.cross_decomposition import PLSRegression as pls
+
 
 __all__ = ['randomforest', 'svm', 'pls', 'neuralnetwork', 'mlr']
 

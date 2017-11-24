@@ -10,7 +10,8 @@ from sklearn.utils.testing import (assert_true,
                                    assert_false,
                                    assert_dict_equal,
                                    assert_array_equal,
-                                   assert_array_almost_equal)
+                                   assert_array_almost_equal,
+                                   assert_warns)
 
 import oddt
 
@@ -157,6 +158,19 @@ def test_pickle():
     for mol, pickled_mol in zip(mols, pickled_mols):
         assert_dict_equal(dict(mol.data),
                           dict(pickled_mol.data))
+
+
+def test_indices():
+    """Test 0 and 1 based atom indices"""
+    mol = oddt.toolkit.readstring('smi', 'CCc1cc(C)c(C)cc1-c1ccc(-c2cccc(C)c2)cc1')
+    atom = mol.atoms[0]
+
+    assert_equal(atom.idx0, 0)
+    assert_equal(atom.idx1, 1)
+
+    # the unmarked index is deprecated in ODDT
+    assert_warns(DeprecationWarning, getattr, atom, 'idx')
+    assert_equal(atom.idx, 1)
 
 
 def test_pickle_protein():
