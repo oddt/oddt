@@ -1,7 +1,7 @@
 import os
 from tempfile import NamedTemporaryFile
 
-from nose.tools import assert_in, assert_not_in, assert_equal
+from nose.tools import assert_in, assert_not_in, assert_equal, assert_is_instance
 from sklearn.utils.testing import assert_true, assert_array_equal
 import pandas as pd
 
@@ -129,6 +129,49 @@ def test_csv():
     assert_equal(df.shape, df2.shape)
     assert_equal(df.columns.tolist(), df2.columns.tolist())
     assert_equal(df.dtypes.tolist(), df2.dtypes.tolist())
+
+    with NamedTemporaryFile(suffix='.csv', mode='w+') as f:
+        df.to_csv(f, index=False, columns=['name', 'act'])
+        f.seek(0)
+        df2 = opd.read_csv(f)
+    assert_equal(df[['name', 'act']].shape, df2.shape)
+    assert_equal(df[['name', 'act']].columns.tolist(), df2.columns.tolist())
+    assert_equal(df[['name', 'act']].dtypes.tolist(), df2.dtypes.tolist())
+
+
+def test_excel():
+    # just check if it doesn't fail
+    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'),
+                      columns=['mol', 'name', 'chembl_id', 'dude_smiles', 'act'])
+    df['act'] = df['act'].astype(float)
+    df['name'] = df['name'].astype(int)
+    with NamedTemporaryFile(suffix='.xls', mode='w') as f:
+        df.to_excel(f.name, index=False)
+
+
+def test_chemseries_writers():
+    df = opd.read_sdf(os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'),
+                      columns=['mol', 'name', 'chembl_id', 'dude_smiles', 'act'])
+
+    mols = df['mol']
+
+    # SMILES
+    with NamedTemporaryFile(suffix='.ism', mode='w') as f:
+        mols.to_smiles(f)
+        for mol in oddt.toolkit.readfile('smi', f.name):
+            assert_is_instance(mol, oddt.toolkit.Molecule)
+
+    # SDF
+    with NamedTemporaryFile(suffix='.sdf', mode='w') as f:
+        mols.to_sdf(f)
+        for mol in oddt.toolkit.readfile('sdf', f.name):
+            assert_is_instance(mol, oddt.toolkit.Molecule)
+
+    # mol2
+    with NamedTemporaryFile(suffix='.mol2', mode='w') as f:
+        mols.to_mol2(f)
+        for mol in oddt.toolkit.readfile('mol2', f.name):
+            assert_is_instance(mol, oddt.toolkit.Molecule)
 
 
 def test_ipython():

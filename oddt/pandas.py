@@ -1,7 +1,7 @@
 """ Pandas extension for chemical analysis """
 from __future__ import absolute_import
 from collections import deque
-from six import BytesIO, StringIO
+from six import BytesIO, StringIO, text_type
 import pandas as pd
 
 import oddt
@@ -479,7 +479,7 @@ class ChemDataFrame(pd.DataFrame):
                 continue
             img = BytesIO()
             png = mol.clone.write('png', size=size)
-            if type(png) is str:
+            if isinstance(png, text_type):
                 png = png.encode('utf-8', errors='surrogateescape')
             img.write(png)
             sheet.write_string(i + 1, molecule_column_idx, "")
