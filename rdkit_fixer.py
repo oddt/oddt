@@ -766,7 +766,7 @@ def PreparePDBMol(mol,
                                                                         residue,
                                                                         amap,
                                                                         template)
-        except ValueError as e:
+        except SubstructureMatchError as e:
             print(resnum, resname, chainid, e, file=sys.stderr)
         finally:
             visited_bonds.extend(bonds)
