@@ -860,6 +860,10 @@ def PreparePDBMol(mol,
         Chem.GetSSSR(new_mol)
         new_mol = Chem.RenumberAtoms(new_mol, new_order)
 
+        # highlight added atoms, but need to get their new idx first
+        new_mol.__sssAtoms = [new_i for new_i, i in enumerate(new_order)
+                              if i in new_atoms]
+
     return new_mol
 
 
