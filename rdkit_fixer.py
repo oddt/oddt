@@ -63,6 +63,8 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
             new_conf = Chem.Conformer(len(amap))
             for i in range(len(amap)):
                 new_conf.SetAtomPosition(i, conf.GetAtomPosition(amap[i]))
+                new_conf.SetId(conf.GetId())
+                new_conf.Set3D(conf.Is3D())
             submol.AddConformer(new_conf)
     return submol
 
@@ -270,13 +272,17 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
                         reverse=True)[0]
     ligand_amap = hetatm_residues[ligand_key]
     ligand = AtomListToSubMol(mol, ligand_amap, includeConformer=True)
-    ligand_coords = np.array(ligand.GetConformer().GetPositions())
+    conf = ligand.GetConformer()
+    ligand_coords = np.array([conf.GetAtomPosition(i)
+                              for i in range(ligand.GetNumAtoms())])
 
     # Get protein and waters
     blacklist_ids = list(chain(*hetatm_residues.values()))
     protein_amap = np.array([i for i in range(mol.GetNumAtoms())
                              if i not in blacklist_ids])
-    protein_coords = np.array(mol.GetConformer().GetPositions())[protein_amap]
+    conf = mol.GetConformer()
+    protein_coords = np.array([conf.GetAtomPosition(i)
+                              for i in range(mol.GetNumAtoms())])[protein_amap]
 
     # Pocket selection based on cutoff
     mask = (cdist(protein_coords, ligand_coords) <= cutoff).any(axis=1)
@@ -1051,6 +1057,7 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
             # prepare the pocket
             # TODO: add missing atoms
             pocket = PreparePDBMol(pocket)
+
             flag = Chem.SanitizeMol(pocket)
             if flag != Chem.SanitizeFlags.SANITIZE_NONE:
                 raise SanitizeError('Cannot sanitize pocket for %s and %s'
@@ -1073,7 +1080,7 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
                     continue
 
                 # parse values like ">1000" or "0.5-0.8"
-                value = [float(v) for v in value.strip('<>~').split('-')]
+                value = [float(v.strip('<>~')) for v in value.split('-')]
                 if len(value) == 1:
                     value = value[0]
                 else:

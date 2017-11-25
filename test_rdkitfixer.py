@@ -1,7 +1,12 @@
 import rdkit
 from rdkit import Chem
 
-from nose.tools import assert_equal, assert_not_equal, assert_almost_equal, assert_raises
+from nose.tools import (assert_equal,
+                        assert_not_equal,
+                        assert_almost_equal,
+                        assert_raises)
+
+from numpy.testing import assert_array_equal
 
 from rdkit_fixer import (AtomListToSubMol,
                          PreparePDBMol,
@@ -39,6 +44,13 @@ def test_atom_list_to_submol():
     assert_equal(mol.GetNumConformers(), 2)
     submol = AtomListToSubMol(mol, range(6), includeConformer=True)
     assert_equal(submol.GetNumConformers(), 2)
+    assert_array_equal(submol.GetConformer().GetPositions(),
+                       mol.GetConformer().GetPositions()[:6])
+
+    submol2 = AtomListToSubMol(submol, range(3), includeConformer=True)
+    assert_equal(submol2.GetNumConformers(), 2)
+    assert_array_equal(submol2.GetConformer().GetPositions(),
+                       mol.GetConformer().GetPositions()[:3])
 
 
 def test_multivalent_Hs():
