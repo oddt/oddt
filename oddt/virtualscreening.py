@@ -15,7 +15,7 @@ from oddt.scoring import scorer
 from oddt.fingerprints import (InteractionFingerprint,
                                SimpleInteractionFingerprint,
                                dice)
-from oddt.shape import usr, usr_cat, electroshape
+from oddt.shape import usr, usr_cat, electroshape, usr_similarity
 
 
 def _parallel_helper(obj, methodname, kwargs):
