@@ -177,6 +177,7 @@ def main():
     for filter in args.filter:
         pipeline.apply_filter(filter)
 
+    receptor = None  # Not all similarity methods require receptor/protein
     # load protein once
     if args.receptor:
         extension = args.receptor.split('.')[-1]
