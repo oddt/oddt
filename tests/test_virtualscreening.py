@@ -2,7 +2,8 @@ import os
 
 from nose.tools import assert_in, assert_equal
 from sklearn.utils.testing import (assert_array_equal,
-                                   assert_array_almost_equal)
+                                   assert_array_almost_equal,
+                                   assert_raises)
 
 import oddt
 from oddt.spatial import rmsd
@@ -98,3 +99,56 @@ def test_vs_pains():
     vs.load_ligands('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
     vs.apply_filter('pains', soft_fail=0)
     assert_equal(len(list(vs.fetch())), 100)
+
+
+def test_vs_similarity():
+    """VS similarity filter (USRs, IFPs) tests"""
+    ref_mol = next(oddt.toolkit.readfile(
+        'sdf', os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf')))
+    receptor = next(oddt.toolkit.readfile(
+        'pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    lig_dir = os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')
+
+    # following toolkit differences is due to different Hs treatment
+    vs = virtualscreening(n_cpu=-1)
+    vs.load_ligands('sdf', lig_dir)
+    vs.similarity('usr', cutoff=0.4, query=ref_mol)
+    if oddt.toolkit.backend == 'ob':
+        assert_equal(len(list(vs.fetch())), 11)
+    else:
+        assert_equal(len(list(vs.fetch())), 6)
+
+    vs = virtualscreening(n_cpu=-1)
+    vs.load_ligands('sdf', lig_dir)
+    vs.similarity('usr_cat', cutoff=0.3, query=ref_mol)
+    if oddt.toolkit.backend == 'ob':
+        assert_equal(len(list(vs.fetch())), 16)
+    else:
+        assert_equal(len(list(vs.fetch())), 11)
+
+    vs = virtualscreening(n_cpu=-1)
+    vs.load_ligands('sdf', lig_dir)
+    vs.similarity('electroshape', cutoff=0.45, query=ref_mol)
+    if oddt.toolkit.backend == 'ob':
+        assert_equal(len(list(vs.fetch())), 55)
+    else:
+        assert_equal(len(list(vs.fetch())), 89)
+
+    vs = virtualscreening(n_cpu=-1)
+    vs.load_ligands('sdf', lig_dir)
+    vs.similarity('ifp', cutoff=0.95, query=ref_mol, protein=receptor)
+    if oddt.toolkit.backend == 'ob':
+        assert_equal(len(list(vs.fetch())), 3)
+    else:
+        assert_equal(len(list(vs.fetch())), 6)
+
+    vs = virtualscreening(n_cpu=-1)
+    vs.load_ligands('sdf', lig_dir)
+    vs.similarity('sifp', cutoff=0.9, query=ref_mol, protein=receptor)
+    if oddt.toolkit.backend == 'ob':
+        assert_equal(len(list(vs.fetch())), 14)
+    else:
+        assert_equal(len(list(vs.fetch())), 21)
+
+    # test wrong method error
+    assert_raises(ValueError, vs.similarity, 'sift', query=ref_mol)
