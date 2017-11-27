@@ -6,13 +6,11 @@
 from __future__ import division
 from six.moves import zip_longest
 from itertools import chain
-from collections import defaultdict, OrderedDict
+from collections import OrderedDict
 import numpy as np
-from scipy.spatial import cKDTree
 from scipy.sparse import csr_matrix
 import oddt
 from oddt.interactions import (pi_stacking,
-                               pi_cation,
                                hbond_acceptor_donor,
                                salt_bridge_plus_minus,
                                hydrophobic_contacts,
@@ -272,7 +270,7 @@ def sparse_to_csr_matrix(fp, size, count_bits=True):
     if fp.ndim > 1:
         raise ValueError("Input fingerprint must be a vector (1D)")
     if count_bits:
-        ## TODO numpy 1.9.0 has return_counts
+        # TODO numpy 1.9.0 has return_counts
         cols, inv = np.unique(fp, return_inverse=True)
         values = np.bincount(inv)
     else:
@@ -301,7 +299,7 @@ def dense_to_sparse(fp):
 
     if fp.dtype == bool:
         return np.where(fp)[0]
-    else: # count vectors
+    else:  # count vectors
         sparse_fp = []
         ix = np.where(fp)[0]
         for i, count in zip(ix, fp[ix]):
@@ -416,11 +414,12 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
             isinstance(mol, oddt.toolkits.ob.Molecule)):
         envs = OrderedDict([(i, []) for i in range(depth + 1)])
         last_depth = 0
-        for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol, idx + 1):
+        for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol,
+                                                                        idx + 1):
             # FIX for disconnected fragments in OB
             if ((current_depth > depth + 1) or
-                (last_depth > current_depth) or
-                (last_depth == 1 and current_depth == 1)):
+                    (last_depth > current_depth) or
+                    (last_depth == 1 and current_depth == 1)):
                 break
             last_depth = current_depth
             if atom.GetAtomicNum() == 1:
@@ -446,13 +445,16 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
     for r in range(1, depth + 2):  # there are depth + 1 elements, so +2
         atom_env.append(list(chain(*envs[:r])))
 
-
     # Get atom representation only once, pull indices from largest env
     if atom_repr_dict is None:
-        atom_repr = [_ECFP_atom_repr(mol, aidx, use_pharm_features=use_pharm_features)
+        atom_repr = [_ECFP_atom_repr(mol, aidx,
+                                     use_pharm_features=use_pharm_features)
                      for aidx in atom_env[-1]]
-    else:
+    elif isinstance(atom_repr_dict, dict):
         atom_repr = [atom_repr_dict[aidx] for aidx in atom_env[-1]]
+    else:
+        raise ValueError('`atom_repr_dict` must be a dictionary, as atom idxs '
+                         'do not need to be continuous (eg. missing Hs).')
     # Get atom invariants
     out_hash = []
     for layer in atom_env:
@@ -507,9 +509,8 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
     for idx, atom in enumerate(mol.atoms):
         if atom.atomicnum == 1:
             continue
-        atom_repr_dict[idx] = _ECFP_atom_repr(mol, idx, use_pharm_features=use_pharm_features)
-    if not atom_repr_dict:
-        atom_repr_dict = None
+        atom_repr_dict[idx] = _ECFP_atom_repr(
+            mol, idx, use_pharm_features=use_pharm_features)
     for idx in atom_repr_dict.keys():
         mol_hashed.append(_ECFP_atom_hash(mol, idx, depth=depth,
                                           use_pharm_features=use_pharm_features,
@@ -548,7 +549,8 @@ def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
     Returns
     -------
     SPLIF : numpy array
-        Calculated SPLIF.shape = (no. of atoms, ). Every row consists of three elements:
+        Calculated SPLIF.shape = (no. of atoms, ). Every row consists of three
+        elements:
             row[0] = index of hashed atoms
             row[1].shape = (7, 3) -> ligand's atom coords and 6 his neigbor's
             row[2].shape = (7, 3) -> protein's atom coords and 6 his neigbor's
@@ -565,10 +567,13 @@ def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
                      dtype=[('hash', int), ('ligand_coords', np.float32, (7, 3)),
                             ('protein_coords', np.float32, (7, 3))])
 
-    lig_atom_repr = [_ECFP_atom_repr(ligand, int(aidx)) for aidx in ligand_dict['id']]
-    prot_atom_repr = [_ECFP_atom_repr(protein, int(aidx)) for aidx in protein_dict['id']]
+    lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, int(aidx))
+                     for aidx in ligand_dict['id']}
+    prot_atom_repr = {aidx: _ECFP_atom_repr(protein, int(aidx))
+                      for aidx in protein_dict['id']}
 
-    for i, (ligand_atom, protein_atom) in enumerate(zip(ligand_atoms, protein_atoms)):
+    for i, (ligand_atom, protein_atom) in enumerate(zip(ligand_atoms,
+                                                        protein_atoms)):
         if ligand_atom['atomicnum'] == 1 or protein_atom['atomicnum'] == 1:
             continue
         # function sorted used below solves isue, when order of parameteres
@@ -582,10 +587,10 @@ def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
                             int(protein_atom['id']),
                             depth=depth,
                             atom_repr_dict=prot_atom_repr)[-1])))),
-            np.vstack((ligand_atom['coords'].reshape((1, 3)),
-                       ligand_atom['neighbors'])),
-            np.vstack((protein_atom['coords'].reshape((1, 3)),
-                       protein_atom['neighbors'])))
+                    np.vstack((ligand_atom['coords'].reshape((1, 3)),
+                               ligand_atom['neighbors'])),
+                    np.vstack((protein_atom['coords'].reshape((1, 3)),
+                               protein_atom['neighbors'])))
 
     # folding
     splif['hash'] = fold(splif['hash'], size)
@@ -643,7 +648,8 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
         query_protein = query_pair['protein_coords']
         rmsd_ligand = combinatorial_rmsd(ref_ligand, query_ligand)
         rmsd_protein = combinatorial_rmsd(ref_protein, query_protein)
-        n_matching = ((rmsd_ligand < rmsd_cutoff) & (rmsd_protein < rmsd_cutoff)).sum()
+        n_matching = ((rmsd_ligand < rmsd_cutoff) &
+                      (rmsd_protein < rmsd_cutoff)).sum()
         numla += n_matching
         numpa += n_matching
         nula += (rmsd_ligand < rmsd_cutoff).sum()
@@ -655,9 +661,10 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
 
 
 def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
-           size=16384, count_bits=True, sparse=True, ignore_hoh=True):
+         size=16384, count_bits=True, sparse=True, ignore_hoh=True):
     """Protein ligand extended connectivity fingerprint. For every pair of
-    atoms in contact, compute ECFP and then hash every single, corresponding depth.
+    atoms in contact, compute ECFP and then hash every single, corresponding
+    depth.
 
     Parameters
     ----------
@@ -683,7 +690,7 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     Returns
     -------
     PLEC : numpy array
-        Calculated fp (size = no. of atoms in contacts * max(depth_protein, depth_ligand))
+        fp (size = atoms in contacts * max(depth_protein, depth_ligand))
 
     """
     result = []
@@ -698,8 +705,10 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     protein_atoms, ligand_atoms = close_contacts(
         protein_dict, ligand_dict, cutoff=distance_cutoff)
 
-    lig_atom_repr = [_ECFP_atom_repr(ligand, int(aidx)) for aidx in ligand_dict['id']]
-    prot_atom_repr = [_ECFP_atom_repr(protein, int(aidx)) for aidx in protein_dict['id']]
+    lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, int(aidx))
+                     for aidx in ligand_dict['id']}
+    prot_atom_repr = {aidx: _ECFP_atom_repr(protein, int(aidx))
+                      for aidx in protein_dict['id']}
 
     for ligand_atom, protein_atom in zip(ligand_atoms['id'], protein_atoms['id']):
         ligand_ecfp = _ECFP_atom_hash(ligand,
@@ -755,7 +764,7 @@ def dice(a, b, sparse=False):
 
     """
     if sparse:
-        ## TODO numpy 1.9.0 has return_counts
+        # TODO numpy 1.9.0 has return_counts
         a_unique, inv = np.unique(a, return_inverse=True)
         a_counts = np.bincount(inv)
         b_unique, inv = np.unique(b, return_inverse=True)
