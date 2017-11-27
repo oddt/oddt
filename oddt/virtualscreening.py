@@ -19,7 +19,7 @@ from oddt.shape import usr, usr_cat, electroshape, usr_similarity
 
 
 def _parallel_helper(obj, methodname, kwargs):
-    """Private helper to workaround Python 2 pickle limitations to paralelize methods"""
+    """Private helper to workaround Python 2 methods picklinh limitations"""
     return getattr(obj, methodname)(**kwargs)
 
 
@@ -58,7 +58,8 @@ class virtualscreening:
                 kwargs['opt']['c'] = None
             else:
                 kwargs['opt'] = {'c': None}
-        new_pipe = self._ligand_pipe(toolkit.readfile(fmt, ligands_file, *args, **kwargs))
+        new_pipe = self._ligand_pipe(toolkit.readfile(fmt, ligands_file, *args,
+                                                      **kwargs))
         self._pipe = chain(self._pipe, new_pipe) if self._pipe else new_pipe
 
     def _ligand_pipe(self, ligands):
@@ -69,7 +70,8 @@ class virtualscreening:
 
     def apply_filter(self, expression, soft_fail=0):
         """Filtering method, can use raw expressions (strings to be evaled
-        in if statement, can use oddt.toolkit.Molecule methods, eg. 'mol.molwt < 500')
+        in if statement, can use oddt.toolkit.Molecule methods, eg.
+        `mol.molwt < 500`)
         Currently supported presets:
             * Lipinski Rule of 5 ('ro5' or 'l5')
             * Fragment Rule of 3 ('ro3')
@@ -81,7 +83,8 @@ class virtualscreening:
                 Expresion(s) to be used while filtering.
 
             soft_fail: int (default=0)
-                The number of faulures molecule can have to pass filter, aka. soft-fails.
+                The number of faulures molecule can have to pass filter, aka.
+                soft-fails.
         """
         if expression in ['l5', 'ro5', 'ro3', 'pains']:
             # define presets
@@ -158,8 +161,14 @@ class virtualscreening:
 
         Parameters
         ----------
-            method: string, one of ['ift', 'sift', 'usr', 'usr_cat', 'electroshape']
-                Similarity method used to compare molecules
+            method: string
+                Similarity method used to compare molecules. Avaiale methods:
+                * `ifp` - interaction fingerprint (requires a receptor)
+                * `sifp` - simple interaction fingerprint (requires a receptor)
+                * `usr` - Ultrafast Shape Reckognition
+                * `usr_cat` - USR, with CREDO atom types
+                * `electroshape` - Electroshape, USR with moments representing
+                partial charge
 
             query: oddt.toolkit.Molecule or list of oddt.toolkit.Molecule
                 Query molecules to compare the pipeline to.
@@ -169,8 +178,8 @@ class virtualscreening:
                 than it will be filtered out.
 
             protein: oddt.toolkit.Molecule (default = None)
-                Protein for underling method. By default it's empty, but sturctural
-                fingerprints need one.
+                Protein for underling method. By default it's empty, but
+                sturctural fingerprints need one.
 
         """
         if isinstance(query, toolkit.Molecule):
@@ -193,9 +202,11 @@ class virtualscreening:
             gen = electroshape
             dist = usr_similarity
         else:
-            raise Exception('Similarity filter "%s" is not supported.' % method)
-        query_fps = [(gen(q) if protein is None else gen(q, protein)) for q in query]
-        self._pipe = filter(lambda q: any(dist(gen(q) if protein is None else gen(q, protein),
+            raise ValueError('Similarity filter "%s" is not supported.' % method)
+        query_fps = [(gen(q) if protein is None else gen(q, protein))
+                     for q in query]
+        self._pipe = filter(lambda q: any(dist(gen(q) if protein is None
+                                               else gen(q, protein),
                                                q_fp) >= float(cutoff)
                                           for q_fp in query_fps),
                             self._pipe)
@@ -217,21 +228,25 @@ class virtualscreening:
             Additional parameters are passed directly to the engine.
             Following docking engines are supported:
 
-            1. Audodock Vina (``engine="autodock_vina"``), see `oddt.docking.autodock_vina`.
+            1. Audodock Vina (``engine="autodock_vina"``), see
+            `oddt.docking.autodock_vina`.
         """
         if engine.lower() == 'autodock_vina':
             from oddt.docking import autodock_vina
             engine = autodock_vina(protein, *args, **kwargs)
         else:
-            raise ValueError('Docking engine %s was not implemented in ODDT' % engine)
+            raise ValueError('Docking engine %s was not implemented in ODDT'
+                             % engine)
         if self.n_cpu != 1:
             _parallel_helper_partial = partial(_parallel_helper, engine, 'dock')
-            docking_results = (Pool(self.n_cpu if self.n_cpu > 0 else None)
-                               .imap(_parallel_helper_partial, ({'ligands': lig,
-                                                                 'single': True}
-                                                                for lig in self._pipe)))
+            docking_results = (
+                Pool(self.n_cpu if self.n_cpu > 0 else None)
+                .imap(_parallel_helper_partial, ({'ligands': lig,
+                                                  'single': True}
+                                                 for lig in self._pipe)))
         else:
-            docking_results = (engine.dock(lig, single=True) for lig in self._pipe)
+            docking_results = (engine.dock(lig, single=True)
+                               for lig in self._pipe)
         self._pipe = chain.from_iterable(docking_results)
 
     def score(self, function, protein=None, *args, **kwargs):
@@ -283,15 +298,18 @@ class virtualscreening:
                 sf = scorer.load(function)
                 sf.set_protein(protein)
             else:
-                raise ValueError('Scoring Function %s was not implemented in ODDT' % function)
+                raise ValueError('Scoring Function %s was not implemented in '
+                                 'ODDT' % function)
         else:
             if isinstance(function, scorer):
                 sf = function
                 sf.set_protein(protein)
             else:
-                raise ValueError('Supplied object "%s" is not an ODDT scoring funtion' % function.__name__)
+                raise ValueError('Supplied object "%s" is not an ODDT scoring '
+                                 'funtion' % function.__name__)
         if self.n_cpu != 1:
-            _parallel_helper_partial = partial(_parallel_helper, sf, 'predict_ligand')
+            _parallel_helper_partial = partial(_parallel_helper, sf,
+                                               'predict_ligand')
             self._pipe = (Pool(self.n_cpu if self.n_cpu > 0 else None)
                           .imap(_parallel_helper_partial, ({'ligand': lig}
                                                            for lig in self._pipe),
@@ -351,7 +369,8 @@ class virtualscreening:
                 if len(data) > 0:
                     data['name'] = mol.title
                 else:
-                    print("There is no data to write in CSV file", file=sys.stderr)
+                    print("There is no data to write in CSV file",
+                          file=sys.stderr)
                     return False
                 if csv_file is None:
                     csv_file = csv.DictWriter(f, data.keys(), **kwargs)
@@ -403,7 +422,8 @@ class virtualscreening:
                 print("There is no data to write in CSV file", file=sys.stderr)
                 return False
             if csv_file is None:
-                csv_file = csv.DictWriter(f, fields or data.keys(), extrasaction='ignore', **kwargs)
+                csv_file = csv.DictWriter(f, fields or data.keys(),
+                                          extrasaction='ignore', **kwargs)
                 csv_file.writeheader()
             csv_file.writerow(data)
             if keep_pipe:
