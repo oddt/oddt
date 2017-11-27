@@ -272,6 +272,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
                         reverse=True)[0]
     ligand_amap = hetatm_residues[ligand_key]
     ligand = AtomListToSubMol(mol, ligand_amap, includeConformer=True)
+    # we should use GetPositions() hear, but it often leads to segfault (RDKit)
     conf = ligand.GetConformer()
     ligand_coords = np.array([conf.GetAtomPosition(i)
                               for i in range(ligand.GetNumAtoms())])
@@ -280,9 +281,10 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
     blacklist_ids = list(chain(*hetatm_residues.values()))
     protein_amap = np.array([i for i in range(mol.GetNumAtoms())
                              if i not in blacklist_ids])
+    # we should use GetPositions() hear, but it often leads to segfault (RDKit)
     conf = mol.GetConformer()
     protein_coords = np.array([conf.GetAtomPosition(i)
-                              for i in range(mol.GetNumAtoms())])[protein_amap]
+                              for i in protein_amap.tolist()])
 
     # Pocket selection based on cutoff
     mask = (cdist(protein_coords, ligand_coords) <= cutoff).any(axis=1)
