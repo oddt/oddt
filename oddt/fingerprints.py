@@ -705,18 +705,19 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     protein_atoms, ligand_atoms = close_contacts(
         protein_dict, ligand_dict, cutoff=distance_cutoff)
 
-    lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, int(aidx))
-                     for aidx in ligand_dict['id']}
-    prot_atom_repr = {aidx: _ECFP_atom_repr(protein, int(aidx))
-                      for aidx in protein_dict['id']}
+    lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, aidx)
+                     for aidx in ligand_dict['id'].tolist()}
+    prot_atom_repr = {aidx: _ECFP_atom_repr(protein, aidx)
+                      for aidx in protein_dict['id'].tolist()}
 
-    for ligand_atom, protein_atom in zip(ligand_atoms['id'], protein_atoms['id']):
+    for ligand_atom, protein_atom in zip(ligand_atoms['id'].tolist(),
+                                         protein_atoms['id'].tolist()):
         ligand_ecfp = _ECFP_atom_hash(ligand,
-                                      int(ligand_atom),
+                                      ligand_atom,
                                       depth=depth_ligand,
                                       atom_repr_dict=lig_atom_repr)
         protein_ecfp = _ECFP_atom_hash(protein,
-                                       int(protein_atom),
+                                       protein_atom,
                                        depth=depth_protein,
                                        atom_repr_dict=prot_atom_repr)
         assert len(ligand_ecfp) == depth_ligand + 1
