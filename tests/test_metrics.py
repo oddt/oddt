@@ -3,13 +3,15 @@ from nose.tools import (assert_less_equal, assert_less, assert_greater_equal,
                         assert_equal)
 
 import numpy as np
-np.random.seed(42)
 
 from oddt.metrics import (roc_auc, roc_log_auc, random_roc_log_auc,
                           enrichment_factor,
                           rmse, standard_deviation_error)
 
 
+np.random.seed(42)
+
+# Generate test data for classification
 classes = np.array([0] * 90000 + [1] * 10000)
 # poorly separated
 poor_classes = np.random.rand(100000) * 100
@@ -18,6 +20,7 @@ poor_classes = np.random.rand(100000) * 100
 good_classes = np.concatenate([np.random.rand(90000) * 10 + 100,
                                np.random.rand(10000) * 10 + 1000])
 
+# Generate test data for regression
 values = np.arange(100000)
 poor_values = np.random.rand(100000) * 100    # poorly predicted
 good_values = np.arange(100000) + np.random.rand(100000)  # correctly predicted
