@@ -1003,7 +1003,7 @@ def FetchStructure(pdbid, sanitize=False, removeHs=True, cache_dir=None):
 
     mol = Chem.MolFromPDBBlock(pdb_block, sanitize=sanitize, removeHs=removeHs)
     if cache_dir is not None:
-        with open(structure_path) as f:
+        with open(structure_path, 'w') as f:
             f.write(pdb_block)
 
     return mol
