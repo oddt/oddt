@@ -5,6 +5,7 @@ from itertools import combinations, chain
 import sys
 
 from six.moves import urllib
+from six import StringIO
 
 import numpy as np
 import pandas as pd
@@ -155,6 +156,10 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
         mol: rdkit.Chem.rdchem.Mol
             Molecule with mimimized `moving_atoms`
     """
+
+    old = sys.stderr
+    sys.stderr = StringIO()
+
     if moving_atoms is None and fixed_atoms is None:
         raise ValueError('You must supply at least one set of moving/fixed '
                          'atoms.')
@@ -194,6 +199,8 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
     conf = mol.GetConformer(-1)
     for idx, pos in zip(amap, submol.GetConformer(-1).GetPositions()):
         conf.SetAtomPosition(idx, pos)
+
+    sys.stderr = old
     return mol
 
 
