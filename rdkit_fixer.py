@@ -5,7 +5,7 @@ from itertools import combinations, chain
 import sys
 
 from six.moves import urllib
-from six import StringIO
+from rdkit import RDLogger
 
 import numpy as np
 import pandas as pd
@@ -14,6 +14,8 @@ from scipy.spatial.distance import cdist
 from rdkit import Chem
 from rdkit.Chem.AllChem import ConstrainedEmbed
 from rdkit.Chem.rdForceFieldHelpers import UFFGetMoleculeForceField
+
+logger = RDLogger.logger()
 
 
 METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
@@ -132,7 +134,7 @@ def SimplifyMol(mol):
 
 
 def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
-                           cutoff=5.):
+                           cutoff=5., verbose=False):
     """Minimize a molecule using UFF forcefield with a set of moving/fixed
     atoms. If both moving and fixed atoms are provided, fixed_atoms parameter
     will be ignored.  The minimization is done in-place (without copying
@@ -156,9 +158,10 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
         mol: rdkit.Chem.rdchem.Mol
             Molecule with mimimized `moving_atoms`
     """
+    global logger
 
-    old = sys.stderr
-    sys.stderr = StringIO()
+    if not verbose:
+        logger.setLevel(RDLogger.CRITICAL)
 
     if moving_atoms is None and fixed_atoms is None:
         raise ValueError('You must supply at least one set of moving/fixed '
@@ -200,7 +203,10 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
     for idx, pos in zip(amap, submol.GetConformer(-1).GetPositions()):
         conf.SetAtomPosition(idx, pos)
 
-    sys.stderr = old
+    # FIXME: there's no getLevel method, so we set to default level
+    if not verbose:
+        logger.setLevel(RDLogger.INFO)
+
     return mol
 
 
