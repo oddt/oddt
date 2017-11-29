@@ -16,6 +16,7 @@ from rdkit_fixer import (AtomListToSubMol,
                          PreparePDBMol,
                          ExtractPocketAndLigand,
                          IsResidueConnected,
+                         FetchStructure,
                          PrepareComplexes)
 
 test_dir = './test_data/'
@@ -515,6 +516,17 @@ def test_connected_residues():
 
     # fragments of two residues
     assert_raises(ValueError, IsResidueConnected, mol, range(5, 15))
+
+
+def test_fetch_structures():
+    pdbid = '3ws8'
+    tmpdir = tempfile.mkdtemp()
+
+    mol1 = FetchStructure(pdbid)
+    mol2 = FetchStructure(pdbid, cache_dir=tmpdir)
+    mol3 = FetchStructure(pdbid, cache_dir=tmpdir)
+    assert_equal(mol1.GetNumAtoms(), mol2.GetNumAtoms())
+    assert_equal(mol1.GetNumAtoms(), mol3.GetNumAtoms())
 
 
 def test_prepare_complexes():
