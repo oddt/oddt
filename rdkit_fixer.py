@@ -382,7 +382,8 @@ def PreparePDBResidue(protein, residue, amap, template):
     # many missing atoms, which lead to low number of bonds (less than 3)
     if ((len(amap) < 4 or residue.GetNumBonds() < 3) and
             template.GetNumAtoms() > 4):
-        return protein, visited_bonds, is_complete
+        raise SubstructureMatchError('Residue has too few atoms (%i) to '
+                                     'properly assignbond orders.' % len(amap))
 
     # modify copies instead of original molecules
     template2 = Chem.Mol(template)
