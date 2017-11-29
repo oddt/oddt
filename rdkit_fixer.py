@@ -5,17 +5,15 @@ from itertools import combinations, chain
 import sys
 
 from six.moves import urllib
-from rdkit import RDLogger
 
 import numpy as np
 import pandas as pd
 from scipy.spatial.distance import cdist
 
+from rdkit import RDLogger
 from rdkit import Chem
 from rdkit.Chem.AllChem import ConstrainedEmbed
 from rdkit.Chem.rdForceFieldHelpers import UFFGetMoleculeForceField
-
-logger = RDLogger.logger()
 
 
 METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
@@ -162,7 +160,7 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
         mol: rdkit.Chem.rdchem.Mol
             Molecule with mimimized `moving_atoms`
     """
-    global logger
+    logger = RDLogger.logger()
 
     if not verbose:
         logger.setLevel(RDLogger.CRITICAL)
