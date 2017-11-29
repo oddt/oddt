@@ -150,6 +150,7 @@ def test_excel():
     # just check if it doesn't fail
     df = opd.read_sdf(input_fname,
                       columns=['mol', 'name', 'chembl_id', 'dude_smiles', 'act'])
+    df = df.head(10)    # it's slow so use first 10 mols
     df['act'] = df['act'].astype(float)
     df['name'] = df['name'].astype(int)
     with NamedTemporaryFile(suffix='.xls', mode='w') as f:

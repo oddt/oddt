@@ -481,7 +481,11 @@ class ChemDataFrame(pd.DataFrame):
         if isinstance(excel_writer, text_type):
             excel_writer = pd.ExcelWriter(excel_writer, engine='xlsxwriter')
 
-        super(ChemDataFrame, self).to_excel(excel_writer, *args[1:], **kwargs)
+        frm_copy = self.copy(deep=True)
+        smi = frm_copy[molecule_column].map(lambda x: x.smiles)
+        frm_copy[molecule_column] = smi
+
+        super(ChemDataFrame, frm_copy).to_excel(excel_writer, *args[1:], **kwargs)
 
         sheet = excel_writer.sheets['Sheet1']  # TODO: Get appropriate sheet name
         sheet.set_column(molecule_column_idx, molecule_column_idx,
