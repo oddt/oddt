@@ -967,7 +967,7 @@ def FetchAffinityTable(pdbids, affinity_types):
     return ligand_affinity[columns]
 
 
-def FetchStructure(pdbid, sanitize=False, removeHs=True):
+def FetchStructure(pdbid, sanitize=False, removeHs=True, cache_dir=None):
     """Fetch the structure in PDB format from RCSB PDB server and read it with
     rdkit.
 
@@ -985,12 +985,25 @@ def FetchStructure(pdbid, sanitize=False, removeHs=True):
         mol: Chem.rdchem.Mol
             Retrieved molecule
 """
+    if cache_dir is not None:
+        structure_dir = os.path.join(cache_dir, pdbid)
+        structure_path = os.path.join(structure_dir, '%s.pdb' % pdbid)
+        if not os.path.isdir(cache_dir):
+            os.makedirs(cache_dir)
+        if not os.path.isdir(structure_dir):
+            os.makedirs(structure_dir)
+        if os.path.isfile(structure_path):
+            mol = Chem.MolFromPDBFile(structure_path, sanitize=sanitize,
+                                      removeHs=removeHs)
+            return mol
 
     req = urllib.request.Request('https://files.rcsb.org/view/%s.pdb' % pdbid)
     response = urllib.request.urlopen(req)
     pdb_block = response.read().decode('utf-8')
 
     mol = Chem.MolFromPDBBlock(pdb_block, sanitize=sanitize, removeHs=removeHs)
+    if cache_dir is not None:
+        Chem.MolToPDBFile(mol, structure_path)
 
     return mol
 
@@ -1027,7 +1040,8 @@ def IsResidueConnected(mol, atom_ids):
     return False
 
 
-def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
+def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None,
+                     cache_dir=None):
     """Fetch structures and affinity data from RCSB PDB server and prepare
     ligand-pocket pairs for small molecules with known activites.
 
@@ -1059,7 +1073,7 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None):
 
     for pdbid, tab in affinity_table.groupby('structureId'):
         complexes[pdbid] = {}
-        complex_mol = FetchStructure(pdbid)
+        complex_mol = FetchStructure(pdbid, cache_dir=cache_dir)
         # we need to use fixer with rdkit < 2018
         complex_mol = PreparePDBMol(complex_mol)
 

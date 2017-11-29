@@ -1,10 +1,14 @@
+import os
+import tempfile
+
 import rdkit
 from rdkit import Chem
 
 from nose.tools import (assert_equal,
                         assert_not_equal,
                         assert_almost_equal,
-                        assert_raises)
+                        assert_raises,
+                        assert_true)
 
 from numpy.testing import assert_array_equal
 
@@ -12,7 +16,6 @@ from rdkit_fixer import (AtomListToSubMol,
                          PreparePDBMol,
                          ExtractPocketAndLigand,
                          IsResidueConnected,
-                         FixerError,
                          PrepareComplexes)
 
 test_dir = './test_data/'
@@ -524,7 +527,8 @@ def test_prepare_complexes():
         '1A28',    # multiple affinity types
     ]
 
-    complexes = PrepareComplexes(ids)
+    tmpdir = tempfile.mkdtemp()
+    complexes = PrepareComplexes(ids, cache_dir=tmpdir)
     expected_values = {
         '3WS9': {'X4D': {'IC50': 92.0}},
         '3BYM': {'AM0': {'IC50': 6.0}},
@@ -550,3 +554,6 @@ def test_prepare_complexes():
             for key, val in values[pdbid][resname].items():
                 assert_equal(key in expected_values[pdbid][resname], True)
                 assert_almost_equal(expected_values[pdbid][resname][key], val)
+    for idx in expected_values:
+        assert_true(os.path.exists(os.path.join(tmpdir, idx,
+                                                '%s.pdb' % idx)), idx)
