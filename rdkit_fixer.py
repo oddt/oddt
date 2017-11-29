@@ -80,6 +80,10 @@ class SubstructureMatchError(Exception):
     pass
 
 
+class AddAtomsError(Exception):
+    pass
+
+
 class FixerError(Exception):
     pass
 
@@ -519,16 +523,30 @@ def AddMissingAtoms(protein, residue, amap, template):
     """
     # TODO: try to better guess the types of atoms (if possible)
 
+    # Catch residues which have less than 4 atoms (i.e. cannot have complete
+    # backbone), and template has more atoms than that, or residues with
+    # many missing atoms, which lead to low number of bonds (less than 3)
+    if ((len(amap) < 4 or residue.GetNumBonds() < 3) and
+            template.GetNumAtoms() > 4):
+        raise AddAtomsError('Residue has too few atoms (%i) to properly embed '
+                            'residue conformer.' % len(amap))
+
     # we need the match anyway and ConstrainedEmbed does not outputs it
     matched_atoms = template.GetSubstructMatch(residue)
     if matched_atoms:  # instead of catching ValueError
-        fixed_residue = ConstrainedEmbed(template, residue)
+        try:
+            fixed_residue = ConstrainedEmbed(template, residue)
+        except ValueError as e:
+            raise AddAtomsError('Could not embed residue')
     else:
         residue2 = SimplifyMol(Chem.Mol(residue))
         template2 = SimplifyMol(Chem.Mol(template))
         matched_atoms = template2.GetSubstructMatch(residue2)
         if matched_atoms:
-            fixed_residue = ConstrainedEmbed(template2, residue2)
+            try:
+                fixed_residue = ConstrainedEmbed(template2, residue2)
+            except ValueError as e:
+                raise AddAtomsError('Could not embed residue')
             # copy coordinates to molecule with appropriate bond orders
             fixed_residue2 = Chem.Mol(template)
             fixed_residue2.RemoveAllConformers()
@@ -589,57 +607,60 @@ def AddMissingAtoms(protein, residue, amap, template):
                                                            new_amap[ni])
                     new_bond.SetBondType(bond.GetBondType())
 
-    if new_atoms:
-        backbone_definitions = [
-            # Phosphodiester Bond
-            {'smarts': Chem.MolFromSmiles('O=P(O)OCC1OC(CC1O)'),
-             'atom_types': {0: 'OP1', 1: 'P', 2: 'OP2', 3: 'O5\'', 4: 'C5\'',
-                            5: 'C4\'', 9: 'C3\'', 10: 'O3\''},
-             'bond_pair': ('O3\'', 'P')},
-            # Peptide Bond
-            {'smarts': Chem.MolFromSmiles('C(=O)CN'),
-             'atom_types': {0: 'C', 1: 'O', 2: 'CA', 3: 'N'},
-             'bond_pair': ('C', 'N')},
-        ]
-        info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
-        res_num = info.GetResidueNumber()
-        res_chain = info.GetChainId()
+    # if there are no new atoms raise an exception and dont go further
+    if len(new_atoms) == 0:
+        raise AddAtomsError
 
-        for bond_def in backbone_definitions:
-            backbone_match = fixed_residue.GetSubstructMatch(bond_def['smarts'])
-            if backbone_match:
-                for i in new_atoms:
-                    if new_amap.index(i) in backbone_match:
-                        atom = protein.GetAtomWithIdx(i)
-                        match_idx = backbone_match.index(new_amap.index(i))
-                        if match_idx not in bond_def['atom_types']:
-                            # if atom type is not defined we can skip that atom
-                            continue
+    backbone_definitions = [
+        # Phosphodiester Bond
+        {'smarts': Chem.MolFromSmiles('O=P(O)OCC1OC(CC1O)'),
+         'atom_types': {0: 'OP1', 1: 'P', 2: 'OP2', 3: 'O5\'', 4: 'C5\'',
+                        5: 'C4\'', 9: 'C3\'', 10: 'O3\''},
+         'bond_pair': ('O3\'', 'P')},
+        # Peptide Bond
+        {'smarts': Chem.MolFromSmiles('C(=O)CN'),
+         'atom_types': {0: 'C', 1: 'O', 2: 'CA', 3: 'N'},
+         'bond_pair': ('C', 'N')},
+    ]
+    info = residue.GetAtomWithIdx(0).GetPDBResidueInfo()
+    res_num = info.GetResidueNumber()
+    res_chain = info.GetChainId()
 
-                        # Set atom label if present in backbone definition
-                        match_type = bond_def['atom_types'][match_idx]
-                        atom.GetPDBResidueInfo().SetName(' ' + match_type.ljust(3))
+    for bond_def in backbone_definitions:
+        backbone_match = fixed_residue.GetSubstructMatch(bond_def['smarts'])
+        if backbone_match:
+            for i in new_atoms:
+                if new_amap.index(i) in backbone_match:
+                    atom = protein.GetAtomWithIdx(i)
+                    match_idx = backbone_match.index(new_amap.index(i))
+                    if match_idx not in bond_def['atom_types']:
+                        # if atom type is not defined we can skip that atom
+                        continue
 
-                        # define upstream and downstream bonds
-                        bonds = zip([bond_def['bond_pair'],
-                                     reversed(bond_def['bond_pair'])],
-                                    [1, -1])
-                        for (a1, a2), diff in bonds:
-                            if match_type == a1:
-                                limit = max(-1, protein.GetNumAtoms() * diff)
-                                for j in range(amap[0], limit, diff):
-                                    info = (protein.GetAtomWithIdx(j)
-                                            .GetPDBResidueInfo())
-                                    res2_num = info.GetResidueNumber()
-                                    res2_chain = info.GetChainId()
-                                    if (res2_num == res_num + diff
-                                            and res_chain == res2_chain):
-                                        if info.GetName().strip() == a2:
-                                            protein.AddBond(i, j, Chem.BondType.SINGLE)
-                                            break
-                                    elif (abs(res2_num - res_num) > 1
-                                          or res_chain != res2_chain):
+                    # Set atom label if present in backbone definition
+                    match_type = bond_def['atom_types'][match_idx]
+                    atom.GetPDBResidueInfo().SetName(' ' + match_type.ljust(3))
+
+                    # define upstream and downstream bonds
+                    bonds = zip([bond_def['bond_pair'],
+                                 reversed(bond_def['bond_pair'])],
+                                [1, -1])
+                    for (a1, a2), diff in bonds:
+                        if match_type == a1:
+                            limit = max(-1, protein.GetNumAtoms() * diff)
+                            for j in range(amap[0], limit, diff):
+                                info = (protein.GetAtomWithIdx(j)
+                                        .GetPDBResidueInfo())
+                                res2_num = info.GetResidueNumber()
+                                res2_chain = info.GetChainId()
+                                if (res2_num == res_num + diff
+                                        and res_chain == res2_chain):
+                                    if info.GetName().strip() == a2:
+                                        protein.AddBond(i, j, Chem.BondType.SINGLE)
                                         break
+                                elif (abs(res2_num - res_num) > 1
+                                      or res_chain != res2_chain):
+                                    break
 
     # run minimization just for this residue
     protein = UFFConstrainedOptimize(protein, moving_atoms=new_atoms)
@@ -787,7 +808,12 @@ def PreparePDBMol(mol,
                                                                         residue,
                                                                         amap,
                                                                         template)
+                if atoms:
+                    print('Added %i atoms on residue' % len(atoms), resnum,
+                          resname, chainid, file=sys.stderr)
         except SubstructureMatchError as e:
+            print(resnum, resname, chainid, e, file=sys.stderr)
+        except AddAtomsError as e:
             print(resnum, resname, chainid, e, file=sys.stderr)
         finally:
             visited_bonds.extend(bonds)
