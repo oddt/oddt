@@ -9,16 +9,27 @@ from sklearn.neural_network import MLPClassifier
 __all__ = ['randomforest', 'svm', 'neuralnetwork']
 
 
-class neuralnetwork(ClassifierMixin):
+class OddtClassifier(ClassifierMixin):
+    _model_type = None
+
     def __init__(self, *args, **kwargs):
-        """ Assemble Neural network using sklearn pipeline """
+        """ Assemble Neural network or SVM using sklearn pipeline """
+
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
         local_kwargs = {key: kwargs.pop(key) for key in list(kwargs.keys())
-                        if key != 'steps' and len(key.split('__', 1)) == 1}
+                        if key != 'steps' and '__' not in key}
+
+        if self._model_type == 'neural_network':
+            model = MLPClassifier(*args, **local_kwargs)
+        elif self._model_type == 'svm':
+            model = SVC(*args, **local_kwargs)
+        else:
+            raise ValueError('Model type not specified. Available types are'
+                             ' "neural_network" and "svm"')
+
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
                                   ('scaler', StandardScaler()),
-                                  ('neural_network', MLPClassifier(*args, **local_kwargs))
-                                  ]).set_params(**kwargs)
+                                  (self._model_type, model)]).set_params(**kwargs)
 
     def get_params(self, deep=True):
         return self.pipeline.get_params(deep=deep)
@@ -43,35 +54,15 @@ class neuralnetwork(ClassifierMixin):
         return self.pipeline.score(descs, target_values)
 
 
-class svm(ClassifierMixin):
+class neuralnetwork(OddtClassifier):
+    _model_type = 'neural_network'
+
     def __init__(self, *args, **kwargs):
-        """ Assemble a proper SVM classifier"""
-        # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
-        local_kwargs = {key: kwargs.pop(key) for key in list(kwargs.keys())
-                        if key != 'steps' and len(key.split('__', 1)) == 1}
-        self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
-                                  ('scaler', StandardScaler()),
-                                  ('svm', SVC(*args, **local_kwargs))
-                                  ]).set_params(**kwargs)
+        super(neuralnetwork, self).__init__(*args, **kwargs)
 
-    def get_params(self, deep=True):
-        return self.pipeline.get_params(deep=deep)
 
-    def set_params(self, **kwargs):
-        return self.pipeline.set_params(**kwargs)
+class svm(OddtClassifier):
+    _model_type = 'svm'
 
-    def fit(self, descs, target_values, **kwargs):
-        self.pipeline.fit(descs, target_values, **kwargs)
-        return self
-
-    def predict(self, descs):
-        return self.pipeline.predict(descs)
-
-    def predict_proba(self, descs):
-        return self.pipeline.predict_proba(descs)
-
-    def predict_log_proba(self, descs):
-        return self.pipeline.predict_log_proba(descs)
-
-    def score(self, descs, target_values):
-        return self.pipeline.score(descs, target_values)
+    def __init__(self, *args, **kwargs):
+        super(svm, self).__init__(*args, **kwargs)
