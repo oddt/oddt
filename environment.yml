@@ -8,6 +8,6 @@ dependencies:
 - scipy>=0.13
 - scikit-learn>=0.18
 - joblib>=0.8
-- pandas>=0.13
+- pandas>=0.16.1
 - rdkit
 - openbabel

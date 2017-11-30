@@ -1,7 +1,7 @@
 """ Pandas extension for chemical analysis """
 from __future__ import absolute_import
 from collections import deque
-from six import BytesIO, StringIO
+from six import BytesIO, StringIO, text_type
 import pandas as pd
 
 import oddt
@@ -76,7 +76,8 @@ def _mol_reader(fmt='sdf',
             reader_kwargs['sanitize'] = False
 
     chunk = []
-    for n, mol in enumerate(oddt.toolkit.readfile(fmt, filepath_or_buffer, **reader_kwargs)):
+    for n, mol in enumerate(oddt.toolkit.readfile(fmt, filepath_or_buffer,
+                                                  **reader_kwargs)):
         if skip_bad_mols and mol is None:
             continue  # add warning with number of skipped molecules
         if usecols is None:
@@ -172,7 +173,8 @@ def read_csv(*args, **kwargs):
     molecule_column = kwargs.pop('molecule_column', 'mol')
     data = pd.read_csv(*args, **kwargs)
     if smiles_to_molecule is not None:
-        data[molecule_column] = data[smiles_to_molecule].map(lambda x: oddt.toolkit.readstring('smi', x))
+        data[molecule_column] = data[smiles_to_molecule].map(
+            lambda x: oddt.toolkit.readstring('smi', x))
     return data
 
 
@@ -451,35 +453,50 @@ class ChemDataFrame(pd.DataFrame):
         if self._molecule_column and ('columns' not in kwargs or
                                       kwargs['columns'] is None or
                                       self._molecule_column in kwargs['columns']):
-            frm_copy = self.copy(deep=False)
-            frm_copy[self._molecule_column] = frm_copy[self._molecule_column].map(lambda x: x.smiles).values
+            frm_copy = self.copy(deep=True)
+            smi = frm_copy[self._molecule_column].map(lambda x: x.smiles)
+            frm_copy[self._molecule_column] = smi
             return super(ChemDataFrame, frm_copy).to_csv(*args, **kwargs)
         else:
             return super(ChemDataFrame, self).to_csv(*args, **kwargs)
 
     def to_excel(self, *args, **kwargs):
         """ Docs are copied from parent """
-        columns = kwargs['columns'] if 'columns' in kwargs else self.columns.tolist()
+
+        if 'columns' in kwargs:
+            columns = kwargs['columns']
+        else:
+            columns = self.columns.tolist()
+
         if 'molecule_column' in kwargs:
             molecule_column = kwargs['molecule_column']
         else:
             molecule_column = self._molecule_column
+
         molecule_column_idx = columns.index(molecule_column)
         if 'index' not in kwargs or ('index' in kwargs and kwargs['index']):
             molecule_column_idx += 1
         size = kwargs.pop('size') if 'size' in kwargs else (200, 200)
-        excel_writer = pd.ExcelWriter(args[0], engine='xlsxwriter')
+        excel_writer = args[0]
+        if isinstance(excel_writer, str):
+            excel_writer = pd.ExcelWriter(excel_writer, engine='xlsxwriter')
+        assert excel_writer.engine == 'xlsxwriter'
 
-        super(ChemDataFrame, self).to_excel(excel_writer, *args[1:], **kwargs)
+        frm_copy = self.copy(deep=True)
+        smi = frm_copy[molecule_column].map(lambda x: x.smiles)
+        frm_copy[molecule_column] = smi
+
+        super(ChemDataFrame, frm_copy).to_excel(excel_writer, *args[1:], **kwargs)
 
         sheet = excel_writer.sheets['Sheet1']  # TODO: Get appropriate sheet name
-        sheet.set_column(molecule_column_idx, molecule_column_idx, width=size[1] / 6.)
+        sheet.set_column(molecule_column_idx, molecule_column_idx,
+                         width=size[1] / 6.)
         for i, mol in enumerate(self[molecule_column]):
             if mol is None:
                 continue
             img = BytesIO()
             png = mol.clone.write('png', size=size)
-            if type(png) is str:
+            if isinstance(png, text_type):
                 png = png.encode('utf-8', errors='surrogateescape')
             img.write(png)
             sheet.write_string(i + 1, molecule_column_idx, "")
@@ -507,6 +524,8 @@ class ChemDataFrame(pd.DataFrame):
     def _constructor_expanddim(self):
         """ Force new class to be usead as constructor when expandig dims """
         return ChemPanel
+
+
 # Copy some docscrings from upstream classes
 for method in ['to_html', 'to_csv', 'to_excel']:
     try:
