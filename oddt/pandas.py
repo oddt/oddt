@@ -478,8 +478,9 @@ class ChemDataFrame(pd.DataFrame):
             molecule_column_idx += 1
         size = kwargs.pop('size') if 'size' in kwargs else (200, 200)
         excel_writer = args[0]
-        if isinstance(excel_writer, text_type):
+        if isinstance(excel_writer, str):
             excel_writer = pd.ExcelWriter(excel_writer, engine='xlsxwriter')
+        assert excel_writer.engine == 'xlsxwriter'
 
         frm_copy = self.copy(deep=True)
         smi = frm_copy[molecule_column].map(lambda x: x.smiles)
