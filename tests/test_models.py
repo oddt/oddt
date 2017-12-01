@@ -1,3 +1,4 @@
+import pickle
 import numpy as np
 
 from nose.tools import assert_equal, assert_greater, assert_true
@@ -25,6 +26,11 @@ def test_classifiers():
         log_prob = classifier.predict_log_proba(X)
         assert_array_almost_equal(np.log(prob), log_prob)
 
+        pickled = pickle.dumps(classifier)
+        reloaded = pickle.loads(pickled)
+        prob_reloaded = reloaded.predict_proba(X)
+        assert_array_almost_equal(prob, prob_reloaded)
+
 
 def test_regressors():
     X = np.vstack((np.arange(30, 10, -2, dtype='float64'),
@@ -43,5 +49,11 @@ def test_regressors():
 
         regressor.fit(X, Y)
 
-        assert_true((np.abs(regressor.predict(X).flatten() - Y) < 1).all())
+        pred = regressor.predict(X)
+        assert_true((np.abs(pred.flatten() - Y) < 1).all())
         assert_greater(regressor.score(X, Y), 0.9)
+
+        pickled = pickle.dumps(regressor)
+        reloaded = pickle.loads(pickled)
+        pred_reloaded = reloaded.predict(X)
+        assert_array_almost_equal(pred, pred_reloaded)
