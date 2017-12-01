@@ -39,7 +39,6 @@ def test_regressors():
                       regressors.neuralnetwork(solver='lbfgs',
                                                random_state=42,
                                                hidden_layer_sizes=(20, 20)),
-                      regressors.pls(),
                       regressors.mlr()):
 
         regressor.fit(X, Y)
