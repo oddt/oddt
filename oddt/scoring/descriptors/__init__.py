@@ -209,6 +209,7 @@ class close_contacts(object):
                                 self.aligned_pairs)
 
 
+# TODO: we don't use toolkit. should we?
 class fingerprints(object):
     def __init__(self, fp='fp2', toolkit='ob'):
         self.fp = fp
@@ -227,14 +228,11 @@ class fingerprints(object):
     def build(self, mols, single=False):
         if single:
             mols = [mols]
-        out = None
-
+        out = []
         for mol in mols:
             fp = self._get_fingerprint(mol)
-            if out is None:
-                out = np.zeros_like(fp)
-            out = np.vstack((fp, out))
-        return out[1:]
+            out.append(fp)
+        return np.vstack(out)
 
     def __reduce__(self):
         return fingerprints, ()
