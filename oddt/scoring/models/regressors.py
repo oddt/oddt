@@ -14,16 +14,22 @@ from sklearn.cross_decomposition import PLSRegression as pls
 __all__ = ['randomforest', 'svm', 'pls', 'neuralnetwork', 'mlr']
 
 
-class neuralnetwork(RegressorMixin):
+class OddtRegressor(RegressorMixin):
+    _model = None
+
     def __init__(self, *args, **kwargs):
-        """ Assemble Neural network using sklearn pipeline """
+        """ Assemble Neural network or SVM using sklearn pipeline """
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
         local_kwargs = {key: kwargs.pop(key) for key in list(kwargs.keys())
-                        if key != 'steps' and len(key.split('__', 1)) == 1}
+                        if key != 'steps' and '__' not in key}
+
+        if self._model is None:
+            raise ValueError('Model not specified!')
+        model = self._model(*args, **local_kwargs)
+
         self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
                                   ('scaler', StandardScaler()),
-                                  ('neural_network', MLPRegressor(*args, **local_kwargs))
-                                  ]).set_params(**kwargs)
+                                  ('model', model)]).set_params(**kwargs)
 
     def get_params(self, deep=True):
         return self.pipeline.get_params(deep=deep)
@@ -42,29 +48,15 @@ class neuralnetwork(RegressorMixin):
         return self.pipeline.score(descs, target_values)
 
 
-class svm(RegressorMixin):
+class neuralnetwork(OddtRegressor):
+    _model = MLPRegressor
+
     def __init__(self, *args, **kwargs):
-        """ Assemble a proper SVM using sklearn tools regressor """
-        # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
-        local_kwargs = {key: kwargs.pop(key) for key in list(kwargs.keys())
-                        if key != 'steps' and len(key.split('__', 1)) == 1}
-        self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
-                                  ('scaler', StandardScaler()),
-                                  ('svm', SVR(*args, **local_kwargs))
-                                  ]).set_params(**kwargs)
+        super(neuralnetwork, self).__init__(*args, **kwargs)
 
-    def get_params(self, deep=True):
-        return self.pipeline.get_params(deep=deep)
 
-    def set_params(self, **kwargs):
-        return self.pipeline.set_params(**kwargs)
+class svm(OddtRegressor):
+    _model = SVR
 
-    def fit(self, descs, target_values, **kwargs):
-        self.pipeline.fit(descs, target_values, **kwargs)
-        return self
-
-    def predict(self, descs):
-        return self.pipeline.predict(descs)
-
-    def score(self, descs, target_values):
-        return self.pipeline.score(descs, target_values)
+    def __init__(self, *args, **kwargs):
+        super(svm, self).__init__(*args, **kwargs)

@@ -2,8 +2,7 @@ from itertools import chain
 
 import numpy as np
 from scipy.stats import linregress
-from sklearn.model_selection import cross_val_score, KFold, train_test_split
-import joblib
+from sklearn.model_selection import cross_val_score, KFold
 import gzip
 import six
 from six.moves import cPickle as pickle
@@ -70,24 +69,21 @@ class scorer(object):
         Parameters
         ----------
             ligands: array-like of ligands
-                Ground truth (correct) target values.
+                Molecules to featurize and feed into the model
 
             target: array-like of shape = [n_samples] or [n_samples, n_outputs]
-                Estimated target values.
+                Ground truth (correct) target values.
         """
         self.train_descs = self.descriptor_generator.build(ligands)
         return self.model.fit(self.train_descs, target, *args, **kwargs)
 
     def predict(self, ligands, *args, **kwargs):
-        """Predicts values (eg. affinity) for supplied ligands
+        """Predicts values (eg. affinity) for supplied ligands.
 
         Parameters
         ----------
             ligands: array-like of ligands
-                Ground truth (correct) target values.
-
-            target: array-like of shape = [n_samples] or [n_samples, n_outputs]
-                Estimated target values.
+                Molecules to featurize and feed into the model
 
         Returns
         -------
@@ -98,20 +94,21 @@ class scorer(object):
         return self.model.predict(descs)
 
     def score(self, ligands, target, *args, **kwargs):
-        """Methods estimates the quality of prediction as squared correlation coefficient (R^2)
+        """Methods estimates the quality of prediction using model's default
+        score (accuracy for classification or R^2 for regression)
 
         Parameters
         ----------
             ligands: array-like of ligands
-                Ground truth (correct) target values.
+                Molecules to featurize and feed into the model
 
             target: array-like of shape = [n_samples] or [n_samples, n_outputs]
-                Estimated target values.
+                Ground truth (correct) target values.
 
         Returns
         -------
-            r2: float
-                Squared correlation coefficient (R^2) for prediction
+            s: float
+                Quality score (accuracy or R^2) for prediction
         """
         descs = self.descriptor_generator.build(ligands)
         return self.model.score(descs, target, *args, **kwargs)
