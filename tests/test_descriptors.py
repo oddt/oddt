@@ -42,13 +42,13 @@ def test_close_contacts():
     rec.protein = True
     rec.addh()
 
-    for cutoff, num_contacts in ((4, 21702), ([4], 21702), ([2, 4], 21918),
-                                 ([[1, 2], [3, 4]], 18886)):
+    for cutoff, num_contacts in ((4, 6816), ([4], 6816), ([2, 4], 6816),
+                                 ([[1, 2], [3, 4]], 6304)):
         contacts_descriptor = descriptors.close_contacts(
             cutoff=cutoff,
-            ligand_types=[1, 6, 7, 8],
-            protein_types=[1, 6, 7, 8])
-        length = len(contacts_descriptor.cutoff) * 16
+            ligand_types=[6, 7, 8],
+            protein_types=[6, 7, 8])
+        length = len(contacts_descriptor.cutoff) * 9
         assert_equal(len(contacts_descriptor), length)
 
         contacts = contacts_descriptor.build(ligands, protein=rec)
