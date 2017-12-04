@@ -1,8 +1,10 @@
 from itertools import chain
 
 import numpy as np
-from scipy.stats import linregress
+from scipy.stats import pearsonr
 from sklearn.model_selection import cross_val_score, KFold
+from sklearn.base import ClassifierMixin, RegressorMixin
+from sklearn.metrics import accuracy_score
 import gzip
 import six
 from six.moves import cPickle as pickle
@@ -170,6 +172,7 @@ class scorer(object):
             filename: string
                 Pickle filename
         """
+        # FIXME: re-set protein after pickling
         self.set_protein(None)
         # return joblib.dump(self, filename, compress=9)[0]
         with gzip.open(filename, 'w+b', compresslevel=9) as f:
@@ -207,6 +210,20 @@ class ensemble_model(object):
                 An array of models
         """
         self._models = models if len(models) else None
+        if self._models is not None:
+            if isinstance(self._models[0], ClassifierMixin):
+                model_type = ClassifierMixin
+                self._scoring_fun = accuracy_score
+            elif isinstance(self._models[0], RegressorMixin):
+                model_type = RegressorMixin
+                self._scoring_fun = lambda x, y: pearsonr(x, y)[0] ** 2
+            else:
+                raise ValueError('Expected regressors or classifiers,'
+                                 ' got %s instead' % type(self._models[0]))
+            for model in self._models:
+                if not isinstance(model, model_type):
+                    raise ValueError('Different types of models found, privide'
+                                     ' either regressors or classifiers.')
 
     def fit(self, X, y, *args, **kwargs):
         for model in self._models:
@@ -214,10 +231,12 @@ class ensemble_model(object):
         return self
 
     def predict(self, X, *args, **kwargs):
-        return np.array([model.predict(X, *args, **kwargs) for model in self._models]).mean(axis=0)
+        return np.array([model.predict(X, *args, **kwargs)
+                         for model in self._models]).mean(axis=0)
 
     def score(self, X, y, *args, **kwargs):
-        return linregress(self.predict(X, *args, **kwargs).flatten(), y.flatten())[2]**2
+        return self._scoring_fun(self.predict(X, *args, **kwargs).flatten(),
+                                 y.flatten())
 
 
 class ensemble_descriptor(object):
@@ -229,17 +248,15 @@ class ensemble_descriptor(object):
             models: array
                 An array of models
         """
-        self._desc_gens = descriptor_generators if len(descriptor_generators) else None
-        self.titles = list(chain(desc_gen.titles for desc_gen in self._desc_gens))
+        self._desc_gens = (descriptor_generators if len(descriptor_generators)
+                           else None)
+        self.titles = list(chain(*(desc_gen.titles
+                                   for desc_gen in self._desc_gens)))
 
     def build(self, mols, *args, **kwargs):
-        out = []
-        for mol in mols:
-            desc = np.hstack(desc_gen.build([mol], *args, **kwargs) for desc_gen in self._desc_gens)
-            if len(out) == 0:
-                out = np.zeros_like(desc)
-            out = np.vstack((out, desc))
-        return out[1:]
+        desc = np.hstack(desc_gen.build(mols, *args, **kwargs)
+                         for desc_gen in self._desc_gens)
+        return desc
 
     def set_protein(self, protein):
         for desc in self._desc_gens:

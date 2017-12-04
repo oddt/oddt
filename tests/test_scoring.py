@@ -2,16 +2,18 @@ import os
 from types import GeneratorType
 
 import numpy as np
+from scipy.stats import pearsonr
 
-from nose.tools import assert_almost_equal, assert_is_instance
+from nose.tools import assert_almost_equal, assert_is_instance, assert_equal
 from sklearn.utils.testing import assert_array_almost_equal
 
 import oddt
-from oddt.scoring import scorer
+from oddt.scoring import scorer, ensemble_descriptor, ensemble_model
 from oddt.scoring.descriptors import (autodock_vina_descriptor,
                                       fingerprints,
                                       oddt_vina_descriptor)
 from oddt.scoring.models.classifiers import neuralnetwork
+from oddt.scoring.models import regressors
 from oddt.scoring.functions import rfscore, nnscore
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +53,57 @@ def test_scorer():
     assert_is_instance(scored_mols_gen, GeneratorType)
     gen_predictions = [float(mol.data['score']) for mol in scored_mols_gen]
     assert_array_almost_equal(predictions, gen_predictions)
+
+
+def test_ensemble_descriptor():
+    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))[:10]
+    list(map(lambda x: x.addh(), mols))
+
+    rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
+    rec.protein = True
+    rec.addh()
+
+    desc1 = rfscore(version=1).descriptor_generator
+    desc2 = oddt_vina_descriptor()
+    ensemble = ensemble_descriptor((desc1, desc2))
+
+    ensemble.set_protein(rec)
+    assert_equal(len(ensemble), len(desc1) + len(desc2))
+
+    # set protein
+    assert_equal(desc1.protein, rec)
+    assert_equal(desc2.protein, rec)
+
+    ensemble_scores = ensemble.build(mols)
+    scores1 = desc1.build(mols)
+    scores2 = desc2.build(mols)
+    assert_array_almost_equal(ensemble_scores, np.hstack((scores1, scores2)))
+
+
+def test_ensemble_model():
+    X = np.vstack((np.arange(30, 10, -2, dtype='float64'),
+                   np.arange(100, 90, -1, dtype='float64'))).T
+
+    Y = np.arange(10, dtype='float64')
+
+    rf = regressors.randomforest(random_state=42)
+    nn = regressors.neuralnetwork(solver='lbfgs', random_state=42)
+    ensemble = ensemble_model((rf, nn))
+
+    # we do not need to fit underlying models, they change when we fit enseble
+    ensemble.fit(X, Y)
+
+    pred = ensemble.predict(X)
+    mean_pred = np.vstack((rf.predict(X), nn.predict(X))).mean(axis=0)
+    assert_array_almost_equal(pred, mean_pred)
+    assert_almost_equal(ensemble.score(X, Y), pearsonr(Y, pred)[0]**2)
+
+    # ensemble of a single model should behave exactly like this model
+    nn = neuralnetwork(solver='lbfgs', random_state=42)
+    ensemble = ensemble_model((nn,))
+    ensemble.fit(X, Y)
+    assert_array_almost_equal(ensemble.predict(X), nn.predict(X))
+    assert_almost_equal(ensemble.score(X, Y), nn.score(X, Y))
 
 
 if oddt.toolkit.backend == 'ob':  # RDKit doesn't write PDBQT
