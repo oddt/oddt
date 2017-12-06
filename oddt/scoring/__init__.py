@@ -1,10 +1,9 @@
 from itertools import chain
 
 import numpy as np
-from scipy.stats import pearsonr
 from sklearn.model_selection import cross_val_score, KFold
 from sklearn.base import ClassifierMixin, RegressorMixin
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, r2_score
 import gzip
 import six
 from six.moves import cPickle as pickle
@@ -216,7 +215,7 @@ class ensemble_model(object):
                 self._scoring_fun = accuracy_score
             elif isinstance(self._models[0], RegressorMixin):
                 model_type = RegressorMixin
-                self._scoring_fun = lambda x, y: pearsonr(x, y)[0] ** 2
+                self._scoring_fun = r2_score
             else:
                 raise ValueError('Expected regressors or classifiers,'
                                  ' got %s instead' % type(self._models[0]))
@@ -235,8 +234,8 @@ class ensemble_model(object):
                          for model in self._models]).mean(axis=0)
 
     def score(self, X, y, *args, **kwargs):
-        return self._scoring_fun(self.predict(X, *args, **kwargs).flatten(),
-                                 y.flatten())
+        return self._scoring_fun(y.flatten(),
+                                 self.predict(X, *args, **kwargs).flatten())
 
 
 class ensemble_descriptor(object):

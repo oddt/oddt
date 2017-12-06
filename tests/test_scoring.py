@@ -2,10 +2,10 @@ import os
 from types import GeneratorType
 
 import numpy as np
-from scipy.stats import pearsonr
 
 from nose.tools import assert_almost_equal, assert_is_instance, assert_equal
 from sklearn.utils.testing import assert_array_almost_equal
+from sklearn.metrics import r2_score
 
 import oddt
 from oddt.scoring import scorer, ensemble_descriptor, ensemble_model
@@ -96,7 +96,7 @@ def test_ensemble_model():
     pred = ensemble.predict(X)
     mean_pred = np.vstack((rf.predict(X), nn.predict(X))).mean(axis=0)
     assert_array_almost_equal(pred, mean_pred)
-    assert_almost_equal(ensemble.score(X, Y), pearsonr(Y, pred)[0]**2)
+    assert_almost_equal(ensemble.score(X, Y), r2_score(Y, pred))
 
     # ensemble of a single model should behave exactly like this model
     nn = neuralnetwork(solver='lbfgs', random_state=42)
