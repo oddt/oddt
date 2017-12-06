@@ -2,7 +2,7 @@ from itertools import chain
 
 import numpy as np
 from sklearn.model_selection import cross_val_score, KFold
-from sklearn.base import ClassifierMixin, RegressorMixin
+from sklearn.base import is_classifier, is_regressor
 from sklearn.metrics import accuracy_score, r2_score
 import gzip
 import six
@@ -210,17 +210,17 @@ class ensemble_model(object):
         """
         self._models = models if len(models) else None
         if self._models is not None:
-            if isinstance(self._models[0], ClassifierMixin):
-                model_type = ClassifierMixin
+            if is_classifier(self._models[0]):
+                check_type = is_classifier
                 self._scoring_fun = accuracy_score
-            elif isinstance(self._models[0], RegressorMixin):
-                model_type = RegressorMixin
+            elif is_regressor(self._models[0]):
+                check_type = is_regressor
                 self._scoring_fun = r2_score
             else:
                 raise ValueError('Expected regressors or classifiers,'
                                  ' got %s instead' % type(self._models[0]))
             for model in self._models:
-                if not isinstance(model, model_type):
+                if not check_type(model):
                     raise ValueError('Different types of models found, privide'
                                      ' either regressors or classifiers.')
 
