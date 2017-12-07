@@ -26,12 +26,12 @@ from oddt.fingerprints import (InteractionFingerprint,
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
 protein = next(oddt.toolkit.readfile('pdb', os.path.join(
-    test_data_dir, 'data/pdbbind/10gs_pocket.pdb')))
+    test_data_dir, 'data/pdbbind/10gs/10gs_pocket.pdb')))
 protein.protein = True
 protein.addh(only_polar=True)
 
 ligand = next(oddt.toolkit.readfile('sdf', os.path.join(
-    test_data_dir, 'data/pdbbind/10gs_ligand.sdf')))
+    test_data_dir, 'data/pdbbind/10gs/10gs_ligand.sdf')))
 ligand.addh(only_polar=True)
 
 

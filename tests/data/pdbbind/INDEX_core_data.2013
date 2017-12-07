@@ -1,0 +1,9 @@
+#===============================================================================
+# The PDBbind core set v.2016, mocked version for ODDT testing
+# PDB code, resolution, release year, -logKd/Ki, Kd/Ki, reference, ligand name
+#===============================================================================
+1ps3  1.80  2003   2.28  Ki=5.2mM      // 1ps3.pdf (KIF)
+4x6p  1.93  2015   8.30  Ki=5nM        // 4x6m.pdf (3YU)
+1y6r  2.20  2005  10.11  Ki=77pM       // 1y6r.pdf (MTM)
+# 10gs is not in a 2016 core set but is left for test_folding
+10gs  2.20  1998   6.40  Ki=0.4uM      // 10gs.pdf (3-mer)
