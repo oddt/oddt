@@ -1,5 +1,6 @@
 import os
 from types import GeneratorType
+from tempfile import mkdtemp
 
 import numpy as np
 
@@ -169,7 +170,7 @@ def test_internal_vina():
     assert_array_almost_equal(oddt_vina_results, autodock_vina_results, decimal=4)
 
 
-def test_rfscore():
+def test_rfscore_desc():
     """Test RFScore v1-3 descriptors generators"""
     mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
     list(map(lambda x: x.addh(), mols))
@@ -201,7 +202,7 @@ def test_rfscore():
         assert_array_almost_equal(descs, descs_correct, decimal=4)
 
 
-def test_nnscore():
+def test_nnscore_desc():
     """Test NNScore descriptors generators"""
     mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
     list(map(lambda x: x.addh(only_polar=True), mols))
@@ -235,3 +236,34 @@ def test_nnscore():
             print(np.vstack((descs[mask, i], descs_correct[mask, i])))
 
     assert_array_almost_equal(descs, descs_correct, decimal=4)
+
+
+def test_model_train():
+    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))[:10]
+    list(map(lambda x: x.addh(), mols))
+
+    rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
+    rec.protein = True
+    rec.addh()
+
+    data_dir = os.path.join(test_data_dir, 'data')
+    home_dir = mkdtemp()
+    pdbbind_versions = (2007, 2013, 2016)
+
+    for pdbbind_v in pdbbind_versions:
+        os.symlink(os.path.join(data_dir, 'pdbbind'),
+                   os.path.join(data_dir, 'v%s' % pdbbind_v))
+
+    for model in [nnscore(n_jobs=1)] + [rfscore(version=v, n_jobs=1)
+                                        for v in [1, 2, 3]]:
+        model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
+                                home_dir=home_dir)
+        model.train(home_dir=home_dir)
+        model.set_protein(rec)
+        preds = model.predict(mols)
+        assert_equal(len(preds), 10)
+        assert_equal(preds.dtype, np.float)
+        assert_equal(model.score(mols, preds), 1.0)
+
+    for pdbbind_v in pdbbind_versions:
+        os.unlink(os.path.join(data_dir, 'v%s' % pdbbind_v))
