@@ -34,15 +34,16 @@ class pdbbind(object):
 
         if version:
             if version == 2007:
-                pdbind_sets = ['core', 'refined', 'general']
+                self.pdbind_sets = ['core', 'refined', 'general']
             else:
-                pdbind_sets = ['core', 'refined', 'general_PL']
-            for pdbind_set in pdbind_sets:
+                self.pdbind_sets = ['core', 'refined', 'general_PL']
+            for pdbind_set in self.pdbind_sets:
                 if data_file:
                     csv_file = data_file
                 elif version == 2007:
                     csv_file = os.path.join(self.home,
-                                            'INDEX.%i.%s.data' % (version, pdbind_set))
+                                            'INDEX.%i.%s.data' % (version,
+                                                                  pdbind_set))
                 elif version == 2016:
                     csv_file = os.path.join(self.home,
                                             'index',
