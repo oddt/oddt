@@ -1,5 +1,10 @@
+from os.path import dirname, join as path_join
+
 from itertools import chain
 
+from joblib import Parallel, delayed
+
+import pandas as pd
 import numpy as np
 from sklearn.model_selection import cross_val_score, KFold
 from sklearn.base import is_classifier, is_regressor
@@ -7,6 +12,15 @@ from sklearn.metrics import accuracy_score, r2_score
 import gzip
 import six
 from six.moves import cPickle as pickle
+
+from oddt.datasets import pdbbind
+
+
+# define sub-function for paralelization
+def _parallel_helper(obj, methodname, *args, **kwargs):
+    """Private helper to workaround Python 2 pickle limitations to paralelize
+    methods"""
+    return getattr(obj, methodname)(*args, **kwargs)
 
 
 def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
@@ -63,6 +77,77 @@ class scorer(object):
         self.model = model_instance
         self.descriptor_generator = descriptor_generator_instance
         self.score_title = score_title
+
+    def _gen_pdbbind_desc(self,
+                          pdbbind_dir,
+                          pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
+                          desc_path=None):
+        pdbbind_versions = sorted(pdbbind_versions)
+
+        # generate metadata
+        df = []
+        for pdbbind_version in pdbbind_versions:
+            p = pdbbind('%s/v%i/' % (pdbbind_dir, pdbbind_version),
+                        version=pdbbind_version,
+                        opt={'b': None})
+            # Core set
+            tmp_df = pd.DataFrame({'pdbid': list(p.sets['core'].keys()),
+                                   '%i_core' % pdbbind_version: list(p.sets['core'].values())})
+            df = pd.merge(tmp_df, df, how='outer', on='pdbid') if len(df) else tmp_df
+
+            # Refined Set
+            tmp_df = pd.DataFrame({'pdbid': list(p.sets['refined'].keys()),
+                                   '%i_refined' % pdbbind_version: list(p.sets['refined'].values())})
+            df = pd.merge(tmp_df, df, how='outer', on='pdbid')
+
+            # General Set
+            general_name = 'general_PL' if pdbbind_version > 2007 else 'general'
+            tmp_df = pd.DataFrame({'pdbid': list(p.sets[general_name].keys()),
+                                   '%i_general' % pdbbind_version: list(p.sets[general_name].values())})
+            df = pd.merge(tmp_df, df, how='outer', on='pdbid')
+
+        df.sort_values('pdbid', inplace=True)
+        tmp_act = df['%i_general' % pdbbind_versions[-1]].values
+        df = df.set_index('pdbid').notnull()
+        df['act'] = tmp_act
+        # take non-empty and core + refined set
+        df = df[df['act'].notnull() & df.filter(regex='.*_[refined,core]').any(axis=1)]
+
+        # build descriptos
+        pdbbind_db = pdbbind('%s/v%i/' % (pdbbind_dir, pdbbind_versions[-1]), version=pdbbind_versions[-1])
+        if not desc_path:
+            desc_path = path_join(dirname(__file__) + 'descs.csv')
+
+        if self.n_jobs is None:
+            n_jobs = -1
+        else:
+            n_jobs = self.n_jobs
+        result = Parallel(n_jobs=n_jobs,
+                          verbose=1)(delayed(_parallel_helper)(self.descriptor_generator,
+                                                               'build',
+                                                               [pdbbind_db[pid].ligand],
+                                                               protein=pdbbind_db[pid].pocket)
+                                     for pid in df.index.values if pdbbind_db[pid].pocket is not None)
+        descs = np.vstack(result)
+        for i in range(len(self.descriptor_generator)):
+            df[str(i)] = descs[:, i]
+        df.to_csv(desc_path, float_format='%.5g')
+
+    def _load_pdbbind_desc(self, desc_path, pdbbind_version=2016):
+
+        df = pd.read_csv(desc_path, index_col='pdbid')
+
+        train_set = 'refined'
+        test_set = 'core'
+        cols = list(map(str, range(len(self.descriptor_generator))))
+        self.train_descs = (df[(df['%i_%s' % (pdbbind_version, train_set)] &
+                               ~df['%i_%s' % (pdbbind_version, test_set)])][cols]
+                            .values)
+        self.train_target = (df[(df['%i_%s' % (pdbbind_version, train_set)] &
+                                 ~df['%i_%s' % (pdbbind_version, test_set)])]['act']
+                             .values)
+        self.test_descs = df[df['%i_%s' % (pdbbind_version, test_set)]][cols].values
+        self.test_target = df[df['%i_%s' % (pdbbind_version, test_set)]]['act'].values
 
     def fit(self, ligands, target, *args, **kwargs):
         """Trains model on supplied ligands and target values
