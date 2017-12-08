@@ -1,7 +1,8 @@
 import os
 
-from nose.tools import assert_equal, assert_not_equal
+from nose.tools import assert_equal, assert_is_instance
 
+import oddt
 from oddt.datasets import pdbbind
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
@@ -32,12 +33,12 @@ def test_pdbbind():
 
         # test all pockets
         for pid in pdbbind_db:
-            assert_not_equal(pid.pocket, None)
-            assert_not_equal(pid.ligand, None)
+            assert_is_instance(pid.pocket, oddt.toolkit.Molecule)
+            assert_is_instance(pid.ligand, oddt.toolkit.Molecule)
             if pid.id == '1ps3':
                 assert_equal(pid.protein, None)
             else:
-                assert_not_equal(pid.protein, None)
+                assert_is_instance(pid.protein, oddt.toolkit.Molecule)
 
         pid = pdbbind_db['10gs']
         # get ligand
