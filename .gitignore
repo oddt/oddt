@@ -62,3 +62,6 @@ conda-recipe/*
 asv_bench/env/
 asv_bench/html/
 asv_bench/results/
+
+# training artifacts
+*.pickle

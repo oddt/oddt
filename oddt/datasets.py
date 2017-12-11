@@ -34,15 +34,16 @@ class pdbbind(object):
 
         if version:
             if version == 2007:
-                pdbind_sets = ['core', 'refined', 'general']
+                self.pdbind_sets = ['core', 'refined', 'general']
             else:
-                pdbind_sets = ['core', 'refined', 'general_PL']
-            for pdbind_set in pdbind_sets:
+                self.pdbind_sets = ['core', 'refined', 'general_PL']
+            for pdbind_set in self.pdbind_sets:
                 if data_file:
                     csv_file = data_file
                 elif version == 2007:
                     csv_file = os.path.join(self.home,
-                                            'INDEX.%i.%s.data' % (version, pdbind_set))
+                                            'INDEX.%i.%s.data' % (version,
+                                                                  pdbind_set))
                 elif version == 2016:
                     csv_file = os.path.join(self.home,
                                             'index',
@@ -85,10 +86,12 @@ class pdbbind(object):
     def __getitem__(self, pdbid):
         if pdbid in self.ids:
             return _pdbbind_id(self.home, pdbid, opt=self.opt)
+        elif (isinstance(pdbid, int) and
+              pdbid < len(self.ids) and
+              pdbid >= -len(self.ids)):
+            return _pdbbind_id(self.home + '', self.ids[pdbid], opt=self.opt)
         else:
-            if type(pdbid) is int:
-                return _pdbbind_id(self.home + '', self.ids[pdbid], opt=self.opt)
-            return None
+            raise KeyError('There is no such target ("%s")' % pdbid)
 
 
 class _pdbbind_id(object):

@@ -1,7 +1,10 @@
 #===============================================================================
-# The PDBbind core set v.2016, mocked version for ODDT testing
+# The PDBbind general set v.2016, mocked version for ODDT testing
 # PDB code, resolution, release year, -logKd/Ki, Kd/Ki, reference, ligand name
 #===============================================================================
+1k9q   NMR  2001   3.15  Kd=700uM      // 1k9q.pdf (7-mer)
+1nlo   NMR  1997   5.47  Kd=3.4uM      // 1nlo.pdf (11-mer)
+1nlp   NMR  1997   4.96  Kd=11uM       // 1nlp.pdf (10-mer)
+1imx  1.82  2001   3.52  Kd=300uM      // 1imx.pdf (CPQ)
 4yef  1.72  2015   5.35  Kd=4.44uM     // 4yee.pdf (4CQ)
-# 10gs is not in a 2016 core set but is left for test_folding
 10gs  2.20  1998   6.40  Ki=0.4uM      // 10gs.pdf (3-mer)

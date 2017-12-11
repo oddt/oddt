@@ -1,11 +1,26 @@
+from os.path import dirname, join as path_join
+
 from itertools import chain
 
+from joblib import Parallel, delayed
+
+import pandas as pd
 import numpy as np
-from scipy.stats import linregress
 from sklearn.model_selection import cross_val_score, KFold
+from sklearn.base import is_classifier, is_regressor
+from sklearn.metrics import accuracy_score, r2_score
 import gzip
 import six
 from six.moves import cPickle as pickle
+
+from oddt.datasets import pdbbind
+
+
+# define sub-function for paralelization
+def _parallel_helper(obj, methodname, *args, **kwargs):
+    """Private helper to workaround Python 2 pickle limitations to paralelize
+    methods"""
+    return getattr(obj, methodname)(*args, **kwargs)
 
 
 def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
@@ -45,13 +60,15 @@ def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
 
 # FIX ### If possible make ensemble scorer lazy, for now it consumes all ligands
 class scorer(object):
-    def __init__(self, model_instance, descriptor_generator_instance, score_title='score'):
+    def __init__(self, model_instance, descriptor_generator_instance,
+                 score_title='score'):
         """Scorer class is parent class for scoring functions.
 
         Parameters
         ----------
             model_instance: model
-                Medel compatible with sklearn API (fit, predict and score methods)
+                Medel compatible with sklearn API (fit, predict and score
+                methods)
 
             descriptor_generator_instance: array of descriptors
                 Descriptor generator object
@@ -62,6 +79,87 @@ class scorer(object):
         self.model = model_instance
         self.descriptor_generator = descriptor_generator_instance
         self.score_title = score_title
+
+    def _gen_pdbbind_desc(self,
+                          pdbbind_dir,
+                          pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
+                          desc_path=None,
+                          **kwargs):
+        pdbbind_versions = sorted(pdbbind_versions)
+
+        if 'opt' in kwargs:
+            opt = kwargs.pop('opt')
+        else:
+            opt = {}
+
+        # generate metadata
+        df = None
+        for pdbbind_version in pdbbind_versions:
+            p = pdbbind('%s/v%i/' % (pdbbind_dir, pdbbind_version),
+                        version=pdbbind_version,
+                        opt=opt)
+            # Core set
+
+            for set_name in p.pdbind_sets:
+                if set_name == 'general_PL':
+                    dataset_key = '%i_general' % pdbbind_version
+                else:
+                    dataset_key = '%i_%s' % (pdbbind_version, set_name)
+
+                tmp_df = pd.DataFrame({
+                    'pdbid': list(p.sets[set_name].keys()),
+                    dataset_key: list(p.sets[set_name].values())
+                })
+                if df is not None:
+                    df = pd.merge(tmp_df, df, how='outer', on='pdbid')
+                else:
+                    df = tmp_df
+
+        df.sort_values('pdbid', inplace=True)
+        tmp_act = df['%i_general' % pdbbind_versions[-1]].values
+        df = df.set_index('pdbid').notnull()
+        df['act'] = tmp_act
+        # take non-empty and core + refined set
+        df = df[df['act'].notnull() &
+                df.filter(regex='.*_[refined,core]').any(axis=1)]
+
+        # build descriptos
+        pdbbind_db = pdbbind('%s/v%i/' % (pdbbind_dir, pdbbind_versions[-1]),
+                             version=pdbbind_versions[-1])
+        if not desc_path:
+            desc_path = path_join(dirname(__file__) + 'descs.csv')
+
+        if self.n_jobs is None:
+            n_jobs = -1
+        else:
+            n_jobs = self.n_jobs
+        result = Parallel(n_jobs=n_jobs, verbose=1)(
+            delayed(_parallel_helper)(
+                self.descriptor_generator,
+                'build',
+                [pdbbind_db[pid].ligand],
+                protein=pdbbind_db[pid].pocket)
+            for pid in df.index.values if pdbbind_db[pid].pocket is not None)
+        descs = np.vstack(result)
+        for i in range(len(self.descriptor_generator)):
+            df[str(i)] = descs[:, i]
+        df.to_csv(desc_path, float_format='%.5g')
+
+    def _load_pdbbind_desc(self, desc_path, pdbbind_version=2016):
+
+        df = pd.read_csv(desc_path, index_col='pdbid')
+
+        train_set = 'refined'
+        test_set = 'core'
+        cols = list(map(str, range(len(self.descriptor_generator))))
+        train_idx = (df['%i_%s' % (pdbbind_version, train_set)] &
+                     ~df['%i_%s' % (pdbbind_version, test_set)])
+        self.train_descs = df.loc[train_idx, cols].values
+        self.train_target = df.loc[train_idx, 'act'].values
+
+        test_idx = df['%i_%s' % (pdbbind_version, test_set)]
+        self.test_descs = df.loc[test_idx, cols].values
+        self.test_target = df.loc[test_idx, 'act'].values
 
     def fit(self, ligands, target, *args, **kwargs):
         """Trains model on supplied ligands and target values
@@ -170,6 +268,7 @@ class scorer(object):
             filename: string
                 Pickle filename
         """
+        # FIXME: re-set protein after pickling
         self.set_protein(None)
         # return joblib.dump(self, filename, compress=9)[0]
         with gzip.open(filename, 'w+b', compresslevel=9) as f:
@@ -207,6 +306,20 @@ class ensemble_model(object):
                 An array of models
         """
         self._models = models if len(models) else None
+        if self._models is not None:
+            if is_classifier(self._models[0]):
+                check_type = is_classifier
+                self._scoring_fun = accuracy_score
+            elif is_regressor(self._models[0]):
+                check_type = is_regressor
+                self._scoring_fun = r2_score
+            else:
+                raise ValueError('Expected regressors or classifiers,'
+                                 ' got %s instead' % type(self._models[0]))
+            for model in self._models:
+                if not check_type(model):
+                    raise ValueError('Different types of models found, privide'
+                                     ' either regressors or classifiers.')
 
     def fit(self, X, y, *args, **kwargs):
         for model in self._models:
@@ -214,10 +327,12 @@ class ensemble_model(object):
         return self
 
     def predict(self, X, *args, **kwargs):
-        return np.array([model.predict(X, *args, **kwargs) for model in self._models]).mean(axis=0)
+        return np.array([model.predict(X, *args, **kwargs)
+                         for model in self._models]).mean(axis=0)
 
     def score(self, X, y, *args, **kwargs):
-        return linregress(self.predict(X, *args, **kwargs).flatten(), y.flatten())[2]**2
+        return self._scoring_fun(y.flatten(),
+                                 self.predict(X, *args, **kwargs).flatten())
 
 
 class ensemble_descriptor(object):
@@ -229,17 +344,15 @@ class ensemble_descriptor(object):
             models: array
                 An array of models
         """
-        self._desc_gens = descriptor_generators if len(descriptor_generators) else None
-        self.titles = list(chain(desc_gen.titles for desc_gen in self._desc_gens))
+        self._desc_gens = (descriptor_generators if len(descriptor_generators)
+                           else None)
+        self.titles = list(chain(*(desc_gen.titles
+                                   for desc_gen in self._desc_gens)))
 
     def build(self, mols, *args, **kwargs):
-        out = []
-        for mol in mols:
-            desc = np.hstack(desc_gen.build([mol], *args, **kwargs) for desc_gen in self._desc_gens)
-            if len(out) == 0:
-                out = np.zeros_like(desc)
-            out = np.vstack((out, desc))
-        return out[1:]
+        desc = np.hstack(desc_gen.build(mols, *args, **kwargs)
+                         for desc_gen in self._desc_gens)
+        return desc
 
     def set_protein(self, protein):
         for desc in self._desc_gens:

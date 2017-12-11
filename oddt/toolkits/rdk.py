@@ -71,18 +71,18 @@ except NameError:
 elementtable = Chem.GetPeriodicTable()
 
 SMARTS_DEF = {
-    'rot_bond': Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
-                                   '!$(C(Cl)(Cl)Cl)&'
-                                   '!$(C(Br)(Br)Br)&'
-                                   '!$(C([CH3])([CH3])[CH3])&'
-                                   '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&'
-                                   '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&'
-                                   '!$([CD3](=[N+])-!@[#7!D1])&'
-                                   '!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&'
-                                   '!D1&!$(C(F)(F)F)&'
-                                   '!$(C(Cl)(Cl)Cl)&'
-                                   '!$(C(Br)(Br)Br)&'
-                                   '!$(C([CH3])([CH3])[CH3])]').GetBonds()[0]
+    'rot_bond': '[!$(*#*)&!D1&!$(C(F)(F)F)&'
+                '!$(C(Cl)(Cl)Cl)&'
+                '!$(C(Br)(Br)Br)&'
+                '!$(C([CH3])([CH3])[CH3])&'
+                '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&'
+                '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&'
+                '!$([CD3](=[N+])-!@[#7!D1])&'
+                '!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&'
+                '!D1&!$(C(F)(F)F)&'
+                '!$(C(Cl)(Cl)Cl)&'
+                '!$(C(Br)(Br)Br)&'
+                '!$(C([CH3])([CH3])[CH3])]'
 }
 
 fps = ['rdkit', 'layered', 'maccs', 'atompairs', 'torsions', 'morgan']
@@ -1220,19 +1220,13 @@ class Bond(object):
 
     @property
     def isrotor(self):
-        if (not self.Bond.IsInRing() and
-            self.Bond.Match(Chem.MolFromSmarts('[!$(*#*)&!D1&!$(C(F)(F)F)&'
-                                               '!$(C(Cl)(Cl)Cl)&'
-                                               '!$(C(Br)(Br)Br)&'
-                                               '!$(C([CH3])([CH3])[CH3])&'
-                                               '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&'
-                                               '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&'
-                                               '!$([CD3](=[N+])-!@[#7!D1])&'
-                                               '!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&'
-                                               '!D1&!$(C(F)(F)F)&'
-                                               '!$(C(Cl)(Cl)Cl)&'
-                                               '!$(C(Br)(Br)Br)&'
-                                               '!$(C([CH3])([CH3])[CH3])]').GetBondWithIdx(0))):
+        Chem.GetSSSR(self.Bond.GetOwningMol())
+        if self.Bond.IsInRing():
+            return False
+        rot_mol = Chem.MolFromSmarts(SMARTS_DEF['rot_bond'])
+        Chem.GetSSSR(rot_mol)  # MolFromSmarts don't initialize ring info
+        rot_bond = rot_mol.GetBondWithIdx(0)
+        if self.Bond.Match(rot_bond):
             a1, a2 = self.atoms
             if a1.atomicnum > 1 and a2.atomicnum > 1:
                 a1_n = sum(n.atomicnum > 1 for n in a1.neighbors)
