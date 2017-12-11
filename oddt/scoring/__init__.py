@@ -83,15 +83,21 @@ class scorer(object):
     def _gen_pdbbind_desc(self,
                           pdbbind_dir,
                           pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
-                          desc_path=None):
+                          desc_path=None,
+                          **kwargs):
         pdbbind_versions = sorted(pdbbind_versions)
+
+        if 'opt' in kwargs:
+            opt = kwargs.pop('opt')
+        else:
+            opt = {}
 
         # generate metadata
         df = None
         for pdbbind_version in pdbbind_versions:
             p = pdbbind('%s/v%i/' % (pdbbind_dir, pdbbind_version),
                         version=pdbbind_version,
-                        opt={'b': None})
+                        opt=opt)
             # Core set
 
             for set_name in p.pdbind_sets:

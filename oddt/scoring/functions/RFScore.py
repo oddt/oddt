@@ -82,7 +82,8 @@ class rfscore(scorer):
         super(rfscore, self)._gen_pdbbind_desc(
             pdbbind_dir=pdbbind_dir,
             pdbbind_versions=pdbbind_versions,
-            desc_path=filename
+            desc_path=filename,
+            opt={'b': None},
         )
 
     def train(self, home_dir=None, sf_pickle='', pdbbind_version=2016):

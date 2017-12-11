@@ -250,9 +250,11 @@ def test_model_train():
     home_dir = mkdtemp()
     pdbbind_versions = (2007, 2013, 2016)
 
+    pdbbind_dir = os.path.join(data_dir, 'pdbbind')
     for pdbbind_v in pdbbind_versions:
-        os.symlink(os.path.join(data_dir, 'pdbbind'),
-                   os.path.join(data_dir, 'v%s' % pdbbind_v))
+        version_dir = os.path.join(data_dir, 'v%s' % pdbbind_v)
+        if not os.path.isdir(version_dir):
+            os.symlink(pdbbind_dir, version_dir)
 
     for model in [nnscore(n_jobs=1)] + [rfscore(version=v, n_jobs=1)
                                         for v in [1, 2, 3]]:
@@ -266,4 +268,6 @@ def test_model_train():
         assert_equal(model.score(mols, preds), 1.0)
 
     for pdbbind_v in pdbbind_versions:
-        os.unlink(os.path.join(data_dir, 'v%s' % pdbbind_v))
+        version_dir = os.path.join(data_dir, 'v%s' % pdbbind_v)
+        if os.path.islink(version_dir):
+            os.unlink(version_dir)
