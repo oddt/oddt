@@ -1,6 +1,6 @@
 import os
 
-from nose.tools import assert_equal, assert_is_instance
+from nose.tools import assert_equal, assert_is_instance, assert_greater
 
 import oddt
 from oddt.datasets import pdbbind
@@ -13,10 +13,10 @@ def test_pdbbind():
     results = {
         'core': (['1y6r', '10gs'],
                  [10.11, 6.4]),
-        'refined': (['1ps3', '4x6p', '1y6r', '10gs'],
-                    [2.28, 8.30, 10.11, 6.4]),
-        'general_PL': (['2lyw', '4n7h', '1ps3', '4x6p', '1y6r', '10gs'],
-                       [4.52, 5.48, 2.28, 8.30, 10.11, 6.4]),
+        'refined': (['4up5', '4x6p', '1y6r', '10gs'],
+                    [2.60, 8.30, 10.11, 6.4]),
+        'general_PL': (['4uyh', '4qf8', '4up5', '4x6p', '1y6r', '10gs'],
+                       [6.30, 7.51, 2.60, 8.30, 10.11, 6.4]),
     }
 
     for year in [2007, 2013, 2016]:
@@ -32,11 +32,14 @@ def test_pdbbind():
 
             for pid in pdbbind_db:
                 assert_is_instance(pid.pocket, oddt.toolkit.Molecule)
+                assert_greater(len(pid.pocket.atoms), 0)
                 assert_is_instance(pid.ligand, oddt.toolkit.Molecule)
-                if pid.id == '1ps3':
+                assert_greater(len(pid.ligand.atoms), 0)
+                if pid.id == '1y6r':
                     assert_equal(pid.protein, None)
                 else:
                     assert_is_instance(pid.protein, oddt.toolkit.Molecule)
+                    assert_greater(len(pid.protein.atoms), 0)
 
         # getting by name
         assert_equal(pdbbind_db['10gs'].id, '10gs')
