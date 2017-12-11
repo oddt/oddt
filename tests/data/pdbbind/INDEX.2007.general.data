@@ -2,9 +2,9 @@
 # The PDBbind general set v.2016, mocked version for ODDT testing
 # PDB code, resolution, release year, -logKd/Ki, Kd/Ki, reference, ligand name
 #===============================================================================
-4uyh  1.73  2014   6.30  IC50=0.50uM   // 4uyf.pdf (9S3)
-4qf8  1.65  2014   7.51  Kd=31nM       // 4qem.pdf (SPD)
-4up5  1.65  2014   2.60  Kd=2.5mM      // 4up0.pdf (94W)
-4x6p  1.93  2015   8.30  Ki=5nM        // 4x6m.pdf (3YU
-1y6r  2.20  2005  10.11  Ki=77pM       // 1y6r.pdf (MTM)
+1k9q   NMR  2001   3.15  Kd=700uM      // 1k9q.pdf (7-mer)
+1nlo   NMR  1997   5.47  Kd=3.4uM      // 1nlo.pdf (11-mer)
+1nlp   NMR  1997   4.96  Kd=11uM       // 1nlp.pdf (10-mer)
+1imx  1.82  2001   3.52  Kd=300uM      // 1imx.pdf (CPQ)
+4yef  1.72  2015   5.35  Kd=4.44uM     // 4yee.pdf (4CQ)
 10gs  2.20  1998   6.40  Ki=0.4uM      // 10gs.pdf (3-mer)
