@@ -86,10 +86,12 @@ class pdbbind(object):
     def __getitem__(self, pdbid):
         if pdbid in self.ids:
             return _pdbbind_id(self.home, pdbid, opt=self.opt)
+        elif (isinstance(pdbid, int) and
+              pdbid < len(self.ids) and
+              pdbid >= -len(self.ids)):
+            return _pdbbind_id(self.home + '', self.ids[pdbid], opt=self.opt)
         else:
-            if type(pdbid) is int:
-                return _pdbbind_id(self.home + '', self.ids[pdbid], opt=self.opt)
-            return None
+            raise KeyError('There is no such target ("%s")' % pdbid)
 
 
 class _pdbbind_id(object):

@@ -1,6 +1,7 @@
 import os
 
-from nose.tools import assert_equal, assert_is_instance, assert_greater
+from nose.tools import (assert_equal, assert_is_instance, assert_greater,
+                        assert_raises)
 
 import oddt
 from oddt.datasets import pdbbind
@@ -41,17 +42,19 @@ def test_pdbbind():
                     assert_is_instance(pid.protein, oddt.toolkit.Molecule)
                     assert_greater(len(pid.protein.atoms), 0)
 
+        # reset the pdbbind set
+        pdbbind_db.default_set = 'refined'
+
         # getting by name
         assert_equal(pdbbind_db['1imx'].id, '1imx')
 
         # getting by id
         assert_equal(pdbbind_db[-3].id, '1imx')
+        assert_equal(pdbbind_db[1].id, '1imx')
 
-        # TODO: getting by name error
-        # assert_raises(KeyError, pdbbind_db.__getitem__, 'xxxx')
-
-        # TODO: getting by id error
-        # assert_raises(KeyError, pdbbind_db.__getitem__, 123)
+        assert_raises(KeyError, pdbbind_db.__getitem__, 'xxxx')
+        assert_raises(KeyError, pdbbind_db.__getitem__, 123456)
+        assert_raises(KeyError, pdbbind_db.__getitem__, -123456)
 
         pid = pdbbind_db['1imx']
         # get ligand
