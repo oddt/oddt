@@ -238,5 +238,12 @@ def test_vs_scoring():
             assert_in('rfscore_v2', data.columns)
             assert_in('rfscore_v3', data.columns)
 
+    # remove files
     for f in filenames:
         os.unlink(f)
+
+    # remove symlinks
+    for pdbbind_v in pdbbind_versions:
+        version_dir = os.path.join(data_dir, 'v%s' % pdbbind_v)
+        if os.path.islink(version_dir):
+            os.unlink(version_dir)
