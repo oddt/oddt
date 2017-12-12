@@ -142,26 +142,34 @@ class dude(object):
             raise Exception('Directory %s doesn\'t exist' % self.home)
 
         self.ids = []
-        files = ['receptor.pdb', 'crystal_ligand.mol2', 'actives_final.mol2.gz', 'decoys_final.mol2.gz']
+        files = ['receptor.pdb', 'crystal_ligand.mol2',
+                 'actives_final.mol2.gz', 'decoys_final.mol2.gz']
         # ids sorted by size of protein
-        all_ids = ['fnta', 'dpp4', 'mmp13', 'hivpr', 'ada17', 'mk14', 'egfr', 'src', 'drd3', 'aa2ar',
-                   'cah2', 'parp1', 'cdk2', 'lck', 'pde5a', 'thrb', 'aces', 'try1', 'pparg', 'vgfr2',
-                   'pgh2', 'esr1', 'fa10', 'esr2', 'ppara', 'dhi1', 'hivrt', 'bace1', 'ace', 'dyr',
-                   'akt1', 'adrb1', 'prgr', 'gcr', 'adrb2', 'andr', 'ppard', 'csf1r', 'gria2', 'cp3a4',
-                   'met', 'pgh1', 'abl1', 'casp3', 'kit', 'hdac8', 'hdac2', 'braf', 'urok', 'lkha4',
-                   'igf1r', 'aldr', 'fpps', 'hmdh', 'kpcb', 'tgfr1', 'ital', 'mp2k1', 'nos1', 'tryb1',
-                   'rxra', 'thb', 'cp2c9', 'ptn1', 'reni', 'pnph', 'tysy', 'akt2', 'kif11', 'aofb',
-                   'plk1', 'hivint', 'mk10', 'pyrd', 'grik1', 'jak2', 'rock1', 'fa7', 'mapk2', 'nram',
-                   'wee1', 'fkb1a', 'def', 'ada', 'fak1', 'mcr', 'pa2ga', 'xiap', 'hs90a', 'hxk4',
-                   'mk01', 'pygm', 'glcm', 'comt', 'sahh', 'cxcr4', 'kith', 'ampc', 'pur2', 'fabp4',
-                   'inha', 'fgfr1']
+        all_ids = [
+            'fnta', 'dpp4', 'mmp13', 'hivpr', 'ada17', 'mk14', 'egfr', 'src',
+            'drd3', 'aa2ar', 'cah2', 'parp1', 'cdk2', 'lck', 'pde5a', 'thrb',
+            'aces', 'try1', 'pparg', 'vgfr2', 'pgh2', 'esr1', 'fa10', 'esr2',
+            'ppara', 'dhi1', 'hivrt', 'bace1', 'ace', 'dyr', 'akt1', 'adrb1',
+            'prgr', 'gcr', 'adrb2', 'andr', 'ppard', 'csf1r', 'gria2', 'cp3a4',
+            'met', 'pgh1', 'abl1', 'casp3', 'kit', 'hdac8', 'hdac2', 'braf',
+            'urok', 'lkha4', 'igf1r', 'aldr', 'fpps', 'hmdh', 'kpcb', 'tgfr1',
+            'ital', 'mp2k1', 'nos1', 'tryb1', 'rxra', 'thb', 'cp2c9', 'ptn1',
+            'reni', 'pnph', 'tysy', 'akt2', 'kif11', 'aofb', 'plk1', 'hivint',
+            'mk10', 'pyrd', 'grik1', 'jak2', 'rock1', 'fa7', 'mapk2', 'nram',
+            'wee1', 'fkb1a', 'def', 'ada', 'fak1', 'mcr', 'pa2ga', 'xiap',
+            'hs90a', 'hxk4', 'mk01', 'pygm', 'glcm', 'comt', 'sahh', 'cxcr4',
+            'kith', 'ampc', 'pur2', 'fabp4', 'inha', 'fgfr1'
+        ]
+
         for i in all_ids:
             if os.path.isdir(os.path.join(self.home, i)):
                 self.ids.append(i)
-                for file in files:
-                    f = os.path.join(self.home, i, file)
-                    if not os.path.isfile(f) and not (file[-3:] == '.gz' and os.path.isfile(f[:-3])):
-                        print('Target %s doesn\'t have file %s' % (i, file), file=sys.stderr)
+                for fname in files:
+                    f = os.path.join(self.home, i, fname)
+                    if not (os.path.isfile(f) or
+                            (fname[-3:] == '.gz' and os.path.isfile(f[:-3]))):
+                        print('Target %s doesn\'t have file %s' % (i, fname),
+                              file=sys.stderr)
         if not self.ids:
             print('No targets in directory %s' % (self.home), file=sys.stderr)
 
@@ -173,7 +181,7 @@ class dude(object):
         if dude_id in self.ids:
             return _dude_target(self.home, dude_id)
         else:
-            raise Exception('Directory %s doesn\'t exist' % self.home)
+            raise KeyError('There is no such target ("%s")' % dude_id)
 
 
 class _dude_target(object):
