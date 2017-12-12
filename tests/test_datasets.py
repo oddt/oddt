@@ -4,7 +4,7 @@ from nose.tools import (assert_equal, assert_is_instance, assert_greater,
                         assert_raises)
 
 import oddt
-from oddt.datasets import pdbbind
+from oddt.datasets import pdbbind, dude
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -71,3 +71,39 @@ def test_pdbbind():
         protein = pid.protein
         protein.removeh()
         assert_equal(len(protein.atoms), 478)
+
+
+def test_dude():
+    results = {
+        'fabp4': (1022, 36, 57, 2855),
+        'inha': (1857, 22, 71, 2318),
+    }
+
+    dude_db = dude(home=os.path.join(test_data_dir, 'data', 'dude'))
+
+    for target in dude_db:
+        if target.dude_id == 'xiap':
+            # different file names
+            assert_equal(target.protein, None)
+            assert_equal(target.ligand, None)
+            assert_equal(target.actives, None)
+            assert_equal(target.decoys, None)
+            continue
+
+        prot_atoms, lig_atoms, num_act, num_dec = results[target.dude_id]
+
+        prot = target.protein
+        prot.removeh()
+        assert_equal(len(prot.atoms), prot_atoms)
+        lig = target.ligand
+        lig.removeh()
+        assert_equal(len(lig.atoms), lig_atoms)
+
+        assert_equal(len(list(target.actives)), num_act)
+        for a in target.actives:
+            assert_greater(len(a.atoms), 0)
+        assert_equal(len(list(target.decoys)), num_dec)
+        for d in target.decoys:
+            assert_greater(len(d.atoms), 0)
+
+        assert_raises(KeyError, dude_db.__getitem__, 'xxxx')
