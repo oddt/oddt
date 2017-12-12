@@ -3,7 +3,6 @@ from __future__ import print_function
 import sys
 import os
 import six
-from six import next
 import pandas as pd
 from os.path import isfile, isdir
 from os import listdir

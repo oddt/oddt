@@ -1,7 +1,6 @@
 from tempfile import mkdtemp
 from shutil import rmtree
 import sys
-from six import next
 import subprocess
 import numpy as np
 import re

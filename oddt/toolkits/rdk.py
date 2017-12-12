@@ -26,7 +26,7 @@ from base64 import b64encode
 from itertools import combinations
 import warnings
 
-from six import next, BytesIO, PY3
+from six import BytesIO, PY3
 import numpy as np
 from sklearn.utils.deprecation import deprecated
 
