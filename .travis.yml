@@ -53,7 +53,7 @@ install:
     - source activate test-environment
     - |
         if [[ "$MINIMAL_REQ" == "1" ]]; then
-            conda install -q numpy=1.8 scipy=0.13 joblib=0.8 scikit-image=0.10 xlsxwriter; 
+            conda install -q numpy=1.8 scipy=0.13 joblib=0.8 scikit-image=0.10 xlsxwriter;
             pip install scikit-learn==0.18 pandas==0.17;
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
                 conda install -q -c mwojcikowski openbabel=2.3.2;
@@ -72,7 +72,7 @@ install:
         pip install coveralls
     - python setup.py install
 script:
-    - nosetests --with-coverage --cover-package oddt -v --nocapture --processes=2 --process-timeout=60
+    - nosetests --with-coverage --cover-package oddt -v --nocapture --processes=2 --process-timeout=120
     - oddt_cli --help
     - oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
     - oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity ifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
