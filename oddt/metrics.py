@@ -194,12 +194,14 @@ def standard_deviation_error(y_true, y_pred):
 
 
 def rie(y_true, y_score, alpha=20, pos_label=None):
-    """Computes Robust Initial Enhancement.
+    """Computes Robust Initial Enhancement. This function assumes that results
+    are already sorted and samples with best predictions are first.
 
     Parameters
     ----------
         y_true : array, shape=[n_samples]
-            True binary labels, in range {0,1} or {-1,1}. If positive label is different than 1, it must be explicitly defined.
+            True binary labels, in range {0,1} or {-1,1}. If positive label is
+            different than 1, it must be explicitly defined.
 
         y_score : array, shape=[n_samples]
             Scores for tested series of samples
@@ -217,7 +219,9 @@ def rie(y_true, y_score, alpha=20, pos_label=None):
 
     Notes
     ----------
-    .. [1] Sheridan, R. P.; Singh, S. B.; Fluder, E. M.; Kearsley, S. K. Protocols for bridging the peptide to nonpeptide gap in topological similarity searches. J. Chem. Inf. Comput. Sci. 2001, 41, 1395−1406.
+    .. [1] Sheridan, R. P.; Singh, S. B.; Fluder, E. M.; Kearsley, S. K.
+           Protocols for bridging the peptide to nonpeptide gap in topological
+           similarity searches. J. Chem. Inf. Comput. Sci. 2001, 41, 1395−1406.
 
     """
     if pos_label is None:
@@ -226,20 +230,23 @@ def rie(y_true, y_score, alpha=20, pos_label=None):
     alpha = float(alpha)
     N = float(len(labels))
     n = float(labels.sum())
-    r = np.argwhere(labels).astype(float)+1 # need 1-based ranking
-    x = r/N
-    ra = float(n)/float(N)
-    ri = 1-ra
-    return np.exp(-alpha*x).sum() / (ra * (1 - np.exp(-alpha))/(np.exp(alpha/N) - 1))
+    r = np.argwhere(labels).astype(float) + 1  # need 1-based ranking
+    x = r / N
+    ra = float(n) / float(N)
+    return (np.exp(-alpha * x).sum()
+            / (ra * (1 - np.exp(-alpha)) / (np.exp(alpha / N) - 1)))
 
 
 def bedroc(y_true, y_score, alpha=20., pos_label=None):
-    """Computes Boltzmann-Enhanced Discrimination of Receiver Operating Characteristic.
+    """Computes Boltzmann-Enhanced Discrimination of Receiver Operating
+    Characteristic.  This function assumes that results are already sorted
+    and samples with best predictions are first.
 
     Parameters
     ----------
         y_true : array, shape=[n_samples]
-            True binary labels, in range {0,1} or {-1,1}. If positive label is different than 1, it must be explicitly defined.
+            True binary labels, in range {0,1} or {-1,1}. If positive label is
+            different than 1, it must be explicitly defined.
 
         y_score : array, shape=[n_samples]
             Scores for tested series of samples
@@ -257,7 +264,9 @@ def bedroc(y_true, y_score, alpha=20., pos_label=None):
 
     Notes
     ----------
-    .. [1] Truchon J-F, Bayly CI. Evaluating virtual screening methods: good and bad metrics for the “early recognition” problem. J Chem Inf Model. 2007;47: 488–508.
+    .. [1] Truchon J-F, Bayly CI. Evaluating virtual screening methods: good
+           and bad metrics for the “early recognition” problem.
+           J Chem Inf Model. 2007;47: 488–508.
 
     """
     if pos_label is None:
@@ -266,9 +275,8 @@ def bedroc(y_true, y_score, alpha=20., pos_label=None):
     alpha = float(alpha)
     N = float(len(labels))
     n = float(labels.sum())
-    r = np.argwhere(labels).astype(float)+1 # need 1-based ranking
-    x = r/N
-    ra = float(n)/float(N)
-    ri = 1-ra
-    rie = np.exp(-alpha*x).sum() / (ra * (1 - np.exp(-alpha))/(np.exp(alpha/N) - 1))
-    return rie * ra * np.sinh(alpha/2)/(np.cosh(alpha/2) - np.cosh(alpha/2 - alpha * ra)) + 1/(1 - np.exp(alpha * ri))
+    ra = float(n) / float(N)
+    ri = 1 - ra
+    rie_score = rie(y_true, y_score, alpha=alpha, pos_label=pos_label)
+    return (rie_score * ra * np.sinh(alpha / 2) / (np.cosh(alpha / 2)
+            - np.cosh(alpha / 2 - alpha * ra)) + 1 / (1 - np.exp(alpha * ri)))
