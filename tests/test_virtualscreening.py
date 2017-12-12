@@ -74,10 +74,7 @@ def test_vs_docking():
     assert_array_equal([float(m.data['vina_affinity']) for m in mols], vina_scores)
 
     # verify the SMILES of molecules
-    ref_mol = next(
-        oddt.toolkit.readfile('sdf',
-                              os.path.join(test_data_dir,
-                                           'data/dude/xiap/crystal_ligand.sdf')))
+    ref_mol = next(oddt.toolkit.readfile('sdf', xiap_crystal_ligand))
 
     if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
         # OB 2.3.2 will fail the following, since Hs are removed, etc.
