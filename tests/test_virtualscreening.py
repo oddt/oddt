@@ -1,6 +1,5 @@
 import os
 from tempfile import mkdtemp, NamedTemporaryFile
-from pickle import dumps, loads
 
 from nose.tools import assert_in, assert_equal
 from sklearn.utils.testing import (assert_array_equal,
