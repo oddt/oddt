@@ -1,4 +1,5 @@
 import os
+from tempfile import mkdtemp
 
 from nose.tools import assert_in, assert_equal
 from sklearn.utils.testing import (assert_array_equal,
@@ -7,6 +8,7 @@ from sklearn.utils.testing import (assert_array_equal,
 
 import oddt
 from oddt.spatial import rmsd
+from oddt.scoring.functions import rfscore, nnscore
 from oddt.virtualscreening import virtualscreening
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
@@ -39,6 +41,10 @@ def test_vs_docking():
     """VS docking (Vina) tests"""
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf'))
+
+    # bad docking engine
+    assert_raises(ValueError, vs.dock, 'srina', 'prot.pdb')
+
     vs.dock(engine='autodock_vina',
             protein=os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb'),
             auto_ligand=os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf'),
@@ -152,3 +158,52 @@ def test_vs_similarity():
 
     # test wrong method error
     assert_raises(ValueError, vs.similarity, 'sift', query=ref_mol)
+
+
+def test_vs_scoring():
+    protein_file = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
+                                'receptor_rdkit.pdb')
+    protein = next(oddt.toolkit.readfile('pdb', protein_file))
+    protein.protein = True
+
+    data_dir = os.path.join(test_data_dir, 'data')
+    home_dir = mkdtemp()
+    pdbbind_versions = (2007, 2013, 2016)
+
+    pdbbind_dir = os.path.join(data_dir, 'pdbbind')
+    for pdbbind_v in pdbbind_versions:
+        version_dir = os.path.join(data_dir, 'v%s' % pdbbind_v)
+        if not os.path.isdir(version_dir):
+            os.symlink(pdbbind_dir, version_dir)
+
+    filenames = []
+    # train mocked SFs
+    for model in [nnscore(n_jobs=1)] + [rfscore(version=v, n_jobs=1)
+                                        for v in [1, 2, 3]]:
+            model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
+                                    home_dir=home_dir)
+            filenames.append(model.train(home_dir=home_dir))
+    vs = virtualscreening(n_cpu=-1)
+    vs.load_ligands('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'))
+    # error if no protein is fed
+    assert_raises(ValueError, vs.score, 'nnscore')
+    # bad sf name
+    assert_raises(ValueError, vs.score, 'bad_sf', protein=protein)
+    vs.score('nnscore', protein=protein_file)
+    vs.score('rfscore_v1', protein=protein)
+    vs.score('rfscore_v2', protein=protein)
+    vs.score('rfscore_v3', protein=protein)
+    # use pickle directly
+    vs.score(filenames[0], protein=protein)
+
+    mols = list(vs.fetch())
+
+    assert_equal(len(mols), 100)
+    mol_data = mols[0].data
+    assert_in('nnscore', mol_data)
+    assert_in('rfscore_v1', mol_data)
+    assert_in('rfscore_v2', mol_data)
+    assert_in('rfscore_v3', mol_data)
+
+    for f in filenames:
+        os.unlink(f)

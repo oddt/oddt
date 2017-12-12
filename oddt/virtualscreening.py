@@ -250,7 +250,9 @@ class virtualscreening:
         self._pipe = chain.from_iterable(docking_results)
 
     def score(self, function, protein=None, *args, **kwargs):
-        """Scoring procedure.
+        """Scoring procedure compatible with any scoring function implemented
+        in ODDT and other pickled SFs which are subclasses of
+        `oddt.scoring.scorer`.
 
         Parameters
         ----------
@@ -268,11 +270,17 @@ class virtualscreening:
             extension = protein.split('.')[-1]
             protein = six.next(toolkit.readfile(extension, protein))
             protein.protein = True
+        elif protein is None:
+            raise ValueError('Protein needs to be set for structure based '
+                             'scoring')
         # trigger cache
         protein.atom_dict
 
         if type(function) is str:
-            if function.lower().startswith('rfscore'):
+            if isfile(function):
+                sf = scorer.load(function)
+                sf.set_protein(protein)
+            elif function.lower().startswith('rfscore'):
                 from oddt.scoring.functions.RFScore import rfscore
                 new_kwargs = {}
                 for bit in function.lower().split('_'):
@@ -293,9 +301,6 @@ class virtualscreening:
             elif function.lower() == 'autodock_vina':
                 from oddt.docking import autodock_vina
                 sf = autodock_vina(protein, *args, **kwargs)
-                sf.set_protein(protein)
-            elif isfile(function):
-                sf = scorer.load(function)
                 sf.set_protein(protein)
             else:
                 raise ValueError('Scoring Function %s was not implemented in '
