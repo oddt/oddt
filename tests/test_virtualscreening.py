@@ -183,7 +183,7 @@ def test_vs_scoring():
             model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
                                     home_dir=home_dir)
             filenames.append(model.train(home_dir=home_dir))
-    vs = virtualscreening(n_cpu=1)
+    vs = virtualscreening(n_cpu=-1)
     vs.load_ligands('sdf', xiap_actives_docked)
     # error if no protein is fed
     assert_raises(ValueError, vs.score, 'nnscore')
