@@ -38,7 +38,7 @@ class nnscore(scorer):
             desc_path=filename
         )
 
-    def train(self, home_dir=None, sf_pickle='', pdbbind_version=2016):
+    def train(self, home_dir=None, sf_pickle=None, pdbbind_version=2016):
         if not home_dir:
             home_dir = dirname(__file__) + '/NNScore'
 
@@ -88,14 +88,14 @@ class nnscore(scorer):
               'RMSE: %.4f' % error,
               sep='\t', file=sys.stderr)
 
-        if sf_pickle:
-            return self.save(sf_pickle)
-        else:
+        if sf_pickle is None:
             return self.save('NNScore_pdbbind%i.pickle' % (pdbbind_version))
+        else:
+            return self.save(sf_pickle)
 
     @classmethod
-    def load(self, filename='', pdbbind_version=2016):
-        if not filename:
+    def load(self, filename=None, pdbbind_version=2016):
+        if filename is None:
             fname = 'NNScore_pdbbind%i.pickle' % (pdbbind_version)
             for f in [fname, path_join(dirname(__file__), fname)]:
                 if isfile(f):

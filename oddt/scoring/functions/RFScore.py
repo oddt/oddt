@@ -86,7 +86,7 @@ class rfscore(scorer):
             opt={'b': None},
         )
 
-    def train(self, home_dir=None, sf_pickle='', pdbbind_version=2016):
+    def train(self, home_dir=None, sf_pickle=None, pdbbind_version=2016):
         if not home_dir:
             home_dir = dirname(__file__) + '/RFScore'
 
@@ -140,15 +140,15 @@ class rfscore(scorer):
                       file=sys.stderr)
                 print('Continuing without compiled RF.', file=sys.stderr)
 
-        if sf_pickle:
-            return self.save(sf_pickle)
-        else:
+        if sf_pickle is None:
             return self.save('RFScore_v%i_pdbbind%i.pickle'
                              % (self.version, pdbbind_version))
+        else:
+            return self.save(sf_pickle)
 
     @classmethod
-    def load(self, filename='', version=1, pdbbind_version=2016):
-        if not filename:
+    def load(self, filename=None, version=1, pdbbind_version=2016):
+        if filename is None:
             fname = 'RFScore_v%i_pdbbind%i.pickle' % (version, pdbbind_version)
             for f in [fname, path_join(dirname(__file__), fname)]:
                 if isfile(f):

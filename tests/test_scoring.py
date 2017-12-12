@@ -1,6 +1,6 @@
 import os
 from types import GeneratorType
-from tempfile import mkdtemp
+from tempfile import mkdtemp, NamedTemporaryFile
 
 import numpy as np
 
@@ -258,14 +258,15 @@ def test_model_train():
 
     for model in [nnscore(n_jobs=1)] + [rfscore(version=v, n_jobs=1)
                                         for v in [1, 2, 3]]:
-        model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
-                                home_dir=home_dir)
-        model.train(home_dir=home_dir)
-        model.set_protein(rec)
-        preds = model.predict(mols)
-        assert_equal(len(preds), 10)
-        assert_equal(preds.dtype, np.float)
-        assert_equal(model.score(mols, preds), 1.0)
+        with NamedTemporaryFile(suffix='.pickle') as f:
+            model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
+                                    home_dir=home_dir)
+            model.train(home_dir=home_dir, sf_pickle=f.name)
+            model.set_protein(rec)
+            preds = model.predict(mols)
+            assert_equal(len(preds), 10)
+            assert_equal(preds.dtype, np.float)
+            assert_equal(model.score(mols, preds), 1.0)
 
     for pdbbind_v in pdbbind_versions:
         version_dir = os.path.join(data_dir, 'v%s' % pdbbind_v)
