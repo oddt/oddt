@@ -355,7 +355,7 @@ class virtualscreening:
                 kwargs['opt']['c'] = None
             else:
                 kwargs['opt'] = {'c': None}
-        output_mol_file = toolkit.Outputfile(fmt, filename, **kwargs)
+        output_mol_file = toolkit.Outputfile(fmt, filename, overwrite=True, **kwargs)
         if csv_filename:
             f = open(csv_filename, 'w')
             csv_file = None
@@ -388,7 +388,7 @@ class virtualscreening:
             f.close()
 #        if 'keep_pipe' in kwargs and kwargs['keep_pipe']:
         if isfile(filename):
-            kwargs.pop('overwrite')  # this argument is unsupported in readfile
+            kwargs.pop('overwrite', None)  # this argument is unsupported in readfile
             self._pipe = toolkit.readfile(fmt, filename, **kwargs)
 
     def write_csv(self, csv_filename, fields=None, keep_pipe=False, **kwargs):
