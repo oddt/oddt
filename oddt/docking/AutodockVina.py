@@ -2,6 +2,7 @@ from tempfile import mkdtemp
 from shutil import rmtree
 import sys
 import subprocess
+from six import string_types
 import numpy as np
 import re
 import os
@@ -77,7 +78,7 @@ class autodock_vina(object):
         self.center = center
         # center automaticaly on ligand
         if auto_ligand:
-            if type(auto_ligand) is str:
+            if isinstance(auto_ligand, string_types):
                 extension = auto_ligand.split('.')[-1]
                 auto_ligand = next(oddt.toolkit.readfile(extension, auto_ligand))
             self.center = tuple(np.array([atom.coords for atom in auto_ligand],
@@ -147,7 +148,7 @@ class autodock_vina(object):
         # generate new directory
         self._tmp_dir = None
         if protein:
-            if type(protein) is str:
+            if isinstance(protein, string_types):
                 extension = protein.split('.')[-1]
                 if extension == 'pdbqt':
                     self.protein_file = protein

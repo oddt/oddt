@@ -121,7 +121,7 @@ class virtualscreening:
 
     def _filter_smarts(self, pipe, smarts, soft_fail=0):
         for mol in pipe:
-            if type(smarts) in six.string_types:
+            if isinstance(smarts, six.string_types):
                 compiled_smarts = toolkit.Smarts(smarts)
                 if len(compiled_smarts.findall(mol)) == 0:
                     yield mol
@@ -138,7 +138,7 @@ class virtualscreening:
 
     def _filter(self, pipe, expression, soft_fail=0):
         for mol in pipe:
-            if type(expression) is list:
+            if isinstance(expression, list):
                 fail = 0
                 for e in expression:
                     if not eval(e):
@@ -266,7 +266,7 @@ class virtualscreening:
         ----
             Additional parameters are passed directly to the scoring function.
         """
-        if type(protein) is str:
+        if isinstance(protein, six.string_types):
             extension = protein.split('.')[-1]
             protein = six.next(toolkit.readfile(extension, protein))
             protein.protein = True
@@ -276,7 +276,7 @@ class virtualscreening:
         # trigger cache
         protein.atom_dict
 
-        if type(function) is str:
+        if isinstance(function, six.string_types):
             if isfile(function):
                 sf = scorer.load(function)
                 sf.set_protein(protein)
