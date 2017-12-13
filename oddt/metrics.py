@@ -1,5 +1,6 @@
-# -*- coding: utf-8 -*-
-"""Metrics for estimating performance of drug discovery methods implemented in ODDT"""
+"""Metrics for estimating performance of drug discovery methods implemented in
+ODDT"""
+
 from __future__ import division
 
 from math import ceil
@@ -98,10 +99,10 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None, kind='fold'
     assert labels.sum() > 0, "There are no correct predicions. Double-check the pos_label"
     assert len(labels) > 0, "Sample size must be greater than 0"
     # calculate fraction of positve labels
-    n_perc = int(ceil(float(percentage) / 100. * len(labels)))
-    out = float(labels[:n_perc].sum()) / n_perc
+    n_perc = ceil(percentage / 100. * len(labels))
+    out = labels[:n_perc].sum() / n_perc
     if kind == 'fold':
-        out /= (float(labels.sum()) / len(labels))
+        out /= (labels.sum() / len(labels))
     return out
 
 
@@ -214,27 +215,28 @@ def rie(y_true, y_score, alpha=20, pos_label=None):
 
     Returns
     -------
-    rie : float
+    rie_score : float
          Robust Initial Enhancement
 
     Notes
     ----------
     .. [1] Sheridan, R. P.; Singh, S. B.; Fluder, E. M.; Kearsley, S. K.
            Protocols for bridging the peptide to nonpeptide gap in topological
-           similarity searches. J. Chem. Inf. Comput. Sci. 2001, 41, 1395−1406.
+           similarity searches. J. Chem. Inf. Comput. Sci. 2001, 41, 1395-1406.
+           DOI: 10.1021/ci0100144
 
     """
     if pos_label is None:
         pos_label = 1
     labels = y_true == pos_label
-    alpha = float(alpha)
-    N = float(len(labels))
-    n = float(labels.sum())
-    r = np.argwhere(labels).astype(float) + 1  # need 1-based ranking
-    x = r / N
-    ra = float(n) / float(N)
-    return (np.exp(-alpha * x).sum()
-            / (ra * (1 - np.exp(-alpha)) / (np.exp(alpha / N) - 1)))
+    N = len(labels)
+    ra = labels.sum() / N
+    ranks = np.argwhere(labels).astype(float) + 1  # need 1-based ranking
+    observed = np.exp(-alpha * ranks / N).sum()
+    expected = (ra * (1 - np.exp(-alpha))
+                / (np.exp(alpha / N) - 1))
+    rie_score = observed / expected
+    return rie_score
 
 
 def bedroc(y_true, y_score, alpha=20., pos_label=None):
@@ -259,24 +261,24 @@ def bedroc(y_true, y_score, alpha=20., pos_label=None):
 
     Returns
     -------
-    bedroc : float
+    bedroc_score : float
         Boltzmann-Enhanced Discrimination of Receiver Operating Characteristic
 
     Notes
     ----------
     .. [1] Truchon J-F, Bayly CI. Evaluating virtual screening methods: good
-           and bad metrics for the “early recognition” problem.
-           J Chem Inf Model. 2007;47: 488–508.
+           and bad metrics for the "early recognition" problem.
+           J Chem Inf Model. 2007;47: 488-508.
+           DOI: 10.1021/ci600426e
 
     """
     if pos_label is None:
         pos_label = 1
     labels = y_true == pos_label
-    alpha = float(alpha)
-    N = float(len(labels))
-    n = float(labels.sum())
-    ra = float(n) / float(N)
+    ra = labels.sum() / len(labels)
     ri = 1 - ra
     rie_score = rie(y_true, y_score, alpha=alpha, pos_label=pos_label)
-    return (rie_score * ra * np.sinh(alpha / 2) / (np.cosh(alpha / 2)
-            - np.cosh(alpha / 2 - alpha * ra)) + 1 / (1 - np.exp(alpha * ri)))
+    bedroc_score = (rie_score * ra * np.sinh(alpha / 2) /
+                    (np.cosh(alpha / 2) - np.cosh(alpha / 2 - alpha * ra))
+                    + 1 / (1 - np.exp(alpha * ri)))
+    return bedroc_score
