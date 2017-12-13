@@ -99,7 +99,7 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None, kind='fold'
     assert labels.sum() > 0, "There are no correct predicions. Double-check the pos_label"
     assert len(labels) > 0, "Sample size must be greater than 0"
     # calculate fraction of positve labels
-    n_perc = ceil(percentage / 100. * len(labels))
+    n_perc = int(ceil(percentage / 100. * len(labels)))
     out = labels[:n_perc].sum() / n_perc
     if kind == 'fold':
         out /= (labels.sum() / len(labels))
