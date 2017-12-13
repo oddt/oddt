@@ -69,10 +69,11 @@ install:
             fi
         fi
         conda install -q -c bioconda autodock-vina
+        conda install -q -c conda-forge nose-timer
         pip install coveralls
     - python setup.py install
 script:
-    - nosetests --with-coverage --cover-package oddt -v --nocapture --processes=2 --process-timeout=600
+    - nosetests --with-coverage --cover-package oddt -v --nocapture --processes=2 --process-timeout=600 --with-timer
     - oddt_cli --help
     - oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
     - oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity ifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
