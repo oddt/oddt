@@ -1,11 +1,11 @@
 from nose.tools import (assert_less_equal, assert_less, assert_greater_equal,
-                        assert_greater,
+                        assert_greater, assert_almost_equal,
                         assert_equal)
 
 import numpy as np
 
 from oddt.metrics import (roc_auc, roc_log_auc, random_roc_log_auc,
-                          enrichment_factor,
+                          enrichment_factor, rie, bedroc,
                           rmse, standard_deviation_error)
 
 
@@ -68,3 +68,27 @@ def test_rmse():
 def test_standard_deviation_error():
     assert_less(standard_deviation_error(values, good_values), 1.1)
     assert_greater(standard_deviation_error(values, poor_values), 5e4)
+
+
+def test_rie():
+    order = sorted(range(len(poor_classes)), key=lambda k: poor_classes[k],
+                   reverse=True)
+    rie_score = rie(classes[order], poor_classes[order])
+    assert_less_equal(rie_score, 1.1)
+
+    order = sorted(range(len(good_classes)), key=lambda k: good_classes[k],
+                   reverse=True)
+    rie_score = rie(classes[order], good_classes[order])
+    assert_almost_equal(rie_score, 8.646647185)
+
+
+def test_bedroc():
+    order = sorted(range(len(poor_classes)), key=lambda k: poor_classes[k],
+                   reverse=True)
+    bedroc_score = bedroc(classes[order], poor_classes[order])
+    assert_less(bedroc_score, 0.2)
+
+    order = sorted(range(len(good_classes)), key=lambda k: good_classes[k],
+                   reverse=True)
+    bedroc_score = bedroc(classes[order], good_classes[order])
+    assert_almost_equal(bedroc_score, 1.0)
