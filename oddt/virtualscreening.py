@@ -121,7 +121,7 @@ class virtualscreening:
 
     def _filter_smarts(self, pipe, smarts, soft_fail=0):
         for mol in pipe:
-            if type(smarts) in six.string_types:
+            if isinstance(smarts, six.string_types):
                 compiled_smarts = toolkit.Smarts(smarts)
                 if len(compiled_smarts.findall(mol)) == 0:
                     yield mol
@@ -138,7 +138,7 @@ class virtualscreening:
 
     def _filter(self, pipe, expression, soft_fail=0):
         for mol in pipe:
-            if type(expression) is list:
+            if isinstance(expression, list):
                 fail = 0
                 for e in expression:
                     if not eval(e):
@@ -250,7 +250,9 @@ class virtualscreening:
         self._pipe = chain.from_iterable(docking_results)
 
     def score(self, function, protein=None, *args, **kwargs):
-        """Scoring procedure.
+        """Scoring procedure compatible with any scoring function implemented
+        in ODDT and other pickled SFs which are subclasses of
+        `oddt.scoring.scorer`.
 
         Parameters
         ----------
@@ -264,15 +266,21 @@ class virtualscreening:
         ----
             Additional parameters are passed directly to the scoring function.
         """
-        if type(protein) is str:
+        if isinstance(protein, six.string_types):
             extension = protein.split('.')[-1]
             protein = six.next(toolkit.readfile(extension, protein))
             protein.protein = True
+        elif protein is None:
+            raise ValueError('Protein needs to be set for structure based '
+                             'scoring')
         # trigger cache
         protein.atom_dict
 
-        if type(function) is str:
-            if function.lower().startswith('rfscore'):
+        if isinstance(function, six.string_types):
+            if isfile(function):
+                sf = scorer.load(function)
+                sf.set_protein(protein)
+            elif function.lower().startswith('rfscore'):
                 from oddt.scoring.functions.RFScore import rfscore
                 new_kwargs = {}
                 for bit in function.lower().split('_'):
@@ -293,9 +301,6 @@ class virtualscreening:
             elif function.lower() == 'autodock_vina':
                 from oddt.docking import autodock_vina
                 sf = autodock_vina(protein, *args, **kwargs)
-                sf.set_protein(protein)
-            elif isfile(function):
-                sf = scorer.load(function)
                 sf.set_protein(protein)
             else:
                 raise ValueError('Scoring Function %s was not implemented in '
@@ -350,7 +355,7 @@ class virtualscreening:
                 kwargs['opt']['c'] = None
             else:
                 kwargs['opt'] = {'c': None}
-        output_mol_file = toolkit.Outputfile(fmt, filename, **kwargs)
+        output_mol_file = toolkit.Outputfile(fmt, filename, overwrite=True, **kwargs)
         if csv_filename:
             f = open(csv_filename, 'w')
             csv_file = None
@@ -383,7 +388,7 @@ class virtualscreening:
             f.close()
 #        if 'keep_pipe' in kwargs and kwargs['keep_pipe']:
         if isfile(filename):
-            kwargs.pop('overwrite')  # this argument is unsupported in readfile
+            kwargs.pop('overwrite', None)  # this argument is unsupported in readfile
             self._pipe = toolkit.readfile(fmt, filename, **kwargs)
 
     def write_csv(self, csv_filename, fields=None, keep_pipe=False, **kwargs):

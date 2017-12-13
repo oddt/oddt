@@ -111,7 +111,7 @@ class close_contacts(object):
                 Flag indicating should permutation of types should be done,
                 otherwise the atoms are treated as aligned pairs.
         """
-        if type(cutoff) in [int, float]:
+        if isinstance(cutoff, (int, float)):
             self.cutoff = np.array([cutoff])
         elif len(cutoff) > 1 and len(np.array(cutoff).shape) == 1:
             self.cutoff = np.vstack((np.array(cutoff)[:-1],
@@ -159,7 +159,7 @@ class close_contacts(object):
         """
         if protein:
             self.protein = protein
-        if single and type(ligands) is not list:
+        if single and not isinstance(ligands, list):
             ligands = [ligands]
         out = []
         for mol in ligands:
