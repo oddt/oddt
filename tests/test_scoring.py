@@ -107,41 +107,40 @@ def test_ensemble_model():
     assert_almost_equal(ensemble.score(X, Y), nn.score(X, Y))
 
 
-if oddt.toolkit.backend == 'ob':  # RDKit doesn't write PDBQT
-    def test_original_vina():
-        """Check orignal Vina partial scores descriptor"""
-        mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
-        list(map(lambda x: x.addh(), mols))
+def test_original_vina():
+    """Check orignal Vina partial scores descriptor"""
+    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
+    list(map(lambda x: x.addh(), mols))
 
-        rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
-        rec.protein = True
-        rec.addh()
+    rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
+    rec.protein = True
+    rec.addh()
 
-        # Delete molecule which has differences in Acceptor-Donor def in RDK and OB
-        del mols[65]
+    # Delete molecule which has differences in Acceptor-Donor def in RDK and OB
+    del mols[65]
 
-        vina_scores = ['vina_gauss1',
-                       'vina_gauss2',
-                       'vina_repulsion',
-                       'vina_hydrophobic',
-                       'vina_hydrogen']
+    vina_scores = ['vina_gauss1',
+                   'vina_gauss2',
+                   'vina_repulsion',
+                   'vina_hydrophobic',
+                   'vina_hydrogen']
 
-        # save correct results (for future use)
-        # np.savetxt(os.path.join(results, 'autodock_vina_scores.csv'),
-        #            autodock_vina_descriptor(protein=rec,
-        #                                     vina_scores=vina_scores).build(mols),
-        #            fmt='%.16g',
-        #            delimiter=',')
-        autodock_vina_results_correct = np.loadtxt(
-            os.path.join(results, 'autodock_vina_scores.csv'),
-            delimiter=',',
-            dtype=np.float64)
-        autodock_vina_results = autodock_vina_descriptor(
-            protein=rec,
-            vina_scores=vina_scores).build(mols)
-        assert_array_almost_equal(autodock_vina_results,
-                                  autodock_vina_results_correct,
-                                  decimal=4)
+    # save correct results (for future use)
+    # np.savetxt(os.path.join(results, 'autodock_vina_scores.csv'),
+    #            autodock_vina_descriptor(protein=rec,
+    #                                     vina_scores=vina_scores).build(mols),
+    #            fmt='%.16g',
+    #            delimiter=',')
+    autodock_vina_results_correct = np.loadtxt(
+        os.path.join(results, 'autodock_vina_scores.csv'),
+        delimiter=',',
+        dtype=np.float64)
+    autodock_vina_results = autodock_vina_descriptor(
+        protein=rec,
+        vina_scores=vina_scores).build(mols)
+    assert_array_almost_equal(autodock_vina_results,
+                              autodock_vina_results_correct,
+                              decimal=4)
 
 
 def test_internal_vina():
