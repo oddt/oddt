@@ -1,6 +1,13 @@
 ### Development version (Git)
+
+
+### Version 0.5 (2017-12-14)
 * Protein-Ligand Extended Connectivity (PLEC) fingerprint
 * PDBQT reader and writer for RDKit + Vina support
+* DUD-e database wrappers
+* standard deviation (SD) metric used in CASF
+* RIE and BEDROC metrics
+* minor bug fixes
 
 
 ### Version 0.4.1 (2017-08-09)
