@@ -15,9 +15,13 @@ class pdbbind(object):
                  home,
                  version=None,
                  default_set=None,
-                 data_file=None,
                  opt=None):
-        version = int(version)
+
+        if version is None:
+            raise ValueError('PDBbind version not specified')
+        else:
+            version = int(version)
+
         self.home = home
         if default_set:
             self.default_set = default_set
@@ -31,43 +35,36 @@ class pdbbind(object):
         self._set_ids = {}
         self._set_act = {}
 
-        if version:
-            if version == 2007:
-                self.pdbind_sets = ['core', 'refined', 'general']
-            else:
-                self.pdbind_sets = ['core', 'refined', 'general_PL']
-            for pdbind_set in self.pdbind_sets:
-                if data_file:
-                    csv_file = data_file
-                elif version == 2007:
-                    csv_file = os.path.join(self.home,
-                                            'INDEX.%i.%s.data' % (version,
-                                                                  pdbind_set))
-                elif version == 2016:
-                    csv_file = os.path.join(self.home,
-                                            'index',
-                                            'INDEX_%s_data.%i' % (pdbind_set, version))
-                else:
-                    csv_file = os.path.join(self.home,
-                                            'INDEX_%s_data.%i' % (pdbind_set, version))
-
-                if os.path.isfile(csv_file):
-                    data = pd.read_csv(csv_file,
-                                       sep='\s+',
-                                       usecols=[0, 1, 2, 3],
-                                       names=['pdbid',
-                                              'resolution',
-                                              'release_year',
-                                              'act'],
-                                       comment='#')
-                    self._set_ids[pdbind_set] = data['pdbid'].tolist()
-                    self._set_act[pdbind_set] = data['act'].tolist()
-                    self.sets[pdbind_set] = dict(zip(self._set_ids[pdbind_set],
-                                                     self._set_act[pdbind_set]))
-            if len(self.sets) == 0:
-                raise Exception('There is no PDBbind set availabe')
+        if version == 2007:
+            self.pdbind_sets = ['core', 'refined', 'general']
         else:
-            pass  # list directory, but no metadata then
+            self.pdbind_sets = ['core', 'refined', 'general_PL']
+        for pdbind_set in self.pdbind_sets:
+            if version == 2007:
+                csv_file = os.path.join(self.home, 'INDEX.%i.%s.data'
+                                        % (version, pdbind_set))
+            elif version == 2016:
+                csv_file = os.path.join(self.home, 'index', 'INDEX_%s_data.%i'
+                                        % (pdbind_set, version))
+            else:
+                csv_file = os.path.join(self.home, 'INDEX_%s_data.%i'
+                                        % (pdbind_set, version))
+
+            if os.path.isfile(csv_file):
+                data = pd.read_csv(csv_file,
+                                   sep='\s+',
+                                   usecols=[0, 1, 2, 3],
+                                   names=['pdbid',
+                                          'resolution',
+                                          'release_year',
+                                          'act'],
+                                   comment='#')
+                self._set_ids[pdbind_set] = data['pdbid'].tolist()
+                self._set_act[pdbind_set] = data['act'].tolist()
+                self.sets[pdbind_set] = dict(zip(self._set_ids[pdbind_set],
+                                                 self._set_act[pdbind_set]))
+        if len(self.sets) == 0:
+            raise Exception('There is no PDBbind set availabe')
 
     @property
     def ids(self):

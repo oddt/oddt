@@ -20,6 +20,9 @@ def test_pdbbind():
                        [3.15, 5.47, 4.96, 3.52, 5.35, 6.4]),
     }
 
+    assert_raises(ValueError, pdbbind, home=os.path.join(test_data_dir,
+                                                         'data', 'pdbbind'))
+
     for year in [2007, 2013, 2016]:
         pdbbind_db = pdbbind(home=os.path.join(test_data_dir, 'data', 'pdbbind'),
                              version=year, default_set='core')
