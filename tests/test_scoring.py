@@ -171,7 +171,7 @@ def test_internal_vina():
 
 
 def test_rfscore_desc():
-    """Test RFScore v1-3 descriptors generators"""
+    """Test RFScore v1-4 descriptors generators"""
     mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
     list(map(lambda x: x.addh(), mols))
 
@@ -182,7 +182,7 @@ def test_rfscore_desc():
     # Delete molecule which has differences in Acceptor-Donor def in RDK and OB
     del mols[65]
 
-    for v in [1, 2, 3]:
+    for v in [1, 2, 3, 4]:
         descs = rfscore(version=v, protein=rec).descriptor_generator.build(mols)
         # save correct results (for future use)
         # np.savetxt(os.path.join(results, 'rfscore_v%i_descs.csv' % v),
@@ -241,7 +241,7 @@ def test_nnscore_desc():
 models = ([PLECscore(n_jobs=1, version=v, size=2048)
            for v in ['linear', 'nn', 'rf']] +
           [nnscore(n_jobs=1)] +
-          [rfscore(version=v, n_jobs=1) for v in [1, 2, 3]])
+          [rfscore(version=v, n_jobs=1) for v in [1, 2, 3, 4]])
 
 
 @pytest.mark.parametrize('model', models)
