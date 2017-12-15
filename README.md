@@ -6,7 +6,7 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
 [![Build Status](https://travis-ci.org/oddt/oddt.svg?branch=master)](https://travis-ci.org/oddt/oddt)
 [![Coverage Status](https://coveralls.io/repos/github/oddt/oddt/badge.svg?branch=master)](https://coveralls.io/github/oddt/oddt?branch=master)
 [![Code Health](https://landscape.io/github/oddt/oddt/master/landscape.svg?style=flat)](https://landscape.io/github/oddt/oddt/master)
-[![Conda packages](https://anaconda.org/mwojcikowski/oddt/badges/version.svg?style=flat)](https://anaconda.org/mwojcikowski/oddt)
+[![Conda packages](https://anaconda.org/oddt/oddt/badges/version.svg?style=flat)](https://anaconda.org/oddt/oddt)
 [![Latest Version](https://img.shields.io/pypi/v/oddt.svg)](https://pypi.python.org/pypi/oddt/)
 
 ## Documentation, Discussion and Contribution:
@@ -41,16 +41,19 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   Install a clean [Miniconda environment](https://conda.io/miniconda.html), if you already don't have one.
 
   Install ODDT:
-  > conda install -c mwojcikowski oddt
+  > conda install -c oddt oddt
 
-  Install OpenBabel (using [official  channel](https://anaconda.org/openbabel/openbabel)):
+  You can add a toolkit of your choice or install them along with oddt:
+  > conda install -c oddt oddt rdkit openbabel
+
+  (Optionally) Install OpenBabel (using [official  channel](https://anaconda.org/openbabel/openbabel)):
   > conda install -c openbabel openbabel
 
-  Optionally install RDKit (using [official channel](https://anaconda.org/rdkit/rdkit)):
+  (Optionally) install RDKit (using [official channel](https://anaconda.org/rdkit/rdkit)):
   > conda install -c rdkit rdkit
 
   Upgrading procedure using conda is straightforward:
-  > conda update -c mwojcikowski oddt
+  > conda update -c oddt oddt
 
 ### Documentation
 Automatic documentation for ODDT is available on [Readthedocs.org](https://oddt.readthedocs.org/). Additionally it can be build localy:
