@@ -555,14 +555,17 @@ def test_plec_binded_hoh():
     # if water coordinates metal in PDB and ligand is in contact with it, HOH
     # will pop up in metals environment, thus we cannot ignore HOHs in repr_dict
 
-    ligand = next(oddt.toolkit.readfile('sdf', os.path.join(
-        test_data_dir, 'data', 'pdb', '3kwa_ligand.sdf')))
-    protein = next(oddt.toolkit.readfile('pdb', os.path.join(
-        test_data_dir, 'data', 'pdb', '3kwa_5Apocket.pdb')))
-    protein.protein = True
+    if (oddt.toolkit.backend == 'ob' or
+            (oddt.toolkit.backend == 'rdk' and
+             oddt.toolkit.rdkit.__version__ >= '2017.03')):
+        ligand = next(oddt.toolkit.readfile('sdf', os.path.join(
+            test_data_dir, 'data', 'pdb', '3kwa_ligand.sdf')))
+        protein = next(oddt.toolkit.readfile('pdb', os.path.join(
+            test_data_dir, 'data', 'pdb', '3kwa_5Apocket.pdb')))
+        protein.protein = True
 
-    assert_equal(len(PLEC(ligand, protein, ignore_hoh=True)), 465)
-    assert_equal(len(PLEC(ligand, protein, ignore_hoh=False)), 560)
+        assert_equal(len(PLEC(ligand, protein, ignore_hoh=True)), 465)
+        assert_equal(len(PLEC(ligand, protein, ignore_hoh=False)), 560)
 
 
 def test_plec_similarity():
