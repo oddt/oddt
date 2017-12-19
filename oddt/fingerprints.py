@@ -695,7 +695,7 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     """
     result = []
     # removing h
-    protein_mask = protein_no_h = protein.atom_dict['atomicnum'] != 1
+    protein_mask = protein_no_h = (protein.atom_dict['atomicnum'] != 1)
     if ignore_hoh:
         # a copy is needed, so not modifing inplace
         protein_mask = protein_mask & (protein.atom_dict['resname'] != 'HOH')
