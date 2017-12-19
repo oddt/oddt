@@ -239,7 +239,7 @@ def main():
         if fmt == 'csv':
             pipeline.write_csv(args.out_file, fields=args.save_fields)
         else:
-            pipeline.write(fmt, args.out_file, overwrite=True)
+            pipeline.write(fmt, args.out_file)
     else:
         fmt = args.out_format
         if not fmt:
