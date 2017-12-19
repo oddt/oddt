@@ -695,8 +695,9 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     """
     result = []
     # removing h
-    protein_mask = (protein.atom_dict['atomicnum'] != 1)
+    protein_mask = protein_no_h = (protein.atom_dict['atomicnum'] != 1)
     if ignore_hoh:
+        # a copy is needed, so not modifing inplace
         protein_mask = protein_mask & (protein.atom_dict['resname'] != 'HOH')
     protein_dict = protein.atom_dict[protein_mask]
     ligand_dict = ligand.atom_dict[ligand.atom_dict['atomicnum'] != 1]
@@ -707,8 +708,9 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
 
     lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, aidx)
                      for aidx in ligand_dict['id'].tolist()}
+    # HOH residues might be connected to metal atoms
     prot_atom_repr = {aidx: _ECFP_atom_repr(protein, aidx)
-                      for aidx in protein_dict['id'].tolist()}
+                      for aidx in protein.atom_dict[protein_no_h]['id'].tolist()}
 
     for ligand_atom, protein_atom in zip(ligand_atoms['id'].tolist(),
                                          protein_atoms['id'].tolist()):
