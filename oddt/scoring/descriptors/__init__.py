@@ -112,13 +112,14 @@ class close_contacts_descriptor(object):
                 Flag indicating should permutation of types should be done,
                 otherwise the atoms are treated as aligned pairs.
         """
-        if isinstance(cutoff, (int, float)):
-            self.cutoff = np.array([cutoff])
-        elif len(cutoff) > 1 and len(np.array(cutoff).shape) == 1:
-            self.cutoff = np.vstack((np.array(cutoff)[:-1],
-                                     np.array(cutoff)[1:])).T
-        else:
-            self.cutoff = np.array(cutoff)
+        self.cutoff = np.atleast_1d(cutoff)
+        # Cutoffs in fomr of continuous intervals (0,2,4,6,...)
+        if len(self.cutoff) > 1 and self.cutoff.ndim == 1:
+            self.cutoff = np.vstack((self.cutoff[:-1],
+                                     self.cutoff[1:])).T
+        elif self.cutoff.ndim > 2:
+            raise ValueError('Unsupported shape of cutoff: %s' % self.cutoff.shape)
+
         # for pickle save original value
         self.original_cutoff = cutoff
 
@@ -270,9 +271,7 @@ class autodock_vina_descriptor(object):
                 desc = vec
             else:
                 desc = np.vstack((desc, vec))
-        if len(desc.shape) == 1:
-            desc = desc.reshape(1, -1)
-        return desc
+        return np.atleast_2d(desc)
 
     def __len__(self):
         """ Returns the dimensions of descriptors """
@@ -344,9 +343,7 @@ class oddt_vina_descriptor(object):
                 desc = vec
             else:
                 desc = np.vstack((desc, vec))
-        if len(desc.shape) == 1:
-            desc = desc.reshape(1, -1)
-        return desc
+        return np.atleast_2d(desc)
 
     def __len__(self):
         """ Returns the dimensions of descriptors """
