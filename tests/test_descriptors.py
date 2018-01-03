@@ -36,7 +36,7 @@ def test_atoms_by_type():
             assert_equal(len(types_dict[t]), n)
 
 
-def test_close_contacts():
+def test_close_contacts_descriptor():
     ligands = list(oddt.toolkit.readfile('sdf', actives_sdf))
     rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
     rec.protein = True
@@ -44,7 +44,7 @@ def test_close_contacts():
 
     for cutoff, num_contacts in ((4, 6816), ([4], 6816), ([2, 4], 6816),
                                  ([[1, 2], [3, 4]], 6304)):
-        contacts_descriptor = descriptors.close_contacts(
+        contacts_descriptor = descriptors.close_contacts_descriptor(
             cutoff=cutoff,
             ligand_types=[6, 7, 8],
             protein_types=[6, 7, 8])

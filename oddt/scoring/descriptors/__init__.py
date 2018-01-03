@@ -5,7 +5,7 @@ from oddt.utils import is_molecule
 from oddt.docking import autodock_vina
 from oddt.docking.internal import vina_docking
 
-__all__ = ['close_contacts',
+__all__ = ['close_contacts_descriptor',
            'fingerprints',
            'autodock_vina_descriptor',
            'oddt_vina_descriptor']
@@ -78,7 +78,7 @@ def atoms_by_type(atom_dict, types, mode='atomic_nums'):
     return out
 
 
-class close_contacts(object):
+class close_contacts_descriptor(object):
     def __init__(self,
                  protein=None,
                  cutoff=4,
@@ -198,12 +198,12 @@ class close_contacts(object):
             return len(self.ligand_types) * len(self.protein_types) * len(self.cutoff)
 
     def __reduce__(self):
-        return close_contacts, (self.protein,
-                                self.original_cutoff,
-                                self.mode,
-                                self.ligand_types,
-                                self.protein_types,
-                                self.aligned_pairs)
+        return close_contacts_descriptor, (self.protein,
+                                           self.original_cutoff,
+                                           self.mode,
+                                           self.ligand_types,
+                                           self.protein_types,
+                                           self.aligned_pairs)
 
 
 # TODO: we don't use toolkit. should we?
