@@ -12,7 +12,7 @@ Currently following interacions are implemented:
 """
 
 import numpy as np
-from oddt.spatial import dihedral, angle, angle_2v, distance
+from oddt.spatial import angle, angle_2v, distance
 
 __all__ = ['close_contacts',
            'hbond_acceptor_donor',
@@ -28,8 +28,10 @@ __all__ = ['close_contacts',
            'pi_metal']
 
 
-def close_contacts(x, y, cutoff, x_column='coords', y_column='coords'):
-    """ Returns pairs of atoms which are within close contac distance cutoff.
+def close_contacts(x, y, cutoff, x_column='coords', y_column='coords',
+                   cutoff_low=0.):
+    """Returns pairs of atoms which are within close contac distance cutoff.
+    The cutoff is semi-inclusive, i.e (cutoff_low, cutoff].
 
         Parameters
         ----------
@@ -43,6 +45,9 @@ def close_contacts(x, y, cutoff, x_column='coords', y_column='coords'):
                 Column containing coordinates of atoms (or pseudo-atoms,
                 i.e. ring centroids)
 
+            cutoff_low : float (default=0.)
+                Lower bound of contacts to find (exclusive). Zero by default.
+
         Returns
         -------
             x_, y_ : atom_dict-type numpy array
@@ -50,7 +55,7 @@ def close_contacts(x, y, cutoff, x_column='coords', y_column='coords'):
     """
     if len(x[x_column]) > 0 and len(x[x_column]) > 0:
         d = distance(x[x_column], y[y_column])
-        index = np.argwhere((d > 0) & (d <= cutoff))
+        index = np.argwhere((d > cutoff_low) & (d <= cutoff))
         return x[index[:, 0]], y[index[:, 1]]
     else:
         return x[[]], y[[]]
