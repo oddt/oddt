@@ -14,7 +14,8 @@ from oddt import random_seed
 from oddt.metrics import rmse
 from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
-from oddt.scoring.descriptors import close_contacts, oddt_vina_descriptor
+from oddt.scoring.descriptors import (close_contacts_descriptor,
+                                      oddt_vina_descriptor)
 
 
 # numpy after pickling gives Runtime Warnings
@@ -35,24 +36,27 @@ class rfscore(scorer):
         if version == 1:
             cutoff = 12
             mtry = 6
-            descriptors = close_contacts(protein,
-                                         cutoff=cutoff,
-                                         protein_types=protein_atomic_nums,
-                                         ligand_types=ligand_atomic_nums)
+            descriptors = close_contacts_descriptor(
+                protein,
+                cutoff=cutoff,
+                protein_types=protein_atomic_nums,
+                ligand_types=ligand_atomic_nums)
         elif version == 2:
             cutoff = np.array([0, 2, 4, 6, 8, 10, 12])
             mtry = 14
-            descriptors = close_contacts(protein,
-                                         cutoff=cutoff,
-                                         protein_types=protein_atomic_nums,
-                                         ligand_types=ligand_atomic_nums)
+            descriptors = close_contacts_descriptor(
+                protein,
+                cutoff=cutoff,
+                protein_types=protein_atomic_nums,
+                ligand_types=ligand_atomic_nums)
         elif version == 3:
             cutoff = 12
             mtry = 6
-            cc = close_contacts(protein,
-                                cutoff=cutoff,
-                                protein_types=protein_atomic_nums,
-                                ligand_types=ligand_atomic_nums)
+            cc = close_contacts_descriptor(
+                protein,
+                cutoff=cutoff,
+                protein_types=protein_atomic_nums,
+                ligand_types=ligand_atomic_nums)
             vina_scores = ['vina_gauss1',
                            'vina_gauss2',
                            'vina_repulsion',
