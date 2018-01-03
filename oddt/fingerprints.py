@@ -10,6 +10,7 @@ from collections import OrderedDict
 import numpy as np
 from scipy.sparse import csr_matrix
 import oddt
+from oddt.utils import is_openbabel_molecule
 from oddt.interactions import (pi_stacking,
                                hbond_acceptor_donor,
                                salt_bridge_plus_minus,
@@ -354,8 +355,7 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
                 int(atom_dict['isaromatic']))
 
     else:
-        if (hasattr(oddt.toolkits, 'ob') and
-                isinstance(mol, oddt.toolkits.ob.Molecule)):
+        if is_openbabel_molecule(mol):
             atom = mol.OBMol.GetAtom(idx + 1)
             if atom.GetAtomicNum() == 1:
                 raise Exception('ECFP should not hash Hydrogens')
@@ -410,8 +410,7 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
     environment_hashes : list of ints
         Hashed environments for certain atom
     """
-    if (hasattr(oddt.toolkits, 'ob') and
-            isinstance(mol, oddt.toolkits.ob.Molecule)):
+    if is_openbabel_molecule(mol):
         envs = OrderedDict([(i, []) for i in range(depth + 1)])
         last_depth = 0
         for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol,

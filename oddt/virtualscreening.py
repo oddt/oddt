@@ -241,12 +241,10 @@ class virtualscreening:
             _parallel_helper_partial = partial(_parallel_helper, engine, 'dock')
             docking_results = (
                 Pool(self.n_cpu if self.n_cpu > 0 else None)
-                .imap(_parallel_helper_partial, ({'ligands': lig,
-                                                  'single': True}
+                .imap(_parallel_helper_partial, ({'ligands': lig}
                                                  for lig in self._pipe)))
         else:
-            docking_results = (engine.dock(lig, single=True)
-                               for lig in self._pipe)
+            docking_results = (engine.dock(lig) for lig in self._pipe)
         self._pipe = chain.from_iterable(docking_results)
 
     def score(self, function, protein=None, *args, **kwargs):

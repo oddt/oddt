@@ -224,10 +224,10 @@ class binana_descriptor(object):
             # Vina
             # TODO: Asynchronous output from vina, push command to score and retrieve at the end?
             # TODO: Check if ligand has vina scores
-            vec += tuple(self.vina.build(mol, single=True).flatten())
+            vec += tuple(self.vina.build(mol).flatten())
 
             # Close Contacts (<4A)
-            vec += tuple(self.cc_4.build(mol, single=True).flatten())
+            vec += tuple(self.cc_4.build(mol).flatten())
 
             # Electrostatics (<4A)
             ele_rec_types, ele_lig_types = zip(*self.ele_types)
@@ -251,7 +251,7 @@ class binana_descriptor(object):
             vec += tuple([len(atoms[t]) for t in self.ligand_atom_types])
 
             # Close Contacts (<2.5A)
-            vec += tuple(self.cc_25.build(mol, single=True).flatten())
+            vec += tuple(self.cc_25.build(mol).flatten())
 
             # H-Bonds (<4A)
             hbond_mol, hbond_rec, strict = interactions.hbonds(mol, protein, 4)

@@ -8,6 +8,7 @@ import re
 import os
 
 import oddt
+from oddt.utils import is_openbabel_molecule, is_molecule
 from oddt.spatial import rmsd
 
 
@@ -165,7 +166,7 @@ class autodock_vina(object):
                 self.protein_file = write_vina_pdbqt(self.protein, self.tmp_dir,
                                                      flexible=False)
 
-    def score(self, ligands, protein=None, single=False):
+    def score(self, ligands, protein=None):
         """Automated scoring procedure.
 
         Parameters
@@ -177,10 +178,6 @@ class autodock_vina(object):
                 Protein object to be used. If None, then the default
                 one is used, else the protein is new default.
 
-            single: bool (default=False)
-                A flag to indicate single ligand scoring - performance reasons
-                (eg. there is no need for subdirectory for one ligand)
-
         Returns
         -------
             ligands : array of oddt.toolkit.Molecule objects
@@ -190,7 +187,7 @@ class autodock_vina(object):
             self.set_protein(protein)
         if not self.protein_file:
             raise IOError("No receptor.")
-        if single:
+        if is_molecule(ligands):
             ligands = [ligands]
         ligand_dir = mkdtemp(dir=self.tmp_dir, prefix='ligands_')
         output_array = []
@@ -214,7 +211,7 @@ class autodock_vina(object):
         rmtree(ligand_dir)
         return output_array
 
-    def dock(self, ligands, protein=None, single=False):
+    def dock(self, ligands, protein=None):
         """Automated docking procedure.
 
         Parameters
@@ -226,10 +223,6 @@ class autodock_vina(object):
                 Protein object to be used. If None, then the default one
                 is used, else the protein is new default.
 
-            single: bool (default=False)
-                A flag to indicate single ligand docking - performance reasons
-                (eg. there is no need for subdirectory for one ligand)
-
         Returns
         -------
             ligands : array of oddt.toolkit.Molecule objects
@@ -239,7 +232,7 @@ class autodock_vina(object):
             self.set_protein(protein)
         if not self.protein_file:
             raise IOError("No receptor.")
-        if single:
+        if is_molecule(ligands):
             ligands = [ligands]
         ligand_dir = mkdtemp(dir=self.tmp_dir, prefix='ligands_')
         output_array = []
@@ -262,8 +255,7 @@ class autodock_vina(object):
                                     ' '.join(e.cmd))
 
             # docked conformations may have wrong connectivity - use source ligand
-            if (hasattr(oddt.toolkits, 'ob') and
-                    isinstance(ligand, oddt.toolkits.ob.Molecule)):
+            if is_openbabel_molecule(ligand):
                 if oddt.toolkits.ob.__version__ >= '2.4.0':
                     # find the order of PDBQT atoms assigned by OpenBabel
                     with open(ligand_file) as f:
@@ -285,8 +277,7 @@ class autodock_vina(object):
             docked_ligands = oddt.toolkit.readfile('pdbqt', ligand_outfile)
             for docked_ligand, score in zip(docked_ligands, scores):
                 # Renumber atoms to match the input ligand
-                if (hasattr(oddt.toolkits, 'ob') and
-                        isinstance(docked_ligand, oddt.toolkits.ob.Molecule) and
+                if (is_openbabel_molecule(docked_ligand) and
                         oddt.toolkits.ob.__version__ >= '2.4.0'):
                     docked_ligand.OBMol.RenumberAtoms(new_order)
                 # HACK: copy docked coordinates onto source ligand
@@ -354,8 +345,7 @@ def write_vina_pdbqt(mol, directory, flexible=True, name_id=None):
     # prepend path to filename
     mol_file = os.path.join(directory, mol_file)
 
-    if (hasattr(oddt.toolkits, 'ob') and
-            isinstance(mol, oddt.toolkits.ob.Molecule)):
+    if is_openbabel_molecule(mol):
         if flexible:
             # auto bonding (b), perserve atom names (n) indices (p) and Hs (h)
             kwargs = {'opt': {'b': None, 'p': None, 'h': None, 'n': None}}
@@ -367,9 +357,8 @@ def write_vina_pdbqt(mol, directory, flexible=True, name_id=None):
         kwargs = {'flexible': flexible}
 
     # HACK: fix OB 2.3.2 PDBQT bugs
-    if (not flexible and hasattr(oddt.toolkits, 'ob') and
-            oddt.toolkits.ob.__version__ < '2.4.0' and
-            isinstance(mol, oddt.toolkits.ob.Molecule)):
+    if (not flexible and is_openbabel_molecule(mol) and
+            oddt.toolkits.ob.__version__ < '2.4.0'):
         with open(mol_file, 'w') as f:
             for line in mol.write('pdbqt', overwrite=True, **kwargs).split('\n'):
                 # remove OB 2.3 ROOT/ENDROOT tags

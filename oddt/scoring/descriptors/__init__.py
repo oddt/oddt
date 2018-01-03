@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.spatial.distance import cdist as distance
 
+from oddt.utils import is_molecule
 from oddt.docking import autodock_vina
 from oddt.docking.internal import vina_docking
 
@@ -140,8 +141,7 @@ class close_contacts(object):
                            for c1, c2 in self.cutoff
                            ]
 
-    # TODO: remove single?
-    def build(self, ligands, protein=None, single=False):
+    def build(self, ligands, protein=None):
         """Builds descriptors for series of ligands
 
         Parameters
@@ -153,13 +153,10 @@ class close_contacts(object):
             protein: oddt.toolkit.Molecule or None (default=None)
                 Default protein to use as reference
 
-            single: bool (default=False)
-                Flag indicating if the ligand is single.
-
         """
         if protein:
             self.protein = protein
-        if single and not isinstance(ligands, list):
+        if is_molecule(ligands):
             ligands = [ligands]
         out = []
         for mol in ligands:
@@ -225,8 +222,8 @@ class fingerprints(object):
             mol = self.target_toolkit.Molecule(mol)
         return mol.calcfp(self.fp).raw
 
-    def build(self, mols, single=False):
-        if single:
+    def build(self, mols):
+        if is_molecule(mols):
             mols = [mols]
         out = []
         for mol in mols:
@@ -254,19 +251,19 @@ class autodock_vina_descriptor(object):
         self.protein = protein
         self.vina.set_protein(protein)
 
-    def build(self, ligands, protein=None, single=False):
+    def build(self, ligands, protein=None):
         if protein:
             self.set_protein(protein)
         else:
             protein = self.protein
-        if ligands.__class__.__name__ == 'Molecule':
+        if is_molecule(ligands):
             ligands = [ligands]
         desc = None
         for mol in ligands:
             # Vina
             # TODO: Asynchronous output from vina, push command to score and retrieve at the end?
             # TODO: Check if ligand has vina scores
-            scored_mol = self.vina.score(mol, single=True)[0].data
+            scored_mol = self.vina.score(mol)[0].data
             vec = np.array(([scored_mol[key] for key in self.vina_scores]),
                            dtype=np.float32).flatten()
             if desc is None:
@@ -310,12 +307,12 @@ class oddt_vina_descriptor(object):
         self.protein = protein
         self.vina.set_protein(protein)
 
-    def build(self, ligands, protein=None, single=False):
+    def build(self, ligands, protein=None):
         if protein:
             self.set_protein(protein)
         else:
             protein = self.protein
-        if ligands.__class__.__name__ == 'Molecule':
+        if is_molecule(ligands):
             ligands = [ligands]
         desc = None
         for mol in ligands:

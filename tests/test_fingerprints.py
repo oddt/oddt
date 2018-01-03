@@ -6,8 +6,8 @@ from sklearn.utils.testing import (assert_array_equal,
                                    assert_array_almost_equal,
                                    assert_equal,
                                    assert_almost_equal)
-import pandas as pd
 import oddt
+from oddt.utils import is_openbabel_molecule
 from oddt.fingerprints import (InteractionFingerprint,
                                SimpleInteractionFingerprint,
                                ECFP,
@@ -39,8 +39,7 @@ def shuffle_mol(mol):
     new_mol = mol.clone
     new_order = list(range(len(mol.atoms)))
     shuffle(new_order)
-    if (hasattr(oddt.toolkits, 'ob') and
-            isinstance(mol, oddt.toolkits.ob.Molecule)):
+    if is_openbabel_molecule(mol):
         new_mol.OBMol.RenumberAtoms([i + 1 for i in new_order])
     else:
         new_mol.Mol = oddt.toolkits.rdk.Chem.RenumberAtoms(new_mol.Mol, new_order)
