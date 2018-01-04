@@ -9,6 +9,7 @@ from os.path import dirname, isfile
 from multiprocessing import Pool  # process
 from itertools import chain
 from functools import partial
+import warnings
 
 from oddt import toolkit
 from oddt.scoring import scorer
@@ -321,8 +322,9 @@ class virtualscreening:
             self._pipe = sf.predict_ligands(self._pipe)
 
     def fetch(self):
-        for n, mol in enumerate(self._pipe):
-            self.num_output = n+1
+        """A method to exhaust the pipeline. Itself it is lazy (a generator)"""
+        for mol in self._pipe:
+            self.num_output += 1
             if self.verbose and self.num_input % 100 == 0:
                 print("Passed: %i (%.2f%%)\tTotal: %i\r" %
                       (self.num_output,
@@ -332,6 +334,9 @@ class virtualscreening:
             yield mol
         if self.verbose:
             print('', file=sys.stderr)
+        if self.num_output == 0:
+            warnings.warn('There is **zero** molecules at the output of the VS'
+                          ' pipeline. Output file will be empty.')
 
     # Consume the pipe
     def write(self, fmt, filename, csv_filename=None, **kwargs):
