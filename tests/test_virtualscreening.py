@@ -4,7 +4,8 @@ from tempfile import mkdtemp, NamedTemporaryFile
 from nose.tools import assert_in, assert_equal
 from sklearn.utils.testing import (assert_array_equal,
                                    assert_array_almost_equal,
-                                   assert_raises)
+                                   assert_raises,
+                                   assert_raises_regexp)
 
 import pandas as pd
 
@@ -87,6 +88,23 @@ def test_vs_docking():
 
         assert_array_almost_equal([rmsd(ref_mol, mol, method='min_symmetry')
                                    for mol in mols], vina_rmsd)
+
+
+def test_vs_docking_empty():
+    vs = virtualscreening(n_cpu=1)
+    vs.load_ligands('smi', os.path.join(dude_data_dir, 'actives_rdkit.smi'))
+
+    vs.dock(engine='autodock_vina',
+            protein=xiap_protein,
+            auto_ligand=xiap_crystal_ligand,
+            exhaustiveness=1,
+            energy_range=5,
+            num_modes=9,
+            size=(20, 20, 20),
+            seed=0)
+
+    assert_raises_regexp(ValueError, 'has no 3D coordinates',
+                         next, vs.fetch())
 
 
 if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed

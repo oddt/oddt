@@ -8,7 +8,9 @@ import re
 import os
 
 import oddt
-from oddt.utils import is_openbabel_molecule, is_molecule
+from oddt.utils import (is_openbabel_molecule,
+                        is_molecule,
+                        check_molecule)
 from oddt.spatial import rmsd
 
 
@@ -192,6 +194,7 @@ class autodock_vina(object):
         ligand_dir = mkdtemp(dir=self.tmp_dir, prefix='ligands_')
         output_array = []
         for n, ligand in enumerate(ligands):
+            check_molecule(ligand, force_coords=True)
             ligand_file = write_vina_pdbqt(ligand, ligand_dir, name_id=n)
             try:
                 scores = parse_vina_scoring_output(
@@ -237,6 +240,7 @@ class autodock_vina(object):
         ligand_dir = mkdtemp(dir=self.tmp_dir, prefix='ligands_')
         output_array = []
         for n, ligand in enumerate(ligands):
+            check_molecule(ligand, force_coords=True)
             ligand_file = write_vina_pdbqt(ligand, ligand_dir, name_id=n)
             ligand_outfile = ligand_file[:-6] + '_out.pdbqt'
             try:
