@@ -160,7 +160,7 @@ def test_vs_similarity():
     else:
         assert_equal(len(list(vs.fetch())), 89)
 
-    vs = virtualscreening(n_cpu=-1)
+    vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('ifp', cutoff=0.95, query=ref_mol, protein=receptor)
     if oddt.toolkit.backend == 'ob':
@@ -168,7 +168,7 @@ def test_vs_similarity():
     else:
         assert_equal(len(list(vs.fetch())), 6)
 
-    vs = virtualscreening(n_cpu=-1)
+    vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('sifp', cutoff=0.9, query=ref_mol, protein=receptor)
     if oddt.toolkit.backend == 'ob':
@@ -201,7 +201,7 @@ def test_vs_scoring():
             model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
                                     home_dir=home_dir)
             filenames.append(model.train(home_dir=home_dir))
-    vs = virtualscreening(n_cpu=-1)
+    vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
     # error if no protein is fed
     assert_raises(ValueError, vs.score, 'nnscore')
