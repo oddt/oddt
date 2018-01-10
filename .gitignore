@@ -67,4 +67,4 @@ asv_bench/results/
 *.pickle
 
 # testing artifacts
-tests/v*
+tests/data/v*
