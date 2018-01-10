@@ -58,23 +58,21 @@ def test_vs_docking():
             protein=xiap_protein,
             auto_ligand=xiap_crystal_ligand,
             exhaustiveness=1,
-            energy_range=5,
-            num_modes=9,
+            energy_range=6,
+            num_modes=7,
             size=(20, 20, 20),
             seed=0)
     mols = list(vs.fetch())
-    assert_equal(len(mols), 9)
+    assert_equal(len(mols), 7)
     mol_data = mols[0].data
     assert_in('vina_affinity', mol_data)
     assert_in('vina_rmsd_lb', mol_data)
     assert_in('vina_rmsd_ub', mol_data)
     if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
-        vina_scores = [-6.3, -6.0, -6.0, -5.9, -5.9, -5.8, -5.2, -4.2, -3.9]
+        vina_scores = [-5.3, -4.0, -3.8, -3.7, -3.4, -3.4, -3.0]
     else:
-        vina_scores = [-6.3, -6.0, -5.1, -3.9, -3.5, -3.5, -3.5, -3.3, -2.5]
-
-    # TODO: Fix problematic test
-    # assert_array_equal([float(m.data['vina_affinity']) for m in mols], vina_scores)
+        vina_scores = [-6.3, -6.0, -5.8, -5.8, -3.9, -3.0, -1.1]
+    assert_array_equal([float(m.data['vina_affinity']) for m in mols], vina_scores)
 
     # verify the SMILES of molecules
     ref_mol = next(oddt.toolkit.readfile('sdf', xiap_crystal_ligand))
@@ -83,14 +81,13 @@ def test_vs_docking():
         # OB 2.3.2 will fail the following, since Hs are removed, etc.
         pass
     else:
-        vina_rmsd = [8.247347, 5.316951, 7.964107, 7.445350, 8.127984, 7.465065,
-                     8.486132, 7.943340, 7.762220]
+        vina_rmsd = [8.153314, 5.32554, 8.514586, 8.510169, 9.060128, 8.995098,
+                     8.626776]
         assert_array_equal([mol.smiles for mol in mols],
                            [ref_mol.smiles] * len(mols))
 
-        # TODO: Fix problematic test
-        # assert_array_almost_equal([rmsd(ref_mol, mol, method='min_symmetry')
-        #                            for mol in mols], vina_rmsd)
+        assert_array_almost_equal([rmsd(ref_mol, mol, method='min_symmetry')
+                                   for mol in mols], vina_rmsd)
 
 
 def test_vs_docking_empty():

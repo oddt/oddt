@@ -3,7 +3,6 @@ from shutil import rmtree
 import sys
 import subprocess
 from six import string_types
-import numpy as np
 import re
 import os
 
@@ -84,8 +83,7 @@ class autodock_vina(object):
             if isinstance(auto_ligand, string_types):
                 extension = auto_ligand.split('.')[-1]
                 auto_ligand = next(oddt.toolkit.readfile(extension, auto_ligand))
-            self.center = tuple(np.array([atom.coords for atom in auto_ligand],
-                                         dtype=np.float32).mean(axis=0))
+            self.center = auto_ligand.coords.mean(axis=0).round(3)
         # autodetect Vina executable
         if not executable:
             try:
@@ -419,5 +417,7 @@ def parse_vina_docking_output(output):
     for line in output.decode('ascii').split('\n')[13:]:  # skip some output
         if r.match(line):
             s = line.split()
-            out.append({'vina_affinity': s[1], 'vina_rmsd_lb': s[2], 'vina_rmsd_ub': s[3]})
+            out.append({'vina_affinity': s[1],
+                        'vina_rmsd_lb': s[2],
+                        'vina_rmsd_ub': s[3]})
     return out
