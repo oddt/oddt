@@ -2,16 +2,17 @@
 from __future__ import print_function
 import sys
 import csv
-import six
-from six.moves import filter
 from os.path import dirname, isfile
-# from multiprocessing.dummy import Pool # threading
-from multiprocessing import Pool  # process
 from itertools import chain
 from functools import partial
 import warnings
 
-from oddt import toolkit
+import six
+from six.moves import filter
+from joblib import Parallel, delayed
+
+import oddt
+from oddt.utils import is_molecule, compose_iter, chunker, method_caller
 from oddt.scoring import scorer
 from oddt.fingerprints import (InteractionFingerprint,
                                SimpleInteractionFingerprint,
@@ -19,13 +20,58 @@ from oddt.fingerprints import (InteractionFingerprint,
 from oddt.shape import usr, usr_cat, electroshape, usr_similarity
 
 
-def _parallel_helper(obj, methodname, kwargs):
-    """Private helper to workaround Python 2 methods picklinh limitations"""
-    return getattr(obj, methodname)(**kwargs)
+def _filter_smarts(mols, smarts, soft_fail=0):
+    """Filter out molecule list (exhaustive) by smarts occurances. Allow molecules
+    to pass if them match up to `soft_fail` matches.
+    """
+    out = []
+    for mol in mols:
+        if isinstance(smarts, six.string_types):
+            compiled_smarts = oddt.toolkit.Smarts(smarts)
+            if len(compiled_smarts.findall(mol)) == 0:
+                out.append(mol)
+        else:
+            compiled_smarts = [oddt.toolkit.Smarts(s) for s in smarts]
+            fail = 0
+            for s in compiled_smarts:
+                if len(s.findall(mol)) > 0:
+                    fail += 1
+                if fail > soft_fail:
+                    break
+            if fail <= soft_fail:
+                out.append(mol)
+    return out
+
+
+def _filter(mols, expression, soft_fail=0):
+    """Filter molecule by a generic expression, such as `mol.logp > 1`."""
+    out = []
+    for mol in mols:
+        if isinstance(expression, list):
+            fail = 0
+            for e in expression:
+                if not eval(e):
+                    fail += 1
+                if fail > soft_fail:
+                    break
+            if fail <= soft_fail:
+                out.append(mol)
+        else:
+            if eval(expression):
+                out.append(mol)
+    return out
+
+
+def _filter_similarity(mols, distance, generator, query_fps, cutoff):
+    """Filter molecules by a certain distance to the reference fingerprints.
+    User must supply distance funtion, FP generator, query FPs and cutoff."""
+    return list(filter(
+        lambda q: any(distance(generator(q), q_fp) >= float(cutoff)
+                      for q_fp in query_fps), mols))
 
 
 class virtualscreening:
-    def __init__(self, n_cpu=-1, verbose=False):
+    def __init__(self, n_cpu=-1, verbose=False, chunksize=100):
         """Virtual Screening pipeline stack
 
         Parameters
@@ -36,13 +82,15 @@ class virtualscreening:
             verbose: bool (default=False)
                 Verbosity flag for some methods
         """
-        self._pipe = None
+        self._pipe = []
+        self._mol_feed = []
         self.n_cpu = n_cpu if n_cpu else -1
         self.num_input = 0
         self.num_output = 0
         self.verbose = verbose
+        self.chunksize = chunksize
 
-    def load_ligands(self, fmt, ligands_file, *args, **kwargs):
+    def load_ligands(self, fmt, ligands_file, **kwargs):
         """Loads file with ligands.
 
         Parameters
@@ -54,20 +102,15 @@ class virtualscreening:
                 Path to a file, which is loaded to pipeline
 
         """
-        if fmt == 'mol2' and toolkit.backend == 'ob':
+        if fmt == 'mol2' and oddt.toolkit.backend == 'ob':
             if 'opt' in kwargs:
                 kwargs['opt']['c'] = None
             else:
                 kwargs['opt'] = {'c': None}
-        new_pipe = self._ligand_pipe(toolkit.readfile(fmt, ligands_file, *args,
-                                                      **kwargs))
-        self._pipe = chain(self._pipe, new_pipe) if self._pipe else new_pipe
-
-    def _ligand_pipe(self, ligands):
-        for mol in ligands:
-            if mol:
-                self.num_input += 1
-                yield mol
+        self._mol_feed = chain(self._mol_feed,
+                               oddt.toolkit.readfile(fmt,
+                                                     ligands_file,
+                                                     **kwargs))
 
     def apply_filter(self, expression, soft_fail=0):
         """Filtering method, can use raw expressions (strings to be evaled
@@ -92,65 +135,35 @@ class virtualscreening:
             # TODO: move presets to another config file
             # Lipinski rule of 5's
             if expression.lower() in ['l5', 'ro5']:
-                self._pipe = self._filter(self._pipe,
-                                          ['mol.molwt < 500',
-                                           'mol.HBA1 <= 10',
-                                           'mol.HBD <= 5',
-                                           'mol.logP <= 5'],
-                                          soft_fail=soft_fail)
+                self._pipe.append((partial(_filter,
+                                           expression=['mol.molwt < 500',
+                                                       'mol.HBA1 <= 10',
+                                                       'mol.HBD <= 5',
+                                                       'mol.logP <= 5'],
+                                           soft_fail=soft_fail)))
             # Rule of three
             elif expression.lower() in ['ro3']:
-                self._pipe = self._filter(self._pipe,
-                                          ['mol.molwt < 300',
-                                           'mol.HBA1 <= 3',
-                                           'mol.HBD <= 3',
-                                           'mol.logP <= 3'],
-                                          soft_fail=soft_fail)
+                self._pipe.append((partial(_filter,
+                                           expression=['mol.molwt < 300',
+                                                       'mol.HBA1 <= 3',
+                                                       'mol.HBD <= 3',
+                                                       'mol.logP <= 3'],
+                                           soft_fail=soft_fail)))
             # PAINS filter
             elif expression.lower() in ['pains']:
                 pains_smarts = {}
-                with open(dirname(__file__)+'/filter/pains.smarts') as pains_file:
+                with open(dirname(__file__) + '/filter/pains.smarts') as pains_file:
                     csv_reader = csv.reader(pains_file, delimiter="\t")
                     for line in csv_reader:
                         if len(line) > 1:
                             pains_smarts[line[1][8:-2]] = line[0]
-                self._pipe = self._filter_smarts(self._pipe,
-                                                 pains_smarts.values(),
-                                                 soft_fail=soft_fail)
+                self._pipe.append((partial(_filter_smarts,
+                                           smarts=list(pains_smarts.values()),
+                                           soft_fail=soft_fail)))
         else:
-            self._pipe = self._filter(self._pipe, expression, soft_fail=soft_fail)
-
-    def _filter_smarts(self, pipe, smarts, soft_fail=0):
-        for mol in pipe:
-            if isinstance(smarts, six.string_types):
-                compiled_smarts = toolkit.Smarts(smarts)
-                if len(compiled_smarts.findall(mol)) == 0:
-                    yield mol
-            else:
-                compiled_smarts = [toolkit.Smarts(s) for s in smarts]
-                fail = 0
-                for s in compiled_smarts:
-                    if len(s.findall(mol)) > 0:
-                        fail += 1
-                    if fail > soft_fail:
-                        break
-                if fail <= soft_fail:
-                    yield mol
-
-    def _filter(self, pipe, expression, soft_fail=0):
-        for mol in pipe:
-            if isinstance(expression, list):
-                fail = 0
-                for e in expression:
-                    if not eval(e):
-                        fail += 1
-                    if fail > soft_fail:
-                        break
-                if fail <= soft_fail:
-                    yield mol
-            else:
-                if eval(expression):
-                    yield mol
+            self._pipe.append((partial(_filter,
+                                       expression=expression,
+                                       soft_fail=soft_fail)))
 
     def similarity(self, method, query, cutoff=0.9, protein=None):
         """Similarity filter. Supported structural methods:
@@ -183,15 +196,15 @@ class virtualscreening:
                 sturctural fingerprints need one.
 
         """
-        if isinstance(query, toolkit.Molecule):
+        if is_molecule(query):
             query = [query]
 
         # choose fp/usr and appropriate distance
         if method.lower() == 'ifp':
-            gen = InteractionFingerprint
+            gen = partial(InteractionFingerprint, protein=protein)
             dist = dice
         elif method.lower() == 'sifp':
-            gen = SimpleInteractionFingerprint
+            gen = partial(SimpleInteractionFingerprint, protein=protein)
             dist = dice
         elif method.lower() == 'usr':
             gen = usr
@@ -204,13 +217,12 @@ class virtualscreening:
             dist = usr_similarity
         else:
             raise ValueError('Similarity filter "%s" is not supported.' % method)
-        query_fps = [(gen(q) if protein is None else gen(q, protein))
-                     for q in query]
-        self._pipe = filter(lambda q: any(dist(gen(q) if protein is None
-                                               else gen(q, protein),
-                                               q_fp) >= float(cutoff)
-                                          for q_fp in query_fps),
-                            self._pipe)
+        query_fps = [gen(q) for q in query]
+        self._pipe.append(partial(_filter_similarity,
+                                  distance=dist,
+                                  generator=gen,
+                                  query_fps=query_fps,
+                                  cutoff=cutoff))
 
     def dock(self, engine, protein, *args, **kwargs):
         """Docking procedure.
@@ -238,15 +250,7 @@ class virtualscreening:
         else:
             raise ValueError('Docking engine %s was not implemented in ODDT'
                              % engine)
-        if self.n_cpu != 1:
-            _parallel_helper_partial = partial(_parallel_helper, engine, 'dock')
-            docking_results = (
-                Pool(self.n_cpu if self.n_cpu > 0 else None)
-                .imap(_parallel_helper_partial, ({'ligands': lig}
-                                                 for lig in self._pipe)))
-        else:
-            docking_results = (engine.dock(lig) for lig in self._pipe)
-        self._pipe = chain.from_iterable(docking_results)
+        self._pipe.append(partial(method_caller, engine, 'dock'))
 
     def score(self, function, protein=None, *args, **kwargs):
         """Scoring procedure compatible with any scoring function implemented
@@ -267,7 +271,7 @@ class virtualscreening:
         """
         if isinstance(protein, six.string_types):
             extension = protein.split('.')[-1]
-            protein = six.next(toolkit.readfile(extension, protein))
+            protein = next(oddt.toolkit.readfile(extension, protein))
             protein.protein = True
         elif protein is None:
             raise ValueError('Protein needs to be set for structure based '
@@ -311,34 +315,30 @@ class virtualscreening:
             else:
                 raise ValueError('Supplied object "%s" is not an ODDT scoring '
                                  'funtion' % function.__name__)
-        if self.n_cpu != 1:
-            _parallel_helper_partial = partial(_parallel_helper, sf,
-                                               'predict_ligand')
-            self._pipe = (Pool(self.n_cpu if self.n_cpu > 0 else None)
-                          .imap(_parallel_helper_partial, ({'ligand': lig}
-                                                           for lig in self._pipe),
-                                chunksize=100))
-        else:
-            self._pipe = sf.predict_ligands(self._pipe)
+        self._pipe.append(partial(method_caller, sf, 'predict_ligands'))
 
     def fetch(self):
         """A method to exhaust the pipeline. Itself it is lazy (a generator)"""
-        for mol in self._pipe:
-            self.num_output += 1
-            if self.verbose and self.num_input % 100 == 0:
-                print("Passed: %i (%.2f%%)\tTotal: %i\r" %
-                      (self.num_output,
-                       float(self.num_output) / float(self.num_input) * 100,
-                       self.num_input),
-                      file=sys.stderr, end=" ")
-            yield mol
-        if self.verbose:
-            print('', file=sys.stderr)
-        if self.num_output == 0:
+        chunk_feed = chunker(self._mol_feed, chunksize=self.chunksize)
+        # get first chunk and check if it is saturated
+        first_chunk = next(chunk_feed)
+        if len(first_chunk) == 0:
             warnings.warn('There is **zero** molecules at the output of the VS'
                           ' pipeline. Output file will be empty.')
+        elif len(first_chunk) < self.chunksize and self.n_cpu > 1:
+            warnings.warn('The chunksize (%i) seams to be to large.'
+                          % self.chunksize)
+        # TODO add some verbosity or progress bar
+        # TODO make it lazy again with multiprocessing right now we need to fit
+        # all molecules into memory
 
-    # Consume the pipe
+        # out = (compose_iter(chunk, self._pipe) for chunk in chunk_feed)
+        out = Parallel(n_jobs=self.n_cpu)(
+            delayed(compose_iter)(chunk, self._pipe)
+            for chunk in chain([first_chunk], chunk_feed))
+        # merge chunks into one iterable
+        return chain.from_iterable(out)
+
     def write(self, fmt, filename, csv_filename=None, **kwargs):
         """Outputs molecules to a file
 
@@ -353,12 +353,15 @@ class virtualscreening:
             csv_filename: string
                 Optional path to a CSV file
         """
-        if fmt == 'mol2' and toolkit.backend == 'ob':
+        if fmt == 'mol2' and oddt.toolkit.backend == 'ob':
             if 'opt' in kwargs:
                 kwargs['opt']['c'] = None
             else:
                 kwargs['opt'] = {'c': None}
-        output_mol_file = toolkit.Outputfile(fmt, filename, overwrite=True, **kwargs)
+        output_mol_file = oddt.toolkit.Outputfile(fmt,
+                                                  filename,
+                                                  overwrite=True,
+                                                  **kwargs)
         if csv_filename:
             f = open(csv_filename, 'w')
             csv_file = None
@@ -389,10 +392,10 @@ class virtualscreening:
         output_mol_file.close()
         if csv_filename:
             f.close()
-#        if 'keep_pipe' in kwargs and kwargs['keep_pipe']:
+        # TODO keep_pipe using hdf5 to store molecules
         if isfile(filename):
-            kwargs.pop('overwrite', None)  # this argument is unsupported in readfile
-            self._pipe = toolkit.readfile(fmt, filename, **kwargs)
+            kwargs.pop('overwrite', None)  # this argument is unsupported
+            self.load_ligands(fmt, filename, **kwargs)
 
     def write_csv(self, csv_filename, fields=None, keep_pipe=False, **kwargs):
         """Outputs molecules to a csv file
@@ -434,7 +437,5 @@ class virtualscreening:
                                           extrasaction='ignore', **kwargs)
                 csv_file.writeheader()
             csv_file.writerow(data)
-            if keep_pipe:
-                # write ligand using pickle
-                pass
+            # TODO keep_pipe using hdf5 to store molecules
         f.close()

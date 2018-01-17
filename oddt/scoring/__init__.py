@@ -13,14 +13,8 @@ import gzip
 import six
 from six.moves import cPickle as pickle
 
+from oddt.utils import method_caller
 from oddt.datasets import pdbbind
-
-
-# define sub-function for paralelization
-def _parallel_helper(obj, methodname, *args, **kwargs):
-    """Private helper to workaround Python 2 pickle limitations to paralelize
-    methods"""
-    return getattr(obj, methodname)(*args, **kwargs)
 
 
 def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
@@ -134,7 +128,7 @@ class scorer(object):
         else:
             n_jobs = self.n_jobs
         result = Parallel(n_jobs=n_jobs, verbose=1)(
-            delayed(_parallel_helper)(
+            delayed(method_caller)(
                 self.descriptor_generator,
                 'build',
                 [pdbbind_db[pid].ligand],
@@ -229,7 +223,7 @@ class scorer(object):
         return ligand
 
     def predict_ligands(self, ligands):
-        """Method to score ligands lazily
+        """Method to score ligands in a lazy fasion.
 
         Parameters
         ----------
@@ -241,9 +235,7 @@ class scorer(object):
             ligand: iterator of oddt.toolkit.Molecule objects
                 Scored ligands with updated scores
         """
-        # make lazy calculation
-        for lig in ligands:
-            yield self.predict_ligand(lig)
+        return (self.predict_ligand(lig) for lig in ligands)
 
     def set_protein(self, protein):
         """Proxy method to update protein in all relevant places.

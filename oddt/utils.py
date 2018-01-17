@@ -1,4 +1,5 @@
 """Common utilities for ODDT"""
+from itertools import islice
 import numpy as np
 import oddt
 
@@ -64,3 +65,25 @@ def check_molecule(mol,
 
     if non_zero_atoms and len(mol.atoms) == 0:
         raise ValueError('Molecule "%s" has zero atoms.' % mol.title)
+
+
+def compose_iter(iterable, funcs):
+    """Chain functions and apply them to iterable, by exhausting the iterable.
+    Functions are executed in the order from funcs."""
+    for func in funcs:
+        iterable = func(iterable)
+    return list(iterable)
+
+
+def chunker(iterable, chunksize=100):
+    """Generate chunks from iterable"""
+    chunk = list(islice(iterable, chunksize))
+    while chunk:
+        yield chunk
+        chunk = list(islice(iterable, chunksize))
+
+
+def method_caller(obj, methodname, *args, **kwargs):
+    """Helper function to workaround Python 2 pickle limitations to parallelize
+    methods and generator objects"""
+    return getattr(obj, methodname)(*args, **kwargs)

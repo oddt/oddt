@@ -6,8 +6,9 @@ import warnings
 from joblib import Parallel, delayed
 
 from oddt import random_seed
+from oddt.utils import method_caller
 from oddt.metrics import rmse
-from oddt.scoring import scorer, ensemble_model, _parallel_helper
+from oddt.scoring import scorer, ensemble_model
 from oddt.scoring.descriptors.binana import binana_descriptor
 from oddt.scoring.models.regressors import neuralnetwork
 
@@ -55,7 +56,7 @@ class nnscore(scorer):
         seeds = np.random.randint(123456789, size=n)
         trained_nets = (
             Parallel(n_jobs=self.n_jobs, verbose=10, pre_dispatch='all')(
-                delayed(_parallel_helper)(
+                delayed(method_caller)(
                     neuralnetwork((5,),
                                   random_state=seeds[i],
                                   activation='logistic',
