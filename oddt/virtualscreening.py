@@ -3,13 +3,14 @@ from __future__ import print_function
 import sys
 import csv
 from os.path import dirname, isfile
+from multiprocessing import Pool
 from itertools import chain
 from functools import partial
 import warnings
 
 import six
 from six.moves import filter
-from joblib import Parallel, delayed
+# from joblib import Parallel, delayed
 
 import oddt
 from oddt.utils import is_molecule, compose_iter, chunker, method_caller
@@ -329,13 +330,19 @@ class virtualscreening:
             warnings.warn('The chunksize (%i) seams to be to large.'
                           % self.chunksize)
         # TODO add some verbosity or progress bar
-        # TODO make it lazy again with multiprocessing right now we need to fit
-        # all molecules into memory
+        if self.n_cpu != 1:
+            out = (Pool(self.n_cpu if self.n_cpu > 0 else None)
+                   .imap(partial(compose_iter, funcs=self._pipe),
+                         (chunk for chunk in chain([first_chunk], chunk_feed))))
+        else:
+            out = (compose_iter(chunk, self._pipe)
+                   for chunk in chain([first_chunk], chunk_feed))
 
-        # out = (compose_iter(chunk, self._pipe) for chunk in chunk_feed)
-        out = Parallel(n_jobs=self.n_cpu)(
-            delayed(compose_iter)(chunk, self._pipe)
-            for chunk in chain([first_chunk], chunk_feed))
+        # FIXME use joblib version as soon as it gets return_generator merged
+        # out = Parallel(n_jobs=self.n_cpu)(
+        #     delayed(compose_iter)(chunk, self._pipe)
+        #     for chunk in chain([first_chunk], chunk_feed))
+
         # merge chunks into one iterable
         return chain.from_iterable(out)
 
