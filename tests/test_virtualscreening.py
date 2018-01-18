@@ -103,7 +103,7 @@ def test_vs_docking_empty():
             size=(20, 20, 20),
             seed=0)
 
-    assert_raises_regexp(ValueError, 'has no 3D coordinates', vs.fetch)
+    assert_raises_regexp(ValueError, 'has no 3D coordinates', next, vs.fetch())
 
 
 if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed
