@@ -2,7 +2,7 @@
 from __future__ import print_function
 import sys
 import csv
-from os.path import dirname, isfile
+from os.path import dirname, isfile, join
 from multiprocessing import Pool
 from itertools import chain
 from functools import partial
@@ -143,7 +143,7 @@ class virtualscreening:
                                                        'mol.logP <= 5'],
                                            soft_fail=soft_fail)))
             # Rule of three
-            elif expression.lower() in ['ro3']:
+            elif expression.lower() == 'ro3':
                 self._pipe.append((partial(_filter,
                                            expression=['mol.molwt < 300',
                                                        'mol.HBA1 <= 3',
@@ -151,9 +151,10 @@ class virtualscreening:
                                                        'mol.logP <= 3'],
                                            soft_fail=soft_fail)))
             # PAINS filter
-            elif expression.lower() in ['pains']:
+            elif expression.lower() == 'pains':
                 pains_smarts = {}
-                with open(dirname(__file__) + '/filter/pains.smarts') as pains_file:
+                with open(join(dirname(__file__),
+                               'filter', 'pains.smarts')) as pains_file:
                     csv_reader = csv.reader(pains_file, delimiter="\t")
                     for line in csv_reader:
                         if len(line) > 1:
@@ -218,10 +219,11 @@ class virtualscreening:
             dist = usr_similarity
         else:
             raise ValueError('Similarity filter "%s" is not supported.' % method)
+        # generate FPs for query molecules once
         query_fps = [gen(q) for q in query]
         self._pipe.append(partial(_filter_similarity,
                                   distance=dist,
-                                  generator=gen,
+                                  generator=gen,  # same generator for pipe mols
                                   query_fps=query_fps,
                                   cutoff=cutoff))
 

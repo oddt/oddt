@@ -67,5 +67,5 @@ def test_func_composition():
 
 
 def test_chunks():
-    chunks = chunker(iter('ABCDEFG'), 2)
+    chunks = chunker('ABCDEFG', 2)
     assert_equal(list(chunks), [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G']])
