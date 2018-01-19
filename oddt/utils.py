@@ -1,4 +1,7 @@
 """Common utilities for ODDT"""
+from itertools import islice
+from types import GeneratorType
+
 import numpy as np
 import oddt
 
@@ -64,3 +67,30 @@ def check_molecule(mol,
 
     if non_zero_atoms and len(mol.atoms) == 0:
         raise ValueError('Molecule "%s" has zero atoms.' % mol.title)
+
+
+def compose_iter(iterable, funcs):
+    """Chain functions and apply them to iterable, by exhausting the iterable.
+    Functions are executed in the order from funcs."""
+    for func in funcs:
+        iterable = func(iterable)
+    return list(iterable)
+
+
+def chunker(iterable, chunksize=100):
+    """Generate chunks from a generator object. If iterable is passed which is
+    not a generator it will be converted to one with `iter()`."""
+    # ensure it is a generator
+    if not isinstance(iterable, GeneratorType):
+        iterable = iter(iterable)
+    chunk = list(islice(iterable, chunksize))
+    while chunk:
+        yield chunk
+        chunk = list(islice(iterable, chunksize))
+
+
+# TODO 2to3 remove it when support for Python 2.7 is dropped
+def method_caller(obj, methodname, *args, **kwargs):
+    """Helper function to workaround Python 2 pickle limitations to parallelize
+    methods and generator objects"""
+    return getattr(obj, methodname)(*args, **kwargs)

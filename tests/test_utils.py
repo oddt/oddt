@@ -1,8 +1,8 @@
 import os
-from sklearn.utils.testing import assert_raises_regexp
+from sklearn.utils.testing import assert_raises_regexp, assert_equal
 
 import oddt
-from oddt.utils import check_molecule
+from oddt.utils import check_molecule, chunker, compose_iter
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -52,3 +52,20 @@ M  END
                          check_molecule,
                          mol,
                          non_zero_atoms=True)
+
+
+def test_func_composition():
+    def double(x):
+        return [i * 2 for i in x]
+
+    def inc(x):
+        return [i + 1 for i in x]
+
+    assert_equal(compose_iter([1], funcs=[double, inc]), [3])
+    assert_equal(compose_iter([3], funcs=[double, inc]), [7])
+    assert_equal(compose_iter([10], funcs=[double, inc]), [21])
+
+
+def test_chunks():
+    chunks = chunker('ABCDEFG', 2)
+    assert_equal(list(chunks), [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G']])

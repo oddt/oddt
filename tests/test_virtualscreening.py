@@ -103,14 +103,13 @@ def test_vs_docking_empty():
             size=(20, 20, 20),
             seed=0)
 
-    assert_raises_regexp(ValueError, 'has no 3D coordinates',
-                         next, vs.fetch())
+    assert_raises_regexp(ValueError, 'has no 3D coordinates', next, vs.fetch())
 
 
 if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed
     def test_vs_filtering():
         """VS preset filtering tests"""
-        vs = virtualscreening(n_cpu=-1)
+        vs = virtualscreening(n_cpu=1)
 
         vs.load_ligands('sdf', xiap_actives_docked)
         vs.apply_filter('ro5', soft_fail=1)
@@ -123,7 +122,7 @@ if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed
 
 def test_vs_pains():
     """VS PAINS filter tests"""
-    vs = virtualscreening(n_cpu=-1)
+    vs = virtualscreening(n_cpu=1)
     # TODO: add some failing molecules
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.apply_filter('pains', soft_fail=0)
@@ -136,7 +135,7 @@ def test_vs_similarity():
     receptor = next(oddt.toolkit.readfile('pdb', xiap_protein))
 
     # following toolkit differences is due to different Hs treatment
-    vs = virtualscreening(n_cpu=-1)
+    vs = virtualscreening(n_cpu=1, chunksize=10)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('usr', cutoff=0.4, query=ref_mol)
     if oddt.toolkit.backend == 'ob':
@@ -144,7 +143,7 @@ def test_vs_similarity():
     else:
         assert_equal(len(list(vs.fetch())), 6)
 
-    vs = virtualscreening(n_cpu=-1)
+    vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('usr_cat', cutoff=0.3, query=ref_mol)
     if oddt.toolkit.backend == 'ob':
@@ -152,7 +151,7 @@ def test_vs_similarity():
     else:
         assert_equal(len(list(vs.fetch())), 11)
 
-    vs = virtualscreening(n_cpu=-1)
+    vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('electroshape', cutoff=0.45, query=ref_mol)
     if oddt.toolkit.backend == 'ob':
@@ -201,7 +200,7 @@ def test_vs_scoring():
             model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
                                     home_dir=home_dir)
             filenames.append(model.train(home_dir=home_dir))
-    vs = virtualscreening(n_cpu=1)
+    vs = virtualscreening(n_cpu=-1, chunksize=10)
     vs.load_ligands('sdf', xiap_actives_docked)
     # error if no protein is fed
     assert_raises(ValueError, vs.score, 'nnscore')
@@ -229,7 +228,7 @@ def test_vs_scoring():
     assert_in('rfscore_v2', mol_data)
     assert_in('rfscore_v3', mol_data)
 
-    vs = virtualscreening(n_cpu=1)
+    vs = virtualscreening(n_cpu=-1, chunksize=10)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.score('nnscore', protein=protein)
     vs.score('rfscore_v1', protein=protein)
