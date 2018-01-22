@@ -5,11 +5,13 @@ from nose.tools import assert_in, assert_equal
 from sklearn.utils.testing import (assert_array_equal,
                                    assert_array_almost_equal,
                                    assert_raises,
-                                   assert_raises_regexp)
+                                   assert_raises_regexp,
+                                   assert_warns_message)
 
 import pandas as pd
 
 import oddt
+from oddt.utils import method_caller
 from oddt.spatial import rmsd
 from oddt.scoring import scorer
 from oddt.scoring.functions import rfscore, nnscore
@@ -104,6 +106,17 @@ def test_vs_docking_empty():
             seed=0)
 
     assert_raises_regexp(ValueError, 'has no 3D coordinates', next, vs.fetch())
+
+
+def test_vs_multithreading_fallback():
+    vs = virtualscreening(n_cpu=8)
+    vs.load_ligands('sdf', xiap_crystal_ligand)
+
+    vs.score(function='autodock_vina', protein=xiap_protein)
+
+    assert_warns_message(UserWarning,
+                         'Falling back to sub-methods multithreading',
+                         method_caller, vs, 'fetch')
 
 
 if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed

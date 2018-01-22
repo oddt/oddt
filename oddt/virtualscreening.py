@@ -331,6 +331,26 @@ class virtualscreening:
         elif len(first_chunk) < self.chunksize and self.n_cpu > 1:
             warnings.warn('The chunksize (%i) seams to be to large.'
                           % self.chunksize)
+
+            # use methods multithreading when we have less molecules than cores
+            if len(first_chunk) < self.n_cpu:
+                warnings.warn('Falling back to sub-methods multithreading as '
+                              'the number of molecules is less than cores '
+                              '(%i < %i)' % (len(first_chunk),  self.n_cpu))
+                for func in self._pipe:
+                    if hasattr(func, 'n_cpu'):
+                        func.n_cpu = self.n_cpu
+                    elif hasattr(func, 'n_jobs'):
+                        func.n_jobs = self.n_cpu
+                    elif isinstance(func, partial):
+                        for func2 in func.args:
+                            if hasattr(func2, 'n_cpu'):
+                                func2.n_cpu = self.n_cpu
+                            elif hasattr(func2, 'n_jobs'):
+                                func2.n_jobs = self.n_cpu
+                # turn off VS multiprocessing
+                self.n_cpu = 1
+
         # TODO add some verbosity or progress bar
         if self.n_cpu != 1:
             out = (Pool(self.n_cpu if self.n_cpu > 0 else None)

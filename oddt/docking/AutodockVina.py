@@ -1,10 +1,12 @@
-from tempfile import mkdtemp
-from shutil import rmtree
 import sys
 import subprocess
-from six import string_types
 import re
 import os
+import warnings
+from tempfile import mkdtemp
+from shutil import rmtree
+
+from six import string_types
 
 import oddt
 from oddt.utils import (is_openbabel_molecule,
@@ -107,6 +109,10 @@ class autodock_vina(object):
         if protein:
             self.set_protein(protein)
         self.skip_bad_mols = skip_bad_mols
+        self.n_cpu = n_cpu
+        if self.n_cpu > exhaustiveness:
+            warnings.warn('Exhaustiveness is lower than n_cpus, thus CPU will '
+                          'not be saturated.')
 
         # pregenerate common Vina parameters
         self.params = []
@@ -116,8 +122,6 @@ class autodock_vina(object):
         self.params += ['--size_x', str(self.size[0]),
                         '--size_y', str(self.size[1]),
                         '--size_z', str(self.size[2])]
-        if n_cpu > 0:
-            self.params += ['--cpu', str(n_cpu)]
         self.params += ['--exhaustiveness', str(exhaustiveness)]
         if seed is not None:
             self.params += ['--seed', str(seed)]
@@ -246,7 +250,9 @@ class autodock_vina(object):
                     subprocess.check_output([self.executable, '--receptor',
                                              self.protein_file,
                                              '--ligand', ligand_file,
-                                             '--out', ligand_outfile] + self.params,
+                                             '--out', ligand_outfile] +
+                                            self.params +
+                                            ['--cpu', str(self.n_cpu)],
                                             stderr=subprocess.STDOUT))
             except subprocess.CalledProcessError as e:
                 sys.stderr.write(e.output.decode('ascii'))
