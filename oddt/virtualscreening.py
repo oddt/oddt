@@ -334,7 +334,7 @@ class virtualscreening:
 
             # use methods multithreading when we have less molecules than cores
             if len(first_chunk) < self.n_cpu:
-                warnings.warn('Falling back to sub-methods multiprocessing as '
+                warnings.warn('Falling back to sub-methods multithreading as '
                               'the number of molecules is less than cores '
                               '(%i < %i)' % (len(first_chunk),  self.n_cpu))
                 for func in self._pipe:
