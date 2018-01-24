@@ -5,7 +5,6 @@ from __future__ import print_function
 # See BUG report: https://github.com/numpy/numpy/issues/1746
 from scipy.optimize import fmin_l_bfgs_b
 
-import sys
 from itertools import chain
 from subprocess import check_output
 import warnings
@@ -16,11 +15,12 @@ from base64 import b64encode
 from six import PY3, text_type
 from sklearn.utils.deprecation import deprecated
 import pybel
+import openbabel as ob
 from pybel import *
 import numpy as np
-import openbabel as ob
 from openbabel import OBAtomAtomIter, OBAtomBondIter, OBTypeTable
 
+from oddt.utils import check_molecule
 from oddt.toolkits.common import detect_secondary_structure
 
 ob.OBIterWithDepth.__next__ = ob.OBIterWithDepth.next
@@ -408,7 +408,6 @@ class Molecule(pybel.Molecule):
                       ('isbeta', bool)
                       ]
 
-        a = []
         atom_dict = np.empty(self.OBMol.NumAtoms(), dtype=atom_dtype)
         metals = [3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
                   30, 31, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
@@ -614,6 +613,95 @@ class Molecule(pybel.Molecule):
 
 # Extend pybel.Molecule
 pybel.Molecule = Molecule
+
+
+def diverse_conformers_generator(mol, n_conf=10, method='confab', seed=None,
+                                 **kwargs):
+    """Produce diverse conformers using current conformer as starting point.
+    Returns a generator. Each conformer is a copy of original molecule object.
+
+    Parameters
+    ----------
+    mol : oddt.toolkit.Molecule object
+        Molecule for which generating conformers
+
+    n_conf : int (default=10)
+        Targer number of conformers
+
+    method : string (default='confab')
+        Method for generating conformers. Supported methods:
+        * confab
+        * ga
+
+    seed : None or int (default=None)
+        Random seed
+
+    mutability : int (default=5)
+        The inverse of probability of mutation. By default 5, which translates
+        to 1/5 (20%) chance of mutation. This setting only works with genetic
+        algorithm method ("ga").
+
+    convergence : int (default=5)
+        The number of generations with unchanged fitness, should the algorothm
+        converge. This setting only works with genetic algorithm method ("ga").
+
+    rmsd : float (default=0.5)
+        The conformers are pruned unless their RMSD is higher than this cutoff.
+        This setting only works with Confab method ("confab").
+
+    nconf : int (default=10000)
+        The number of initial conformers to generate before energy pruning.
+        This setting only works with Confab method ("confab").
+
+    energy_gap : float (default=5000.)
+        Energy gap from the lowest energy conformer to the highest possible.
+        This setting only works with Confab method ("confab").
+
+    Returns
+    -------
+    mols : list of oddt.toolkit.Molecule objects
+        Molecules with diverse conformers
+    """
+    if __version__ < '2.4.0':
+        raise NotImplementedError('Diverse conformer generation is not '
+                                  'implemented in OpenBabel before 2.4.0.')
+
+    check_molecule(mol, force_coords=True)
+    mol_clone = mol.clone
+    if seed is not None:
+        rand = ob.OBRandom(True)
+        rand.Seed(seed)
+    if method == 'ga':
+        if not hasattr(ob, 'OBConformerSearch'):
+            raise ValueError('OpenBabel needs to be compiled with eigen to '
+                             'perform conformer search.')
+        cs = ob.OBConformerSearch()
+        cs.Setup(mol_clone.OBMol,
+                 n_conf,  # numConformers
+                 n_conf * 2,  # numChildren
+                 kwargs.get('mutability', 5),  # mutability
+                 kwargs.get('convergence', 5))  # convergence
+        cs.Search()
+        cs.GetConformers(mol_clone.OBMol)
+    elif method == 'confab':
+        ff = pybel._forcefields['uff']
+        ff.Setup(mol_clone.OBMol)
+        ff.DiverseConfGen(kwargs.get('rmsd', 0.5),  # rmsd
+                          kwargs.get('nconfs', 10000),  # nconfs (initial)
+                          kwargs.get('energy_gap', 5000.0),  # energy_gap
+                          False)  # verbose
+        ff.GetConformers(mol_clone.OBMol)
+    else:
+        raise ValueError('Method %s is not implemented' % method)
+
+    out = []
+    for i in range(mol_clone.OBMol.NumConformers()):
+        if i >= n_conf:
+            break
+        mol_output_clone = mol_clone.clone
+        mol_output_clone.OBMol.SetConformer(i)
+        out.append(mol_output_clone)
+    return out
 
 
 class AtomStack(object):
