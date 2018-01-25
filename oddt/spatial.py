@@ -59,7 +59,8 @@ def angle_2v(v1, v2):
     angles : numpy array, shape = [n_vectors]
         Series of angles in degrees
     """
-    dot = (v1 * v2).sum(axis=-1)  # better than np.dot(v1, v2), multiple vectors can be applied
+    # better than np.dot(v1, v2), multiple vectors can be applied
+    dot = (v1 * v2).sum(axis=-1)
     norm = np.linalg.norm(v1, axis=-1) * np.linalg.norm(v2, axis=-1)
     return np.degrees(np.arccos(np.clip(dot/norm, -1, 1)))
 
@@ -109,15 +110,19 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         Query molecule for RMSD calculation
 
     ignore_h : bool (default=False)
-        Flag indicating to ignore Hydrogen atoms while performing RMSD calculation
+        Flag indicating to ignore Hydrogen atoms while performing RMSD
+        calculation
 
     method : str (default=None)
         The method to be used for atom asignment between ref and mol.
-        None means that direct matching is applied, which is the default behavior.
+        None means that direct matching is applied, which is the default
+        behavior.
         Available methods:
-            - canonize - match heavy atoms using OB canonical ordering (it forces ignoring H's)
+            - canonize - match heavy atoms using canonical ordering (it forces
+            ignoring H's)
             - hungarian - minimize RMSD using Hungarian algorithm
-            - min_symmetry - makes multiple molecule-molecule matches and finds minimal RMSD (the slowest)
+            - min_symmetry - makes multiple molecule-molecule matches and finds
+            minimal RMSD (the slowest)
 
     normalize : bool (default=False)
         Normalize RMSD by square root of rot. bonds
@@ -138,12 +143,14 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
             if a_type != 'H' or not ignore_h:
                 mol_idx = np.argwhere(mol.atom_dict['atomtype'] == a_type).flatten()
                 ref_idx = np.argwhere(ref.atom_dict['atomtype'] == a_type).flatten()
-                assert len(mol_idx) == len(ref_idx), 'Unequal no. atoms of type: %s' % a_type
+                assert len(mol_idx) == len(ref_idx), \
+                    'Unequal no. atoms of type: %s' % a_type
                 if len(mol_idx) == 1:
                     mol_map.append(mol_idx)
                     ref_map.append(ref_idx)
                     continue
-                M = distance(mol.atom_dict['coords'][mol_idx], ref.atom_dict['coords'][ref_idx])
+                M = distance(mol.atom_dict['coords'][mol_idx],
+                             ref.atom_dict['coords'][ref_idx])
                 M = M - M.min(axis=0) - M.min(axis=1).reshape(-1, 1)
                 tmp_mol, tmp_ref = linear_sum_assignment(M)
                 mol_map.append(mol_idx[tmp_mol])
