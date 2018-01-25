@@ -3,7 +3,7 @@ Mainly used by other modules, but can be accessed directly.
 """
 
 from math import sin, cos
-from six import PY3
+
 import numpy as np
 from scipy.spatial.distance import cdist
 # for Hungarian algorithm, in future use scipy.optimize.linear_sum_assignment (in scipy 0.17+)
@@ -15,7 +15,9 @@ except ImportError:
     def linear_sum_assignment(M):
         out = linear_assignment(M)
         return out[:, 0], out[:, 1]
+
 import oddt
+from oddt.utils import is_openbabel_molecule
 
 __all__ = ['angle',
            'angle_2v',
@@ -154,8 +156,13 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         mol_atoms = mol.coords[mol.atom_dict['atomicnum'] != 1]
         for match in oddt.toolkit.Smarts(ref).findall(mol, unique=False):
             match = np.array(match, dtype=int)
-            if oddt.toolkit.backend == 'ob':
+            if is_openbabel_molecule(mol):
                 match -= 1
+            else:  # RDKit explicit hydrogens show up in matches
+                match = match[ref.atom_dict['atomicnum'] != 1]
+            if mol_atoms.shape != ref_atoms[match].shape:
+                raise ValueError('Molecular match is wrong, most probably due '
+                                 'to explicit hydrogens.')
             rmsd = np.sqrt(((mol_atoms - ref_atoms[match])**2).sum(axis=-1).mean())
             if min_rmsd is None or rmsd < min_rmsd:
                 min_rmsd = rmsd
