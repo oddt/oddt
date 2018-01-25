@@ -890,9 +890,11 @@ class Smarts(pybel.Smarts):
         """Initialise with a SMARTS pattern."""
         self.amap = None
         if isinstance(smartspattern, Molecule):
-            tmp = smartspattern.write('can')
+            tmp = smartspattern.write('smi', opt={'i': None,
+                                                  'c': None,
+                                                  'h': None})
             self.amap = np.array(smartspattern.data['SMILES Atom Order'].split(), dtype=int) - 1
-            smartspattern = tmp
+            smartspattern = tmp.lstrip().split()[0]  # extract only SMILES
         super(Smarts, self).__init__(smartspattern)
 
     def match(self, molecule):

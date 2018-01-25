@@ -1,9 +1,7 @@
 import os
-from tempfile import NamedTemporaryFile
 
-from nose.tools import assert_in, assert_not_in, assert_equal
-from sklearn.utils.testing import (assert_true,
-                                   assert_almost_equal,
+from nose.tools import assert_equal
+from sklearn.utils.testing import (assert_almost_equal,
                                    assert_array_equal,
                                    assert_array_almost_equal)
 import numpy as np
@@ -132,6 +130,7 @@ def test_spatial():
     # pick one molecule from docked poses
     mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
     mols = list(filter(lambda x: x.title == '312335', mols))
+    # list(map(lambda x: x.addh(), mols))
 
     assert_array_almost_equal([rmsd(mols[0], mol) for mol in mols[1:]],
                               [4.753552, 2.501487, 2.7941732, 1.1281863, 0.74440968,
@@ -144,3 +143,9 @@ def test_spatial():
                                0.539091, 1.329666, 1.088053, 1.779618, 2.606429, 3.157684,
                                3.213502, 0.812635, 1.290902, 2.521703, 2.083612, 1.832457,
                                3.187363])
+
+    assert_array_almost_equal([rmsd(mols[0], mol, method='min_symmetry') for mol in mols[1:]],
+                              [3.8576, 1.0732, 1.7991, 1.0492, 0.7444,
+                               1.6257, 3.8422, 1.6420, 1.2614, 1.9304,
+                               2.6201, 3.1742, 3.2254, 3.8774, 3.9477,
+                               7.3216, 2.2385, 3.8189, 3.2037], decimal=4)

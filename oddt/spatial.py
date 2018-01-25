@@ -154,7 +154,10 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         min_rmsd = None
         ref_atoms = ref.coords[ref.atom_dict['atomicnum'] != 1]
         mol_atoms = mol.coords[mol.atom_dict['atomicnum'] != 1]
-        for match in oddt.toolkit.Smarts(ref).findall(mol, unique=False):
+        sym_matches = oddt.toolkit.Smarts(ref).findall(mol, unique=False)
+        if not sym_matches:
+            raise ValueError('Could not find any match between molecules.')
+        for match in sym_matches:
             match = np.array(match, dtype=int)
             if is_openbabel_molecule(mol):
                 match -= 1
