@@ -161,8 +161,8 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
         rings[strict_parallel]['resname'], amino_acids)] = ''
     np.add.at(IFP, [np.searchsorted(
         amino_acids, np.sort(rings[strict_parallel]['resname'])[::-1]), 1], 1)
-    rings[strict_parallel]['resname'][~np.in1d(rings[strict_perpendicular]
-                                               ['resname'], amino_acids)] = ''
+    rings[strict_perpendicular]['resname'][~np.in1d(
+        rings[strict_perpendicular]['resname'], amino_acids)] = ''
     np.add.at(IFP, [np.searchsorted(
         amino_acids,
         np.sort(rings[strict_perpendicular]['resname'])[::-1]), 2], 1)
