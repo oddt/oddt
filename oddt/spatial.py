@@ -111,7 +111,8 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
 
     ignore_h : bool (default=False)
         Flag indicating to ignore Hydrogen atoms while performing RMSD
-        calculation
+        calculation. This toggle works only with 'hungarian' method and without
+        sorting (method=None).
 
     method : str (default=None)
         The method to be used for atom asignment between ref and mol.
@@ -122,7 +123,7 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
             ignoring H's)
             - hungarian - minimize RMSD using Hungarian algorithm
             - min_symmetry - makes multiple molecule-molecule matches and finds
-            minimal RMSD (the slowest)
+            minimal RMSD (the slowest). Hydrogens are ignored.
 
     normalize : bool (default=False)
         Normalize RMSD by square root of rot. bonds
@@ -161,19 +162,22 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         min_rmsd = None
         ref_atoms = ref.atom_dict[ref.atom_dict['atomicnum'] != 1]['coords']
         mol_atoms = mol.atom_dict[mol.atom_dict['atomicnum'] != 1]['coords']
+        # safety swith to check
         if ref_atoms.shape == mol_atoms.shape:
-            sym_matches = oddt.toolkit.Smarts(ref).findall(mol, unique=False)
-            if not sym_matches:
+            # match mol to ref, generate all matches to find best RMSD
+            matches = oddt.toolkit.Smarts(ref).findall(mol, unique=False)
+            if not matches:
                 raise ValueError('Could not find any match between molecules.')
-            for match in sym_matches:
+            # calculate RMSD between all matches and retain the smallest
+            for match in matches:
                 match = np.array(match, dtype=int)
                 if is_openbabel_molecule(mol):
-                    match -= 1
+                    match -= 1  # OB has 1-based indices
                 mol_atoms = mol.atom_dict[match]
                 mol_atoms = mol_atoms[mol_atoms['atomicnum'] != 1]['coords']
                 if mol_atoms.shape != ref_atoms.shape:
-                    raise ValueError('Molecular match is wrong, most probably due '
-                                     'to explicit hydrogens.')
+                    raise ValueError('Molecular match got wrong number of '
+                                     'atoms.')
                 rmsd = np.sqrt(((mol_atoms - ref_atoms)**2).sum(axis=-1).mean())
                 if min_rmsd is None or rmsd < min_rmsd:
                     min_rmsd = rmsd
