@@ -132,8 +132,6 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
     rmsd : float
         RMSD between two molecules
     """
-    check_molecule(mol, force_coords=True)
-    check_molecule(ref, force_coords=True)
 
     if method == 'canonize':
         ref_atoms = ref.coords[ref.canonic_order]
@@ -161,8 +159,8 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         ref_atoms = ref.atom_dict['coords'][np.hstack(ref_map)]
     elif method == 'min_symmetry':
         min_rmsd = None
-        ref_atoms = ref.coords[ref.atom_dict['atomicnum'] != 1]
-        mol_atoms = mol.coords[mol.atom_dict['atomicnum'] != 1]
+        ref_atoms = ref.atom_dict[ref.atom_dict['atomicnum'] != 1]['coords']
+        mol_atoms = mol.atom_dict[mol.atom_dict['atomicnum'] != 1]['coords']
         if ref_atoms.shape == mol_atoms.shape:
             sym_matches = oddt.toolkit.Smarts(ref).findall(mol, unique=False)
             if not sym_matches:
@@ -171,12 +169,12 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
                 match = np.array(match, dtype=int)
                 if is_openbabel_molecule(mol):
                     match -= 1
-                else:  # RDKit explicit hydrogens show up in matches
-                    match = match[ref.atom_dict['atomicnum'] != 1]
-                if mol_atoms.shape != ref_atoms[match].shape:
+                mol_atoms = mol.atom_dict[match]
+                mol_atoms = mol_atoms[mol_atoms['atomicnum'] != 1]['coords']
+                if mol_atoms.shape != ref_atoms.shape:
                     raise ValueError('Molecular match is wrong, most probably due '
                                      'to explicit hydrogens.')
-                rmsd = np.sqrt(((mol_atoms - ref_atoms[match])**2).sum(axis=-1).mean())
+                rmsd = np.sqrt(((mol_atoms - ref_atoms)**2).sum(axis=-1).mean())
                 if min_rmsd is None or rmsd < min_rmsd:
                     min_rmsd = rmsd
             return min_rmsd
