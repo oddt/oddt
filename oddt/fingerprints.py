@@ -141,9 +141,9 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
 
     """
 
-    amino_acids = np.array(['ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU',
+    amino_acids = np.array(['', 'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU',
                             'GLY', 'HIS', 'ILE', 'LEU', 'LYS', 'MET', 'PHE',
-                            'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL', ''],
+                            'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL'],
                            dtype='<U3')
 
     IFP = np.zeros((len(amino_acids), 8), dtype=np.uint8)
