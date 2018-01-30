@@ -162,7 +162,7 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         min_rmsd = None
         ref_atoms = ref.atom_dict[ref.atom_dict['atomicnum'] != 1]['coords']
         mol_atoms = mol.atom_dict[mol.atom_dict['atomicnum'] != 1]['coords']
-        # safety swith to check
+        # safety swith to check if number of heavy atoms match
         if ref_atoms.shape == mol_atoms.shape:
             # match mol to ref, generate all matches to find best RMSD
             matches = oddt.toolkit.Smarts(ref).findall(mol, unique=False)
@@ -173,8 +173,8 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
                 match = np.array(match, dtype=int)
                 if is_openbabel_molecule(mol):
                     match -= 1  # OB has 1-based indices
-                mol_atoms = mol.atom_dict[match]
-                mol_atoms = mol_atoms[mol_atoms['atomicnum'] != 1]['coords']
+                tmp_dict = mol.atom_dict[match]
+                mol_atoms = tmp_dict[tmp_dict['atomicnum'] != 1]['coords']
                 if mol_atoms.shape != ref_atoms.shape:
                     raise ValueError('Molecular match got wrong number of '
                                      'atoms.')

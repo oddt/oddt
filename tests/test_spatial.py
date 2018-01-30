@@ -154,7 +154,7 @@ def test_spatial():
                               min_symmetry_res, decimal=4)
 
     # test shuffled rmsd
-    assert_array_almost_equal([rmsd(shuffle_mol(mols[0]),
+    assert_array_almost_equal([rmsd(mols[0],
                                     shuffle_mol(mol),
                                     method='min_symmetry')
                                for mol in mols[1:]],
