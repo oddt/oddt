@@ -17,7 +17,7 @@ except ImportError:
         return out[:, 0], out[:, 1]
 
 import oddt
-from oddt.utils import is_openbabel_molecule, check_molecule
+from oddt.utils import is_openbabel_molecule
 
 __all__ = ['angle',
            'angle_2v',
