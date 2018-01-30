@@ -1,17 +1,33 @@
 import os
+from random import shuffle
 
 from nose.tools import assert_equal
 from sklearn.utils.testing import (assert_almost_equal,
                                    assert_array_equal,
-                                   assert_array_almost_equal)
+                                   assert_array_almost_equal,
+                                   assert_raises_regex)
 import numpy as np
 
 import oddt
+from oddt.utils import is_openbabel_molecule
 from oddt.spatial import (angle,
                           dihedral,
                           rmsd,
                           distance,
                           rotate)
+
+
+def shuffle_mol(mol):
+    """Randomly reorder molecule atoms and return a shuffled copy of input."""
+    new_mol = mol.clone
+    new_order = list(range(len(mol.atoms)))
+    shuffle(new_order)
+    if is_openbabel_molecule(mol):
+        new_mol.OBMol.RenumberAtoms([i + 1 for i in new_order])
+    else:
+        new_mol.Mol = oddt.toolkits.rdk.Chem.RenumberAtoms(new_mol.Mol, new_order)
+    return new_mol
+
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -149,3 +165,14 @@ def test_spatial():
                                1.6257, 3.8422, 1.6420, 1.2614, 1.9304,
                                2.6201, 3.1742, 3.2254, 3.8774, 3.9477,
                                7.3216, 2.2385, 3.8189, 3.2037], decimal=4)
+
+    mol = oddt.toolkit.readstring('smi', 'c1ccccc1')
+    mol.make3D()
+    mol.addh()
+    for method in [None, 'hungarian', 'min_symmetry']:
+        assert_raises_regex(ValueError, 'Unequal number of atoms', rmsd,
+                            mol, mols[0], method=method)
+        for _ in range(25):
+            assert_raises_regex(ValueError, 'Unequal number of atoms', rmsd,
+                                shuffle_mol(mol), shuffle_mol(mols[0]),
+                                method=method)

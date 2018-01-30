@@ -17,7 +17,7 @@ except ImportError:
         return out[:, 0], out[:, 1]
 
 import oddt
-from oddt.utils import is_openbabel_molecule
+from oddt.utils import is_openbabel_molecule, check_molecule
 
 __all__ = ['angle',
            'angle_2v',
@@ -132,6 +132,8 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
     rmsd : float
         RMSD between two molecules
     """
+    check_molecule(mol, force_coords=True)
+    check_molecule(ref, force_coords=True)
 
     if method == 'canonize':
         ref_atoms = ref.coords[ref.canonic_order]
@@ -143,8 +145,8 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
             if a_type != 'H' or not ignore_h:
                 mol_idx = np.argwhere(mol.atom_dict['atomtype'] == a_type).flatten()
                 ref_idx = np.argwhere(ref.atom_dict['atomtype'] == a_type).flatten()
-                assert len(mol_idx) == len(ref_idx), \
-                    'Unequal no. atoms of type: %s' % a_type
+                if len(mol_idx) != len(ref_idx):
+                    raise ValueError('Unequal number of atoms type: %s' % a_type)
                 if len(mol_idx) == 1:
                     mol_map.append(mol_idx)
                     ref_map.append(ref_idx)
@@ -161,26 +163,26 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         min_rmsd = None
         ref_atoms = ref.coords[ref.atom_dict['atomicnum'] != 1]
         mol_atoms = mol.coords[mol.atom_dict['atomicnum'] != 1]
-        sym_matches = oddt.toolkit.Smarts(ref).findall(mol, unique=False)
-        if not sym_matches:
-            raise ValueError('Could not find any match between molecules.')
-        for match in sym_matches:
-            match = np.array(match, dtype=int)
-            if is_openbabel_molecule(mol):
-                match -= 1
-            else:  # RDKit explicit hydrogens show up in matches
-                match = match[ref.atom_dict['atomicnum'] != 1]
-            if mol_atoms.shape != ref_atoms[match].shape:
-                raise ValueError('Molecular match is wrong, most probably due '
-                                 'to explicit hydrogens.')
-            rmsd = np.sqrt(((mol_atoms - ref_atoms[match])**2).sum(axis=-1).mean())
-            if min_rmsd is None or rmsd < min_rmsd:
-                min_rmsd = rmsd
-        return min_rmsd
+        if ref_atoms.shape == mol_atoms.shape:
+            sym_matches = oddt.toolkit.Smarts(ref).findall(mol, unique=False)
+            if not sym_matches:
+                raise ValueError('Could not find any match between molecules.')
+            for match in sym_matches:
+                match = np.array(match, dtype=int)
+                if is_openbabel_molecule(mol):
+                    match -= 1
+                else:  # RDKit explicit hydrogens show up in matches
+                    match = match[ref.atom_dict['atomicnum'] != 1]
+                if mol_atoms.shape != ref_atoms[match].shape:
+                    raise ValueError('Molecular match is wrong, most probably due '
+                                     'to explicit hydrogens.')
+                rmsd = np.sqrt(((mol_atoms - ref_atoms[match])**2).sum(axis=-1).mean())
+                if min_rmsd is None or rmsd < min_rmsd:
+                    min_rmsd = rmsd
+            return min_rmsd
     elif ignore_h:
-        hvy_map = np.argwhere(mol.atom_dict['atomicnum'] != 1).flatten()
-        mol_atoms = mol.coords[hvy_map]
-        ref_atoms = ref.coords[hvy_map]
+        mol_atoms = mol.coords[mol.atom_dict['atomicnum'] != 1]
+        ref_atoms = ref.coords[ref.atom_dict['atomicnum'] != 1]
     else:
         mol_atoms = mol.coords
         ref_atoms = ref.coords
@@ -190,7 +192,8 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
             rmsd /= np.sqrt(mol.num_rotors)
         return rmsd
     # at this point raise an exception
-    raise Exception('Unequal number of atoms in molecules')
+    raise ValueError('Unequal number of atoms in molecules (%i and %i)'
+                     % (len(mol_atoms), len(ref_atoms)))
 
 
 def distance(x, y):

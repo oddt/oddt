@@ -36,6 +36,7 @@ ligand.addh(only_polar=True)
 
 
 def shuffle_mol(mol):
+    """Randomly reorder molecule atoms and return a shuffled copy of input."""
     new_mol = mol.clone
     new_order = list(range(len(mol.atoms)))
     shuffle(new_order)
