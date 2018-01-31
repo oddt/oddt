@@ -163,7 +163,7 @@ def test_rmsd():
 
     # test shuffled rmsd
     for _ in range(5):
-        for method in kwargs_grid:
+        for kwargs in kwargs_grid:
             # dont use method=None in shuffled tests
             if kwargs['method'] is None:
                 continue
