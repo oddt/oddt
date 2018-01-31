@@ -130,43 +130,62 @@ def test_spatial():
     # Minimized by symetry must close to zero
     assert_almost_equal(rmsd(mol, mol2, method='min_symmetry'), 0, decimal=0)
 
+
+def test_rmsd():
     # pick one molecule from docked poses
     mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
     mols = list(filter(lambda x: x.title == '312335', mols))
 
-    assert_array_almost_equal([rmsd(mols[0], mol) for mol in mols[1:]],
-                              [4.753552, 2.501487, 2.7941732, 1.1281863, 0.74440968,
-                               1.6256877, 4.762476, 2.7167852, 2.5504358, 1.9303833,
-                               2.6200771, 3.1741529, 3.225431, 4.7784939, 4.8035369,
-                               7.8962774, 2.2385094, 4.8625236, 3.2036853])
+    res = {
+        'method=None':
+            [4.7536, 2.5015, 2.7942, 1.1282, 0.7444, 1.6257, 4.7625,
+             2.7168, 2.5504, 1.9304, 2.6201, 3.1742, 3.2254, 4.7785,
+             4.8035, 7.8963, 2.2385, 4.8625, 3.2037],
+        'method=hungarian':
+            [0.9013, 1.0730, 1.0531, 1.0286, 0.7353, 1.4094, 0.5391,
+             1.3297, 1.0881, 1.7796, 2.6064, 3.1577, 3.2135, 0.8126,
+             1.2909, 2.5217, 2.0836, 1.8325, 3.1874],
+        'method=min_symmetry':
+            [0.9013, 1.0732, 1.0797, 1.0492, 0.7444, 1.6257, 0.5391,
+             1.5884, 1.0935, 1.9304, 2.6201, 3.1742, 3.2254, 1.1513,
+             1.5206, 2.5361, 2.2385, 1.971, 3.2037],
+        }
 
-    assert_array_almost_equal([rmsd(mols[0], mol, method='hungarian') for mol in mols[1:]],
-                              [0.90126, 1.073049, 1.053131, 1.028578, 0.735297, 1.409403,
-                               0.539091, 1.329666, 1.088053, 1.779618, 2.606429, 3.157684,
-                               3.213502, 0.812635, 1.290902, 2.521703, 2.083612, 1.832457,
-                               3.187363])
-
-    min_symmetry_res = [0.9013, 1.0732, 1.0797, 1.0492, 0.7444, 1.6257,
-                        0.5391, 1.5884, 1.0935, 1.9304, 2.6201, 3.1742,
-                        3.2254, 1.1513, 1.5206, 2.5361, 2.2385, 1.971,
-                        3.2037]
-    assert_array_almost_equal([rmsd(mols[0], mol, method='min_symmetry') for mol in mols[1:]],
-                              min_symmetry_res, decimal=4)
+    kwargs_grid = [{'method': None},
+                   {'method': 'hungarian'},
+                   {'method': 'min_symmetry'}]
+    for kwargs in kwargs_grid:
+        res_key = '_'.join('%s=%s' % (k, v)
+                           for k, v in sorted(kwargs.items()))
+        assert_array_almost_equal([rmsd(mols[0], mol, **kwargs)
+                                  for mol in mols[1:]],
+                                  res[res_key], decimal=4)
 
     # test shuffled rmsd
-    assert_array_almost_equal([rmsd(mols[0],
-                                    shuffle_mol(mol),
-                                    method='min_symmetry')
-                               for mol in mols[1:]],
-                              min_symmetry_res, decimal=4)
+    for _ in range(5):
+        for method in kwargs_grid:
+            # dont use method=None in shuffled tests
+            if kwargs['method'] is None:
+                continue
+            res_key = '_'.join('%s=%s' % (k, v)
+                               for k, v in sorted(kwargs.items()))
+            assert_array_almost_equal([rmsd(mols[0],
+                                            shuffle_mol(mol),
+                                            **kwargs)
+                                       for mol in mols[1:]],
+                                      res[res_key], decimal=4)
 
+
+def test_rmsd_errors():
     mol = oddt.toolkit.readstring('smi', 'c1ccccc1')
     mol.make3D()
     mol.addh()
+    mol2 = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+
     for method in [None, 'hungarian', 'min_symmetry']:
         assert_raises_regex(ValueError, 'Unequal number of atoms', rmsd,
-                            mol, mols[0], method=method)
-        for _ in range(25):
+                            mol, mol2, method=method)
+        for _ in range(5):
             assert_raises_regex(ValueError, 'Unequal number of atoms', rmsd,
-                                shuffle_mol(mol), shuffle_mol(mols[0]),
+                                shuffle_mol(mol), shuffle_mol(mol2),
                                 method=method)
