@@ -175,9 +175,9 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
                     match -= 1  # OB has 1-based indices
                 tmp_dict = mol.atom_dict[match]
                 mol_atoms = tmp_dict[tmp_dict['atomicnum'] != 1]['coords']
+                # following should not happen, although safety check is left
                 if mol_atoms.shape != ref_atoms.shape:
-                    raise ValueError('Molecular match got wrong number of '
-                                     'atoms.')
+                    raise Exception('Molecular match got wrong number of atoms.')
                 rmsd = np.sqrt(((mol_atoms - ref_atoms)**2).sum(axis=-1).mean())
                 if min_rmsd is None or rmsd < min_rmsd:
                     min_rmsd = rmsd
