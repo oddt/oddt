@@ -3,7 +3,7 @@ Mainly used by other modules, but can be accessed directly.
 """
 
 from math import sin, cos
-from six import PY3
+
 import numpy as np
 from scipy.spatial.distance import cdist
 # for Hungarian algorithm, in future use scipy.optimize.linear_sum_assignment (in scipy 0.17+)
@@ -15,7 +15,9 @@ except ImportError:
     def linear_sum_assignment(M):
         out = linear_assignment(M)
         return out[:, 0], out[:, 1]
+
 import oddt
+from oddt.utils import is_openbabel_molecule
 
 __all__ = ['angle',
            'angle_2v',
@@ -57,7 +59,8 @@ def angle_2v(v1, v2):
     angles : numpy array, shape = [n_vectors]
         Series of angles in degrees
     """
-    dot = (v1 * v2).sum(axis=-1)  # better than np.dot(v1, v2), multiple vectors can be applied
+    # better than np.dot(v1, v2), multiple vectors can be applied
+    dot = (v1 * v2).sum(axis=-1)
     norm = np.linalg.norm(v1, axis=-1) * np.linalg.norm(v2, axis=-1)
     return np.degrees(np.arccos(np.clip(dot/norm, -1, 1)))
 
@@ -107,15 +110,20 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         Query molecule for RMSD calculation
 
     ignore_h : bool (default=False)
-        Flag indicating to ignore Hydrogen atoms while performing RMSD calculation
+        Flag indicating to ignore Hydrogen atoms while performing RMSD
+        calculation. This toggle works only with 'hungarian' method and without
+        sorting (method=None).
 
     method : str (default=None)
         The method to be used for atom asignment between ref and mol.
-        None means that direct matching is applied, which is the default behavior.
+        None means that direct matching is applied, which is the default
+        behavior.
         Available methods:
-            - canonize - match heavy atoms using OB canonical ordering (it forces ignoring H's)
+            - canonize - match heavy atoms using canonical ordering (it forces
+            ignoring H's)
             - hungarian - minimize RMSD using Hungarian algorithm
-            - min_symmetry - makes multiple molecule-molecule matches and finds minimal RMSD (the slowest)
+            - min_symmetry - makes multiple molecule-molecule matches and finds
+            minimal RMSD (the slowest). Hydrogens are ignored.
 
     normalize : bool (default=False)
         Normalize RMSD by square root of rot. bonds
@@ -136,12 +144,14 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
             if a_type != 'H' or not ignore_h:
                 mol_idx = np.argwhere(mol.atom_dict['atomtype'] == a_type).flatten()
                 ref_idx = np.argwhere(ref.atom_dict['atomtype'] == a_type).flatten()
-                assert len(mol_idx) == len(ref_idx), 'Unequal no. atoms of type: %s' % a_type
+                if len(mol_idx) != len(ref_idx):
+                    raise ValueError('Unequal number of atoms type: %s' % a_type)
                 if len(mol_idx) == 1:
                     mol_map.append(mol_idx)
                     ref_map.append(ref_idx)
                     continue
-                M = distance(mol.atom_dict['coords'][mol_idx], ref.atom_dict['coords'][ref_idx])
+                M = distance(mol.atom_dict['coords'][mol_idx],
+                             ref.atom_dict['coords'][ref_idx])
                 M = M - M.min(axis=0) - M.min(axis=1).reshape(-1, 1)
                 tmp_mol, tmp_ref = linear_sum_assignment(M)
                 mol_map.append(mol_idx[tmp_mol])
@@ -150,20 +160,31 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         ref_atoms = ref.atom_dict['coords'][np.hstack(ref_map)]
     elif method == 'min_symmetry':
         min_rmsd = None
-        ref_atoms = ref.coords[ref.atom_dict['atomicnum'] != 1]
-        mol_atoms = mol.coords[mol.atom_dict['atomicnum'] != 1]
-        for match in oddt.toolkit.Smarts(ref).findall(mol, unique=False):
-            match = np.array(match, dtype=int)
-            if oddt.toolkit.backend == 'ob':
-                match -= 1
-            rmsd = np.sqrt(((mol_atoms - ref_atoms[match])**2).sum(axis=-1).mean())
-            if min_rmsd is None or rmsd < min_rmsd:
-                min_rmsd = rmsd
-        return min_rmsd
+        ref_atoms = ref.atom_dict[ref.atom_dict['atomicnum'] != 1]['coords']
+        mol_atoms = mol.atom_dict[mol.atom_dict['atomicnum'] != 1]['coords']
+        # safety swith to check if number of heavy atoms match
+        if ref_atoms.shape == mol_atoms.shape:
+            # match mol to ref, generate all matches to find best RMSD
+            matches = oddt.toolkit.Smarts(ref).findall(mol, unique=False)
+            if not matches:
+                raise ValueError('Could not find any match between molecules.')
+            # calculate RMSD between all matches and retain the smallest
+            for match in matches:
+                match = np.array(match, dtype=int)
+                if is_openbabel_molecule(mol):
+                    match -= 1  # OB has 1-based indices
+                tmp_dict = mol.atom_dict[match]
+                mol_atoms = tmp_dict[tmp_dict['atomicnum'] != 1]['coords']
+                # following should not happen, although safety check is left
+                if mol_atoms.shape != ref_atoms.shape:
+                    raise Exception('Molecular match got wrong number of atoms.')
+                rmsd = np.sqrt(((mol_atoms - ref_atoms)**2).sum(axis=-1).mean())
+                if min_rmsd is None or rmsd < min_rmsd:
+                    min_rmsd = rmsd
+            return min_rmsd
     elif ignore_h:
-        hvy_map = np.argwhere(mol.atom_dict['atomicnum'] != 1).flatten()
-        mol_atoms = mol.coords[hvy_map]
-        ref_atoms = ref.coords[hvy_map]
+        mol_atoms = mol.coords[mol.atom_dict['atomicnum'] != 1]
+        ref_atoms = ref.coords[ref.atom_dict['atomicnum'] != 1]
     else:
         mol_atoms = mol.coords
         ref_atoms = ref.coords
@@ -173,7 +194,8 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
             rmsd /= np.sqrt(mol.num_rotors)
         return rmsd
     # at this point raise an exception
-    raise Exception('Unequal number of atoms in molecules')
+    raise ValueError('Unequal number of atoms in molecules (%i and %i)'
+                     % (len(mol_atoms), len(ref_atoms)))
 
 
 def distance(x, y):

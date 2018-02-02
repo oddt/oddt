@@ -1,5 +1,4 @@
 import os
-from random import shuffle
 import numpy as np
 from scipy.sparse import vstack as sparse_vstack
 from sklearn.utils.testing import (assert_array_equal,
@@ -7,7 +6,6 @@ from sklearn.utils.testing import (assert_array_equal,
                                    assert_equal,
                                    assert_almost_equal)
 import oddt
-from oddt.utils import is_openbabel_molecule
 from oddt.fingerprints import (InteractionFingerprint,
                                SimpleInteractionFingerprint,
                                ECFP,
@@ -22,6 +20,8 @@ from oddt.fingerprints import (InteractionFingerprint,
                                dense_to_sparse,
                                dice,
                                tanimoto)
+from .utils import shuffle_mol
+
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -33,17 +33,6 @@ protein.addh(only_polar=True)
 ligand = next(oddt.toolkit.readfile('sdf', os.path.join(
     test_data_dir, 'data/pdbbind/10gs/10gs_ligand.sdf')))
 ligand.addh(only_polar=True)
-
-
-def shuffle_mol(mol):
-    new_mol = mol.clone
-    new_order = list(range(len(mol.atoms)))
-    shuffle(new_order)
-    if is_openbabel_molecule(mol):
-        new_mol.OBMol.RenumberAtoms([i + 1 for i in new_order])
-    else:
-        new_mol.Mol = oddt.toolkits.rdk.Chem.RenumberAtoms(new_mol.Mol, new_order)
-    return new_mol
 
 
 def test_folding():
