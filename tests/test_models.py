@@ -1,8 +1,7 @@
 import pickle
 import numpy as np
 
-from sklearn.utils.testing import (assert_array_almost_equal,
-                                   assert_array_equal)
+from numpy.testing import assert_array_almost_equal, assert_array_equal
 
 from oddt.scoring.models import classifiers, regressors
 

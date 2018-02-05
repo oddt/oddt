@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.utils.testing import assert_almost_equal
+from numpy.testing import assert_almost_equal
 
 from oddt.metrics import (roc_auc, roc_log_auc, random_roc_log_auc,
                           enrichment_factor, rie, bedroc,

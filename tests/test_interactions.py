@@ -1,6 +1,6 @@
 import os
 
-from sklearn.utils.testing import assert_array_equal
+from numpy.testing import assert_array_equal
 import pytest
 
 import oddt

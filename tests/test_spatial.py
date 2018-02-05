@@ -1,9 +1,9 @@
 import os
 
 import pytest
-from sklearn.utils.testing import (assert_almost_equal,
-                                   assert_array_equal,
-                                   assert_array_almost_equal)
+from numpy.testing import (assert_almost_equal,
+                           assert_array_equal,
+                           assert_array_almost_equal)
 import numpy as np
 
 import oddt

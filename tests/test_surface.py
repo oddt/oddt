@@ -3,7 +3,7 @@ from distutils.version import LooseVersion
 
 import numpy as np
 import pytest
-from sklearn.utils.testing import assert_array_equal
+from numpy.testing import assert_array_equal
 from skimage import __version__ as skimage_version
 
 import oddt

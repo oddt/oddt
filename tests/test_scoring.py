@@ -4,8 +4,7 @@ from tempfile import mkdtemp, NamedTemporaryFile
 
 import numpy as np
 
-from sklearn.utils.testing import (assert_almost_equal,
-                                   assert_array_almost_equal)
+from numpy.testing import assert_almost_equal, assert_array_almost_equal
 from sklearn.metrics import r2_score
 
 import oddt

@@ -1,7 +1,7 @@
 import os
 from tempfile import NamedTemporaryFile
 
-from sklearn.utils.testing import assert_array_equal
+from numpy.testing import assert_array_equal
 import pandas as pd
 
 import oddt

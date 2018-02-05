@@ -1,7 +1,6 @@
 import os
 import numpy as np
-from sklearn.utils.testing import (assert_array_almost_equal,
-                                   assert_almost_equal)
+from numpy.testing import assert_array_almost_equal, assert_almost_equal
 import oddt
 from oddt.shape import usr, usr_cat, electroshape, usr_similarity
 
