@@ -5,10 +5,7 @@ from six.moves.cPickle import loads, dumps
 import numpy as np
 import pandas as pd
 
-from sklearn.utils.testing import (assert_true,
-                                   assert_false,
-                                   assert_dict_equal,
-                                   assert_array_equal,
+from sklearn.utils.testing import (assert_array_equal,
                                    assert_array_almost_equal,
                                    assert_equal,
                                    assert_warns,
@@ -28,14 +25,14 @@ def test_mol():
     """Test common molecule operations"""
     # Hydrogen manipulation in small molecules
     mol = oddt.toolkit.readstring('smi', 'c1ccccc1O')
-    assert_equal(len(mol.atoms), 7)
+    assert len(mol.atoms) == 7
     mol.addh()
-    assert_equal(len(mol.atoms), 13)
+    assert len(mol.atoms) == 13
     mol.removeh()
     mol.addh(only_polar=True)
-    assert_equal(len(mol.atoms), 8)
+    assert len(mol.atoms) == 8
     mol.removeh()
-    assert_equal(len(mol.atoms), 7)
+    assert len(mol.atoms) == 7
 
     # Hydrogen manipulation in proteins
     protein = next(oddt.toolkit.readfile('pdb', xiap_receptor))
@@ -70,27 +67,27 @@ def test_mol():
                           8, 8, 10, 13, 10, 12, 5, 10, 12, 8, 12, 7, 8, 5,
                           5, 5, 9, 9, 10, 16, 12, 7, 8, 11, 10, 7, 16, 11,
                           12, 11, 6, 12, 16, 14, 7, 5, 10, 12, 9, 9, 1, 1]
-    assert_equal(len(protein.atoms), 1114)
-    assert_equal(len(protein.residues), 138)
+    assert len(protein.atoms) == 1114
+    assert len(protein.residues) == 138
     assert_array_equal([len(res.atoms) for res in protein.residues],
                        res_atoms_n)
 
     protein.addh()
-    assert_equal(len(protein.atoms), 2170)
-    assert_equal(len(protein.residues), 138)
+    assert len(protein.atoms) == 2170
+    assert len(protein.residues) == 138
     assert_array_equal([len(res.atoms) for res in protein.residues],
                        res_atoms_n_addh)
 
     protein.removeh()
     protein.addh(only_polar=True)
-    assert_equal(len(protein.atoms), 1356)
-    assert_equal(len(protein.residues), 138)
+    assert len(protein.atoms) == 1356
+    assert len(protein.residues) == 138
     assert_array_equal([len(res.atoms) for res in protein.residues],
                        res_atoms_n_polarh)
 
     protein.removeh()
-    assert_equal(len(protein.atoms), 1114)
-    assert_equal(len(protein.residues), 138)
+    assert len(protein.atoms) == 1114
+    assert len(protein.residues) == 138
     assert_array_equal([len(res.atoms) for res in protein.residues],
                        res_atoms_n)
 
@@ -108,13 +105,13 @@ ATOM      8  O5  HOH     4       0.000   0.000   0.000  1.00  0.00           O
 """
     protein = oddt.toolkit.readstring('pdb', pdb_block)
     protein.protein = True
-    assert_equal(len(protein.residues), 4)
+    assert len(protein.residues) == 4
 
     protein.addh(only_polar=True)
-    assert_equal(len(protein.residues), 4)
+    assert len(protein.residues) == 4
 
     protein.addh()
-    assert_equal(len(protein.residues), 4)
+    assert len(protein.residues) == 4
 
 
 def test_pickle():
@@ -129,8 +126,7 @@ def test_pickle():
                        list(map(lambda x: x.smiles, pickled_mols)))
 
     for mol, pickled_mol in zip(mols, pickled_mols):
-        assert_dict_equal(dict(mol.data),
-                          dict(pickled_mol.data))
+        assert dict(mol.data) == dict(pickled_mol.data)
 
     # Test pickling of atom_dicts
     assert_array_equal(list(map(lambda x: x._atom_dict is None, mols)),
@@ -164,8 +160,7 @@ def test_pickle():
                        list(map(lambda x: x.smiles, pickled_mols)))
 
     for mol, pickled_mol in zip(mols, pickled_mols):
-        assert_dict_equal(dict(mol.data),
-                          dict(pickled_mol.data))
+        assert dict(mol.data) == dict(pickled_mol.data)
 
 
 def test_diverse_conformers():
@@ -186,7 +181,7 @@ def test_diverse_conformers():
     for conf in diverse_conformers_generator(mol, seed=123456):
         res.append(rmsd(mol, conf))
 
-    assert_equal(len(res), 10)
+    assert len(res) == 10
     if oddt.toolkit.backend == 'ob':
         assert_array_almost_equal(res, [0., 3.043712, 3.897143, 3.289482,
                                         3.066374, 2.909683, 2.913927,
@@ -228,12 +223,12 @@ def test_indices():
     mol = oddt.toolkit.readstring('smi', 'CCc1cc(C)c(C)cc1-c1ccc(-c2cccc(C)c2)cc1')
     atom = mol.atoms[0]
 
-    assert_equal(atom.idx0, 0)
-    assert_equal(atom.idx1, 1)
+    assert atom.idx0 == 0
+    assert atom.idx1 == 1
 
     # the unmarked index is deprecated in ODDT
     assert_warns(DeprecationWarning, getattr, atom, 'idx')
-    assert_equal(atom.idx, 1)
+    assert atom.idx == 1
 
 
 def test_pickle_protein():
@@ -241,29 +236,29 @@ def test_pickle_protein():
     # Proteins
     rec = next(oddt.toolkit.readfile('pdb', xiap_receptor))
     # generate atom_dict
-    assert_false(rec.atom_dict is None)
+    assert rec.atom_dict is not None
 
-    assert_false(rec._atom_dict is None)
+    assert rec._atom_dict is not None
     pickled_rec = loads(dumps(rec))
-    assert_false(pickled_rec.protein)
-    assert_false(pickled_rec._atom_dict is None)
+    assert pickled_rec.protein is False
+    assert pickled_rec._atom_dict is not None
 
     rec.protein = True
     # setting protein property should clean atom_dict cache
-    assert_true(rec._atom_dict is None)
+    assert rec._atom_dict is None
     # generate atom_dict
-    assert_false(rec.atom_dict is None)
+    assert rec.atom_dict is not None
 
     pickled_rec = loads(dumps(rec))
-    assert_true(pickled_rec.protein)
-    assert_false(pickled_rec._atom_dict is None)
+    assert pickled_rec.protein is True
+    assert pickled_rec._atom_dict is not None
 
 
 if oddt.toolkit.backend == 'rdk':
     def test_badmol():
         """Propagate None's for bad molecules"""
         mol = oddt.toolkit.readstring('smi', 'c1cc2')
-        assert_equal(mol, None)
+        assert mol is None
 
 
 def test_dicts():
@@ -381,10 +376,10 @@ def test_ss():
     isalpha = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
                18, 19, 20, 21, 22, 23, 24, 25, 26]
 
-    assert_equal(len(protein.res_dict), 29)
+    assert len(protein.res_dict) == 29
     assert_array_equal(np.where(protein.res_dict['isalpha'])[0], isalpha)
-    assert_equal(protein.res_dict['isalpha'].sum(), 27)
-    assert_equal(protein.res_dict['isbeta'].sum(), 0)
+    assert protein.res_dict['isalpha'].sum() == 27
+    assert protein.res_dict['isbeta'].sum() == 0
 
     # Beta Sheet
     prot_file = os.path.join(test_data_dir, 'data', 'pdb', '1icl_sheet.pdb')
@@ -401,10 +396,10 @@ def test_ss():
 
     isbeta = [2, 3, 4, 5, 10, 11, 12, 13]
 
-    assert_equal(len(protein.res_dict), 29)
+    assert len(protein.res_dict) == 29
     assert_array_equal(np.where(protein.res_dict['isbeta'])[0], isbeta)
-    assert_equal(protein.res_dict['isbeta'].sum(), 8)
-    assert_equal(protein.res_dict['isalpha'].sum(), 0)
+    assert protein.res_dict['isbeta'].sum() == 8
+    assert protein.res_dict['isalpha'].sum() == 0
 
     # Protein test
     protein = next(oddt.toolkit.readfile('pdb', xiap_receptor))
@@ -428,13 +423,13 @@ def test_ss():
 
     assert_array_equal(np.where(protein.res_dict['isalpha'])[0], isalpha)
     assert_array_equal(np.where(protein.res_dict['isbeta'])[0], isbeta)
-    assert_equal(len(protein.res_dict), 136)
-    assert_equal(protein.res_dict['isalpha'].sum(), 43)
-    assert_equal(protein.res_dict['isbeta'].sum(), 9)
-    assert_equal((protein.res_dict['isalpha'] &
-                  protein.res_dict['isbeta']).sum(), 0)  # Must be zero!
-    assert_equal((~protein.res_dict['isalpha'] &
-                  ~protein.res_dict['isbeta']).sum(), 84)
+    assert len(protein.res_dict) == 136
+    assert protein.res_dict['isalpha'].sum() == 43
+    assert protein.res_dict['isbeta'].sum() == 9
+    assert (protein.res_dict['isalpha'] &
+            protein.res_dict['isbeta']).sum() == 0  # Must be zero!
+    assert (~protein.res_dict['isalpha'] &
+            ~protein.res_dict['isbeta']).sum() == 84
 
 
 def test_pdbqt():
@@ -447,7 +442,7 @@ def test_pdbqt():
     mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt'))
     mol.removeh()
 
-    assert_equal(len(mol.atoms), len(mol2.atoms))
+    assert len(mol.atoms) == len(mol2.atoms)
 
     def nodes_size(block):
         out = OrderedDict()
@@ -481,10 +476,10 @@ def test_pdbqt():
         kwargs = {'flexible': False}
 
     mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt', **kwargs))
-    assert_equal(len(mol.atoms), len(mol2.atoms))
+    assert len(mol.atoms) == len(mol2.atoms)
 
     mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt'))
-    assert_equal(len(mol.atoms), len(mol2.atoms))
+    assert len(mol.atoms) == len(mol2.atoms)
 
 
 def test_residue_info():

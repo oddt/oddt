@@ -5,7 +5,6 @@ from tempfile import mkdtemp, NamedTemporaryFile
 import numpy as np
 
 from sklearn.utils.testing import (assert_almost_equal,
-                                   assert_equal,
                                    assert_array_almost_equal)
 from sklearn.metrics import r2_score
 
@@ -70,11 +69,11 @@ def test_ensemble_descriptor():
     ensemble = ensemble_descriptor((desc1, desc2))
 
     ensemble.set_protein(rec)
-    assert_equal(len(ensemble), len(desc1) + len(desc2))
+    assert len(ensemble) == len(desc1) + len(desc2)
 
     # set protein
-    assert_equal(desc1.protein, rec)
-    assert_equal(desc2.protein, rec)
+    assert desc1.protein == rec
+    assert desc2.protein == rec
 
     ensemble_scores = ensemble.build(mols)
     scores1 = desc1.build(mols)
@@ -264,9 +263,9 @@ def test_model_train():
             model.train(home_dir=home_dir, sf_pickle=f.name)
             model.set_protein(rec)
             preds = model.predict(mols)
-            assert_equal(len(preds), 10)
-            assert_equal(preds.dtype, np.float)
-            assert_equal(model.score(mols, preds), 1.0)
+            assert len(preds) == 10
+            assert preds.dtype == np.float
+            assert model.score(mols, preds) == 1.0
 
     for pdbbind_v in pdbbind_versions:
         version_dir = os.path.join(data_dir, 'v%s' % pdbbind_v)

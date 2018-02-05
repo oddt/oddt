@@ -1,10 +1,9 @@
 import os
 import numpy as np
 from scipy.sparse import vstack as sparse_vstack
-from sklearn.utils.testing import (assert_array_equal,
-                                   assert_array_almost_equal,
-                                   assert_equal,
-                                   assert_almost_equal)
+from numpy.testing import (assert_array_equal,
+                           assert_array_almost_equal,
+                           assert_almost_equal)
 import oddt
 from oddt.fingerprints import (InteractionFingerprint,
                                SimpleInteractionFingerprint,
@@ -230,12 +229,12 @@ def test_sparse_similarity():
 
     assert_almost_equal(dice(mol1_fp_sparse, mol2_fp_sparse, sparse=True),
                         dice(mol1_fp_dense, mol2_fp_dense))
-    assert_equal(dice([], [], sparse=True), 0.)
-    assert_equal(dice(np.zeros(10), np.zeros(10), sparse=False), 0.)
+    assert dice([], [], sparse=True) == 0.
+    assert dice(np.zeros(10), np.zeros(10), sparse=False) == 0.
     assert_almost_equal(tanimoto(mol1_fp_sparse, mol2_fp_sparse, sparse=True),
                         tanimoto(mol1_fp_dense, mol2_fp_dense))
-    assert_equal(tanimoto([], [], sparse=True), 0.)
-    assert_equal(tanimoto(np.zeros(10), np.zeros(10), sparse=False), 0.)
+    assert tanimoto([], [], sparse=True) == 0.
+    assert tanimoto(np.zeros(10), np.zeros(10), sparse=False) == 0.
 
 
 def test_ecfp():
@@ -390,7 +389,7 @@ def test_splif():
                  3713, 3713, 3716, 3716, 3729, 3732, 3769, 3843, 3854,
                  3871, 3912, 3927, 3986, 3994, 3994, 4069, 4087, 4087]
 
-    assert_equal(splif['hash'].shape, (172,))
+    assert splif['hash'].shape == (172,)
     assert_array_equal(splif['ligand_coords'].shape, (172, 7, 3))
     assert_array_equal(splif['protein_coords'].shape, (172, 7, 3))
     assert_array_equal(reference, splif['hash'])
@@ -557,8 +556,8 @@ def test_plec_binded_hoh():
             test_data_dir, 'data', 'pdb', '3kwa_5Apocket.pdb')))
         protein.protein = True
 
-        assert_equal(len(PLEC(ligand, protein, ignore_hoh=True)), 465)
-        assert_equal(len(PLEC(ligand, protein, ignore_hoh=False)), 560)
+        assert len(PLEC(ligand, protein, ignore_hoh=True)) == 465
+        assert len(PLEC(ligand, protein, ignore_hoh=False)) == 560
 
 
 def test_plec_similarity():

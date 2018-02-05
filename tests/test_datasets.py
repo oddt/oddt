@@ -1,8 +1,6 @@
 import os
 
-from sklearn.utils.testing import (assert_equal,
-                                   assert_greater,
-                                   assert_raises)
+import pytest
 
 import oddt
 from oddt.datasets import pdbbind, dude
@@ -21,8 +19,8 @@ def test_pdbbind():
                        [3.15, 5.47, 4.96, 3.52, 5.35, 6.4]),
     }
 
-    assert_raises(ValueError, pdbbind, home=os.path.join(test_data_dir,
-                                                         'data', 'pdbbind'))
+    with pytest.raises(ValueError):
+        pdbbind(home=os.path.join(test_data_dir, 'data', 'pdbbind'))
 
     for year in [2007, 2013, 2016]:
         pdbbind_db = pdbbind(home=os.path.join(test_data_dir, 'data', 'pdbbind'),
@@ -32,49 +30,52 @@ def test_pdbbind():
             if set_name == 'general_PL' and year == 2007:
                 set_name = 'general'
             pdbbind_db.default_set = set_name
-            assert_equal(pdbbind_db.ids, ids)
-            assert_equal(pdbbind_db.activities, activities)
+            assert pdbbind_db.ids == ids
+            assert pdbbind_db.activities == activities
 
             for pid in pdbbind_db:
                 assert isinstance(pid.pocket, oddt.toolkit.Molecule)
-                assert_greater(len(pid.pocket.atoms), 0)
+                assert len(pid.pocket.atoms) > 0
                 assert isinstance(pid.ligand, oddt.toolkit.Molecule)
-                assert_greater(len(pid.ligand.atoms), 0)
+                assert len(pid.ligand.atoms) > 0
                 if pid.id == '10gs':
-                    assert_equal(pid.protein, None)
+                    assert pid.protein is None
                 else:
                     assert isinstance(pid.protein, oddt.toolkit.Molecule)
-                    assert_greater(len(pid.protein.atoms), 0)
+                    assert len(pid.protein.atoms) > 0
 
         # reset the pdbbind set
         pdbbind_db.default_set = 'refined'
 
         # getting by name
-        assert_equal(pdbbind_db['1imx'].id, '1imx')
+        assert pdbbind_db['1imx'].id == '1imx'
 
         # getting by id
-        assert_equal(pdbbind_db[-3].id, '1imx')
-        assert_equal(pdbbind_db[1].id, '1imx')
+        assert pdbbind_db[-3].id == '1imx'
+        assert pdbbind_db[1].id == '1imx'
 
-        assert_raises(KeyError, pdbbind_db.__getitem__, 'xxxx')
-        assert_raises(KeyError, pdbbind_db.__getitem__, 123456)
-        assert_raises(KeyError, pdbbind_db.__getitem__, -123456)
+        with pytest.raises(KeyError):
+            pdbbind_db['xxxx']
+        with pytest.raises(KeyError):
+            pdbbind_db[123456]
+        with pytest.raises(KeyError):
+            pdbbind_db[-123456]
 
         pid = pdbbind_db['1imx']
         # get ligand
         ligand = pid.ligand
         ligand.removeh()
-        assert_equal(len(ligand.atoms), 60)
+        assert len(ligand.atoms) == 60
 
         # get pocket
         pocket = pid.pocket
         pocket.removeh()
-        assert_equal(len(pocket.atoms), 234)
+        assert len(pocket.atoms) == 234
 
         # protein do exist
         protein = pid.protein
         protein.removeh()
-        assert_equal(len(protein.atoms), 478)
+        assert len(protein.atoms) == 478
 
 
 def test_dude():
@@ -88,26 +89,27 @@ def test_dude():
     for target in dude_db:
         if target.dude_id == 'xiap':
             # different file names
-            assert_equal(target.protein, None)
-            assert_equal(target.ligand, None)
-            assert_equal(target.actives, None)
-            assert_equal(target.decoys, None)
+            assert target.protein is None
+            assert target.ligand is None
+            assert target.actives is None
+            assert target.decoys is None
             continue
 
         prot_atoms, lig_atoms, num_act, num_dec = results[target.dude_id]
 
         prot = target.protein
         prot.removeh()
-        assert_equal(len(prot.atoms), prot_atoms)
+        assert len(prot.atoms) == prot_atoms
         lig = target.ligand
         lig.removeh()
-        assert_equal(len(lig.atoms), lig_atoms)
+        assert len(lig.atoms) == lig_atoms
 
-        assert_equal(len(list(target.actives)), num_act)
+        assert len(list(target.actives)) == num_act
         for a in target.actives:
-            assert_greater(len(a.atoms), 0)
-        assert_equal(len(list(target.decoys)), num_dec)
+            assert len(a.atoms) > 0
+        assert len(list(target.decoys)) == num_dec
         for d in target.decoys:
-            assert_greater(len(d.atoms), 0)
+            assert len(d.atoms) > 0
 
-        assert_raises(KeyError, dude_db.__getitem__, 'xxxx')
+        with pytest.raises(KeyError):
+            dude_db['xxxx']

@@ -1,5 +1,5 @@
 import os
-from sklearn.utils.testing import assert_raises_regexp, assert_equal
+import pytest
 
 import oddt
 from oddt.utils import check_molecule, chunker, compose_iter
@@ -13,33 +13,30 @@ xiap_protein = os.path.join(dude_data_dir, 'receptor_rdkit.pdb')
 
 
 def test_check_molecule():
-    assert_raises_regexp(ValueError, 'Molecule object', check_molecule, [])
+    with pytest.raises(ValueError, match='Molecule object'):
+        check_molecule([])
 
     ligand = next(oddt.toolkit.readfile('sdf', xiap_crystal_ligand))
     check_molecule(ligand)
 
     # force protein
     protein = next(oddt.toolkit.readfile('pdb', xiap_protein))
-    assert_raises_regexp(ValueError,
-                         'marked as a protein',
-                         check_molecule,
-                         protein,
-                         force_protein=True)
+    with pytest.raises(ValueError, match='marked as a protein'):
+        check_molecule(protein, force_protein=True)
 
     protein.protein = True
     check_molecule(protein, force_protein=True)
 
     # force coordinates
     mol = oddt.toolkit.readstring('smi', 'c1ccccc1')
-    assert_raises_regexp(ValueError,
-                         '3D coordinates',
-                         check_molecule,
-                         mol,
-                         force_coords=True)
+    with pytest.raises(ValueError, match='3D coordinates'):
+        check_molecule(mol, force_coords=True)
+
     mol.make3D()
     check_molecule(mol, force_coords=True)
 
-    #assert_raises_regexp(ValueError, 'positional', check_molecule, mol, True)
+    # with pytest.raises(ValueError, match='positional'):
+    #     check_molecule(mol, True)
 
     mol = oddt.toolkit.readstring('sdf', '''mol_title
  handmade
@@ -47,11 +44,8 @@ def test_check_molecule():
   0  0  0  0  0  0  0  0  0  0999 V2000
 M  END
                           ''')
-    assert_raises_regexp(ValueError,
-                         'has zero atoms',
-                         check_molecule,
-                         mol,
-                         non_zero_atoms=True)
+    with pytest.raises(ValueError, match='has zero atoms'):
+        check_molecule(mol, non_zero_atoms=True)
 
 
 def test_func_composition():
@@ -61,11 +55,11 @@ def test_func_composition():
     def inc(x):
         return [i + 1 for i in x]
 
-    assert_equal(compose_iter([1], funcs=[double, inc]), [3])
-    assert_equal(compose_iter([3], funcs=[double, inc]), [7])
-    assert_equal(compose_iter([10], funcs=[double, inc]), [21])
+    assert compose_iter([1], funcs=[double, inc]) == [3]
+    assert compose_iter([3], funcs=[double, inc]) == [7]
+    assert compose_iter([10], funcs=[double, inc]) == [21]
 
 
 def test_chunks():
     chunks = chunker('ABCDEFG', 2)
-    assert_equal(list(chunks), [['A', 'B'], ['C', 'D'], ['E', 'F'], ['G']])
+    assert list(chunks), [['A', 'B'], ['C', 'D'], ['E', 'F'] == ['G']]
