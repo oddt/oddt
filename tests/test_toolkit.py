@@ -5,12 +5,12 @@ from six.moves.cPickle import loads, dumps
 import numpy as np
 import pandas as pd
 
-from nose.tools import assert_equal
 from sklearn.utils.testing import (assert_true,
                                    assert_false,
                                    assert_dict_equal,
                                    assert_array_equal,
                                    assert_array_almost_equal,
+                                   assert_equal,
                                    assert_warns,
                                    assert_raises)
 
@@ -18,6 +18,10 @@ import oddt
 from oddt.spatial import rmsd
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
+xiap_receptor = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
+                             'receptor_rdkit.pdb')
+xiap_actives = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
+                            'actives_docked.sdf')
 
 
 def test_mol():
@@ -34,8 +38,7 @@ def test_mol():
     assert_equal(len(mol.atoms), 7)
 
     # Hydrogen manipulation in proteins
-    protein = next(oddt.toolkit.readfile(
-        'pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    protein = next(oddt.toolkit.readfile('pdb', xiap_receptor))
     protein.protein = True
 
     res_atoms_n = [6, 10, 8, 8, 7, 11, 8, 7, 6, 8, 5, 8, 12, 9, 5, 11, 8,
@@ -69,23 +72,27 @@ def test_mol():
                           12, 11, 6, 12, 16, 14, 7, 5, 10, 12, 9, 9, 1, 1]
     assert_equal(len(protein.atoms), 1114)
     assert_equal(len(protein.residues), 138)
-    assert_array_equal([len(res.atoms) for res in protein.residues], res_atoms_n)
+    assert_array_equal([len(res.atoms) for res in protein.residues],
+                       res_atoms_n)
 
     protein.addh()
     assert_equal(len(protein.atoms), 2170)
     assert_equal(len(protein.residues), 138)
-    assert_array_equal([len(res.atoms) for res in protein.residues], res_atoms_n_addh)
+    assert_array_equal([len(res.atoms) for res in protein.residues],
+                       res_atoms_n_addh)
 
     protein.removeh()
     protein.addh(only_polar=True)
     assert_equal(len(protein.atoms), 1356)
     assert_equal(len(protein.residues), 138)
-    assert_array_equal([len(res.atoms) for res in protein.residues], res_atoms_n_polarh)
+    assert_array_equal([len(res.atoms) for res in protein.residues],
+                       res_atoms_n_polarh)
 
     protein.removeh()
     assert_equal(len(protein.atoms), 1114)
     assert_equal(len(protein.residues), 138)
-    assert_array_equal([len(res.atoms) for res in protein.residues], res_atoms_n)
+    assert_array_equal([len(res.atoms) for res in protein.residues],
+                       res_atoms_n)
 
 
 def test_toolkit_hoh():
@@ -112,8 +119,7 @@ ATOM      8  O5  HOH     4       0.000   0.000   0.000  1.00  0.00           O
 
 def test_pickle():
     """Pickle molecules"""
-    mols = list(oddt.toolkit.readfile('sdf',
-                                      os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+    mols = list(oddt.toolkit.readfile('sdf', xiap_actives))
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
 
     assert_array_equal(list(map(lambda x: x.title, mols)),
@@ -138,14 +144,14 @@ def test_pickle():
     pickled_mols_atom_dict = np.hstack(list(map(lambda x: x._atom_dict, pickled_mols)))
     for name in mols[0].atom_dict.dtype.names:
         if issubclass(np.dtype(mols_atom_dict[name].dtype).type, np.number):
-            assert_array_almost_equal(mols_atom_dict[name], pickled_mols_atom_dict[name])
+            assert_array_almost_equal(mols_atom_dict[name],
+                                      pickled_mols_atom_dict[name])
         else:
-            assert_array_equal(mols_atom_dict[name], pickled_mols_atom_dict[name])
+            assert_array_equal(mols_atom_dict[name],
+                               pickled_mols_atom_dict[name])
 
     # Lazy Mols
-    mols = list(oddt.toolkit.readfile('sdf',
-                                      os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf'),
-                                      lazy=True))
+    mols = list(oddt.toolkit.readfile('sdf', xiap_actives, lazy=True))
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
 
     assert_array_equal(list(map(lambda x: x._source is not None, pickled_mols)),
@@ -166,7 +172,10 @@ def test_diverse_conformers():
     # FIXME: make toolkit a module so we can import from it
     diverse_conformers_generator = oddt.toolkit.diverse_conformers_generator
 
-    mol = oddt.toolkit.readstring("smi", "CN1CCN(S(=O)(C2=CC=C(OCC)C(C3=NC4=C(N(C)N=C4CCC)C(N3)=O)=C2)=O)CC1")
+    mol = oddt.toolkit.readstring(
+        'smi',
+        'CN1CCN(S(=O)(C2=CC=C(OCC)C(C3=NC4=C(N(C)N=C4CCC)C(N3)=O)=C2)=O)CC1'
+    )
     mol.make3D()
 
     if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
@@ -230,7 +239,7 @@ def test_indices():
 def test_pickle_protein():
     """Pickle proteins"""
     # Proteins
-    rec = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    rec = next(oddt.toolkit.readfile('pdb', xiap_receptor))
     # generate atom_dict
     assert_false(rec.atom_dict is None)
 
@@ -259,7 +268,7 @@ if oddt.toolkit.backend == 'rdk':
 
 def test_dicts():
     """Test ODDT numpy structures, aka. dicts"""
-    mols = list(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+    mols = list(oddt.toolkit.readfile('sdf', xiap_actives))
     list(map(lambda x: x.addh(only_polar=True), mols))
 
     skip_cols = ['radius', 'charge', 'id',
@@ -284,7 +293,9 @@ def test_dicts():
     # data.to_csv(os.path.join(test_data_dir, 'data/results/xiap/mols_atom_dict.csv'),
     #             index=False)
 
-    corr_data = pd.read_csv(os.path.join(test_data_dir, 'data/results/xiap/mols_atom_dict.csv')).fillna('')
+    corr_data = pd.read_csv(os.path.join(test_data_dir, 'data', 'results',
+                                         'xiap', 'mols_atom_dict.csv')
+                            ).fillna('')
 
     for name in common_cols:
         if issubclass(np.dtype(data[name].dtype).type, np.number):
@@ -292,20 +303,22 @@ def test_dicts():
             for i in np.argwhere(mask):
                 print(i, data[name][i].values, corr_data[name][i].values,
                       mols[data['mol_idx'][int(i)]].write('smi'))
-            assert_array_almost_equal(data[name],
-                                      corr_data[name],
-                                      err_msg='Mols atom_dict\'s collumn: "%s" is not equal' % name)
+            assert_array_almost_equal(
+                data[name],
+                corr_data[name],
+                err_msg='Mols atom_dict\'s collumn: "%s" is not equal' % name)
         else:
             mask = data[name] != corr_data[name]
             for i in np.argwhere(mask):
                 print(i, data[name][i].values, corr_data[name][i].values,
                       mols[data['mol_idx'][int(i)]].write('smi'))
-            assert_array_equal(data[name],
-                               corr_data[name],
-                               err_msg='Mols atom_dict\'s collumn: "%s" is not equal' % name)
+            assert_array_equal(
+                data[name],
+                corr_data[name],
+                err_msg='Mols atom_dict\'s collumn: "%s" is not equal' % name)
 
     # Protein
-    rec = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    rec = next(oddt.toolkit.readfile('pdb', xiap_receptor))
     rec.protein = True
     rec.addh(only_polar=True)
 
@@ -323,7 +336,9 @@ def test_dicts():
     # data.to_csv(os.path.join(test_data_dir, 'data/results/xiap/prot_atom_dict.csv'),
     #             index=False)
 
-    corr_data = pd.read_csv(os.path.join(test_data_dir, 'data/results/xiap/prot_atom_dict.csv')).fillna('')
+    corr_data = pd.read_csv(os.path.join(test_data_dir, 'data', 'results',
+                                         'xiap', 'prot_atom_dict.csv')
+                            ).fillna('')
 
     for name in common_cols:
         if issubclass(np.dtype(data[name].dtype).type, np.number):
@@ -334,9 +349,10 @@ def test_dicts():
                       data['resname'][i].values,
                       data[name][i].values,
                       corr_data[name][i].values)
-            assert_array_almost_equal(data[name],
-                                      corr_data[name],
-                                      err_msg='Protein atom_dict\'s collumn: "%s" is not equal' % name)
+            assert_array_almost_equal(
+                data[name],
+                corr_data[name],
+                err_msg='Protein atom_dict\'s collumn: "%s" is not equal' % name)
         else:
             mask = data[name] != corr_data[name]
             for i in np.argwhere(mask):
@@ -345,15 +361,17 @@ def test_dicts():
                       data['resname'][i].values,
                       data[name][i].values,
                       corr_data[name][i].values)
-            assert_array_equal(data[name],
-                               corr_data[name],
-                               err_msg='Protein atom_dict\'s collumn: "%s" is not equal' % name)
+            assert_array_equal(
+                data[name],
+                corr_data[name],
+                err_msg='Protein atom_dict\'s collumn: "%s" is not equal' % name)
 
 
 def test_ss():
     """Secondary structure assignment"""
     # Alpha Helix
-    protein = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/pdb/1cos_helix.pdb')))
+    prot_file = os.path.join(test_data_dir, 'data', 'pdb', '1cos_helix.pdb')
+    protein = next(oddt.toolkit.readfile('pdb', prot_file))
     protein.protein = True
 
     # print(protein.res_dict['resname'])
@@ -369,7 +387,8 @@ def test_ss():
     assert_equal(protein.res_dict['isbeta'].sum(), 0)
 
     # Beta Sheet
-    protein = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/pdb/1icl_sheet.pdb')))
+    prot_file = os.path.join(test_data_dir, 'data', 'pdb', '1icl_sheet.pdb')
+    protein = next(oddt.toolkit.readfile('pdb', prot_file))
     protein.protein = True
 
     # print(protein.res_dict['resname'])
@@ -388,7 +407,7 @@ def test_ss():
     assert_equal(protein.res_dict['isalpha'].sum(), 0)
 
     # Protein test
-    protein = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    protein = next(oddt.toolkit.readfile('pdb', xiap_receptor))
     protein.protein = True
 
     # print(protein.res_dict['resname'])
@@ -412,8 +431,10 @@ def test_ss():
     assert_equal(len(protein.res_dict), 136)
     assert_equal(protein.res_dict['isalpha'].sum(), 43)
     assert_equal(protein.res_dict['isbeta'].sum(), 9)
-    assert_equal((protein.res_dict['isalpha'] & protein.res_dict['isbeta']).sum(), 0)  # Must be zero!
-    assert_equal((~protein.res_dict['isalpha'] & ~protein.res_dict['isbeta']).sum(), 84)
+    assert_equal((protein.res_dict['isalpha'] &
+                  protein.res_dict['isbeta']).sum(), 0)  # Must be zero!
+    assert_equal((~protein.res_dict['isalpha'] &
+                  ~protein.res_dict['isbeta']).sum(), 84)
 
 
 def test_pdbqt():
@@ -446,7 +467,9 @@ def test_pdbqt():
     else:
         assert_array_equal(nodes_size(mol.write('pdbqt')),
                            [8, 6, 7, 2])
-    mol = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/crystal_ligand.sdf')))
+    ligand_file = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
+                               'crystal_ligand.sdf')
+    mol = next(oddt.toolkit.readfile('sdf', ligand_file))
     assert_array_equal(nodes_size(mol.write('pdbqt')),
                        [8, 3, 6, 6, 1, 6, 3, 2, 2])
 
@@ -462,3 +485,16 @@ def test_pdbqt():
 
     mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt'))
     assert_equal(len(mol.atoms), len(mol2.atoms))
+
+
+def test_residue_info():
+    """Residue properties"""
+    mol_file = os.path.join(test_data_dir, 'data', 'pdb', '3kwa_5Apocket.pdb')
+    mol = next(oddt.toolkit.readfile('pdb', mol_file))
+    assert_equal(len(mol.residues), 19)
+
+    res = mol.residues[0]
+    assert_equal(res.idx0, 0)
+    assert_equal(res.number, 92)
+    assert_equal(res.chain, 'A')
+    assert_equal(res.name, 'GLN')

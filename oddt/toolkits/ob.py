@@ -815,8 +815,21 @@ class Residue(object):
         return [Atom(atom) for atom in ob.OBResidueAtomIter(self.OBResidue)]
 
     @property
+    @deprecated('Use `idx0` instead.')
     def idx(self):
         return self.OBResidue.GetIdx()
+
+    @property
+    def idx0(self):
+        return self.OBResidue.GetIdx()
+
+    @property
+    def number(self):
+        return self.OBResidue.GetNum()
+
+    @property
+    def chain(self):
+        return self.OBResidue.GetChain()
 
     @property
     def name(self):
