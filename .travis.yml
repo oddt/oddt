@@ -48,7 +48,7 @@ install:
     - conda install -q conda-build anaconda-client
     - conda info -a
     - if [ -d $HOME/miniconda/envs/test-environment ]; then rm -rf $HOME/miniconda/envs/test-environment; fi
-    - conda create -q -n test-environment python=$CONDA_PY nose numpydoc six coverage pillow
+    - conda create -q -n test-environment python=$CONDA_PY numpydoc six pillow
     - source activate test-environment
     - |
         if [[ "$MINIMAL_REQ" == "1" ]]; then
@@ -68,11 +68,11 @@ install:
             fi
         fi
         conda install -q -c bioconda autodock-vina
-        conda install -q -c conda-forge nose-timer
+        conda install -q -c conda-forge nose pytest pytest-xdist pytest-cov
         pip install coveralls
     - python setup.py install
 script:
-    - nosetests --with-coverage --cover-package oddt -v --nocapture --processes=2 --process-timeout=600 --with-timer
+    - pytest --cov=oddt -n 2 -d -v -s --durations=0 tests/
     - oddt_cli --help
     - oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
     - oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity ifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
