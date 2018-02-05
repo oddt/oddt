@@ -1,9 +1,9 @@
 import os
 from distutils.version import LooseVersion
 
-from nose.tools import assert_raises
 import numpy as np
-from sklearn.utils.testing import (assert_array_equal,
+from sklearn.utils.testing import (assert_raises,
+                                   assert_array_equal,
                                    assert_equal)
 from skimage import __version__ as skimage_version
 

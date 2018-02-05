@@ -1,7 +1,7 @@
 import os
 
-from nose.tools import assert_equal
-from sklearn.utils.testing import (assert_almost_equal,
+from sklearn.utils.testing import (assert_equal,
+                                   assert_almost_equal,
                                    assert_array_equal,
                                    assert_array_almost_equal,
                                    assert_raises_regex)

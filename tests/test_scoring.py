@@ -4,8 +4,9 @@ from tempfile import mkdtemp, NamedTemporaryFile
 
 import numpy as np
 
-from nose.tools import assert_almost_equal, assert_is_instance, assert_equal
-from sklearn.utils.testing import assert_array_almost_equal
+from sklearn.utils.testing import (assert_almost_equal,
+                                   assert_equal,
+                                   assert_array_almost_equal)
 from sklearn.metrics import r2_score
 
 import oddt
@@ -51,7 +52,7 @@ def test_scorer():
     assert_array_almost_equal(predictions, single_predictions)
 
     scored_mols_gen = simple_scorer.predict_ligands(mols[10:15])
-    assert_is_instance(scored_mols_gen, GeneratorType)
+    assert isinstance(scored_mols_gen, GeneratorType)
     gen_predictions = [float(mol.data['score']) for mol in scored_mols_gen]
     assert_array_almost_equal(predictions, gen_predictions)
 

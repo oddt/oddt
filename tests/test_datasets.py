@@ -1,7 +1,8 @@
 import os
 
-from nose.tools import (assert_equal, assert_is_instance, assert_greater,
-                        assert_raises)
+from sklearn.utils.testing import (assert_equal,
+                                   assert_greater,
+                                   assert_raises)
 
 import oddt
 from oddt.datasets import pdbbind, dude
@@ -35,14 +36,14 @@ def test_pdbbind():
             assert_equal(pdbbind_db.activities, activities)
 
             for pid in pdbbind_db:
-                assert_is_instance(pid.pocket, oddt.toolkit.Molecule)
+                assert isinstance(pid.pocket, oddt.toolkit.Molecule)
                 assert_greater(len(pid.pocket.atoms), 0)
-                assert_is_instance(pid.ligand, oddt.toolkit.Molecule)
+                assert isinstance(pid.ligand, oddt.toolkit.Molecule)
                 assert_greater(len(pid.ligand.atoms), 0)
                 if pid.id == '10gs':
                     assert_equal(pid.protein, None)
                 else:
-                    assert_is_instance(pid.protein, oddt.toolkit.Molecule)
+                    assert isinstance(pid.protein, oddt.toolkit.Molecule)
                     assert_greater(len(pid.protein.atoms), 0)
 
         # reset the pdbbind set

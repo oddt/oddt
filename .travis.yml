@@ -68,7 +68,7 @@ install:
             fi
         fi
         conda install -q -c bioconda autodock-vina
-        conda install -q -c conda-forge nose pytest pytest-xdist pytest-cov
+        conda install -q -c conda-forge pytest pytest-xdist pytest-cov
         pip install coveralls
     - python setup.py install
 script:

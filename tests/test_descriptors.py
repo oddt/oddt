@@ -1,6 +1,6 @@
 import os
 
-from nose.tools import assert_in, assert_equal
+from sklearn.utils.testing import assert_in, assert_equal
 
 import oddt
 from oddt.scoring import descriptors

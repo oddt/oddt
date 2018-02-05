@@ -1,8 +1,11 @@
 import os
 from tempfile import NamedTemporaryFile
 
-from nose.tools import assert_in, assert_not_in, assert_equal, assert_is_instance
-from sklearn.utils.testing import assert_true, assert_array_equal
+from sklearn.utils.testing import (assert_in,
+                                   assert_not_in,
+                                   assert_equal,
+                                   assert_true,
+                                   assert_array_equal)
 import pandas as pd
 
 import oddt
@@ -169,20 +172,20 @@ def test_chemseries_writers():
     with NamedTemporaryFile(suffix='.ism', mode='w') as f:
         mols.to_smiles(f)
         for mol in oddt.toolkit.readfile('smi', f.name):
-            assert_is_instance(mol, oddt.toolkit.Molecule)
+            assert isinstance(mol, oddt.toolkit.Molecule)
 
     # SDF
     with NamedTemporaryFile(suffix='.sdf', mode='w') as f:
         mols.to_sdf(f)
         for mol in oddt.toolkit.readfile('sdf', f.name):
-            assert_is_instance(mol, oddt.toolkit.Molecule)
+            assert isinstance(mol, oddt.toolkit.Molecule)
 
     # mol2
     if oddt.toolkit.backend == 'ob':
         with NamedTemporaryFile(suffix='.mol2', mode='w') as f:
             mols.to_mol2(f)
             for mol in oddt.toolkit.readfile('mol2', f.name):
-                assert_is_instance(mol, oddt.toolkit.Molecule)
+                assert isinstance(mol, oddt.toolkit.Molecule)
 
 
 def test_ipython():

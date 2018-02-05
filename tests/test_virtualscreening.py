@@ -1,8 +1,9 @@
 import os
 from tempfile import mkdtemp, NamedTemporaryFile
 
-from nose.tools import assert_in, assert_equal
-from sklearn.utils.testing import (assert_array_equal,
+from sklearn.utils.testing import (assert_in,
+                                   assert_equal,
+                                   assert_array_equal,
                                    assert_array_almost_equal,
                                    assert_raises,
                                    assert_raises_regexp,

@@ -1,8 +1,11 @@
 import pickle
 import numpy as np
 
-from nose.tools import assert_equal, assert_greater, assert_true
-from sklearn.utils.testing import assert_array_almost_equal, assert_array_equal
+from sklearn.utils.testing import (assert_equal,
+                                   assert_greater,
+                                   assert_true,
+                                   assert_array_almost_equal,
+                                   assert_array_equal)
 
 from oddt.scoring.models import classifiers, regressors
 
