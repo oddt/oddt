@@ -5,11 +5,8 @@ from six.moves.cPickle import loads, dumps
 import numpy as np
 import pandas as pd
 
-from sklearn.utils.testing import (assert_array_equal,
-                                   assert_array_almost_equal,
-                                   assert_equal,
-                                   assert_warns,
-                                   assert_raises)
+import pytest
+from numpy.testing import assert_array_equal, assert_array_almost_equal
 
 import oddt
 from oddt.spatial import rmsd
@@ -174,7 +171,8 @@ def test_diverse_conformers():
     mol.make3D()
 
     if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
-        assert_raises(NotImplementedError, diverse_conformers_generator, mol)
+        with pytest.raises(NotImplementedError):
+            diverse_conformers_generator(mol)
         return None  # skip test for older OB
 
     res = []
@@ -204,18 +202,18 @@ def test_diverse_conformers():
     else:
         methods = ['dg', 'etkdg', 'kdg', 'etdg']
     for method in methods:
-        assert_equal(len(diverse_conformers_generator(mol,
-                                                      seed=123456,
-                                                      n_conf=5,
-                                                      method=method)), 5)
-        assert_equal(len(diverse_conformers_generator(mol,
-                                                      seed=123456,
-                                                      n_conf=10,
-                                                      method=method)), 10)
-        assert_equal(len(diverse_conformers_generator(mol,
-                                                      seed=123456,
-                                                      n_conf=20,
-                                                      method=method)), 20)
+        assert len(diverse_conformers_generator(mol,
+                                                seed=123456,
+                                                n_conf=5,
+                                                method=method)) == 5
+        assert len(diverse_conformers_generator(mol,
+                                                seed=123456,
+                                                n_conf=10,
+                                                method=method)) == 10
+        assert len(diverse_conformers_generator(mol,
+                                                seed=123456,
+                                                n_conf=20,
+                                                method=method)) == 20
 
 
 def test_indices():
@@ -227,8 +225,8 @@ def test_indices():
     assert atom.idx1 == 1
 
     # the unmarked index is deprecated in ODDT
-    assert_warns(DeprecationWarning, getattr, atom, 'idx')
-    assert atom.idx == 1
+    with pytest.warns(DeprecationWarning):
+        assert atom.idx == 1
 
 
 def test_pickle_protein():
@@ -486,10 +484,10 @@ def test_residue_info():
     """Residue properties"""
     mol_file = os.path.join(test_data_dir, 'data', 'pdb', '3kwa_5Apocket.pdb')
     mol = next(oddt.toolkit.readfile('pdb', mol_file))
-    assert_equal(len(mol.residues), 19)
+    assert len(mol.residues) == 19
 
     res = mol.residues[0]
-    assert_equal(res.idx0, 0)
-    assert_equal(res.number, 92)
-    assert_equal(res.chain, 'A')
-    assert_equal(res.name, 'GLN')
+    assert res.idx0 == 0
+    assert res.number == 92
+    assert res.chain == 'A'
+    assert res.name == 'GLN'

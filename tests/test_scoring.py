@@ -5,6 +5,7 @@ from tempfile import mkdtemp, NamedTemporaryFile
 import numpy as np
 
 from numpy.testing import assert_almost_equal, assert_array_almost_equal
+import pytest
 from sklearn.metrics import r2_score
 
 import oddt
@@ -24,6 +25,7 @@ receptor_pdb = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
 results = os.path.join(test_data_dir, 'data', 'results', 'xiap')
 
 
+@pytest.mark.filterwarnings('ignore:Data with input dtype int64 was converted')
 def test_scorer():
     np.random.seed(42)
     # toy example with made up values

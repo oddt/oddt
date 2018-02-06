@@ -2,10 +2,12 @@ import pickle
 import numpy as np
 
 from numpy.testing import assert_array_almost_equal, assert_array_equal
+import pytest
 
 from oddt.scoring.models import classifiers, regressors
 
 
+@pytest.mark.filterwarnings('ignore:Stochastic Optimizer')
 def test_classifiers():
     # toy data
     X = np.concatenate((np.zeros((5, 2)), np.ones((5, 2))))

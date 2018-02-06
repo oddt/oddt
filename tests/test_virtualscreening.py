@@ -1,11 +1,8 @@
 import os
 from tempfile import mkdtemp, NamedTemporaryFile
 
-from sklearn.utils.testing import (assert_array_equal,
-                                   assert_array_almost_equal,
-                                   assert_raises,
-                                   assert_raises_regexp,
-                                   assert_warns_message)
+import pytest
+from numpy.testing import assert_array_equal, assert_array_almost_equal
 
 import pandas as pd
 
@@ -53,7 +50,8 @@ def test_vs_docking():
     vs.load_ligands('sdf', xiap_crystal_ligand)
 
     # bad docking engine
-    assert_raises(ValueError, vs.dock, 'srina', 'prot.pdb')
+    with pytest.raises(ValueError):
+        vs.dock('srina', 'prot.pdb')
 
     vs.dock(engine='autodock_vina',
             protein=xiap_protein,
@@ -104,7 +102,8 @@ def test_vs_docking_empty():
             size=(20, 20, 20),
             seed=0)
 
-    assert_raises_regexp(ValueError, 'has no 3D coordinates', next, vs.fetch())
+    with pytest.raises(ValueError, match='has no 3D coordinates'):
+        next(vs.fetch())
 
 
 def test_vs_multithreading_fallback():
@@ -113,9 +112,8 @@ def test_vs_multithreading_fallback():
 
     vs.score(function='autodock_vina', protein=xiap_protein)
 
-    assert_warns_message(UserWarning,
-                         'Falling back to sub-methods multithreading',
-                         method_caller, vs, 'fetch')
+    with pytest.warns(UserWarning, match='Falling back to sub-methods multithreading'):
+        method_caller(vs, 'fetch')
 
 
 if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed
@@ -188,7 +186,8 @@ def test_vs_similarity():
         assert len(list(vs.fetch())) == 21
 
     # test wrong method error
-    assert_raises(ValueError, vs.similarity, 'sift', query=ref_mol)
+    with pytest.raises(ValueError):
+        vs.similarity('sift', query=ref_mol)
 
 
 def test_vs_scoring():
@@ -215,9 +214,11 @@ def test_vs_scoring():
     vs = virtualscreening(n_cpu=-1, chunksize=10)
     vs.load_ligands('sdf', xiap_actives_docked)
     # error if no protein is fed
-    assert_raises(ValueError, vs.score, 'nnscore')
+    with pytest.raises(ValueError):
+        vs.score('nnscore')
     # bad sf name
-    assert_raises(ValueError, vs.score, 'bad_sf', protein=protein)
+    with pytest.raises(ValueError):
+        vs.score('bad_sf', protein=protein)
     vs.score('nnscore', protein=xiap_protein)
     vs.score('nnscore_pdbbind2016', protein=protein)
     vs.score('rfscore_v1', protein=protein)
@@ -229,7 +230,8 @@ def test_vs_scoring():
     # pass SF object directly
     vs.score(scorer.load(filenames[0]), protein=protein)
     # pass wrong object (sum is not an instance of scorer)
-    assert_raises(ValueError, vs.score, sum, protein=protein)
+    with pytest.raises(ValueError):
+        vs.score(sum, protein=protein)
 
     mols = list(vs.fetch())
 
