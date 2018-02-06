@@ -1346,12 +1346,12 @@ class Residue(object):
     @property
     @deprecated('Use `idx0` instead.')
     def idx(self):
-        """Internat index of the Residue"""
+        """Internal index (0-based) of the Residue"""
         return self._idx
 
     @property
     def idx0(self):
-        """Internat index of the Residue"""
+        """Internal index (0-based) of the Residue"""
         return self._idx
 
     @property
