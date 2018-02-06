@@ -1337,6 +1337,7 @@ class Residue(object):
 
     @property
     def atoms(self):
+        """List of Atoms in the Residue"""
         if len(self.atom_path) == 1:
             return [Atom(self.ParentMol.GetAtomWithIdx(self.atom_path[0]))]
         else:
@@ -1345,22 +1346,27 @@ class Residue(object):
     @property
     @deprecated('Use `idx0` instead.')
     def idx(self):
+        """Internat index of the Residue"""
         return self._idx
 
     @property
     def idx0(self):
+        """Internat index of the Residue"""
         return self._idx
 
     @property
     def number(self):
+        """Residue number"""
         return self.MonomerInfo.GetResidueNumber() if self.MonomerInfo else 0
 
     @property
     def chain(self):
+        """Resdiue chain ID"""
         return self.MonomerInfo.GetChainId() if self.MonomerInfo else ''
 
     @property
     def name(self):
+        """Residue name"""
         return self.MonomerInfo.GetResidueName() if self.MonomerInfo else 'UNL'
 
     def __iter__(self):
