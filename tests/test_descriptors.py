@@ -1,7 +1,5 @@
 import os
 
-from nose.tools import assert_in, assert_equal
-
 import oddt
 from oddt.scoring import descriptors
 
@@ -32,8 +30,8 @@ def test_atoms_by_type():
         types_dict = descriptors.atoms_by_type(mol.atom_dict, types=types,
                                                mode=mode)
         for t, n in zip(types, num_atoms):
-            assert_in(t, types_dict)
-            assert_equal(len(types_dict[t]), n)
+            assert t in types_dict
+            assert len(types_dict[t]) == n
 
 
 def test_close_contacts_descriptor():
@@ -49,8 +47,8 @@ def test_close_contacts_descriptor():
             ligand_types=[6, 7, 8],
             protein_types=[6, 7, 8])
         length = len(contacts_descriptor.cutoff) * 9
-        assert_equal(len(contacts_descriptor), length)
+        assert len(contacts_descriptor) == length
 
         contacts = contacts_descriptor.build(ligands, protein=rec)
-        assert_equal(contacts.shape, (len(ligands), length))
-        assert_equal(contacts.sum(), num_contacts)
+        assert contacts.shape, (len(ligands) == length)
+        assert contacts.sum() == num_contacts

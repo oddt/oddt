@@ -1,12 +1,13 @@
 import pickle
 import numpy as np
 
-from nose.tools import assert_equal, assert_greater, assert_true
-from sklearn.utils.testing import assert_array_almost_equal, assert_array_equal
+from numpy.testing import assert_array_almost_equal, assert_array_equal
+import pytest
 
 from oddt.scoring.models import classifiers, regressors
 
 
+@pytest.mark.filterwarnings('ignore:Stochastic Optimizer')
 def test_classifiers():
     # toy data
     X = np.concatenate((np.zeros((5, 2)), np.ones((5, 2))))
@@ -19,7 +20,7 @@ def test_classifiers():
         classifier.fit(X, Y)
 
         assert_array_equal(classifier.predict(X), Y)
-        assert_equal(classifier.score(X, Y), 1.0)
+        assert classifier.score(X, Y) == 1.0
 
         prob = classifier.predict_proba(X)
         assert_array_almost_equal(prob, [[0, 1]] * 5 + [[1, 0]] * 5, decimal=1)
@@ -50,8 +51,8 @@ def test_regressors():
         regressor.fit(X, Y)
 
         pred = regressor.predict(X)
-        assert_true((np.abs(pred.flatten() - Y) < 1).all())
-        assert_greater(regressor.score(X, Y), 0.9)
+        assert (np.abs(pred.flatten() - Y) < 1).all()
+        assert regressor.score(X, Y) > 0.9
 
         pickled = pickle.dumps(regressor)
         reloaded = pickle.loads(pickled)

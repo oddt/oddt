@@ -1,12 +1,8 @@
 import os
 from tempfile import mkdtemp, NamedTemporaryFile
 
-from nose.tools import assert_in, assert_equal
-from sklearn.utils.testing import (assert_array_equal,
-                                   assert_array_almost_equal,
-                                   assert_raises,
-                                   assert_raises_regexp,
-                                   assert_warns_message)
+import pytest
+from numpy.testing import assert_array_equal, assert_array_almost_equal
 
 import pandas as pd
 
@@ -32,20 +28,20 @@ def test_vs_scoring_vina():
     vs.load_ligands('sdf', xiap_crystal_ligand)
     vs.score(function='autodock_vina', protein=xiap_protein)
     mols = list(vs.fetch())
-    assert_equal(len(mols), 1)
+    assert len(mols) == 1
     mol_data = mols[0].data
-    assert_in('vina_affinity', mol_data)
-    assert_in('vina_gauss1', mol_data)
-    assert_in('vina_gauss2', mol_data)
-    assert_in('vina_hydrogen', mol_data)
-    assert_in('vina_hydrophobic', mol_data)
-    assert_in('vina_repulsion', mol_data)
-    assert_equal(mol_data['vina_affinity'], '-3.57594')
-    assert_equal(mol_data['vina_gauss1'], '63.01213')
-    assert_equal(mol_data['vina_gauss2'], '999.07625')
-    assert_equal(mol_data['vina_hydrogen'], '0.0')
-    assert_equal(mol_data['vina_hydrophobic'], '26.12648')
-    assert_equal(mol_data['vina_repulsion'], '3.63178')
+    assert 'vina_affinity' in mol_data
+    assert 'vina_gauss1' in mol_data
+    assert 'vina_gauss2' in mol_data
+    assert 'vina_hydrogen' in mol_data
+    assert 'vina_hydrophobic' in mol_data
+    assert 'vina_repulsion' in mol_data
+    assert mol_data['vina_affinity'] == '-3.57594'
+    assert mol_data['vina_gauss1'] == '63.01213'
+    assert mol_data['vina_gauss2'] == '999.07625'
+    assert mol_data['vina_hydrogen'] == '0.0'
+    assert mol_data['vina_hydrophobic'] == '26.12648'
+    assert mol_data['vina_repulsion'] == '3.63178'
 
 
 def test_vs_docking():
@@ -54,7 +50,8 @@ def test_vs_docking():
     vs.load_ligands('sdf', xiap_crystal_ligand)
 
     # bad docking engine
-    assert_raises(ValueError, vs.dock, 'srina', 'prot.pdb')
+    with pytest.raises(ValueError):
+        vs.dock('srina', 'prot.pdb')
 
     vs.dock(engine='autodock_vina',
             protein=xiap_protein,
@@ -65,11 +62,11 @@ def test_vs_docking():
             size=(20, 20, 20),
             seed=0)
     mols = list(vs.fetch())
-    assert_equal(len(mols), 7)
+    assert len(mols) == 7
     mol_data = mols[0].data
-    assert_in('vina_affinity', mol_data)
-    assert_in('vina_rmsd_lb', mol_data)
-    assert_in('vina_rmsd_ub', mol_data)
+    assert 'vina_affinity' in mol_data
+    assert 'vina_rmsd_lb' in mol_data
+    assert 'vina_rmsd_ub' in mol_data
     if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
         vina_scores = [-5.3, -4.0, -3.8, -3.7, -3.4, -3.4, -3.0]
     else:
@@ -105,7 +102,8 @@ def test_vs_docking_empty():
             size=(20, 20, 20),
             seed=0)
 
-    assert_raises_regexp(ValueError, 'has no 3D coordinates', next, vs.fetch())
+    with pytest.raises(ValueError, match='has no 3D coordinates'):
+        next(vs.fetch())
 
 
 def test_vs_multithreading_fallback():
@@ -114,9 +112,8 @@ def test_vs_multithreading_fallback():
 
     vs.score(function='autodock_vina', protein=xiap_protein)
 
-    assert_warns_message(UserWarning,
-                         'Falling back to sub-methods multithreading',
-                         method_caller, vs, 'fetch')
+    with pytest.warns(UserWarning, match='Falling back to sub-methods multithreading'):
+        method_caller(vs, 'fetch')
 
 
 if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed
@@ -126,11 +123,11 @@ if oddt.toolkit.backend == 'ob':  # RDKit rewrite needed
 
         vs.load_ligands('sdf', xiap_actives_docked)
         vs.apply_filter('ro5', soft_fail=1)
-        assert_equal(len(list(vs.fetch())), 49)
+        assert len(list(vs.fetch())) == 49
 
         vs.load_ligands('sdf', xiap_actives_docked)
         vs.apply_filter('ro3', soft_fail=2)
-        assert_equal(len(list(vs.fetch())), 9)
+        assert len(list(vs.fetch())) == 9
 
 
 def test_vs_pains():
@@ -139,7 +136,7 @@ def test_vs_pains():
     # TODO: add some failing molecules
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.apply_filter('pains', soft_fail=0)
-    assert_equal(len(list(vs.fetch())), 100)
+    assert len(list(vs.fetch())) == 100
 
 
 def test_vs_similarity():
@@ -152,44 +149,45 @@ def test_vs_similarity():
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('usr', cutoff=0.4, query=ref_mol)
     if oddt.toolkit.backend == 'ob':
-        assert_equal(len(list(vs.fetch())), 11)
+        assert len(list(vs.fetch())) == 11
     else:
-        assert_equal(len(list(vs.fetch())), 6)
+        assert len(list(vs.fetch())) == 6
 
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('usr_cat', cutoff=0.3, query=ref_mol)
     if oddt.toolkit.backend == 'ob':
-        assert_equal(len(list(vs.fetch())), 16)
+        assert len(list(vs.fetch())) == 16
     else:
-        assert_equal(len(list(vs.fetch())), 11)
+        assert len(list(vs.fetch())) == 11
 
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('electroshape', cutoff=0.45, query=ref_mol)
     if oddt.toolkit.backend == 'ob':
-        assert_equal(len(list(vs.fetch())), 55)
+        assert len(list(vs.fetch())) == 55
     else:
-        assert_equal(len(list(vs.fetch())), 89)
+        assert len(list(vs.fetch())) == 89
 
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('ifp', cutoff=0.95, query=ref_mol, protein=receptor)
     if oddt.toolkit.backend == 'ob':
-        assert_equal(len(list(vs.fetch())), 3)
+        assert len(list(vs.fetch())) == 3
     else:
-        assert_equal(len(list(vs.fetch())), 6)
+        assert len(list(vs.fetch())) == 6
 
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('sifp', cutoff=0.9, query=ref_mol, protein=receptor)
     if oddt.toolkit.backend == 'ob':
-        assert_equal(len(list(vs.fetch())), 14)
+        assert len(list(vs.fetch())) == 14
     else:
-        assert_equal(len(list(vs.fetch())), 21)
+        assert len(list(vs.fetch())) == 21
 
     # test wrong method error
-    assert_raises(ValueError, vs.similarity, 'sift', query=ref_mol)
+    with pytest.raises(ValueError):
+        vs.similarity('sift', query=ref_mol)
 
 
 def test_vs_scoring():
@@ -216,9 +214,11 @@ def test_vs_scoring():
     vs = virtualscreening(n_cpu=-1, chunksize=10)
     vs.load_ligands('sdf', xiap_actives_docked)
     # error if no protein is fed
-    assert_raises(ValueError, vs.score, 'nnscore')
+    with pytest.raises(ValueError):
+        vs.score('nnscore')
     # bad sf name
-    assert_raises(ValueError, vs.score, 'bad_sf', protein=protein)
+    with pytest.raises(ValueError):
+        vs.score('bad_sf', protein=protein)
     vs.score('nnscore', protein=xiap_protein)
     vs.score('nnscore_pdbbind2016', protein=protein)
     vs.score('rfscore_v1', protein=protein)
@@ -230,16 +230,17 @@ def test_vs_scoring():
     # pass SF object directly
     vs.score(scorer.load(filenames[0]), protein=protein)
     # pass wrong object (sum is not an instance of scorer)
-    assert_raises(ValueError, vs.score, sum, protein=protein)
+    with pytest.raises(ValueError):
+        vs.score(sum, protein=protein)
 
     mols = list(vs.fetch())
 
-    assert_equal(len(mols), 100)
+    assert len(mols) == 100
     mol_data = mols[0].data
-    assert_in('nnscore', mol_data)
-    assert_in('rfscore_v1', mol_data)
-    assert_in('rfscore_v2', mol_data)
-    assert_in('rfscore_v3', mol_data)
+    assert 'nnscore' in mol_data
+    assert 'rfscore_v1' in mol_data
+    assert 'rfscore_v2' in mol_data
+    assert 'rfscore_v3' in mol_data
 
     vs = virtualscreening(n_cpu=-1, chunksize=10)
     vs.load_ligands('sdf', xiap_actives_docked)
@@ -251,22 +252,22 @@ def test_vs_scoring():
         with NamedTemporaryFile('w', suffix='.csv') as csvfile:
             vs.write('sdf', molfile.name, csv_filename=csvfile.name)
             data = pd.read_csv(csvfile.name)
-            assert_in('nnscore', data.columns)
-            assert_in('rfscore_v1', data.columns)
-            assert_in('rfscore_v2', data.columns)
-            assert_in('rfscore_v3', data.columns)
+            assert 'nnscore' in data.columns
+            assert 'rfscore_v1' in data.columns
+            assert 'rfscore_v2' in data.columns
+            assert 'rfscore_v3' in data.columns
 
             mols = list(oddt.toolkit.readfile('sdf', molfile.name))
-            assert_equal(len(mols), 100)
+            assert len(mols) == 100
 
             vs.write_csv(csvfile.name, fields=['nnscore', 'rfscore_v1',
                                                'rfscore_v2', 'rfscore_v3'])
             data = pd.read_csv(csvfile.name)
-            assert_equal(len(data.columns), 4)
-            assert_in('nnscore', data.columns)
-            assert_in('rfscore_v1', data.columns)
-            assert_in('rfscore_v2', data.columns)
-            assert_in('rfscore_v3', data.columns)
+            assert len(data.columns) == 4
+            assert 'nnscore' in data.columns
+            assert 'rfscore_v1' in data.columns
+            assert 'rfscore_v2' in data.columns
+            assert 'rfscore_v3' in data.columns
 
     # remove files
     for f in filenames:

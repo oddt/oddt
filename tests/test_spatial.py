@@ -1,10 +1,9 @@
 import os
 
-from nose.tools import assert_equal
-from sklearn.utils.testing import (assert_almost_equal,
-                                   assert_array_equal,
-                                   assert_array_almost_equal,
-                                   assert_raises_regex)
+import pytest
+from numpy.testing import (assert_almost_equal,
+                           assert_array_equal,
+                           assert_array_almost_equal)
 import numpy as np
 
 import oddt
@@ -99,11 +98,11 @@ def test_distance():
     mol1 = oddt.toolkit.readstring('sdf', ASPIRIN_SDF)
     d = distance(mol1.coords, mol1.coords)
     n_atoms = len(mol1.coords)
-    assert_equal(d.shape, (n_atoms, n_atoms))
+    assert d.shape, (n_atoms == n_atoms)
     assert_array_equal(d[np.eye(len(mol1.coords), dtype=bool)], np.zeros(n_atoms))
 
     d = distance(mol1.coords, mol1.coords.mean(axis=0).reshape(1, 3))
-    assert_equal(d.shape, (n_atoms, 1))
+    assert d.shape, (n_atoms == 1)
     ref_dist = [[3.556736951371501], [2.2058040428631056], [2.3896002745745415],
                 [1.6231668718498249], [0.7772981740050453], [2.0694947503940004],
                 [2.8600587871157184], [2.9014207091233857], [2.1850791695403564],
@@ -183,9 +182,9 @@ def test_rmsd_errors():
     mol2 = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
 
     for method in [None, 'hungarian', 'min_symmetry']:
-        assert_raises_regex(ValueError, 'Unequal number of atoms', rmsd,
-                            mol, mol2, method=method)
+        with pytest.raises(ValueError, match='Unequal number of atoms'):
+            rmsd(mol, mol2, method=method)
+
         for _ in range(5):
-            assert_raises_regex(ValueError, 'Unequal number of atoms', rmsd,
-                                shuffle_mol(mol), shuffle_mol(mol2),
-                                method=method)
+            with pytest.raises(ValueError, match='Unequal number of atoms'):
+                rmsd(shuffle_mol(mol), shuffle_mol(mol2), method=method)
