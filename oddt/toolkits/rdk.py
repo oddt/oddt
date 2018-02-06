@@ -490,6 +490,7 @@ class Molecule(object):
     def residues(self):
         if self._residues is None:
             res_idx = []
+            # get residue information for each atom
             for atom in self.Mol.GetAtoms():
                 info = atom.GetPDBResidueInfo()
                 if info is None:
@@ -500,14 +501,19 @@ class Molecule(object):
                                                 else '_',
                                                 info.GetResidueNumber()))
             res_idx = np.array(res_idx)
+            # get unique residues
             res_idx_unique = np.unique(res_idx)
+            # group atom indices by residue; residues are in alphabetical order
             if len(res_idx_unique) > 1:
                 idx_sorted = np.argsort(res_idx, kind='mergesort')
                 self._residues = np.split(
-                    idx_sorted,
+                    idx_sorted,   # use atom indices sorted by residue
+                    # find indices where residue changes
                     np.where(np.diff(np.searchsorted(res_idx_unique,
                                      res_idx[idx_sorted])) > 0)[0] + 1)
             else:
+                # if there is a single residue (or no residue information
+                # at all) there is only one group of atoms
                 self._residues = [tuple(range(self.Mol.GetNumAtoms()))]
         return ResidueStack(self.Mol, self._residues)
 
@@ -1314,7 +1320,7 @@ class Residue(object):
        Residue
     """
 
-    def __init__(self, ParentMol, atom_path):
+    def __init__(self, ParentMol, atom_path, idx=0):
         self.ParentMol = ParentMol
         self.atom_path = tuple(map(int, atom_path))
         assert len(self.atom_path) > 0
@@ -1327,20 +1333,40 @@ class Residue(object):
         self.Residue = Chem.PathToSubmol(self.ParentMol, self.bonds, atomMap=self.atommap)
         self.MonomerInfo = self.ParentMol.GetAtomWithIdx(self.atom_path[0]).GetMonomerInfo()
         self.atommap = dict((v, k) for k, v in self.atommap.items())
+        self._idx = idx
 
     @property
     def atoms(self):
+        """List of Atoms in the Residue"""
         if len(self.atom_path) == 1:
             return [Atom(self.ParentMol.GetAtomWithIdx(self.atom_path[0]))]
         else:
             return AtomStack(self.Residue)
 
     @property
+    @deprecated('Use `idx0` instead.')
     def idx(self):
+        """Internal index (0-based) of the Residue"""
+        return self._idx
+
+    @property
+    def idx0(self):
+        """Internal index (0-based) of the Residue"""
+        return self._idx
+
+    @property
+    def number(self):
+        """Residue number"""
         return self.MonomerInfo.GetResidueNumber() if self.MonomerInfo else 0
 
     @property
+    def chain(self):
+        """Resdiue chain ID"""
+        return self.MonomerInfo.GetChainId() if self.MonomerInfo else ''
+
+    @property
     def name(self):
+        """Residue name"""
         return self.MonomerInfo.GetResidueName() if self.MonomerInfo else 'UNL'
 
     def __iter__(self):
@@ -1360,14 +1386,14 @@ class ResidueStack(object):
 
     def __iter__(self):
         for i in range(len(self.paths)):
-            yield Residue(self.Mol, self.paths[i])
+            yield Residue(self.Mol, self.paths[i], idx=i)
 
     def __len__(self):
         return len(self.paths)
 
     def __getitem__(self, i):
         if 0 <= i < len(self.paths):
-            return Residue(self.Mol, self.paths[i])
+            return Residue(self.Mol, self.paths[i], idx=i)
         else:
             raise AttributeError("There is no residue with ID %i" % i)
 
