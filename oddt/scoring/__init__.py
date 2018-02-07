@@ -223,7 +223,7 @@ class scorer(object):
         return ligand
 
     def predict_ligands(self, ligands):
-        """Method to score ligands in a lazy fasion.
+        """Method to score ligands in a lazy fashion.
 
         Parameters
         ----------
