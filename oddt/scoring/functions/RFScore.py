@@ -3,6 +3,9 @@ import sys
 from os.path import dirname, isfile, join as path_join
 import numpy as np
 
+from scipy.stats import pearsonr
+from sklearn.metrics import r2_score
+
 import warnings
 
 try:
@@ -96,7 +99,8 @@ class rfscore(scorer):
 
         desc_path = path_join(home_dir, 'rfscore_descs_v%i.csv' % self.version)
 
-        super(rfscore, self)._load_pdbbind_desc(desc_path, pdbbind_version=2016)
+        super(rfscore, self)._load_pdbbind_desc(desc_path,
+                                                pdbbind_version=pdbbind_version)
 
         # remove sparse dimentions
         if self.spr > 0:
@@ -112,25 +116,17 @@ class rfscore(scorer):
         print('Training RFScore v%i on PDBBind v%i'
               % (self.version, pdbbind_version), file=sys.stderr)
 
-        error = rmse(self.model.predict(self.test_descs), self.test_target)
-        r2 = self.model.score(self.test_descs, self.test_target)
-        r = np.sqrt(r2)
-        print('Test set:',
-              'R**2: %.4f' % r2,
-              'R: %.4f' % r,
-              'RMSE: %.4f' % error,
-              sep='\t', file=sys.stderr)
+        sets = [
+            ('Test', self.model.predict(self.test_descs), self.test_target),
+            ('Train', self.model.predict(self.train_descs), self.train_target),
+            ('OOB', self.model.oob_prediction_, self.train_target)]
 
-        error = rmse(self.model.predict(self.train_descs), self.train_target)
-        oob_error = rmse(self.model.oob_prediction_, self.train_target)
-        r2 = self.model.score(self.train_descs, self.train_target)
-        r = np.sqrt(r2)
-        print('Train set:',
-              'R**2: %.4f' % r2,
-              'R: %.4f' % r,
-              'RMSE: %.4f' % error,
-              'OOB RMSE: %.4f' % oob_error,
-              sep='\t', file=sys.stderr)
+        for name, pred, target in sets:
+            print('%s set:' % name,
+                  'R2_score: %.4f' % r2_score(target, pred),
+                  'Rp: %.4f' % pearsonr(target, pred)[0],
+                  'RMSE: %.4f' % rmse(target, pred),
+                  sep='\t', file=sys.stderr)
 
         # compile trees
         if compiledtrees is not None:

@@ -5,6 +5,9 @@ import numpy as np
 import warnings
 from joblib import Parallel, delayed
 
+from scipy.stats import pearsonr
+from sklearn.metrics import r2_score
+
 from oddt import random_seed
 from oddt.utils import method_caller
 from oddt.metrics import rmse
@@ -45,7 +48,8 @@ class nnscore(scorer):
 
         desc_path = path_join(home_dir, 'nnscore_descs.csv')
 
-        super(nnscore, self)._load_pdbbind_desc(desc_path, pdbbind_version=2016)
+        super(nnscore, self)._load_pdbbind_desc(desc_path,
+                                                pdbbind_version=pdbbind_version)
 
         # number of network to sample; original implementation did 1000, but
         # 100 give results good enough.
@@ -71,23 +75,16 @@ class nnscore(scorer):
                                                 self.test_target.flatten()))
         self.model = ensemble_model(trained_nets[-20:])
 
-        error = rmse(self.model.predict(self.test_descs), self.test_target)
-        r2 = self.model.score(self.test_descs, self.test_target)
-        r = np.sqrt(r2)
-        print('Test set:',
-              'R**2: %.4f' % r2,
-              'R: %.4f' % r,
-              'RMSE: %.4f' % error,
-              sep='\t', file=sys.stderr)
+        sets = [
+            ('Test', self.model.predict(self.test_descs), self.test_target),
+            ('Train', self.model.predict(self.train_descs), self.train_target)]
 
-        error = rmse(self.model.predict(self.train_descs), self.train_target)
-        r2 = self.model.score(self.train_descs, self.train_target)
-        r = np.sqrt(r2)
-        print('Train set:',
-              'R**2: %.4f' % r2,
-              'R: %.4f' % r,
-              'RMSE: %.4f' % error,
-              sep='\t', file=sys.stderr)
+        for name, pred, target in sets:
+            print('%s set:' % name,
+                  'R2_score: %.4f' % r2_score(target, pred),
+                  'Rp: %.4f' % pearsonr(target, pred)[0],
+                  'RMSE: %.4f' % rmse(target, pred),
+                  sep='\t', file=sys.stderr)
 
         if sf_pickle is None:
             return self.save('NNScore_pdbbind%i.pickle' % (pdbbind_version))
