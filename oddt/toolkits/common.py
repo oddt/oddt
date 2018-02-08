@@ -17,18 +17,21 @@ def detect_secondary_structure(res_dict):
                        (psi > -70) & (psi < 50) & (d == 1)))  # alpha
     res_mask_alpha = np.union1d(np.argwhere(res_mask_alpha),
                                 np.argwhere(res_mask_alpha))
+
     # Ignore groups smaller than 3
     for mask_group in np.split(res_mask_alpha, np.argwhere(np.diff(res_mask_alpha) != 1).flatten() + 1):
         if len(mask_group) >= 3:
             res_dict['isalpha'][mask_group] = True
+
     # Alpha helices have to form H-Bonds
-    hbond_dist_mask = np.abs(res_dict[res_dict['isalpha']]['id'] -
-                             res_dict[res_dict['isalpha']]['id'][:, np.newaxis]) >= 3
+    hbond_dist_mask = np.abs(res_dict[res_dict['isalpha']]['resnum'] -
+                             res_dict[res_dict['isalpha']]['resnum'][:, np.newaxis]) >= 3
     hbond_mask = distance(res_dict[res_dict['isalpha']]['N'],
                           res_dict[res_dict['isalpha']]['O']) < 3.5
     p_mask = ((hbond_mask & hbond_dist_mask).any(axis=0) |
               (hbond_mask & hbond_dist_mask).any(axis=1))
     res_dict['isalpha'][np.argwhere(res_dict['isalpha']).flatten()[~p_mask]] = False
+
     # Ignore groups smaller than 3
     res_mask_alpha = np.argwhere(res_dict['isalpha']).flatten()
     for mask_group in np.split(res_mask_alpha, np.argwhere(np.diff(res_mask_alpha) != 1).flatten() + 1):
@@ -42,13 +45,15 @@ def detect_secondary_structure(res_dict):
                       (psi <= -165) & (d == 1)))  # beta
     res_mask_beta = np.union1d(np.argwhere(res_mask_beta),
                                np.argwhere(res_mask_beta))
+
     # Ignore groups smaller than 3
     for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
         if len(mask_group) >= 3:
             res_dict['isbeta'][mask_group] = True
+
     # Beta strands have to be alongside eachother
-    res_dist_mask = np.abs(res_dict[res_dict['isbeta']]['id'] -
-                           res_dict[res_dict['isbeta']]['id'][:, np.newaxis]) >= 4
+    res_dist_mask = np.abs(res_dict[res_dict['isbeta']]['resnum'] -
+                           res_dict[res_dict['isbeta']]['resnum'][:, np.newaxis]) >= 4
     hbond_mask = distance(res_dict[res_dict['isbeta']]['N'],
                           res_dict[res_dict['isbeta']]['O']) < 3.5
     ca_mask = distance(res_dict[res_dict['isbeta']]['CA'],
@@ -57,6 +62,7 @@ def detect_secondary_structure(res_dict):
               (hbond_mask & res_dist_mask).any(axis=1) |
               (ca_mask & res_dist_mask).any(axis=0))
     res_dict['isbeta'][np.argwhere(res_dict['isbeta']).flatten()[~p_mask]] = False
+
     # Ignore groups smaller than 3
     res_mask_beta = np.argwhere(res_dict['isbeta']).flatten()
     for mask_group in np.split(res_mask_beta, np.argwhere(np.diff(res_mask_beta) != 1).flatten() + 1):
