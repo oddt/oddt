@@ -807,7 +807,7 @@ class Molecule(object):
                               False,
                               False))
                     # set resid for atoms in atom_dict
-                    atom_dict[list(residue.atommap.values())]['resid'] = residue.idx0
+                    atom_dict['resid'][list(residue.atommap.values())] = residue.idx0
             res_dict = np.array(b, dtype=res_dtype)
             res_dict = detect_secondary_structure(res_dict)
             # FIXME: this might be wrong if resnum is dubbled accross chains
