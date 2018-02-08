@@ -645,6 +645,7 @@ class Molecule(object):
                       ('neighbors', np.float32, (max_neighbors, 3)),
                       # residue info
                       ('resid', np.int16),
+                      ('resnum', np.int16),
                       ('resname', 'U3' if PY3 else 'a3'),
                       ('isbackbone', bool),
                       # atom properties
@@ -711,6 +712,7 @@ class Molecule(object):
                             neighbors['id'],
                             neighbors['coords'],
                             # residue info
+                            0,  # RDKit does not support residue indexing
                             residue.GetResidueNumber() if residue else 0,
                             residue.GetResidueName().strip() if residue else '',
                             False,  # is backbone
@@ -778,6 +780,7 @@ class Molecule(object):
             res_dict = None
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', np.int16),
+                         ('resnum', np.int16),
                          ('resname', 'U3' if PY3 else 'a3'),
                          ('N', np.float32, 3),
                          ('CA', np.float32, 3),
@@ -792,22 +795,32 @@ class Molecule(object):
             for residue in self.residues:
                 path = residue.Residue.GetSubstructMatch(aa)
                 if path:
-                    atom_dict['isbackbone'][np.array([residue.atommap[i] for i in path])] = True
-                    b.append((residue.MonomerInfo.GetResidueNumber(),
-                              residue.MonomerInfo.GetResidueName(),
+                    backbone_map = np.array([residue.atommap[i] for i in path])
+                    atom_dict['isbackbone'][backbone_map] = True
+                    b.append((residue.idx0,
+                              residue.number,
+                              residue.name,
                               conf.GetAtomPosition(residue.atommap[path[0]]),
                               conf.GetAtomPosition(residue.atommap[path[1]]),
                               conf.GetAtomPosition(residue.atommap[path[2]]),
                               conf.GetAtomPosition(residue.atommap[path[3]]),
                               False,
                               False))
+                    # set resid for atoms in atom_dict
+                    atom_dict[list(residue.atommap.values())]['resid'] = residue.idx0
             res_dict = np.array(b, dtype=res_dtype)
             res_dict = detect_secondary_structure(res_dict)
-            atom_dict['isalpha'][np.in1d(atom_dict['resid'], res_dict[res_dict['isalpha']]['id'])] = True
-            atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_dict['isbeta']]['id'])] = True
+            # FIXME: this might be wrong if resnum is dubbled accross chains
+            alpha_mask = np.in1d(atom_dict['resnum'],
+                                 res_dict[res_dict['isalpha']]['resnum'])
+            atom_dict['isalpha'][alpha_mask] = True
+            beta_mask = np.in1d(atom_dict['resnum'],
+                                res_dict[res_dict['isbeta']]['resnum'])
+            atom_dict['isbeta'][beta_mask] = True
 
         # FIX: remove acidic carbons from isminus group (they are part of smarts)
-        atom_dict['isminus'][atom_dict['isminus'] & (atom_dict['atomicnum'] == 6)] = False
+        atom_dict['isminus'][atom_dict['isminus'] &
+                             (atom_dict['atomicnum'] == 6)] = False
 
         # Aromatic Rings
         r = []

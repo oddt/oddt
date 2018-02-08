@@ -391,6 +391,7 @@ class Molecule(pybel.Molecule):
                       ('neighbors', np.float32, (max_neighbors, 3)),
                       # residue info
                       ('resid', np.int16),
+                      ('resnum', np.int16),
                       ('resname', 'U3' if PY3 else 'a3'),
                       ('isbackbone', bool),
                       # atom properties
@@ -459,7 +460,8 @@ class Molecule(pybel.Molecule):
                             neighbors['id'],
                             neighbors['coords'],
                             # residue info
-                            residue.idx if residue else 0,
+                            residue.idx0 if residue else 0,
+                            residue.number if residue else 0,
                             residue.name if residue else '',
                             residue.OBResidue.GetAtomProperty(atom.OBAtom, 2) if residue else False,  # is backbone
                             # atom properties
@@ -523,6 +525,7 @@ class Molecule(pybel.Molecule):
         if self.protein:
             # Protein Residues (alpha helix and beta sheet)
             res_dtype = [('id', np.int16),
+                         ('resnum', np.int16),
                          ('resname', 'U3' if PY3 else 'a3'),
                          ('N', np.float32, 3),
                          ('CA', np.float32, 3),
@@ -547,7 +550,8 @@ class Molecule(pybel.Molecule):
                         elif atom.atomicnum == 8:
                             backbone['O'] = atom.coords
                 if len(backbone.keys()) == 4:
-                    b.append((residue.idx,
+                    b.append((residue.idx0,
+                              residue.number,
                               residue.name,
                               backbone['N'],
                               backbone['CA'],

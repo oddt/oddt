@@ -283,8 +283,9 @@ def test_dicts():
                        if atom.atomicnum != 1]
 
     # Save correct results
-    # data.to_csv(os.path.join(test_data_dir, 'data/results/xiap/mols_atom_dict.csv'),
-    #             index=False)
+    # data[common_cols].to_csv(
+    #     os.path.join(test_data_dir, 'data/results/xiap/mols_atom_dict.csv'),
+    #     index=False)
 
     corr_data = pd.read_csv(os.path.join(test_data_dir, 'data', 'results',
                                          'xiap', 'mols_atom_dict.csv')
@@ -326,8 +327,9 @@ def test_dicts():
     data = pd.DataFrame({name: all_dicts[name] for name in all_cols})
 
     # Save correct results
-    # data.to_csv(os.path.join(test_data_dir, 'data/results/xiap/prot_atom_dict.csv'),
-    #             index=False)
+    # data[common_cols].to_csv(
+    #     os.path.join(test_data_dir, 'data/results/xiap/prot_atom_dict.csv'),
+    #     index=False)
 
     corr_data = pd.read_csv(os.path.join(test_data_dir, 'data', 'results',
                                          'xiap', 'prot_atom_dict.csv')
