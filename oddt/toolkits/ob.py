@@ -561,8 +561,12 @@ class Molecule(pybel.Molecule):
                               False))
             res_dict = np.array(b, dtype=res_dtype)
             res_dict = detect_secondary_structure(res_dict)
-            atom_dict['isalpha'][np.in1d(atom_dict['resid'], res_dict[res_dict['isalpha']]['id'])] = True
-            atom_dict['isbeta'][np.in1d(atom_dict['resid'], res_dict[res_dict['isbeta']]['id'])] = True
+            alpha_mask = np.in1d(atom_dict['resid'],
+                                 res_dict[res_dict['isalpha']]['id'])
+            atom_dict['isalpha'][alpha_mask] = True
+            beta_mask = np.in1d(atom_dict['resid'],
+                                res_dict[res_dict['isbeta']]['id'])
+            atom_dict['isbeta'][beta_mask] = True
 
         # Aromatic Rings
         r = []

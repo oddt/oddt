@@ -810,12 +810,11 @@ class Molecule(object):
                     atom_dict['resid'][list(residue.atommap.values())] = residue.idx0
             res_dict = np.array(b, dtype=res_dtype)
             res_dict = detect_secondary_structure(res_dict)
-            # FIXME: this might be wrong if resnum is dubbled accross chains
-            alpha_mask = np.in1d(atom_dict['resnum'],
-                                 res_dict[res_dict['isalpha']]['resnum'])
+            alpha_mask = np.in1d(atom_dict['resid'],
+                                 res_dict[res_dict['isalpha']]['id'])
             atom_dict['isalpha'][alpha_mask] = True
-            beta_mask = np.in1d(atom_dict['resnum'],
-                                res_dict[res_dict['isbeta']]['resnum'])
+            beta_mask = np.in1d(atom_dict['resid'],
+                                res_dict[res_dict['isbeta']]['id'])
             atom_dict['isbeta'][beta_mask] = True
 
         # FIX: remove acidic carbons from isminus group (they are part of smarts)
