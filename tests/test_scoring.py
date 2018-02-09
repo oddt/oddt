@@ -15,7 +15,7 @@ from oddt.scoring.descriptors import (autodock_vina_descriptor,
                                       oddt_vina_descriptor)
 from oddt.scoring.models.classifiers import neuralnetwork
 from oddt.scoring.models import regressors
-from oddt.scoring.functions import rfscore, nnscore
+from oddt.scoring.functions import rfscore, nnscore, PLECscore
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 actives_sdf = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
@@ -238,7 +238,13 @@ def test_nnscore_desc():
     assert_array_almost_equal(descs, descs_correct, decimal=4)
 
 
-def test_model_train():
+models = ([PLECscore(n_jobs=1, version=v) for v in ['linear']] +
+          [nnscore(n_jobs=1)] +
+          [rfscore(version=v, n_jobs=1) for v in [1, 2, 3]])
+
+
+@pytest.mark.parametrize('model', models)
+def test_model_train(model):
     mols = list(oddt.toolkit.readfile('sdf', actives_sdf))[:10]
     list(map(lambda x: x.addh(), mols))
 
@@ -256,19 +262,17 @@ def test_model_train():
         if not os.path.isdir(version_dir):
             os.symlink(pdbbind_dir, version_dir)
 
-    for model in [nnscore(n_jobs=1)] + [rfscore(version=v, n_jobs=1)
-                                        for v in [1, 2, 3]]:
-        with NamedTemporaryFile(suffix='.pickle') as f:
-            model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
-                                    home_dir=home_dir)
-            model.train(home_dir=home_dir, sf_pickle=f.name)
-            model.set_protein(rec)
-            preds = model.predict(mols)
-            assert len(preds) == 10
-            assert preds.dtype == np.float
-            assert model.score(mols, preds) == 1.0
+    with NamedTemporaryFile(suffix='.pickle') as f:
+        model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
+                                home_dir=home_dir)
+        model.train(home_dir=home_dir, sf_pickle=f.name)
+        model.set_protein(rec)
+        # check if protein setting was successful
+        assert model.protein == rec
+        if hasattr(model.descriptor_generator, 'protein'):
+            assert model.descriptor_generator.protein == rec
 
-    for pdbbind_v in pdbbind_versions:
-        version_dir = os.path.join(data_dir, 'v%s' % pdbbind_v)
-        if os.path.islink(version_dir):
-            os.unlink(version_dir)
+        preds = model.predict(mols)
+        assert len(preds) == 10
+        assert preds.dtype == np.float
+        assert model.score(mols, preds) == 1.0

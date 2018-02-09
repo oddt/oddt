@@ -8,7 +8,7 @@ from six.moves import zip_longest
 from itertools import chain
 from collections import OrderedDict
 import numpy as np
-from scipy.sparse import csr_matrix
+from scipy.sparse import csr_matrix, isspmatrix_csr
 import oddt
 from oddt.utils import is_openbabel_molecule
 from oddt.interactions import (pi_stacking,
@@ -304,14 +304,32 @@ def dense_to_sparse(fp):
         the indices are dupplicated according to count.
     """
 
+    ix = np.where(fp)[0]
     if fp.dtype == bool:
-        return np.where(fp)[0]
+        return ix
     else:  # count vectors
-        sparse_fp = []
-        ix = np.where(fp)[0]
-        for i, count in zip(ix, fp[ix]):
-            sparse_fp.extend([i] * count)
-    return np.array(sparse_fp)
+        return np.repeat(ix, fp[ix])
+
+
+def csr_matrix_to_sparse(fp):
+    """Sparsify a CSR fingerprint.
+
+    Parameters
+    ----------
+    fp : csr_matrix
+        Fingerprint in a CSR form.
+
+    Returns
+    -------
+    fp : np.array
+        Sparse fingerprint - an array of "on" integers. In cas of count vectors,
+        the indices are dupplicated according to count.
+    """
+    if not isspmatrix_csr(fp):
+        raise ValueError('fp is not CSR sparse matrix but %s (%s)' %
+                         (type(fp), fp))
+    # FIXME: change these methods to work for stacked fps (2D)
+    return np.repeat(fp.indices, fp.data)
 
 
 # ranges for hashing function

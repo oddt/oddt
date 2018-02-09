@@ -1,20 +1,23 @@
 from os.path import dirname, join as path_join
+import gzip
 
 from itertools import chain
-
-from joblib import Parallel, delayed
-
-import pandas as pd
-import numpy as np
-from sklearn.model_selection import cross_val_score, KFold
-from sklearn.base import is_classifier, is_regressor
-from sklearn.metrics import accuracy_score, r2_score
-import gzip
 import six
 from six.moves import cPickle as pickle
 
+import numpy as np
+from scipy.sparse import vstack as sparse_vstack
+import pandas as pd
+
+from joblib import Parallel, delayed
+from sklearn.model_selection import cross_val_score, KFold
+from sklearn.base import is_classifier, is_regressor
+from sklearn.metrics import accuracy_score, r2_score
+
+import oddt
 from oddt.utils import method_caller
 from oddt.datasets import pdbbind
+from oddt.fingerprints import sparse_to_csr_matrix, csr_matrix_to_sparse
 
 
 def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
@@ -78,13 +81,12 @@ class scorer(object):
                           pdbbind_dir,
                           pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
                           desc_path=None,
+                          include_general_set=False,
+                          sparse=False,
+                          use_proteins=False,
                           **kwargs):
         pdbbind_versions = sorted(pdbbind_versions)
-
-        if 'opt' in kwargs:
-            opt = kwargs.pop('opt')
-        else:
-            opt = {}
+        opt = kwargs.get('opt', {})
 
         # generate metadata
         df = None
@@ -115,7 +117,8 @@ class scorer(object):
         df['act'] = tmp_act
         # take non-empty and core + refined set
         df = df[df['act'].notnull() &
-                df.filter(regex='.*_[refined,core]').any(axis=1)]
+                (df.filter(regex='.*_[refined,core]').any(axis=1) |
+                 include_general_set)]
 
         # build descriptos
         pdbbind_db = pdbbind('%s/v%i/' % (pdbbind_dir, pdbbind_versions[-1]),
@@ -127,32 +130,79 @@ class scorer(object):
             n_jobs = -1
         else:
             n_jobs = self.n_jobs
+
+        blacklist = []
+        if use_proteins:
+            # list of protein files that segfault OB 2.4.1
+            blacklist = pdbbind_db.protein_blacklist[oddt.toolkit.backend]
+
+        # check if PDBID exists or is blacklisted
+        desc_idx = [pid for pid in df.index.values
+                    if (pid not in blacklist and
+                        getattr(pdbbind_db[pid], 'protein'
+                                if use_proteins
+                                else 'pocket') is not None)]
+
         result = Parallel(n_jobs=n_jobs, verbose=1)(
             delayed(method_caller)(
                 self.descriptor_generator,
                 'build',
                 [pdbbind_db[pid].ligand],
-                protein=pdbbind_db[pid].pocket)
-            for pid in df.index.values if pdbbind_db[pid].pocket is not None)
-        descs = np.vstack(result)
-        for i in range(len(self.descriptor_generator)):
-            df[str(i)] = descs[:, i]
-        df.to_csv(desc_path, float_format='%.5g')
+                protein=getattr(pdbbind_db[pid], 'protein' if use_proteins
+                                else 'pocket'))
+            for pid in desc_idx)
 
-    def _load_pdbbind_desc(self, desc_path, pdbbind_version=2016):
+        # sparse descs may have different shapes, dense are stored np.array
+        if not sparse:
+            result = np.vstack(result)
+
+        # create dataframe with descriptors with pdbids as index
+        df_desc = pd.DataFrame(result, index=desc_idx)
+        df_desc.index.rename('pdbid', inplace=True)
+
+        # for sparse features leave one column and cast explicitly to list
+        if sparse:
+            df_desc.columns = ['sparse']
+            df_desc['sparse'] = df_desc['sparse'].map(
+                lambda x: csr_matrix_to_sparse(x).tolist())
+
+        # DF are joined by index (pdbid) since some might be missing
+        df.join(df_desc, how='inner').to_csv(desc_path, float_format='%.5g')
+
+    def _load_pdbbind_desc(self, desc_path, pdbbind_version=2016,
+                           train_set='refined', test_set='core'):
 
         df = pd.read_csv(desc_path, index_col='pdbid')
 
-        train_set = 'refined'
-        test_set = 'core'
+        # generate dense representation of sparse descriptor in CSV
         cols = list(map(str, range(len(self.descriptor_generator))))
-        train_idx = (df['%i_%s' % (pdbbind_version, train_set)] &
-                     ~df['%i_%s' % (pdbbind_version, test_set)])
-        self.train_descs = df.loc[train_idx, cols].values
+        if 'sparse' in df.columns:
+            df['sparse'] = df['sparse'].map(lambda x: sparse_to_csr_matrix(
+                np.fromstring(x[1:-1], dtype=np.uint64, sep=','),
+                len(self.descriptor_generator)))
+            cols = 'sparse'  # sparse array will have one column
+
+        if isinstance(train_set, six.string_types):
+            train_idx = df['%i_%s' % (pdbbind_version, train_set)]
+        else:
+            train_idx = df[['%i_%s' % (pdbbind_version, s)
+                            for s in train_set]].any(axis=1)
+        train_idx &= ~df['%i_%s' % (pdbbind_version, test_set)]
+
+        # load sparse matrices as training is usually faster on them
+        if 'sparse' in df.columns:
+            self.train_descs = sparse_vstack(df.loc[train_idx, cols].values,
+                                             format='csr')
+        else:
+            self.train_descs = df.loc[train_idx, cols].values
         self.train_target = df.loc[train_idx, 'act'].values
 
         test_idx = df['%i_%s' % (pdbbind_version, test_set)]
-        self.test_descs = df.loc[test_idx, cols].values
+        if 'sparse' in df.columns:
+            self.test_descs = sparse_vstack(df.loc[test_idx, cols].values,
+                                            format='csr')
+        else:
+            self.test_descs = df.loc[test_idx, cols].values
         self.test_target = df.loc[test_idx, 'act'].values
 
     def fit(self, ligands, target, *args, **kwargs):

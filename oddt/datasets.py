@@ -6,6 +6,7 @@ import six
 import pandas as pd
 from os.path import isfile, isdir
 from os import listdir
+import warnings
 
 from oddt import toolkit
 
@@ -34,6 +35,20 @@ class pdbbind(object):
         self.sets = {}
         self._set_ids = {}
         self._set_act = {}
+
+        # list of protein ids that are known to segfault toolkits
+        self.protein_blacklist = {
+            'ob': {'1e8h', '1ntk', '1nu1', '1rbo', '1sqb', '1sqp', '1sqq',
+                   '2f2h', '2wig', '2wij', '2wik', '3axk', '3axm', '3cf1',
+                   # Following segfault on systems with smaller RAM
+                   '1px4', '1pyg', '1zyr', '3a2c', '3dxj', '3dyo', '3eql',
+                   '3f33', '3f34', '3f35', '3f36', '3f37', '3f38', '3f39',
+                   '3i3b', '3i3d', '3k1j', '3muz', '3mv0', '3n75', '3t08',
+                   '3t09', '3t0b', '3t0d', '3t2p', '3t2q', '3vd4', '3vd7',
+                   '3vd9', '3vdb', '3vdc', '3wi6', '4kmu', '4kn4', '4kn7',
+                   '7gpb'},
+            'rdk': {}
+        }
 
         if version == 2007:
             self.pdbind_sets = ['core', 'refined', 'general']
@@ -80,11 +95,17 @@ class pdbbind(object):
             yield _pdbbind_id(self.home, pdbid, opt=self.opt)
 
     def __getitem__(self, pdbid):
+        warn_msg = ('A protein in blacklisted (known to segfault) for '
+                    'current toolkit. Proceed at your own risk.')
         if pdbid in self.ids:
+            if pdbid in self.protein_blacklist[toolkit.backend]:
+                warnings.warn(UserWarning, warn_msg)
             return _pdbbind_id(self.home, pdbid, opt=self.opt)
         elif (isinstance(pdbid, int) and
               pdbid < len(self.ids) and
               pdbid >= -len(self.ids)):
+            if self.ids[pdbid] in self.protein_blacklist[toolkit.backend]:
+                warnings.warn(UserWarning, warn_msg)
             return _pdbbind_id(self.home + '', self.ids[pdbid], opt=self.opt)
         else:
             raise KeyError('There is no such target ("%s")' % pdbid)

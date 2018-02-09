@@ -4,6 +4,9 @@ from scipy.sparse import vstack as sparse_vstack
 from numpy.testing import (assert_array_equal,
                            assert_array_almost_equal,
                            assert_almost_equal)
+
+import pytest
+
 import oddt
 from oddt.fingerprints import (InteractionFingerprint,
                                SimpleInteractionFingerprint,
@@ -16,6 +19,7 @@ from oddt.fingerprints import (InteractionFingerprint,
                                MAX_HASH_VALUE,
                                sparse_to_dense,
                                sparse_to_csr_matrix,
+                               csr_matrix_to_sparse,
                                dense_to_sparse,
                                dice,
                                tanimoto)
@@ -66,14 +70,18 @@ def test_sparse_densify():
     csr = sparse_to_csr_matrix(sparse_fp, size=1024, count_bits=True)
     assert_array_equal(dense.reshape(1, -1), csr.toarray())
     resparsed = dense_to_sparse(dense)
+    resparsed_csr = csr_matrix_to_sparse(csr)
     assert_array_equal(sparse_fp, resparsed)
+    assert_array_equal(sparse_fp, resparsed_csr)
 
     # bool vectors
     dense = sparse_to_dense(sparse_fp, size=1024, count_bits=False)
     csr = sparse_to_csr_matrix(sparse_fp, size=1024, count_bits=False)
     assert_array_equal(dense.reshape(1, -1), csr.toarray())
     resparsed = dense_to_sparse(dense)
+    resparsed_csr = csr_matrix_to_sparse(csr)
     assert_array_equal(np.unique(sparse_fp), resparsed)
+    assert_array_equal(np.unique(sparse_fp), resparsed_csr)
 
     # test stacking
     np.random.seed(0)
@@ -81,6 +89,10 @@ def test_sparse_densify():
     dense = np.vstack(sparse_to_dense(fp, size=1024) for fp in sparse_fps)
     csr = sparse_vstack(sparse_to_csr_matrix(fp, size=1024) for fp in sparse_fps)
     assert_array_equal(dense, csr.toarray())
+
+    # test exceptions
+    with pytest.raises(ValueError):
+        csr_matrix_to_sparse(np.array([1, 2, 3]))
 
 
 def test_InteractionFingerprint():
