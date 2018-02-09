@@ -1,9 +1,13 @@
+from functools import partial
+
 import numpy as np
 from scipy.spatial.distance import cdist as distance
+from scipy.sparse import vstack as sparse_vstack
 
 from oddt.utils import is_molecule
 from oddt.docking import autodock_vina
 from oddt.docking.internal import vina_docking
+from oddt.fingerprints import sparse_to_csr_matrix
 
 __all__ = ['close_contacts_descriptor',
            'fingerprints',
@@ -205,6 +209,79 @@ class close_contacts_descriptor(object):
                                            self.ligand_types,
                                            self.protein_types,
                                            self.aligned_pairs)
+
+
+class universal_descriptor(object):
+    def __init__(self,
+                 func,
+                 protein=None,
+                 shape=None,
+                 sparse=False):
+        """An universal descriptor which converts a callable object (function)
+        to a descriptor generator which can be used in scoring methods.
+
+        Parameters
+        ----------
+            func: object
+                A function to be mapped accross all ligands. Can be any callable
+                object, which takes ligand as first argument and optionally
+                protein key word argument. Additional arguments should be set
+                using `functools.partial`.
+
+            protein: oddt.toolkit.Molecule or None (default=None)
+                Default protein to use as reference
+
+        """
+        self.func = func
+        self.protein = protein
+        self.shape = shape
+        self.sparse = sparse
+        if isinstance(func, partial):
+            self.titles = self.func.func.__name__
+        else:
+            self.titles = self.func.__name__
+
+    def build(self, ligands, protein=None):
+        """Builds descriptors for series of ligands
+
+        Parameters
+        ----------
+            ligands: iterable of oddt.toolkit.Molecules or oddt.toolkit.Molecule
+                A list or iterable of ligands to build the descriptor or a
+                single molecule.
+
+            protein: oddt.toolkit.Molecule or None (default=None)
+                Default protein to use as reference
+
+        """
+        if protein:
+            self.protein = protein
+        if is_molecule(ligands):
+            ligands = [ligands]
+        out = []
+        for mol in ligands:
+            if self.protein is None:
+                out.append(self.func(mol))
+            else:
+                out.append(self.func(mol, protein=self.protein))
+        if self.sparse:
+            # out = list(map(partial(sparse_to_csr_matrix, size=self.shape), out))
+            return sparse_vstack(map(partial(sparse_to_csr_matrix,
+                                             size=self.shape), out),
+                                 format='csr')
+        else:
+            return np.vstack(out)
+
+    def __len__(self):
+        """ Returns the dimensions of descriptors """
+        if self.shape is None:
+            raise NotImplementedError('The length of descriptor is not defined')
+        else:
+            return self.shape
+
+    def __reduce__(self):
+        return universal_descriptor, (self.func, self.protein, self.shape,
+                                      self.sparse)
 
 
 # TODO: we don't use toolkit. should we?
