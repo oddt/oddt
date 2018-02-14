@@ -1277,13 +1277,13 @@ class Atom(object):
     @property
     def partialcharge(self):
         if self.Atom.HasProp('_TriposPartialCharge'):
-            return float(self.Atom.GetProp('_TriposPartialCharge'))
+            return self.Atom.GetDoubleProp('_TriposPartialCharge')
         if self.Atom.HasProp('_MMFF94Charge'):
-            return float(self.Atom.GetProp('_MMFF94Charge'))
+            return self.Atom.GetDoubleProp('_MMFF94Charge')
         # by defaul generate gasteiger charge if they are not available
         if not self.Atom.HasProp('_GasteigerCharge'):
             ComputeGasteigerCharges(self.Atom.GetOwningMol(), nIter=50)
-        return float(self.Atom.GetProp('_GasteigerCharge').replace(',', '.'))
+        return self.Atom.GetDoubleProp('_GasteigerCharge')
 
     def __str__(self):
         if hasattr(self, "coords"):

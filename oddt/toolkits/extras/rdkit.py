@@ -256,13 +256,15 @@ def PDBQTAtomLines(mol, donors, acceptors):
         # Get charge
         charge = 0.
         if atom.HasProp('_GasteigerCharge'):
-            charge = float(atom.GetProp('_GasteigerCharge'))
-        if atom.HasProp('_TriposPartialCharge'):
-            charge = float(atom.GetProp('_TriposPartialCharge'))
+            charge = atom.GetDoubleProp('_GasteigerCharge')
+        elif atom.HasProp('_MMFF94Charge'):
+            charge = atom.GetDoubleProp('_MMFF94Charge')
+        elif atom.HasProp('_TriposPartialCharge'):
+            charge = atom.GetDoubleProp('_TriposPartialCharge')
         elif atom.GetAtomicNum() == 1:
             root_atom = atom.GetNeighbors()[0]
             if root_atom.HasProp('_GasteigerHCharge'):
-                charge = float(root_atom.GetProp('_GasteigerHCharge'))
+                charge = root_atom.GetDoubleProp('_GasteigerHCharge')
         # FIXME: this should not happen, blame RDKit
         if isnan(charge) or isinf(charge):
             charge = 0.
