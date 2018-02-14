@@ -1029,6 +1029,30 @@ class Molecule(object):
             raise ValueError("%s is not a recognised RDKit Fingerprint type" % fptype)
         return fp
 
+    def calccharges(self, model='gasteiger'):
+        """Calculate partial charges for a molecule. By default the Gasteiger
+        charge model is used.
+
+        Parameters
+        ----------
+        model : str (default="gasteiger")
+            Method for generating partial charges. Supported models:
+            * gasteiger
+            * mmff94
+        """
+        self._clear_cache()
+        if model.lower() == 'gasteiger':
+            ComputeGasteigerCharges(self.Mol, nIter=50)
+        elif model.lower() == 'mmff94':
+            fps = AllChem.MMFFGetMoleculeProperties(self.Mol)
+            if fps is None:
+                raise Exception('Could not charge molecule "%s"' % self.title)
+            for i, atom in enumerate(self.Mol.GetAtoms()):
+                atom.SetDoubleProp('_MMFF94Charge', fps.GetMMFFPartialCharge(i))
+        else:
+            raise ValueError('The "%s" is not supported in RDKit backend' %
+                             model)
+
     def localopt(self, forcefield="uff", steps=500):
         """Locally optimize the coordinates.
 
@@ -1254,6 +1278,9 @@ class Atom(object):
     def partialcharge(self):
         if self.Atom.HasProp('_TriposPartialCharge'):
             return float(self.Atom.GetProp('_TriposPartialCharge'))
+        if self.Atom.HasProp('_MMFF94Charge'):
+            return float(self.Atom.GetProp('_MMFF94Charge'))
+        # by defaul generate gasteiger charge if they are not available
         if not self.Atom.HasProp('_GasteigerCharge'):
             ComputeGasteigerCharges(self.Atom.GetOwningMol(), nIter=50)
         return float(self.Atom.GetProp('_GasteigerCharge').replace(',', '.'))
