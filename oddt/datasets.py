@@ -95,8 +95,8 @@ class pdbbind(object):
             yield _pdbbind_id(self.home, pdbid, opt=self.opt)
 
     def __getitem__(self, pdbid):
-        warn_msg = ('A protein in blacklisted (known to segfault) for '
-                    'current toolkit. Proceed at your own risk.')
+        warn_msg = ('A protein "%s" is blacklisted (known to segfault) for '
+                    'current toolkit. Proceed at your own risk.' % pdbid)
         if pdbid in self.ids:
             if pdbid in self.protein_blacklist[toolkit.backend]:
                 warnings.warn(UserWarning, warn_msg)
