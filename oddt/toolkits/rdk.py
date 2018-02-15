@@ -1052,6 +1052,9 @@ class Molecule(object):
         else:
             raise ValueError('The "%s" is not supported in RDKit backend' %
                              model)
+        if np.isnan(self.charges).any() or np.isinf(self.charges).any():
+            warnings.warn(UserWarning, 'Some partial charges for molecule "%s" '
+                          'are not finite (NaN, +/-Inf).' % self.title)
 
     def localopt(self, forcefield="uff", steps=500):
         """Locally optimize the coordinates.
@@ -1276,14 +1279,14 @@ class Atom(object):
 
     @property
     def partialcharge(self):
-        if self.Atom.HasProp('_TriposPartialCharge'):
-            return self.Atom.GetDoubleProp('_TriposPartialCharge')
         if self.Atom.HasProp('_MMFF94Charge'):
             return self.Atom.GetDoubleProp('_MMFF94Charge')
-        # by defaul generate gasteiger charge if they are not available
-        if not self.Atom.HasProp('_GasteigerCharge'):
-            ComputeGasteigerCharges(self.Atom.GetOwningMol(), nIter=50)
-        return self.Atom.GetDoubleProp('_GasteigerCharge')
+        if self.Atom.HasProp('_GasteigerCharge'):
+            return self.Atom.GetDoubleProp('_GasteigerCharge')
+        if self.Atom.HasProp('_TriposPartialCharge'):
+            return self.Atom.GetDoubleProp('_TriposPartialCharge')
+        else:
+            return 0.
 
     def __str__(self):
         if hasattr(self, "coords"):
