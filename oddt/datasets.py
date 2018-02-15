@@ -46,7 +46,10 @@ class pdbbind(object):
                    '3i3b', '3i3d', '3k1j', '3muz', '3mv0', '3n75', '3t08',
                    '3t09', '3t0b', '3t0d', '3t2p', '3t2q', '3vd4', '3vd7',
                    '3vd9', '3vdb', '3vdc', '3wi6', '4kmu', '4kn4', '4kn7',
-                   '7gpb'},
+                   '7gpb',
+                   # extended use segfaults (not only reading problem)
+                   '1l7x',
+                   },
             'rdk': {}
         }
 
@@ -175,7 +178,7 @@ class dude(object):
             'mk10', 'pyrd', 'grik1', 'jak2', 'rock1', 'fa7', 'mapk2', 'nram',
             'wee1', 'fkb1a', 'def', 'ada', 'fak1', 'mcr', 'pa2ga', 'xiap',
             'hs90a', 'hxk4', 'mk01', 'pygm', 'glcm', 'comt', 'sahh', 'cxcr4',
-            'kith', 'ampc', 'pur2', 'fabp4', 'inha', 'fgfr1'
+            'kith', 'ampc', 'pur2', 'fabp4', 'inha', 'fgfr1',
         ]
 
         for i in all_ids:
