@@ -275,7 +275,6 @@ class Molecule(pybel.Molecule):
         if __version__ < '2.4.0':  # TODO: Get rid of this block for new OB
             if model in pybel._getpluginnames('charges'):
                 m = pybel._getplugins(ob.OBChargeModel.FindType, [model])[model]
-                print(m)
                 if not m.ComputeCharges(self.OBMol):
                     raise Exception('Could not assigh partial charges for '
                                     'molecule "%s"' % self.title)
