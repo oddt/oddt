@@ -86,7 +86,6 @@ class PLECscore(scorer):
         )
 
     def gen_json(self, home_dir=None, pdbbind_version=2016):
-        self.train(home_dir=home_dir)
         if isinstance(self.model, SGDRegressor):
             attributes = ['coef_', 'intercept_']
         elif isinstance(self.model, MLPRegressor):
