@@ -167,7 +167,7 @@ def test_vs_similarity():
     if oddt.toolkit.backend == 'ob':
         assert len(list(vs.fetch())) == 55
     else:
-        assert len(list(vs.fetch())) == 89
+        assert len(list(vs.fetch())) == 95
 
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
