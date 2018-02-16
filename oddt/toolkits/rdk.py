@@ -1285,8 +1285,11 @@ class Atom(object):
             return self.Atom.GetDoubleProp('_GasteigerCharge')
         if self.Atom.HasProp('_TriposPartialCharge'):
             return self.Atom.GetDoubleProp('_TriposPartialCharge')
-        else:
-            return 0.
+        if self.Atom.GetAtomicNum() == 1:
+            root_atom = self.Atom.GetNeighbors()[0]
+            if root_atom.HasProp('_GasteigerHCharge'):
+                return root_atom.GetDoubleProp('_GasteigerHCharge')
+        return 0.
 
     def __str__(self):
         if hasattr(self, "coords"):
