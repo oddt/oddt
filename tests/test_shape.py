@@ -46,7 +46,9 @@ M  END
 
 """
 benzene = oddt.toolkit.readstring('sdf', benzene_sdf)
+benzene.calccharges()
 methylo = oddt.toolkit.readstring('sdf', methylo_sdf)
+methylo.calccharges()
 
 
 def test_usr():

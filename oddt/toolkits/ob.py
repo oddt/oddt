@@ -260,6 +260,31 @@ class Molecule(pybel.Molecule):
         pybel._operations['gen2D'].Do(self.OBMol)
         self._clear_cache()
 
+    def calccharges(self, model='gasteiger'):
+        """Calculate partial charges for a molecule. By default the Gasteiger
+        charge model is used.
+
+        Parameters
+        ----------
+        model : str (default="gasteiger")
+            Method for generating partial charges. Supported models:
+            * gasteiger
+            * mmff94
+            * others supported by OpenBabel (`obabel -L charges`)
+        """
+        if __version__ < '2.4.0':  # TODO: Get rid of this block for new OB
+            if model in pybel._getpluginnames('charges'):
+                m = pybel._getplugins(ob.OBChargeModel.FindType, [model])[model]
+                if not m.ComputeCharges(self.OBMol):
+                    raise Exception('Could not assigh partial charges for '
+                                    'molecule "%s"' % self.title)
+            else:
+                raise ValueError('Model "%s" is not supported in OpenBabel' %
+                                 model)
+        else:
+            super(Molecule, self).calccharges(model)
+        self._clear_cache()
+
     # Custom ODDT properties #
     def __getattr__(self, attr):
         for desc in pybel._descdict.keys():

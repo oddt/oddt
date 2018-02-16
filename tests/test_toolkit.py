@@ -89,6 +89,25 @@ def test_mol():
                        res_atoms_n)
 
 
+def test_mol_calccharges():
+    mol = oddt.toolkit.readstring('smi', 'c1ccccc1O')
+    mol.addh()
+
+    with pytest.raises(ValueError):
+        mol.calccharges('mmff94aaaaaa')
+
+    for m in ['gasteiger', 'mmff94']:
+        mol.calccharges(m)
+        assert (np.array(mol.charges) != 0.).any()
+
+    protein = next(oddt.toolkit.readfile('pdb', xiap_receptor))
+    protein.protein = True
+
+    # for that protein mmff94 charges could not be generated
+    with pytest.raises(Exception):
+        protein.calccharges('mmff94')
+
+
 def test_toolkit_hoh():
     """HOH residues splitting"""
     pdb_block = """ATOM      1  C1  GLY     1       0.000   0.000   0.000  1.00  0.00           C
