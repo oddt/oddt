@@ -1,15 +1,17 @@
 from __future__ import print_function
 import sys
 from os.path import dirname, isfile, join as path_join
-import numpy as np
 import warnings
+import json
+
+import numpy as np
 from joblib import Parallel, delayed
 
 from scipy.stats import pearsonr
 from sklearn.metrics import r2_score
 
 from oddt import random_seed
-from oddt.utils import method_caller
+from oddt.utils import method_caller, json_to_model
 from oddt.metrics import rmse
 from oddt.scoring import scorer, ensemble_model
 from oddt.scoring.descriptors.binana import binana_descriptor
@@ -42,7 +44,8 @@ class nnscore(scorer):
             desc_path=filename
         )
 
-    def train(self, home_dir=None, sf_pickle=None, pdbbind_version=2016):
+    def train(self, home_dir=None, sf_pickle=None, pdbbind_version=2016,
+              ignore_json=False):
         if not home_dir:
             home_dir = dirname(__file__) + '/NNScore'
 
@@ -51,29 +54,38 @@ class nnscore(scorer):
         super(nnscore, self)._load_pdbbind_desc(desc_path,
                                                 pdbbind_version=pdbbind_version)
 
-        # number of network to sample; original implementation did 1000, but
-        # 100 give results good enough.
-        # TODO: allow user to specify number of nets?
-        n = 1000
-        # make nets reproducible
-        random_seed(1)
-        seeds = np.random.randint(123456789, size=n)
-        trained_nets = (
-            Parallel(n_jobs=self.n_jobs, verbose=10, pre_dispatch='all')(
-                delayed(method_caller)(
-                    neuralnetwork((5,),
-                                  random_state=seeds[i],
-                                  activation='logistic',
-                                  solver='lbfgs',
-                                  max_iter=10000),
-                    'fit',
-                    self.train_descs,
-                    self.train_target)
-                for i in range(n)))
-        # get 20 best
-        trained_nets.sort(key=lambda n: n.score(self.test_descs,
-                                                self.test_target.flatten()))
-        self.model = ensemble_model(trained_nets[-20:])
+        json_path = path_join(home_dir,
+                              'nnscore_pdbbind%i.json' % pdbbind_version)
+
+        if isfile(json_path) and not ignore_json:
+            models = [neuralnetwork((5,)) for i in range(20)]
+            json_to_model([m.pipeline.named_steps['model']
+                           for m in models], json_file=json_path)
+            self.model = ensemble_model(models)
+        else:
+            # number of network to sample; original implementation did 1000, but
+            # 100 give results good enough.
+            # TODO: allow user to specify number of nets?
+            n = 1000
+            # make nets reproducible
+            random_seed(1)
+            seeds = np.random.randint(123456789, size=n)
+            trained_nets = (
+                Parallel(n_jobs=self.n_jobs, verbose=10, pre_dispatch='all')(
+                    delayed(method_caller)(
+                        neuralnetwork((5,),
+                                      random_state=seeds[i],
+                                      activation='logistic',
+                                      solver='lbfgs',
+                                      max_iter=10000),
+                        'fit',
+                        self.train_descs,
+                        self.train_target)
+                    for i in range(n)))
+            # get 20 best
+            trained_nets.sort(key=lambda n: n.score(self.test_descs,
+                                                    self.test_target.flatten()))
+            self.model = ensemble_model(trained_nets[-20:])
 
         sets = [
             ('Test', self.model.predict(self.test_descs), self.test_target),
