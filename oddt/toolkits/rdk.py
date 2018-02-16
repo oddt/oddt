@@ -1279,16 +1279,10 @@ class Atom(object):
 
     @property
     def partialcharge(self):
-        if self.Atom.HasProp('_MMFF94Charge'):
-            return self.Atom.GetDoubleProp('_MMFF94Charge')
-        if self.Atom.HasProp('_GasteigerCharge'):
-            return self.Atom.GetDoubleProp('_GasteigerCharge')
-        if self.Atom.HasProp('_TriposPartialCharge'):
-            return self.Atom.GetDoubleProp('_TriposPartialCharge')
-        if self.Atom.GetAtomicNum() == 1:
-            root_atom = self.Atom.GetNeighbors()[0]
-            if root_atom.HasProp('_GasteigerHCharge'):
-                return root_atom.GetDoubleProp('_GasteigerHCharge')
+        fields = ['_MMFF94Charge', '_GasteigerCharge', '_TriposPartialCharge']
+        for f in fields:
+            if self.Atom.HasProp(f):
+                return self.Atom.GetDoubleProp(f)
         return 0.
 
     def __str__(self):

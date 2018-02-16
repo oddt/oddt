@@ -91,6 +91,7 @@ def test_mol():
 
 def test_mol_calccharges():
     mol = oddt.toolkit.readstring('smi', 'c1ccccc1O')
+    mol.addh()
 
     with pytest.raises(ValueError):
         mol.calccharges('mmff94aaaaaa')
