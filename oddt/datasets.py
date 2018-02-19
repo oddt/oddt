@@ -124,7 +124,10 @@ class _pdbbind_id(object):
     def protein(self):
         f = os.path.join(self.home, self.id, '%s_protein.pdb' % self.id)
         if os.path.isfile(f):
-            return next(toolkit.readfile('pdb', f, lazy=True, opt=self.opt))
+            protein = next(toolkit.readfile('pdb', f, lazy=True, opt=self.opt))
+            if protein is not None:
+                protein.protein = True
+            return protein
         else:
             return None
 
@@ -132,7 +135,10 @@ class _pdbbind_id(object):
     def pocket(self):
         f = os.path.join(self.home, self.id, '%s_pocket.pdb' % self.id)
         if os.path.isfile(f):
-            return next(toolkit.readfile('pdb', f, lazy=True, opt=self.opt))
+            pocket = next(toolkit.readfile('pdb', f, lazy=True, opt=self.opt))
+            if pocket is not None:
+                pocket.protein = True
+            return pocket
         else:
             return None
 
