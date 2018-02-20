@@ -170,7 +170,8 @@ class scorer(object):
         df.join(df_desc, how='inner').to_csv(desc_path, float_format='%.5g')
 
     def _load_pdbbind_desc(self, desc_path, pdbbind_version=2016,
-                           train_set='refined', test_set='core'):
+                           train_set='refined', test_set='core',
+                           train_blacklist=None):
 
         df = pd.read_csv(desc_path, index_col='pdbid')
 
@@ -187,6 +188,8 @@ class scorer(object):
         else:
             train_idx = df[['%i_%s' % (pdbbind_version, s)
                             for s in train_set]].any(axis=1)
+        if train_blacklist:
+            train_idx &= ~df.index.isin(train_blacklist)
         train_idx &= ~df['%i_%s' % (pdbbind_version, test_set)]
 
         # load sparse matrices as training is usually faster on them
