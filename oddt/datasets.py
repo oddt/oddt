@@ -102,13 +102,13 @@ class pdbbind(object):
                     'current toolkit. Proceed at your own risk.' % pdbid)
         if pdbid in self.ids:
             if pdbid in self.protein_blacklist[toolkit.backend]:
-                warnings.warn(UserWarning, warn_msg)
+                warnings.warn(warn_msg, UserWarning)
             return _pdbbind_id(self.home, pdbid, opt=self.opt)
         elif (isinstance(pdbid, int) and
               pdbid < len(self.ids) and
               pdbid >= -len(self.ids)):
             if self.ids[pdbid] in self.protein_blacklist[toolkit.backend]:
-                warnings.warn(UserWarning, warn_msg)
+                warnings.warn(warn_msg, UserWarning)
             return _pdbbind_id(self.home + '', self.ids[pdbid], opt=self.opt)
         else:
             raise KeyError('There is no such target ("%s")' % pdbid)
