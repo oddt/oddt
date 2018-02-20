@@ -140,10 +140,47 @@ class PLECscore(scorer):
                         v = np.array(v)
                 setattr(self.model, k, v)
         else:
+            # blacklist core set 2013 and astex
+            pdbids_blacklist = [
+                '3ao4', '3i3b', '1uto', '1ps3', '1qi0', '3g2z', '3dxg', '3l7b',
+                '3mfv', '3b3s', '3kgp', '3fk1', '3fcq', '3lka', '3udh', '4gqq',
+                '3imc', '2xdl', '2ymd', '1lbk', '1bcu', '3zsx', '1f8d', '3muz',
+                '2v00', '1loq', '3n7a', '2r23', '3nq3', '2hb1', '2w66', '1n2v',
+                '3kwa', '3g2n', '4de2', '3ozt', '3b3w', '3cft', '3f3a', '2qmj',
+                '3f80', '1a30', '1w3k', '3ivg', '2jdy', '3u9q', '3pxf', '2wbg',
+                '1u33', '2x0y', '3mss', '1vso', '1q8t', '3acw', '3bpc', '3vd4',
+                '3cj2', '2brb', '1p1q', '2vo5', '3d4z', '2gss', '2yge', '3gy4',
+                '3zso', '3ov1', '1w4o', '1zea', '2zxd', '3ueu', '2qft', '1gpk',
+                '1f8b', '2jdm', '3su5', '2wca', '3n86', '2x97', '1n1m', '1o5b',
+                '2y5h', '3ehy', '4des', '3ebp', '1q8u', '4de1', '3huc', '3l4w',
+                '2vl4', '3coy', '3f3c', '1os0', '3owj', '3bkk', '1yc1', '1hnn',
+                '3vh9', '3bfu', '1w3l', '3k5v', '2qbr', '1lol', '10gs', '2j78',
+                '1r5y', '2weg', '3uo4', '3jvs', '2yfe', '1sln', '2iwx', '2jdu',
+                '4djv', '2xhm', '2xnb', '3s8o', '2zcr', '3oe5', '3gbb', '2d3u',
+                '3uex', '4dew', '1xd0', '1z95', '2vot', '1oyt', '2ole', '3gcs',
+                '1kel', '2vvn', '3kv2', '3pww', '3su2', '1f8c', '2xys', '3l4u',
+                '2xb8', '2d1o', '2zjw', '3f3e', '2g70', '2zwz', '1u1b', '4g8m',
+                '1o3f', '2x8z', '3cyx', '2cet', '3ag9', '2pq9', '3l3n', '1nvq',
+                '2cbj', '2v7a', '1h23', '2qbp', '3b68', '2xbv', '2fvd', '2vw5',
+                '3ejr', '3f17', '3nox', '1hfs', '1jyq', '2pcp', '3ge7', '2wtv',
+                '2zcq', '2obf', '3e93', '2p4y', '3dd0', '3nw9', '3uri', '3gnw',
+                '3su3', '2xy9', '1sqa', '3fv1', '2yki', '3g0w', '3pe2', '1e66',
+                '1igj', '4tmn', '2zx6', '3myg', '4gid', '3utu', '1lor', '1mq6',
+                '2x00', '2j62', '4djr', '1gm8', '1gpk', '1hnn', '1hp0', '1hq2',
+                '1hvy', '1hwi', '1hww', '1ia1', '1j3j', '1jd0', '1jje', '1ke5',
+                '1kzk', '1l2s', '1l7f', '1lpz', '1m2z', '1mmv', '1mzc', '1n1m',
+                '1n2v', '1n46', '1nav', '1of1', '1of6', '1opk', '1oq5', '1owe',
+                '1oyt', '1p2y', '1p62', '1pmn', '1q1g', '1q41', '1q4g', '1r1h',
+                '1r55', '1r58', '1r9o', '1s19', '1s3v', '1sg0', '1sj0', '1sq5',
+                '1sqn', '1t40', '1t46', '1t9b', '1tow', '1tt1', '1u1c', '1uml',
+                '1unl', '1uou', '1v0p', '1v48', '1v4s', '1vcj', '1w1p', '1w2g',
+                '1xm6', '1xoq', '1xoz', '1y6b', '1ygc', '1yqy', '1yv3', '1yvf',
+                '1ywr', '1z95', '2bm2', '2br1', '2bsm']
             super(PLECscore, self)._load_pdbbind_desc(
                 desc_path,
                 train_set=('general', 'refined'),
-                pdbbind_version=pdbbind_version)
+                pdbbind_version=pdbbind_version,
+                train_blacklist=pdbids_blacklist)
 
             print('Training PLECscore %s with depths P%i L%i on PDBBind v%i'
                   % (self.version, self.depth_protein, self.depth_ligand,
