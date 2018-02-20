@@ -14,7 +14,7 @@ from sklearn.neural_network import MLPRegressor
 
 from oddt.metrics import rmse
 from oddt.scoring import scorer
-from oddt.fingerprints import PLEC
+from oddt.fingerprints import PLEC, MAX_HASH_VALUE
 from oddt.scoring.descriptors import universal_descriptor
 
 
@@ -73,8 +73,12 @@ class PLECscore(scorer):
                           home_dir=None):
         if home_dir is None:
             home_dir = path_join(dirname(__file__), 'PLECscore')
-        filename = path_join(home_dir, 'plecscore_descs_p%i_l%i_s%i.csv' %
-                             (self.depth_protein, self.depth_ligand, self.size))
+        filename = path_join(home_dir, 'plecscore_descs_p%i_l%i.csv' %
+                             (self.depth_protein, self.depth_ligand))
+
+        # The CSV will contain unfolded FP
+        self.descriptor_generator.func.keywords['size'] = MAX_HASH_VALUE
+        self.descriptor_generator.shape = MAX_HASH_VALUE
 
         super(PLECscore, self)._gen_pdbbind_desc(
             pdbbind_dir=pdbbind_dir,
@@ -84,6 +88,10 @@ class PLECscore(scorer):
             use_proteins=True,
             sparse=True,
         )
+
+        # reset to the original size
+        self.descriptor_generator.func.keywords['size'] = self.size
+        self.descriptor_generator.shape = self.size
 
     def gen_json(self, home_dir=None, pdbbind_version=2016):
         if isinstance(self.model, SGDRegressor):
@@ -115,8 +123,8 @@ class PLECscore(scorer):
               ignore_json=False):
         if not home_dir:
             home_dir = path_join(dirname(__file__), 'PLECscore')
-        desc_path = path_join(home_dir, 'plecscore_descs_p%i_l%i_s%i.csv' %
-                              (self.depth_protein, self.depth_ligand, self.size))
+        desc_path = path_join(home_dir, 'plecscore_descs_p%i_l%i.csv' %
+                              (self.depth_protein, self.depth_ligand))
 
         json_path = path_join(
             home_dir, 'plecscore_%s_p%i_l%i_s%i_pdbbind%i.json' %
@@ -176,11 +184,13 @@ class PLECscore(scorer):
                 '1unl', '1uou', '1v0p', '1v48', '1v4s', '1vcj', '1w1p', '1w2g',
                 '1xm6', '1xoq', '1xoz', '1y6b', '1ygc', '1yqy', '1yv3', '1yvf',
                 '1ywr', '1z95', '2bm2', '2br1', '2bsm']
+            # set PLEC size to unfolded
             super(PLECscore, self)._load_pdbbind_desc(
                 desc_path,
                 train_set=('general', 'refined'),
                 pdbbind_version=pdbbind_version,
-                train_blacklist=pdbids_blacklist)
+                train_blacklist=pdbids_blacklist,
+                fold_size=self.size)
 
             print('Training PLECscore %s with depths P%i L%i on PDBBind v%i'
                   % (self.version, self.depth_protein, self.depth_ligand,
