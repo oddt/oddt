@@ -1,7 +1,8 @@
 from os.path import dirname, join as path_join
 import gzip
-
 from itertools import chain
+from functools import partial
+
 import six
 from six.moves import cPickle as pickle
 
@@ -17,7 +18,7 @@ from sklearn.metrics import accuracy_score, r2_score
 import oddt
 from oddt.utils import method_caller
 from oddt.datasets import pdbbind
-from oddt.fingerprints import sparse_to_csr_matrix, csr_matrix_to_sparse
+from oddt.fingerprints import sparse_to_csr_matrix, csr_matrix_to_sparse, fold
 
 
 def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
@@ -171,17 +172,28 @@ class scorer(object):
 
     def _load_pdbbind_desc(self, desc_path, pdbbind_version=2016,
                            train_set='refined', test_set='core',
-                           train_blacklist=None):
+                           train_blacklist=None, fold_size=None):
+        """
+        TODO: write the docs
+
+        """
 
         df = pd.read_csv(desc_path, index_col='pdbid')
 
         # generate dense representation of sparse descriptor in CSV
         cols = list(map(str, range(len(self.descriptor_generator))))
         if 'sparse' in df.columns:
-            df['sparse'] = df['sparse'].map(lambda x: sparse_to_csr_matrix(
-                np.fromstring(x[1:-1], dtype=np.uint64, sep=','),
-                len(self.descriptor_generator)))
+            # convert strings to np.arrays
+            df['sparse'] = df['sparse'].map(
+                lambda x: np.fromstring(x[1:-1], dtype=np.uint64, sep=','))
             cols = 'sparse'  # sparse array will have one column
+            # fold only if necessary
+            if fold_size:
+                df['sparse'] = df['sparse'].map(lambda x: fold(x, fold_size))
+            # convert to sparse csr_matrix
+            df['sparse'] = df['sparse'].map(
+                partial(sparse_to_csr_matrix,
+                        size=len(self.descriptor_generator)))
 
         if isinstance(train_set, six.string_types):
             train_idx = df['%i_%s' % (pdbbind_version, train_set)]
