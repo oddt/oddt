@@ -1053,8 +1053,8 @@ class Molecule(object):
             raise ValueError('The "%s" is not supported in RDKit backend' %
                              model)
         if np.isnan(self.charges).any() or np.isinf(self.charges).any():
-            warnings.warn(UserWarning, 'Some partial charges for molecule "%s" '
-                          'are not finite (NaN, +/-Inf).' % self.title)
+            warnings.warn('Some partial charges for molecule "%s" are not '
+                          'finite (NaN, +/-Inf).' % self.title, UserWarning)
 
     def localopt(self, forcefield="uff", steps=500):
         """Locally optimize the coordinates.
