@@ -104,10 +104,10 @@ class PLECscore(scorer):
         for attr_name in attributes:
             attr = getattr(self.model, attr_name)
             # convert numpy arrays to list for json
-            if isinstance(attr, np.array):
+            if isinstance(attr, np.ndarray):
                 attr = attr.tolist()
             elif (isinstance(attr, (list, tuple)) and
-                  isinstance(attr[0], np.array)):
+                  isinstance(attr[0], np.ndarray)):
                 attr = [x.tolist() for x in attr]
             out[attr_name] = attr
 
