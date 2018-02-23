@@ -73,12 +73,12 @@ class PLECscore(scorer):
                           home_dir=None):
         if home_dir is None:
             home_dir = path_join(dirname(__file__), 'PLECscore')
-        filename = path_join(home_dir, 'plecscore_descs_p%i_l%i_s%i.csv' %
-                             (self.depth_protein, self.depth_ligand, self.size))
+        filename = path_join(home_dir, 'plecscore_descs_p%i_l%i.csv.' %
+                             (self.depth_protein, self.depth_ligand))
 
         # The CSV will contain unfolded FP
-        # self.descriptor_generator.func.keywords['size'] = MAX_HASH_VALUE
-        # self.descriptor_generator.shape = MAX_HASH_VALUE
+        self.descriptor_generator.func.keywords['size'] = MAX_HASH_VALUE
+        self.descriptor_generator.shape = MAX_HASH_VALUE
 
         super(PLECscore, self)._gen_pdbbind_desc(
             pdbbind_dir=pdbbind_dir,
@@ -90,8 +90,8 @@ class PLECscore(scorer):
         )
 
         # reset to the original size
-        # self.descriptor_generator.func.keywords['size'] = self.size
-        # self.descriptor_generator.shape = self.size
+        self.descriptor_generator.func.keywords['size'] = self.size
+        self.descriptor_generator.shape = self.size
 
     def gen_json(self, home_dir=None, pdbbind_version=2016):
         if isinstance(self.model, SGDRegressor):
@@ -123,8 +123,8 @@ class PLECscore(scorer):
               ignore_json=False):
         if not home_dir:
             home_dir = path_join(dirname(__file__), 'PLECscore')
-        desc_path = path_join(home_dir, 'plecscore_descs_p%i_l%i_s%i.csv' %
-                              (self.depth_protein, self.depth_ligand, self.size))
+        desc_path = path_join(home_dir, 'plecscore_descs_p%i_l%i.csv.gz' %
+                              (self.depth_protein, self.depth_ligand))
 
         json_path = path_join(
             home_dir, 'plecscore_%s_p%i_l%i_s%i_pdbbind%i.json' %
@@ -190,7 +190,7 @@ class PLECscore(scorer):
                 train_set=('general', 'refined'),
                 pdbbind_version=pdbbind_version,
                 train_blacklist=pdbids_blacklist,
-                # fold_size=self.size,
+                fold_size=self.size,
                 )
 
             print('Training PLECscore %s with depths P%i L%i on PDBBind v%i'
