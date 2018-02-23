@@ -10,6 +10,7 @@ import pandas as pd
 from scipy.stats import pearsonr
 from sklearn.metrics import r2_score
 
+from sklearn import __version__ as sklearn_version
 from sklearn.linear_model import SGDRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
@@ -41,14 +42,20 @@ class PLECscore(scorer):
                                            shape=size, sparse=True)
 
         if version == 'linear':
-            model = SGDRegressor(fit_intercept=False,
-                                 loss='huber',
-                                 penalty='elasticnet',
-                                 random_state=0,
-                                 verbose=0,
-                                 n_iter=100,
-                                 alpha=1e-4,
-                                 epsilon=1e-1)
+            # avoid deprecation warnings
+            kwargs = {'fit_intercept': False,
+                      'loss': 'huber',
+                      'penalty': 'elasticnet',
+                      'random_state': 0,
+                      'verbose': 0,
+                      'alpha': 1e-4,
+                      'epsilon': 1e-1,
+                      }
+            if sklearn_version >= '0.19':
+                kwargs['max_iter'] = 100
+            else:
+                kwargs['n_iter'] = 100
+            model = SGDRegressor(**kwargs)
         elif version == 'nn':
             model = MLPRegressor((200, 200, 200),
                                  batch_size=10,
