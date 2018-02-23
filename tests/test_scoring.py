@@ -238,7 +238,7 @@ def test_nnscore_desc():
     assert_array_almost_equal(descs, descs_correct, decimal=4)
 
 
-models = ([PLECscore(n_jobs=1, version=v) for v in ['linear']] +
+models = ([PLECscore(n_jobs=1, version=v, size=2048) for v in ['linear']] +
           [nnscore(n_jobs=1)] +
           [rfscore(version=v, n_jobs=1) for v in [1, 2, 3]])
 

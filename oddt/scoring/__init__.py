@@ -167,8 +167,13 @@ class scorer(object):
             df_desc['sparse'] = df_desc['sparse'].map(
                 lambda x: csr_matrix_to_sparse(x).tolist())
 
+        compression = None
+        if desc_path[-3:] == '.gz':
+            compression = 'gzip'
         # DF are joined by index (pdbid) since some might be missing
-        df.join(df_desc, how='inner').to_csv(desc_path, float_format='%.5g')
+        df.join(df_desc, how='inner').to_csv(desc_path,
+                                             float_format='%.5g',
+                                             compression=compression)
 
     def _load_pdbbind_desc(self, desc_path, pdbbind_version=2016,
                            train_set='refined', test_set='core',

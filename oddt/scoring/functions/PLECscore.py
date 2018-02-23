@@ -73,7 +73,7 @@ class PLECscore(scorer):
                           home_dir=None):
         if home_dir is None:
             home_dir = path_join(dirname(__file__), 'PLECscore')
-        filename = path_join(home_dir, 'plecscore_descs_p%i_l%i.csv.' %
+        filename = path_join(home_dir, 'plecscore_descs_p%i_l%i.csv.gz' %
                              (self.depth_protein, self.depth_ligand))
 
         # The CSV will contain unfolded FP
