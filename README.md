@@ -18,7 +18,7 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   * Python 2.7+ or 3.4+
   * OpenBabel (2.3.2+) or/and RDKit (2016.03)
   * Numpy (1.8+)
-  * Scipy (0.13+)
+  * Scipy (0.14+)
   * Sklearn (0.18+)
   * joblib (0.8+)
   * pandas (0.17)
