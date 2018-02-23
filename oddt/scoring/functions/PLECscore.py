@@ -70,7 +70,8 @@ class PLECscore(scorer):
     def gen_training_data(self,
                           pdbbind_dir,
                           pdbbind_versions=(2016,),
-                          home_dir=None):
+                          home_dir=None,
+                          use_proteins=True):
         if home_dir is None:
             home_dir = path_join(dirname(__file__), 'PLECscore')
         filename = path_join(home_dir, 'plecscore_descs_p%i_l%i.csv.gz' %
@@ -85,7 +86,7 @@ class PLECscore(scorer):
             pdbbind_versions=pdbbind_versions,
             desc_path=filename,
             include_general_set=True,
-            use_proteins=True,
+            use_proteins=use_proteins,
             sparse=True,
         )
 

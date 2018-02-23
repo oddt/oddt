@@ -31,7 +31,8 @@ class nnscore(scorer):
     def gen_training_data(self,
                           pdbbind_dir,
                           pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
-                          home_dir=None):
+                          home_dir=None,
+                          use_proteins=False):
         if home_dir is None:
             home_dir = dirname(__file__) + '/NNScore'
         filename = path_join(home_dir, 'nnscore_descs.csv')
@@ -39,7 +40,8 @@ class nnscore(scorer):
         super(nnscore, self)._gen_pdbbind_desc(
             pdbbind_dir=pdbbind_dir,
             pdbbind_versions=pdbbind_versions,
-            desc_path=filename
+            desc_path=filename,
+            use_proteins=use_proteins
         )
 
     def train(self, home_dir=None, sf_pickle=None, pdbbind_version=2016):
