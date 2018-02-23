@@ -304,6 +304,20 @@ class virtualscreening:
                         new_kwargs['pdbbind_version'] = int(bit.replace('pdbbind', ''))
                 sf = nnscore.load(**new_kwargs)
                 sf.set_protein(protein)
+            elif function.lower().startswith('plec'):
+                from oddt.scoring.functions.PLECscore import PLECscore
+                new_kwargs = {}
+                for bit in function.lower().split('_'):
+                    if bit.startswith('pdbbind'):
+                        new_kwargs['pdbbind_version'] = int(bit.replace('pdbbind', ''))
+                    elif bit.startswith('plec'):
+                        new_kwargs['version'] = bit.replace('plec', '')
+                    elif bit.startswith('p'):
+                        new_kwargs['depth_protein'] = bit.replace('p', '')
+                    elif bit.startswith('l'):
+                        new_kwargs['depth_ligand'] = bit.replace('l', '')
+                sf = PLECscore.load(**new_kwargs)
+                sf.set_protein(protein)
             elif function.lower() == 'autodock_vina':
                 from oddt.docking import autodock_vina
                 sf = autodock_vina(protein, *args, **kwargs)

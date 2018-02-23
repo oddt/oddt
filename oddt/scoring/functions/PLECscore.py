@@ -66,8 +66,9 @@ class PLECscore(scorer):
                              % version)
 
         super(PLECscore, self).__init__(model, descriptors,
-                                        score_title='PLEC%s_p%i_l%i' %
-                                        (version, depth_protein, depth_ligand))
+                                        score_title='PLEC%s_p%i_l%i_s%i' %
+                                        (version, depth_protein, depth_ligand,
+                                         size))
 
     def gen_training_data(self,
                           pdbbind_dir,
@@ -101,7 +102,7 @@ class PLECscore(scorer):
             home_dir = path_join(dirname(__file__), 'PLECscore')
 
         if isinstance(self.model, SGDRegressor):
-            attributes = ['coef_', 'intercept_']
+            attributes = ['coef_', 'intercept_', 't_']
         elif isinstance(self.model, MLPRegressor):
             attributes = ['loss_', 'coefs_', 'intercepts_', 'n_iter_',
                           'n_layers_', 'n_outputs_', 'out_activation_']
@@ -235,20 +236,21 @@ class PLECscore(scorer):
                       'RMSE: %.4f' % rmse(target, pred),
                       sep='\t', file=sys.stderr)
 
-            if sf_pickle is None:
-                return self.save('PLEC%s_p%i_l%i_pdbbind%i_s%i.pickle'
-                                 % (self.version, self.depth_protein,
-                                    self.depth_ligand, pdbbind_version, self.size))
-            else:
-                return self.save(sf_pickle)
+        if sf_pickle is None:
+            return self.save('PLEC%s_p%i_l%i_pdbbind%i_s%i.pickle'
+                             % (self.version, self.depth_protein,
+                                self.depth_ligand, pdbbind_version, self.size))
+        else:
+            return self.save(sf_pickle)
 
     @classmethod
-    def load(self, filename=None, version='linear', pdbbind_version=2016):
+    def load(self, filename=None, version='linear', pdbbind_version=2016,
+             depth_protein=5, depth_ligand=1, size=65536):
         if filename is None:
             # FIXME: it would be cool to have templates of names for a class
             fname = ('PLEC%s_p%i_l%i_pdbbind%i_s%i.pickle' %
-                     (self.version, self.depth_protein, self.depth_ligand,
-                      pdbbind_version, self.size))
+                     (version, depth_protein, depth_ligand,
+                      pdbbind_version, size))
             for f in [fname, path_join(dirname(__file__), fname)]:
                 if isfile(f):
                     filename = f
