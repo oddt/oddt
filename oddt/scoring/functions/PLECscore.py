@@ -3,8 +3,10 @@ import sys
 from os.path import dirname, isfile, join as path_join
 from functools import partial
 import json
+import warnings
 
 import numpy as np
+import pandas as pd
 from scipy.stats import pearsonr
 from sklearn.metrics import r2_score
 
@@ -188,6 +190,23 @@ class PLECscore(scorer):
                 '1unl', '1uou', '1v0p', '1v48', '1v4s', '1vcj', '1w1p', '1w2g',
                 '1xm6', '1xoq', '1xoz', '1y6b', '1ygc', '1yqy', '1yv3', '1yvf',
                 '1ywr', '1z95', '2bm2', '2br1', '2bsm']
+
+            # use remote csv if it's not present
+            if not isfile(desc_path):
+                branch = 'master'  # define branch/commit
+                desc_url = ('https://raw.githubusercontent.com/oddt/oddt/%s'
+                            '/oddt/scoring/functions/PLECscore/'
+                            'plecscore_descs_p%i_l%i.csv.gz' %
+                            (branch, self.depth_protein, self.depth_ligand))
+
+                warnings.warn('The CSV for PLEC P%i L%i is missing. Trying to '
+                              'get it from ODDT GitHub.' % (self.depth_protein,
+                                                            self.depth_ligand))
+
+                # download and save CSV
+                pd.read_csv(desc_url, index_col='pdbid').to_csv(
+                    desc_path, compression='gzip')
+
             # set PLEC size to unfolded
             super(PLECscore, self)._load_pdbbind_desc(
                 desc_path,
@@ -201,11 +220,7 @@ class PLECscore(scorer):
                   % (self.version, self.depth_protein, self.depth_ligand,
                      pdbbind_version), file=sys.stderr)
 
-            # FIXME: RF does not like CSR matrix in OOB pred for older sklearn
-            if self.version == 'rf':
-                self.model.fit(self.train_descs.toarray(), self.train_target)
-            else:
-                self.model.fit(self.train_descs, self.train_target)
+            self.model.fit(self.train_descs, self.train_target)
 
             sets = [
                 ('Test', self.model.predict(self.test_descs), self.test_target),
