@@ -94,6 +94,9 @@ class PLECscore(scorer):
         self.descriptor_generator.shape = self.size
 
     def gen_json(self, home_dir=None, pdbbind_version=2016):
+        if not home_dir:
+            home_dir = path_join(dirname(__file__), 'PLECscore')
+
         if isinstance(self.model, SGDRegressor):
             attributes = ['coef_', 'intercept_']
         elif isinstance(self.model, MLPRegressor):
