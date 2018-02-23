@@ -52,7 +52,7 @@ install:
     - source activate test-environment
     - |
         if [[ "$MINIMAL_REQ" == "1" ]]; then
-            conda install -q numpy=1.8 scipy=0.13 joblib=0.8 scikit-image=0.10 xlsxwriter;
+            conda install -q numpy=1.8 scipy=0.14 joblib=0.8 scikit-image=0.10 xlsxwriter;
             pip install scikit-learn==0.18 pandas==0.17;
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
                 conda install -q -c oddt/label/travis openbabel=2.3.2;
