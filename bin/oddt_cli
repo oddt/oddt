@@ -137,10 +137,18 @@ def main():
     sf_choices = ['autodock_vina', 'rfscore', 'nnscore']
     for v in [1, 2, 3]:
         sf_choices.append('rfscore_v%i' % v)
+    for v in ['linear', 'nn', 'rf']:
+        sf_choices.append('plec%s' % v)
+
     for pdbbind_version in [2007, 2012, 2013, 2014, 2015, 2016]:
         for v in [1, 2, 3]:
             sf_choices.append('rfscore_v%i_pdbbind%i' % (v, pdbbind_version))
         sf_choices.append('nnscore_pdbbind%i' % (pdbbind_version))
+
+    # PLECscore is supported only for v2016+
+    for pdbbind_version in [2016]:
+        for v in ['linear', 'nn', 'rf']:
+            sf_choices.append('plec%s_pdbbind%i' % (v, pdbbind_version))
 
     group = parser.add_argument_group('Rescoring')
     group.add_argument('--score',
@@ -230,12 +238,9 @@ def main():
 
     # Rescoring
     for score in args.score:
-        if score.startswith('nnscore'):
-            pipeline.score(score, receptor)
-        elif score.startswith('rfscore'):
-            pipeline.score(score, receptor)
-        elif score == 'autodock_vina':
-            pipeline.score('autodock_vina', receptor)
+        for sf_name in ['nnscore', 'rfscore', 'plec', 'autodock_vina']:
+            if score.startswith(sf_name):
+                pipeline.score(score, receptor)
 
     for score_file in args.score_file:
         if isfile(score_file):  # load pickle
