@@ -97,7 +97,6 @@ class PLECscore(scorer):
             desc_path=filename,
             include_general_set=True,
             use_proteins=use_proteins,
-            sparse=True,
         )
 
         # reset to the original size

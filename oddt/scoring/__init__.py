@@ -83,7 +83,6 @@ class scorer(object):
                           pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
                           desc_path=None,
                           include_general_set=False,
-                          sparse=False,
                           use_proteins=False,
                           **kwargs):
         pdbbind_versions = sorted(pdbbind_versions)
@@ -154,6 +153,9 @@ class scorer(object):
             for pid in desc_idx)
 
         # sparse descs may have different shapes, dense are stored np.array
+        sparse = (hasattr(self.descriptor_generator, 'sparse') and
+                  self.descriptor_generator.sparse)
+
         if not sparse:
             result = np.vstack(result)
 
