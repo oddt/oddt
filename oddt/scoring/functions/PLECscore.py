@@ -64,7 +64,7 @@ class PLECscore(scorer):
                                  solver='lbfgs')
         elif version == 'rf':
             model = RandomForestRegressor(n_estimators=100,
-                                          n_jobs=-1,
+                                          n_jobs=n_jobs,
                                           verbose=0,
                                           oob_score=True,
                                           random_state=0)
