@@ -165,6 +165,9 @@ class scorer(object):
 
         # for sparse features leave one column and cast explicitly to list
         if sparse:
+            if len(df_desc.columns) > 1:
+                raise Exception('There are more than one column in the '
+                                'sparse descriptor table.')
             df_desc.columns = ['sparse']
             df_desc['sparse'] = df_desc['sparse'].map(
                 lambda x: csr_matrix_to_sparse(x).tolist())
