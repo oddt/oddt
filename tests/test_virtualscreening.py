@@ -225,6 +225,8 @@ def test_vs_scoring():
     vs.score('rfscore_v1_pdbbind2016', protein=protein)
     vs.score('rfscore_v2', protein=protein)
     vs.score('rfscore_v3', protein=protein)
+    vs.score('pleclinear', protein=protein)
+    vs.score('pleclinear_p5_l1_s65536_pdbbind2016', protein=protein)
     # use pickle directly
     vs.score(filenames[0], protein=protein)
     # pass SF object directly
@@ -241,6 +243,7 @@ def test_vs_scoring():
     assert 'rfscore_v1' in mol_data
     assert 'rfscore_v2' in mol_data
     assert 'rfscore_v3' in mol_data
+    assert 'PLEClinear_p5_l1_s65536' in mol_data
 
     vs = virtualscreening(n_cpu=-1, chunksize=10)
     vs.load_ligands('sdf', xiap_actives_docked)

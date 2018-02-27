@@ -265,7 +265,7 @@ def test_model_train(model):
 
     with NamedTemporaryFile(suffix='.pickle') as f:
         model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
-                                home_dir=home_dir, use_proteins=False)
+                                home_dir=home_dir)
         model.train(home_dir=home_dir, sf_pickle=f.name)
         model.set_protein(rec)
         # check if protein setting was successful
