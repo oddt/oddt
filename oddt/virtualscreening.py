@@ -313,9 +313,9 @@ class virtualscreening:
                     elif bit.startswith('plec'):
                         new_kwargs['version'] = bit.replace('plec', '')
                     elif bit.startswith('p'):
-                        new_kwargs['depth_protein'] = bit.replace('p', '')
+                        new_kwargs['depth_protein'] = int(bit.replace('p', ''))
                     elif bit.startswith('l'):
-                        new_kwargs['depth_ligand'] = bit.replace('l', '')
+                        new_kwargs['depth_ligand'] = int(bit.replace('l', ''))
                 sf = PLECscore.load(**new_kwargs)
                 sf.set_protein(protein)
             elif function.lower() == 'autodock_vina':
