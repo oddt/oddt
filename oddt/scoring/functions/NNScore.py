@@ -21,6 +21,29 @@ warnings.simplefilter("ignore", RuntimeWarning)
 
 class nnscore(scorer):
     def __init__(self, protein=None, n_jobs=-1):
+        """NNScore implementation [1]_. Based on Binana descriptors [2]_ and
+        an ensemble of 20 best scored nerual networks with a hidden layer of
+        5 nodes. The NNScore predicts binding affinity (pKi/d).
+
+        Parameters
+        ----------
+            protein : oddt.toolkit.Molecule object
+                Receptor for the scored ligands
+
+            n_jobs: int (default=-1)
+                Number of cores to use for scoring and training. By default (-1)
+                all cores are allocated.
+
+        References
+        ----------
+        .. [1] Durrant JD, McCammon JA. NNScore 2.0: a neural-network
+            receptor-ligand scoring function. J Chem Inf Model. 2011;51:
+            2897–2903. doi:10.1021/ci2003889
+
+        .. [2] Durrant JD, McCammon JA. BINANA: a novel algorithm for
+            ligand-binding characterization. J Mol Graph Model. 2011;29:
+            888–893. doi:10.1016/j.jmgm.2011.01.004
+        """
         self.protein = protein
         self.n_jobs = n_jobs
         model = None

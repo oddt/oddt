@@ -195,7 +195,7 @@ def standard_deviation_error(y_true, y_pred):
 
 
 def rie(y_true, y_score, alpha=20, pos_label=None):
-    """Computes Robust Initial Enhancement. This function assumes that results
+    """Computes Robust Initial Enhancement [1]_. This function assumes that results
     are already sorted and samples with best predictions are first.
 
     Parameters
@@ -218,7 +218,7 @@ def rie(y_true, y_score, alpha=20, pos_label=None):
     rie_score : float
          Robust Initial Enhancement
 
-    Notes
+    References
     ----------
     .. [1] Sheridan, R. P.; Singh, S. B.; Fluder, E. M.; Kearsley, S. K.
            Protocols for bridging the peptide to nonpeptide gap in topological
@@ -241,7 +241,7 @@ def rie(y_true, y_score, alpha=20, pos_label=None):
 
 def bedroc(y_true, y_score, alpha=20., pos_label=None):
     """Computes Boltzmann-Enhanced Discrimination of Receiver Operating
-    Characteristic.  This function assumes that results are already sorted
+    Characteristic [1]_.  This function assumes that results are already sorted
     and samples with best predictions are first.
 
     Parameters
@@ -264,7 +264,7 @@ def bedroc(y_true, y_score, alpha=20., pos_label=None):
     bedroc_score : float
         Boltzmann-Enhanced Discrimination of Receiver Operating Characteristic
 
-    Notes
+    References
     ----------
     .. [1] Truchon J-F, Bayly CI. Evaluating virtual screening methods: good
            and bad metrics for the "early recognition" problem.

@@ -239,13 +239,13 @@ class virtualscreening:
         -------
             None
 
-        Note
-        ----
+        Notes
+        -----
             Additional parameters are passed directly to the engine.
             Following docking engines are supported:
 
-            1. Audodock Vina (``engine="autodock_vina"``), see
-            `oddt.docking.autodock_vina`.
+            1. Audodock Vina (```engine="autodock_vina"```), see
+                :class:`oddt.docking.autodock_vina`.
         """
         if engine.lower() == 'autodock_vina':
             from oddt.docking import autodock_vina
@@ -268,8 +268,8 @@ class virtualscreening:
             protein: oddt.toolkit.Molecule
                 Default protein to use as reference
 
-        Note
-        ----
+        Notes
+        -----
             Additional parameters are passed directly to the scoring function.
         """
         if isinstance(protein, six.string_types):

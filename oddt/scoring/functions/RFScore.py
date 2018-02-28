@@ -32,6 +32,50 @@ cutoff = 12
 
 class rfscore(scorer):
     def __init__(self, protein=None, n_jobs=-1, version=1, spr=0, **kwargs):
+        """Scoring function implementing RF-Score variants. It predicts the
+        binding affinity  (pKi/d) of ligand in a complex utilizng simple
+        descriptors (close contacts of atoms <12A) with sophisticated
+        machine-learning model (random forest). The third variand supplements
+        those contacts with Vina partial scores. For futher details see RF-Score
+        publications v1[1]_, v2[2]_, v3[3]_.
+
+
+        Parameters
+        ----------
+            protein : oddt.toolkit.Molecule object
+                Receptor for the scored ligands
+
+            n_jobs: int (default=-1)
+                Number of cores to use for scoring and training. By default (-1)
+                all cores are allocated.
+
+            version: int (default=1)
+                Scoring function variant. The deault is the simplest one (v1).
+
+            spr: int (default=0)
+                The minimum number of contacts in each pair of atom types in
+                the training set for the column to be included in training.
+                This is a way of removal of not frequent and empty contacts.
+
+        References
+        ----------
+        .. [1] Ballester PJ, Mitchell JBO. A machine learning approach to
+            predicting protein-ligand binding affinity with applications to
+            molecular docking. Bioinformatics. 2010;26: 1169–1175.
+            doi:10.1093/bioinformatics/btq112
+
+        .. [2] Ballester PJ, Schreyer A, Blundell TL. Does a more precise
+            chemical description of protein-ligand complexes lead to more
+            accurate prediction of binding affinity? J Chem Inf Model. 2014;54:
+            944–955. doi:10.1021/ci500091r
+
+        .. [3] Li H, Leung K-S, Wong M-H, Ballester PJ. Improving AutoDock Vina
+            Using Random Forest: The Growing Accuracy of Binding Affinity
+            Prediction by the Effective Exploitation of Larger Data Sets.
+            Mol Inform. WILEY-VCH Verlag; 2015;34: 115–126.
+            doi:10.1002/minf.201400132
+
+        """
         self.protein = protein
         self.n_jobs = n_jobs
         self.version = version
