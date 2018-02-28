@@ -8,18 +8,26 @@ import oddt
 
 def is_molecule(obj):
     """Check whether an object is an `oddt.toolkits.{rdk,ob}.Molecule` instance.
+
+    .. versionadded:: 0.6
     """
     return is_openbabel_molecule(obj) or is_rdkit_molecule(obj)
 
 
 def is_openbabel_molecule(obj):
-    """Check whether an object is an `oddt.toolkits.ob.Molecule` instance."""
+    """Check whether an object is an `oddt.toolkits.ob.Molecule` instance.
+
+    .. versionadded:: 0.6
+    """
     return (hasattr(oddt.toolkits, 'ob') and
             isinstance(obj, oddt.toolkits.ob.Molecule))
 
 
 def is_rdkit_molecule(obj):
-    """Check whether an object is an `oddt.toolkits.rdk.Molecule` instance."""
+    """Check whether an object is an `oddt.toolkits.rdk.Molecule` instance.
+
+    .. versionadded:: 0.6
+    """
     return (hasattr(oddt.toolkits, 'rdk') and
             isinstance(obj, oddt.toolkits.rdk.Molecule))
 
@@ -34,6 +42,8 @@ def check_molecule(mol,
     validated based on specified arguments. By default only the object type is
     checked. In case of discrepancy to the specification a `ValueError` is
     raised with appropriate message.
+
+    .. versionadded:: 0.6
 
     Parameters
     ----------
@@ -71,7 +81,10 @@ def check_molecule(mol,
 
 def compose_iter(iterable, funcs):
     """Chain functions and apply them to iterable, by exhausting the iterable.
-    Functions are executed in the order from funcs."""
+    Functions are executed in the order from funcs.
+
+    .. versionadded:: 0.6
+    """
     for func in funcs:
         iterable = func(iterable)
     return list(iterable)
@@ -79,7 +92,10 @@ def compose_iter(iterable, funcs):
 
 def chunker(iterable, chunksize=100):
     """Generate chunks from a generator object. If iterable is passed which is
-    not a generator it will be converted to one with `iter()`."""
+    not a generator it will be converted to one with `iter()`.
+
+    .. versionadded:: 0.6
+    """
     # ensure it is a generator
     if not isinstance(iterable, GeneratorType):
         iterable = iter(iterable)

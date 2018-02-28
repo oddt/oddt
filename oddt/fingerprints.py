@@ -314,6 +314,8 @@ def dense_to_sparse(fp):
 def csr_matrix_to_sparse(fp):
     """Sparsify a CSR fingerprint.
 
+    .. versionadded:: 0.6
+
     Parameters
     ----------
     fp : csr_matrix

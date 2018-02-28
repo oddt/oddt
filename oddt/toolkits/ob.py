@@ -653,6 +653,8 @@ def diverse_conformers_generator(mol, n_conf=10, method='confab', seed=None,
     """Produce diverse conformers using current conformer as starting point.
     Returns a generator. Each conformer is a copy of original molecule object.
 
+    .. versionadded:: 0.6
+
     Parameters
     ----------
     mol : oddt.toolkit.Molecule object

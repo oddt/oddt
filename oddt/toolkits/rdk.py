@@ -1140,7 +1140,9 @@ class Molecule(object):
 def diverse_conformers_generator(mol, n_conf=10, method='etkdg', seed=None,
                                  rmsd=0.5):
     """Produce diverse conformers using current conformer as starting point.
-     Each conformer is a copy of original molecule object.
+    Each conformer is a copy of original molecule object.
+
+    .. versionadded:: 0.6
 
     Parameters
     ----------

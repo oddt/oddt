@@ -47,6 +47,7 @@ def close_contacts(x, y, cutoff, x_column='coords', y_column='coords',
 
             cutoff_low : float (default=0.)
                 Lower bound of contacts to find (exclusive). Zero by default.
+                .. versionadded:: 0.6
 
         Returns
         -------

@@ -220,6 +220,8 @@ class universal_descriptor(object):
         """An universal descriptor which converts a callable object (function)
         to a descriptor generator which can be used in scoring methods.
 
+        .. versionadded:: 0.6
+
         Parameters
         ----------
             func: object
