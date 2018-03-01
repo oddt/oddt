@@ -31,6 +31,9 @@ deploy:
           tags: true
           repo: oddt/oddt
           branch: master
+          # deploy once to prevent conflicting names on PyPi
+          python: '3.6'
+          condition: $ODDT_TOOLKIT = ob
     # conda
     - provider: script
       script: conda/deploy.sh
