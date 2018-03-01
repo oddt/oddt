@@ -38,11 +38,11 @@ class nnscore(scorer):
         ----------
         .. [1] Durrant JD, McCammon JA. NNScore 2.0: a neural-network
             receptor-ligand scoring function. J Chem Inf Model. 2011;51:
-            2897–2903. doi:10.1021/ci2003889
+            2897-2903. doi:10.1021/ci2003889
 
         .. [2] Durrant JD, McCammon JA. BINANA: a novel algorithm for
             ligand-binding characterization. J Mol Graph Model. 2011;29:
-            888–893. doi:10.1016/j.jmgm.2011.01.004
+            888-893. doi:10.1016/j.jmgm.2011.01.004
         """
         self.protein = protein
         self.n_jobs = n_jobs

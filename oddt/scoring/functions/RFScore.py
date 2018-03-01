@@ -61,18 +61,18 @@ class rfscore(scorer):
         ----------
         .. [1] Ballester PJ, Mitchell JBO. A machine learning approach to
             predicting protein-ligand binding affinity with applications to
-            molecular docking. Bioinformatics. 2010;26: 1169–1175.
+            molecular docking. Bioinformatics. 2010;26: 1169-1175.
             doi:10.1093/bioinformatics/btq112
 
         .. [2] Ballester PJ, Schreyer A, Blundell TL. Does a more precise
             chemical description of protein-ligand complexes lead to more
             accurate prediction of binding affinity? J Chem Inf Model. 2014;54:
-            944–955. doi:10.1021/ci500091r
+            944-955. doi:10.1021/ci500091r
 
         .. [3] Li H, Leung K-S, Wong M-H, Ballester PJ. Improving AutoDock Vina
             Using Random Forest: The Growing Accuracy of Binding Affinity
             Prediction by the Effective Exploitation of Larger Data Sets.
-            Mol Inform. WILEY-VCH Verlag; 2015;34: 115–126.
+            Mol Inform. WILEY-VCH Verlag; 2015;34: 115-126.
             doi:10.1002/minf.201400132
 
         """
