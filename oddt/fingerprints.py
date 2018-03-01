@@ -49,6 +49,7 @@ def InteractionFingerprint(ligand, protein, strict=True):
     ----------
     ligand, protein : oddt.toolkit.Molecule object
         Molecules, which are analysed in order to find interactions.
+
     strict : bool (deafult = True)
         If False, do not include condition, which informs whether atoms
         form 'strict' H-bond (pass all angular cutoffs).
@@ -130,6 +131,7 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
     ----------
     ligand, protein : oddt.toolkit.Molecule object
         Molecules, which are analysed in order to find interactions.
+
     strict : bool (deafult = True)
         If False, do not include condition, which informs whether atoms
         form 'strict' H-bond (pass all angular cutoffs).
@@ -695,19 +697,25 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     ----------
     ligand, protein : oddt.toolkit.Molecule object
             Molecules, which are analysed in order to find interactions.
+
     depth_ligand, depth_protein : int (deafult = (2, 4))
         The depth of the fingerprint, i.e. the number of bonds in Morgan
         algorithm. Note: For ECFP2: depth = 1, ECFP4: depth = 2, etc.
+
     size: int (default = 16384)
         SPLIF is folded to given size.
+
     distance_cutoff: float (default=4.5)
         Cutoff distance for close contacts.
+
     sparse : bool (default = True)
         Should fingerprints be dense (contain all bits) or sparse (just the on
         bits).
+
     count_bits : bool (default = True)
         Should the bits be counted or unique. In dense representation it
         translates to integer array (count_bits=True) or boolean array if False.
+
     ignore_hoh : bool (default = True)
         Should the water molecules be ignored. This is based on the name of the
         residue ('HOH').

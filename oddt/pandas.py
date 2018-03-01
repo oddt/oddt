@@ -24,38 +24,38 @@ def _mol_reader(fmt='sdf',
 
     Parameters
     ----------
-        fmt : string
-            The format of molecular file
+    fmt : string
+        The format of molecular file
 
-        filepath_or_buffer : string or None
-            File path
+    filepath_or_buffer : string or None
+        File path
 
-        usecols : list or None, optional (default=None)
-            A list of columns to read from file. If None then all available
-            fields are read.
+    usecols : list or None, optional (default=None)
+        A list of columns to read from file. If None then all available
+        fields are read.
 
-        molecule_column : string or None, optional (default='mol')
-            Name of molecule column. If None the molecules will be skipped and
-            the reading will be speed up significantly.
+    molecule_column : string or None, optional (default='mol')
+        Name of molecule column. If None the molecules will be skipped and
+        the reading will be speed up significantly.
 
-        molecule_name_column : string or None, optional (default='mol_name')
-            Column name which will contain molecules' title/name. Column is
-            skipped when set to None.
+    molecule_name_column : string or None, optional (default='mol_name')
+        Column name which will contain molecules' title/name. Column is
+        skipped when set to None.
 
-        smiles_column  : string or None, optional (default=None)
-            Column name containg molecules' SMILES, by default it is disabled.
+    smiles_column  : string or None, optional (default=None)
+        Column name containg molecules' SMILES, by default it is disabled.
 
-        skip_bad_mols : bool, optional (default=False)
-            Switch to skip empty (bad) molecules. Useful for RDKit, which Returns
-            None if molecule can not sanitize.
+    skip_bad_mols : bool, optional (default=False)
+        Switch to skip empty (bad) molecules. Useful for RDKit, which Returns
+        None if molecule can not sanitize.
 
-        chunksize : int or None, optional (default=None)
-            Size of chunk to return. If set to None whole set is returned.
+    chunksize : int or None, optional (default=None)
+        Size of chunk to return. If set to None whole set is returned.
 
     Returns
     -------
-        chunk :
-            A `ChemDataFrame` containg `chunksize` molecules.
+    chunk :
+        A `ChemDataFrame` containg `chunksize` molecules.
 
     """
     # capture options for reader
@@ -115,22 +115,22 @@ def _mol_writer(data,
 
     Parameters
     ----------
-        fmt : string
-            The format of molecular file
+    fmt : string
+        The format of molecular file
 
-        filepath_or_buffer : string or None
-            File path
+    filepath_or_buffer : string or None
+        File path
 
-        update_properties : bool, optional (default=True)
-            Switch to update properties from the DataFrames to the molecules
-            while writting.
+    update_properties : bool, optional (default=True)
+        Switch to update properties from the DataFrames to the molecules
+        while writting.
 
-        molecule_column : string or None, optional (default='mol')
-            Name of molecule column. If None the molecules will be skipped.
+    molecule_column : string or None, optional (default='mol')
+        Name of molecule column. If None the molecules will be skipped.
 
-        columns : list or None, optional (default=None)
-            A list of columns to write to file. If None then all available
-            fields are written.
+    columns : list or None, optional (default=None)
+        A list of columns to write to file. If None then all available
+        fields are written.
 
     """
     if filepath_or_buffer is None:
@@ -192,36 +192,36 @@ def read_sdf(filepath_or_buffer=None,
 
     Parameters
     ----------
-        filepath_or_buffer : string or None
-            File path
+    filepath_or_buffer : string or None
+        File path
 
-        usecols : list or None, optional (default=None)
-            A list of columns to read from file. If None then all available
-            fields are read.
+    usecols : list or None, optional (default=None)
+        A list of columns to read from file. If None then all available
+        fields are read.
 
-        molecule_column : string or None, optional (default='mol')
-            Name of molecule column. If None the molecules will be skipped and
-            the reading will be speed up significantly.
+    molecule_column : string or None, optional (default='mol')
+        Name of molecule column. If None the molecules will be skipped and
+        the reading will be speed up significantly.
 
-        molecule_name_column : string or None, optional (default='mol_name')
-            Column name which will contain molecules' title/name. Column is
-            skipped when set to None.
+    molecule_name_column : string or None, optional (default='mol_name')
+        Column name which will contain molecules' title/name. Column is
+        skipped when set to None.
 
-        smiles_column  : string or None, optional (default=None)
-            Column name containg molecules' SMILES, by default it is disabled.
+    smiles_column  : string or None, optional (default=None)
+        Column name containg molecules' SMILES, by default it is disabled.
 
-        skip_bad_mols : bool, optional (default=False)
-            Switch to skip empty (bad) molecules. Useful for RDKit, which Returns
-            None if molecule can not sanitize.
+    skip_bad_mols : bool, optional (default=False)
+        Switch to skip empty (bad) molecules. Useful for RDKit, which Returns
+        None if molecule can not sanitize.
 
-        chunksize : int or None, optional (default=None)
-            Size of chunk to return. If set to None whole set is returned.
+    chunksize : int or None, optional (default=None)
+        Size of chunk to return. If set to None whole set is returned.
 
     Returns
     -------
-        result :
-            A `ChemDataFrame` containg all molecules if `chunksize` is None
-            or genrerator of `ChemDataFrame` with `chunksize` molecules.
+    result :
+        A `ChemDataFrame` containg all molecules if `chunksize` is None
+        or genrerator of `ChemDataFrame` with `chunksize` molecules.
 
     """
     result = _mol_reader(fmt='sdf',
@@ -254,36 +254,36 @@ def read_mol2(filepath_or_buffer=None,
 
     Parameters
     ----------
-        filepath_or_buffer : string or None
-            File path
+    filepath_or_buffer : string or None
+        File path
 
-        usecols : list or None, optional (default=None)
-            A list of columns to read from file. If None then all available
-            fields are read.
+    usecols : list or None, optional (default=None)
+        A list of columns to read from file. If None then all available
+        fields are read.
 
-        molecule_column : string or None, optional (default='mol')
-            Name of molecule column. If None the molecules will be skipped and
-            the reading will be speed up significantly.
+    molecule_column : string or None, optional (default='mol')
+        Name of molecule column. If None the molecules will be skipped and
+        the reading will be speed up significantly.
 
-        molecule_name_column : string or None, optional (default='mol_name')
-            Column name which will contain molecules' title/name. Column is
-            skipped when set to None.
+    molecule_name_column : string or None, optional (default='mol_name')
+        Column name which will contain molecules' title/name. Column is
+        skipped when set to None.
 
-        smiles_column  : string or None, optional (default=None)
-            Column name containg molecules' SMILES, by default it is disabled.
+    smiles_column  : string or None, optional (default=None)
+        Column name containg molecules' SMILES, by default it is disabled.
 
-        skip_bad_mols : bool, optional (default=False)
-            Switch to skip empty (bad) molecules. Useful for RDKit, which Returns
-            None if molecule can not sanitize.
+    skip_bad_mols : bool, optional (default=False)
+        Switch to skip empty (bad) molecules. Useful for RDKit, which Returns
+        None if molecule can not sanitize.
 
-        chunksize : int or None, optional (default=None)
-            Size of chunk to return. If set to None whole set is returned.
+    chunksize : int or None, optional (default=None)
+        Size of chunk to return. If set to None whole set is returned.
 
     Returns
     -------
-        result :
-            A `ChemDataFrame` containg all molecules if `chunksize` is None
-            or genrerator of `ChemDataFrame` with `chunksize` molecules.
+    result :
+        A `ChemDataFrame` containg all molecules if `chunksize` is None
+        or genrerator of `ChemDataFrame` with `chunksize` molecules.
 
     """
     result = _mol_reader(fmt='mol2',
@@ -369,7 +369,8 @@ class ChemDataFrame(pd.DataFrame):
 
     .. versionadded:: 0.3
 
-    Note:
+    Notes
+    -----
     Thanks to: http://blog.snapdragon.cc/2015/05/05/subclass-pandas-dataframe-to-save-custom-attributes/
     """
     _metadata = ['_molecule_column']
@@ -386,19 +387,19 @@ class ChemDataFrame(pd.DataFrame):
 
         Parameters
         ----------
-            filepath_or_buffer : string or None
-                File path
+        filepath_or_buffer : string or None
+            File path
 
-            update_properties : bool, optional (default=True)
-                Switch to update properties from the DataFrames to the molecules
-                while writting.
+        update_properties : bool, optional (default=True)
+            Switch to update properties from the DataFrames to the molecules
+            while writting.
 
-            molecule_column : string or None, optional (default='mol')
-                Name of molecule column. If None the molecules will be skipped.
+        molecule_column : string or None, optional (default='mol')
+            Name of molecule column. If None the molecules will be skipped.
 
-            columns : list or None, optional (default=None)
-                A list of columns to write to file. If None then all available
-                fields are written.
+        columns : list or None, optional (default=None)
+            A list of columns to write to file. If None then all available
+            fields are written.
         """
         molecule_column = molecule_column or self._molecule_column
         return _mol_writer(self,
@@ -419,19 +420,19 @@ class ChemDataFrame(pd.DataFrame):
 
         Parameters
         ----------
-            filepath_or_buffer : string or None
-                File path
+        filepath_or_buffer : string or None
+            File path
 
-            update_properties : bool, optional (default=True)
-                Switch to update properties from the DataFrames to the molecules
-                while writting.
+        update_properties : bool, optional (default=True)
+            Switch to update properties from the DataFrames to the molecules
+            while writting.
 
-            molecule_column : string or None, optional (default='mol')
-                Name of molecule column. If None the molecules will be skipped.
+        molecule_column : string or None, optional (default='mol')
+            Name of molecule column. If None the molecules will be skipped.
 
-            columns : list or None, optional (default=None)
-                A list of columns to write to file. If None then all available
-                fields are written.
+        columns : list or None, optional (default=None)
+            A list of columns to write to file. If None then all available
+            fields are written.
         """
         molecule_column = molecule_column or self._molecule_column
         return _mol_writer(self,

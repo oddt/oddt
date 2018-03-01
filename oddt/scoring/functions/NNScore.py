@@ -27,12 +27,12 @@ class nnscore(scorer):
 
         Parameters
         ----------
-            protein : oddt.toolkit.Molecule object
-                Receptor for the scored ligands
+        protein : oddt.toolkit.Molecule object
+            Receptor for the scored ligands
 
-            n_jobs: int (default=-1)
-                Number of cores to use for scoring and training. By default (-1)
-                all cores are allocated.
+        n_jobs: int (default=-1)
+            Number of cores to use for scoring and training. By default (-1)
+            all cores are allocated.
 
         References
         ----------

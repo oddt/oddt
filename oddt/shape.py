@@ -9,36 +9,36 @@ from scipy.special import cbrt
 def common_usr(molecule, ctd=None, cst=None, fct=None, ftf=None, atoms_type=None):
     """Function used in USR and USRCAT function
 
-        Parameters
-        ----------
-        molecule : oddt.toolkit.Molecule
-            Molecule to compute USR shape descriptor
+    Parameters
+    ----------
+    molecule : oddt.toolkit.Molecule
+        Molecule to compute USR shape descriptor
 
-        ctd : numpy array or None (default = None)
-            Coordinates of the molecular centroid
-            If 'None', the point is calculated
+    ctd : numpy array or None (default = None)
+        Coordinates of the molecular centroid
+        If 'None', the point is calculated
 
-        cst : numpy array or None (default = None)
-            Coordinates of the closest atom to the molecular centroid
-            If 'None', the point is calculated
+    cst : numpy array or None (default = None)
+        Coordinates of the closest atom to the molecular centroid
+        If 'None', the point is calculated
 
-        fct : numpy array or None (default = None)
-            Coordinates of the farthest atom to the molecular centroid
-            If 'None', the point is calculated
+    fct : numpy array or None (default = None)
+        Coordinates of the farthest atom to the molecular centroid
+        If 'None', the point is calculated
 
-        ftf : numpy array or None (default = None)
-            Coordinates of the farthest atom
-            to the farthest atom to the molecular centroid
-            If 'None', the point is calculated
+    ftf : numpy array or None (default = None)
+        Coordinates of the farthest atom
+        to the farthest atom to the molecular centroid
+        If 'None', the point is calculated
 
-        atoms_type : str or None (default None)
-            Type of atoms to be selected from atom_dict
-            If 'None', all atoms are used to calculate shape descriptor
+    atoms_type : str or None (default None)
+        Type of atoms to be selected from atom_dict
+        If 'None', all atoms are used to calculate shape descriptor
 
-        Returns
-        -------
-        shape_descriptor : numpy array, shape = (12)
-            Array describing shape of molecule
+    Returns
+    -------
+    shape_descriptor : numpy array, shape = (12)
+        Array describing shape of molecule
     """
     if atoms_type is None:
         atoms = molecule.atom_dict['coords']
@@ -84,40 +84,40 @@ def common_usr(molecule, ctd=None, cst=None, fct=None, ftf=None, atoms_type=None
 
 def usr(molecule):
     """Computes USR shape descriptor based on
-        Ballester PJ, Richards WG (2007). Ultrafast shape recognition to search
-        compound databases for similar molecular shapes. Journal of
-        computational chemistry, 28(10):1711-23.
-        http://dx.doi.org/10.1002/jcc.20681
+    Ballester PJ, Richards WG (2007). Ultrafast shape recognition to search
+    compound databases for similar molecular shapes. Journal of
+    computational chemistry, 28(10):1711-23.
+    http://dx.doi.org/10.1002/jcc.20681
 
-        Parameters
-        ----------
-        molecule : oddt.toolkit.Molecule
-            Molecule to compute USR shape descriptor
+    Parameters
+    ----------
+    molecule : oddt.toolkit.Molecule
+        Molecule to compute USR shape descriptor
 
-        Returns
-        -------
-        shape_descriptor : numpy array, shape = (12)
-            Array describing shape of molecule
+    Returns
+    -------
+    shape_descriptor : numpy array, shape = (12)
+        Array describing shape of molecule
     """
     return common_usr(molecule)[0]
 
 
 def usr_cat(molecule):
     """Computes USRCAT shape descriptor based on
-        Adrian M Schreyer, Tom Blundell (2012). USRCAT: real-time ultrafast
-        shape recognition with pharmacophoric constraints. Journal of
-        Cheminformatics, 2012 4:27.
-        http://dx.doi.org/10.1186/1758-2946-4-27
+    Adrian M Schreyer, Tom Blundell (2012). USRCAT: real-time ultrafast
+    shape recognition with pharmacophoric constraints. Journal of
+    Cheminformatics, 2012 4:27.
+    http://dx.doi.org/10.1186/1758-2946-4-27
 
-        Parameters
-        ----------
-        molecule : oddt.toolkit.Molecule
-            Molecule to compute USRCAT shape descriptor
+    Parameters
+    ----------
+    molecule : oddt.toolkit.Molecule
+        Molecule to compute USRCAT shape descriptor
 
-        Returns
-        -------
-        shape_descriptor : numpy array, shape = (60)
-            Array describing shape of molecule
+    Returns
+    -------
+    shape_descriptor : numpy array, shape = (60)
+        Array describing shape of molecule
     """
     all_atoms_shape, points = common_usr(molecule)
     ctd, cst, fct, ftf = points
@@ -143,14 +143,15 @@ def electroshape(mol):
     Aside from spatial coordinates, atoms' charges are also used
     as the fourth dimension to describe shape of the molecule.
 
-        Parameters
-        ----------
-            mol : oddt.toolkit.Molecule
+    Parameters
+    ----------
+    mol : oddt.toolkit.Molecule
+        Molecule to compute Electroshape descriptor
 
-        Returns
-        -------
-            shape_descriptor : numpy array, shape = (15)
-                               Array describing shape of molecule
+    Returns
+    -------
+    shape_descriptor : numpy array, shape = (15)
+                       Array describing shape of molecule
     """
     if (mol.atom_dict['coords'] == 0).all():
         raise Exception('Molecule needs 3D coordinates')
@@ -211,39 +212,39 @@ def electroshape(mol):
 def usr_similarity(mol1_shape, mol2_shape, ow=1., hw=1., rw=1., aw=1., dw=1.):
     """Computes similarity between molecules
 
-        Parameters
-        ----------
-        mol1_shape : numpy array
-            USR shape descriptor
+    Parameters
+    ----------
+    mol1_shape : numpy array
+        USR shape descriptor
 
-        mol2_shape : numpy array
-            USR shape descriptor
+    mol2_shape : numpy array
+        USR shape descriptor
 
-        ow : float (default = 1.)
-            Scaling factor for all atoms
-            Only used for USRCAT, ignored for other types
+    ow : float (default = 1.)
+        Scaling factor for all atoms
+        Only used for USRCAT, ignored for other types
 
-        hw : float (default = 1.)
-            Scaling factor for hydrophobic atoms
-            Only used for USRCAT, ignored for other types
+    hw : float (default = 1.)
+        Scaling factor for hydrophobic atoms
+        Only used for USRCAT, ignored for other types
 
-        rw : float (default = 1.)
-            Scaling factor for aromatic atoms
-            Only used for USRCAT, ignored for other types
+    rw : float (default = 1.)
+        Scaling factor for aromatic atoms
+        Only used for USRCAT, ignored for other types
 
-        aw : float (default = 1.)
-            Scaling factor for acceptors
-            Only used for USRCAT, ignored for other types
+    aw : float (default = 1.)
+        Scaling factor for acceptors
+        Only used for USRCAT, ignored for other types
 
-        dw : float (default = 1.)
-            Scaling factor for donors
-            Only used for USRCAT, ignored for other types
+    dw : float (default = 1.)
+        Scaling factor for donors
+        Only used for USRCAT, ignored for other types
 
-        Returns
-        -------
-        similarity : float from 0 to 1
-            Similarity between shapes of molecules,
-            1 indicates identical molecules
+    Returns
+    -------
+    similarity : float from 0 to 1
+        Similarity between shapes of molecules,
+        1 indicates identical molecules
     """
     if mol1_shape.shape[0] == 12 and mol2_shape.shape[0] == 12:
         sim = 1. / (1. + (1. / 12) * np.sum(np.fabs(mol1_shape - mol2_shape)))

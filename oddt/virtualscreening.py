@@ -77,11 +77,11 @@ class virtualscreening:
 
         Parameters
         ----------
-            n_cpu: int (default=-1)
-                The number of parallel procesors to use
+        n_cpu: int (default=-1)
+            The number of parallel procesors to use
 
-            verbose: bool (default=False)
-                Verbosity flag for some methods
+        verbose: bool (default=False)
+            Verbosity flag for some methods
         """
         self._pipe = []
         self._mol_feed = []
@@ -96,11 +96,11 @@ class virtualscreening:
 
         Parameters
         ----------
-            file_type: string
-                Type of molecular file
+        file_type: string
+            Type of molecular file
 
-            ligands_file: string
-                Path to a file, which is loaded to pipeline
+        ligands_file: string
+            Path to a file, which is loaded to pipeline
 
         """
         if fmt == 'mol2' and oddt.toolkit.backend == 'ob':
@@ -124,12 +124,12 @@ class virtualscreening:
 
         Parameters
         ----------
-            expression: string or list of strings
-                Expresion(s) to be used while filtering.
+        expression: string or list of strings
+            Expresion(s) to be used while filtering.
 
-            soft_fail: int (default=0)
-                The number of faulures molecule can have to pass filter, aka.
-                soft-fails.
+        soft_fail: int (default=0)
+            The number of faulures molecule can have to pass filter, aka.
+            soft-fails.
         """
         if expression in ['l5', 'ro5', 'ro3', 'pains']:
             # define presets
@@ -177,25 +177,25 @@ class virtualscreening:
 
         Parameters
         ----------
-            method: string
-                Similarity method used to compare molecules. Avaiale methods:
-                * `ifp` - interaction fingerprint (requires a receptor)
-                * `sifp` - simple interaction fingerprint (requires a receptor)
-                * `usr` - Ultrafast Shape Reckognition
-                * `usr_cat` - USR, with CREDO atom types
-                * `electroshape` - Electroshape, USR with moments representing
-                partial charge
+        method: string
+            Similarity method used to compare molecules. Avaiale methods:
+            * `ifp` - interaction fingerprint (requires a receptor)
+            * `sifp` - simple interaction fingerprint (requires a receptor)
+            * `usr` - Ultrafast Shape Reckognition
+            * `usr_cat` - USR, with CREDO atom types
+            * `electroshape` - Electroshape, USR with moments representing
+            partial charge
 
-            query: oddt.toolkit.Molecule or list of oddt.toolkit.Molecule
-                Query molecules to compare the pipeline to.
+        query: oddt.toolkit.Molecule or list of oddt.toolkit.Molecule
+            Query molecules to compare the pipeline to.
 
-            cutoff: float
-                Similarity cutoff for filtering molecules. Any similarity lower
-                than it will be filtered out.
+        cutoff: float
+            Similarity cutoff for filtering molecules. Any similarity lower
+            than it will be filtered out.
 
-            protein: oddt.toolkit.Molecule (default = None)
-                Protein for underling method. By default it's empty, but
-                sturctural fingerprints need one.
+        protein: oddt.toolkit.Molecule (default = None)
+            Protein for underling method. By default it's empty, but
+            sturctural fingerprints need one.
 
         """
         if is_molecule(query):
@@ -232,20 +232,16 @@ class virtualscreening:
 
         Parameters
         ----------
-            engine: string
-                Which docking engine to use.
-
-        Returns
-        -------
-            None
+        engine: string
+            Which docking engine to use.
 
         Notes
         -----
-            Additional parameters are passed directly to the engine.
-            Following docking engines are supported:
+        Additional parameters are passed directly to the engine.
+        Following docking engines are supported:
 
-            1. Audodock Vina (```engine="autodock_vina"```), see
-                :class:`oddt.docking.autodock_vina`.
+        1. Audodock Vina (```engine="autodock_vina"```), see
+        :class:`oddt.docking.autodock_vina`.
         """
         if engine.lower() == 'autodock_vina':
             from oddt.docking import autodock_vina
@@ -262,15 +258,15 @@ class virtualscreening:
 
         Parameters
         ----------
-            function: string
-                Which scoring function to use.
+        function: string
+            Which scoring function to use.
 
-            protein: oddt.toolkit.Molecule
-                Default protein to use as reference
+        protein: oddt.toolkit.Molecule
+            Default protein to use as reference
 
         Notes
         -----
-            Additional parameters are passed directly to the scoring function.
+        Additional parameters are passed directly to the scoring function.
         """
         if isinstance(protein, six.string_types):
             extension = protein.split('.')[-1]
@@ -389,14 +385,14 @@ class virtualscreening:
 
         Parameters
         ----------
-            file_type: string
-                Type of molecular file
+        file_type: string
+            Type of molecular file
 
-            ligands_file: string
-                Path to a output file
+        ligands_file: string
+            Path to a output file
 
-            csv_filename: string
-                Optional path to a CSV file
+        csv_filename: string
+            Optional path to a CSV file
         """
         if fmt == 'mol2' and oddt.toolkit.backend == 'ob':
             if 'opt' in kwargs:
@@ -447,14 +443,14 @@ class virtualscreening:
 
         Parameters
         ----------
-            csv_filename: string
-                Optional path to a CSV file
+        csv_filename: string
+            Optional path to a CSV file
 
-            fields: list (default None)
-                List of fields to save in CSV file
+        fields: list (default None)
+            List of fields to save in CSV file
 
-            keep_pipe: bool (default=False)
-                If set to True, the ligand pipe is sustained.
+        keep_pipe: bool (default=False)
+            If set to True, the ligand pipe is sustained.
         """
         if hasattr(csv_filename, 'write'):
             f = csv_filename

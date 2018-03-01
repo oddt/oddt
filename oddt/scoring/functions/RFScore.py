@@ -42,20 +42,20 @@ class rfscore(scorer):
 
         Parameters
         ----------
-            protein : oddt.toolkit.Molecule object
-                Receptor for the scored ligands
+        protein : oddt.toolkit.Molecule object
+            Receptor for the scored ligands
 
-            n_jobs: int (default=-1)
-                Number of cores to use for scoring and training. By default (-1)
-                all cores are allocated.
+        n_jobs: int (default=-1)
+            Number of cores to use for scoring and training. By default (-1)
+            all cores are allocated.
 
-            version: int (default=1)
-                Scoring function variant. The deault is the simplest one (v1).
+        version: int (default=1)
+            Scoring function variant. The deault is the simplest one (v1).
 
-            spr: int (default=0)
-                The minimum number of contacts in each pair of atom types in
-                the training set for the column to be included in training.
-                This is a way of removal of not frequent and empty contacts.
+        spr: int (default=0)
+            The minimum number of contacts in each pair of atom types in
+            the training set for the column to be included in training.
+            This is a way of removal of not frequent and empty contacts.
 
         References
         ----------

@@ -47,17 +47,17 @@ def check_molecule(mol,
 
     Parameters
     ----------
-        mol: oddt.toolkit.Molecule object
-            Object to verify
+    mol: oddt.toolkit.Molecule object
+        Object to verify
 
-        force_protein: bool (default=False)
-            Force the molecule to be marked as protein (mol.protein).
+    force_protein: bool (default=False)
+        Force the molecule to be marked as protein (mol.protein).
 
-        force_coords: bool (default=False)
-            Force the molecule to have non-zero coordinates.
+    force_coords: bool (default=False)
+        Force the molecule to have non-zero coordinates.
 
-        non_zero_atoms: bool (default=False)
-            Check if molecule has at least one atom.
+    non_zero_atoms: bool (default=False)
+        Check if molecule has at least one atom.
 
     """
     # TODO 2to3 force only one positional argument by adding * to args

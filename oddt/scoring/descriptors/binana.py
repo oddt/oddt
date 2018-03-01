@@ -17,8 +17,8 @@ class binana_descriptor(object):
 
         Parameters
         ----------
-            protein: oddt.toolkit.Molecule object (default=None)
-                Protein object to be used while generating descriptors.
+        protein: oddt.toolkit.Molecule object (default=None)
+            Protein object to be used while generating descriptors.
         """
         self.protein = protein
         self.titles = []
@@ -184,9 +184,9 @@ class binana_descriptor(object):
 
         Parameters
         ----------
-            protein: oddt.toolkit.Molecule object
-                Protein object to be used while generating descriptors.
-                Protein becomes new global and default protein.
+        protein: oddt.toolkit.Molecule object
+            Protein object to be used while generating descriptors.
+            Protein becomes new global and default protein.
         """
         self.protein = protein
         self.vina.set_protein(protein)
@@ -198,18 +198,18 @@ class binana_descriptor(object):
 
         Parameters
         ----------
-            ligands: array-like
-                An array of generator of oddt.toolkit.Molecule objects for which the descriptor is computed
+        ligands: array-like
+            An array of generator of oddt.toolkit.Molecule objects for which the descriptor is computed
 
-            protein: oddt.toolkit.Molecule object (default=None)
-                Protein object to be used while generating descriptors.
-                If none, then the default protein (from constructor) is used.
-                Otherwise, protein becomes new global and default protein.
+        protein: oddt.toolkit.Molecule object (default=None)
+            Protein object to be used while generating descriptors.
+            If none, then the default protein (from constructor) is used.
+            Otherwise, protein becomes new global and default protein.
 
         Returns
         -------
-            descs: numpy array, shape=[n_samples, 351]
-                An array of binana descriptors, aligned with input ligands
+        descs: numpy array, shape=[n_samples, 351]
+            An array of binana descriptors, aligned with input ligands
         """
         if protein:
             self.set_protein(protein)

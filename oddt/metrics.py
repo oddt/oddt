@@ -17,25 +17,25 @@ def roc_auc(y_true, y_score, pos_label=None, ascending_score=True):
 
     Parameters
     ----------
-        y_true : array, shape=[n_samples]
-            True binary labels, in range {0,1} or {-1,1}. If positive label is
-            different than 1, it must be explicitly defined.
+    y_true : array, shape=[n_samples]
+        True binary labels, in range {0,1} or {-1,1}. If positive label is
+        different than 1, it must be explicitly defined.
 
-        y_score : array, shape=[n_samples]
-            Scores for tested series of samples
+    y_score : array, shape=[n_samples]
+        Scores for tested series of samples
 
-        pos_label: int
-            Positive label of samples (if other than 1)
+    pos_label: int
+        Positive label of samples (if other than 1)
 
-        ascending_score: bool (default=True)
-            Indicates if your score is ascendig. Ascending score icreases with
-            deacreasing activity. In other words it ascends on ranking list
-            (where actives are on top).
+    ascending_score: bool (default=True)
+        Indicates if your score is ascendig. Ascending score icreases with
+        deacreasing activity. In other words it ascends on ranking list
+        (where actives are on top).
 
     Returns
     -------
-        roc_auc : float
-            ROC AUC in range 0:1
+    roc_auc : float
+        ROC AUC in range 0:1
     """
     if ascending_score:
         y_score = -y_score
@@ -48,16 +48,16 @@ def rmse(y_true, y_pred):
 
     Parameters
     ----------
-        y_true : array-like of shape = [n_samples] or [n_samples, n_outputs]
-            Ground truth (correct) target values.
+    y_true : array-like of shape = [n_samples] or [n_samples, n_outputs]
+        Ground truth (correct) target values.
 
-        y_pred : array-like of shape = [n_samples] or [n_samples, n_outputs]
-            Estimated target values.
+    y_pred : array-like of shape = [n_samples] or [n_samples, n_outputs]
+        Estimated target values.
 
     Returns
     -------
-        rmse : float
-            A positive floating point value (the best value is 0.0).
+    rmse : float
+        A positive floating point value (the best value is 0.0).
     """
     return np.sqrt(mean_squared_error(y_true, y_pred))
 
@@ -69,29 +69,29 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None, kind='fold'
 
     Parameters
     ----------
-        y_true : array, shape=[n_samples]
-            True binary labels, in range {0,1} or {-1,1}. If positive label is
-            different than 1, it must be explicitly defined.
+    y_true : array, shape=[n_samples]
+        True binary labels, in range {0,1} or {-1,1}. If positive label is
+        different than 1, it must be explicitly defined.
 
-        y_score : array, shape=[n_samples]
-            Scores for tested series of samples
+    y_score : array, shape=[n_samples]
+        Scores for tested series of samples
 
-        percentage : int or float
-            The percentage for which EF is being calculated
+    percentage : int or float
+        The percentage for which EF is being calculated
 
-        pos_label: int
-            Positive label of samples (if other than 1)
+    pos_label: int
+        Positive label of samples (if other than 1)
 
-        kind: 'fold' or 'percentage' (default='fold')
-            Two kinds of enrichment factor: fold and percentage.
-            Fold shows the increase over random distribution (1 is random, the
-            higher EF the better enrichment). Percentage returns the fraction of
-            positive labels within the top x% of dataset.
+    kind: 'fold' or 'percentage' (default='fold')
+        Two kinds of enrichment factor: fold and percentage.
+        Fold shows the increase over random distribution (1 is random, the
+        higher EF the better enrichment). Percentage returns the fraction of
+        positive labels within the top x% of dataset.
 
     Returns
     -------
-        ef : float
-            Enrichment Factor for given percenage in range 0:1
+    ef : float
+        Enrichment Factor for given percenage in range 0:1
     """
     if pos_label is None:
         pos_label = 1
@@ -112,32 +112,32 @@ def roc_log_auc(y_true, y_score, pos_label=None, ascending_score=True,
 
     Parameters
     ----------
-        y_true : array, shape=[n_samples]
-            True binary labels, in range {0,1} or {-1,1}. If positive label is
-            different than 1, it must be explicitly defined.
+    y_true : array, shape=[n_samples]
+        True binary labels, in range {0,1} or {-1,1}. If positive label is
+        different than 1, it must be explicitly defined.
 
-        y_score : array, shape=[n_samples]
-            Scores for tested series of samples
+    y_score : array, shape=[n_samples]
+        Scores for tested series of samples
 
-        pos_label: int
-            Positive label of samples (if other than 1)
+    pos_label: int
+        Positive label of samples (if other than 1)
 
-        ascending_score: bool (default=True)
-            Indicates if your score is ascendig. Ascending score icreases with
-            deacreasing activity. In other words it ascends on ranking list
-            (where actives are on top).
+    ascending_score: bool (default=True)
+        Indicates if your score is ascendig. Ascending score icreases with
+        deacreasing activity. In other words it ascends on ranking list
+        (where actives are on top).
 
-        log_min : float (default=0.001)
-            Minimum value for estimating AUC. Lower values will be clipped for
-            numerical stability.
+    log_min : float (default=0.001)
+        Minimum value for estimating AUC. Lower values will be clipped for
+        numerical stability.
 
-        log_max : float (default=1.)
-            Maximum value for estimating AUC. Higher values will be ignored.
+    log_max : float (default=1.)
+        Maximum value for estimating AUC. Higher values will be ignored.
 
     Returns
     -------
-        auc : float
-            semi-log ROC AUC
+    auc : float
+        semi-log ROC AUC
     """
     if ascending_score:
         y_score = -y_score
@@ -153,16 +153,16 @@ def random_roc_log_auc(log_min=0.001, log_max=1.):
 
     Parameters
     ----------
-        log_min : float (default=0.001)
-            Minimum logarithm value for estimating AUC
+    log_min : float (default=0.001)
+        Minimum logarithm value for estimating AUC
 
-        log_max : float (default=1.)
-            Maximum logarithm value for estimating AUC.
+    log_max : float (default=1.)
+        Maximum logarithm value for estimating AUC.
 
     Returns
     -------
-        auc : float
-            semi-log ROC AUC for random distribution
+    auc : float
+        semi-log ROC AUC for random distribution
     """
     return (log_max - log_min) / (np.log(10) * np.log10(log_max / log_min))
 
@@ -173,16 +173,16 @@ def standard_deviation_error(y_true, y_pred):
 
     Parameters
     ----------
-        y_true : array-like
-            True values.
+    y_true : array-like
+        True values.
 
-        y_pred : array-like
-            Prediction to be scored.
+    y_pred : array-like
+        Prediction to be scored.
 
     Returns
     -------
-        sd : float
-            semi-log ROC AUC for random distribution
+    sd : float
+        semi-log ROC AUC for random distribution
 
 
     """
@@ -200,18 +200,18 @@ def rie(y_true, y_score, alpha=20, pos_label=None):
 
     Parameters
     ----------
-        y_true : array, shape=[n_samples]
-            True binary labels, in range {0,1} or {-1,1}. If positive label is
-            different than 1, it must be explicitly defined.
+    y_true : array, shape=[n_samples]
+        True binary labels, in range {0,1} or {-1,1}. If positive label is
+        different than 1, it must be explicitly defined.
 
-        y_score : array, shape=[n_samples]
-            Scores for tested series of samples
+    y_score : array, shape=[n_samples]
+        Scores for tested series of samples
 
-        alpha: float
-            Alpha. 1/Alpha should be proportional to the percentage in EF.
+    alpha: float
+        Alpha. 1/Alpha should be proportional to the percentage in EF.
 
-        pos_label: int
-            Positive label of samples (if other than 1)
+    pos_label: int
+        Positive label of samples (if other than 1)
 
     Returns
     -------
@@ -246,18 +246,18 @@ def bedroc(y_true, y_score, alpha=20., pos_label=None):
 
     Parameters
     ----------
-        y_true : array, shape=[n_samples]
-            True binary labels, in range {0,1} or {-1,1}. If positive label is
-            different than 1, it must be explicitly defined.
+    y_true : array, shape=[n_samples]
+        True binary labels, in range {0,1} or {-1,1}. If positive label is
+        different than 1, it must be explicitly defined.
 
-        y_score : array, shape=[n_samples]
-            Scores for tested series of samples
+    y_score : array, shape=[n_samples]
+        Scores for tested series of samples
 
-        alpha: float
-            Alpha. 1/Alpha should be proportional to the percentage in EF.
+    alpha: float
+        Alpha. 1/Alpha should be proportional to the percentage in EF.
 
-        pos_label: int
-            Positive label of samples (if other than 1)
+    pos_label: int
+        Positive label of samples (if other than 1)
 
     Returns
     -------
