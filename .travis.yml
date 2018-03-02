@@ -41,6 +41,9 @@ deploy:
           tags: true
           repo: oddt/oddt
           branch: master
+          # deploy once to prevent conflicting names on Anaconda.org
+          python: '3.6'
+          condition: $ODDT_TOOLKIT = ob
       skip_cleanup: true
 install:
     # Install Miniconda.
