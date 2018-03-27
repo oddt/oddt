@@ -10,7 +10,7 @@ from sklearn.metrics import r2_score
 
 from oddt import random_seed
 from oddt.utils import method_caller
-from oddt.metrics import rmse
+from oddt.metrics import rmse, standard_deviation_error
 from oddt.scoring import scorer, ensemble_model
 from oddt.scoring.descriptors.binana import binana_descriptor
 from oddt.scoring.models.regressors import neuralnetwork
@@ -109,6 +109,7 @@ class nnscore(scorer):
                   'R2_score: %.4f' % r2_score(target, pred),
                   'Rp: %.4f' % pearsonr(target, pred)[0],
                   'RMSE: %.4f' % rmse(target, pred),
+                  'SD: %.4f' % standard_deviation_error(target, pred),
                   sep='\t', file=sys.stderr)
 
         if sf_pickle is None:

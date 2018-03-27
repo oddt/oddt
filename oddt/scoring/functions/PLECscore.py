@@ -15,7 +15,7 @@ from sklearn.linear_model import SGDRegressor
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPRegressor
 
-from oddt.metrics import rmse
+from oddt.metrics import rmse, standard_deviation_error
 from oddt.scoring import scorer
 from oddt.fingerprints import PLEC, MAX_HASH_VALUE
 from oddt.scoring.descriptors import universal_descriptor
@@ -281,6 +281,7 @@ class PLECscore(scorer):
                       'R2_score: %.4f' % r2_score(target, pred),
                       'Rp: %.4f' % pearsonr(target, pred)[0],
                       'RMSE: %.4f' % rmse(target, pred),
+                      'SD: %.4f' % standard_deviation_error(target, pred),
                       sep='\t', file=sys.stderr)
 
         if sf_pickle is None:

@@ -14,7 +14,7 @@ except ImportError:
     compiledtrees = None
 
 from oddt import random_seed
-from oddt.metrics import rmse
+from oddt.metrics import rmse, standard_deviation_error
 from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
 from oddt.scoring.descriptors import (close_contacts_descriptor,
@@ -172,6 +172,7 @@ class rfscore(scorer):
                   'R2_score: %.4f' % r2_score(target, pred),
                   'Rp: %.4f' % pearsonr(target, pred)[0],
                   'RMSE: %.4f' % rmse(target, pred),
+                  'SD: %.4f' % standard_deviation_error(target, pred),
                   sep='\t', file=sys.stderr)
 
         # compile trees
