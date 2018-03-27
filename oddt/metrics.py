@@ -188,7 +188,7 @@ def standard_deviation_error(y_true, y_pred):
     """
     y_true = np.atleast_1d(y_true).flatten()
     y_pred = np.atleast_1d(y_pred).flatten()
-    A, B = linregress(y_true, y_pred)[:2]  # y = Ax + B
+    A, B = linregress(y_pred, y_true)[:2]  # y = Ax + B
     y_ = A * y_pred + B
     sd = (((y_true - y_) ** 2).sum() / (len(y_pred) - 1)) ** 0.5
     return sd

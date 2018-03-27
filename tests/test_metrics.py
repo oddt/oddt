@@ -64,7 +64,7 @@ def test_rmse():
 
 def test_standard_deviation_error():
     assert standard_deviation_error(values, good_values) < 1.1
-    assert standard_deviation_error(values, poor_values) > 5e4
+    assert standard_deviation_error(values, poor_values) > 2e4
 
 
 def test_rie():
