@@ -761,7 +761,7 @@ def PreparePDBMol(mol,
 
     if custom_templates is None or not replace_default_templates:
         filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                'pdb_residue_templates.smi')
+                                'fixer', 'pdb_residue_templates.smi')
         template_mols = ReadTemplates(filename, unique_resname)
     else:
         template_mols = {}
