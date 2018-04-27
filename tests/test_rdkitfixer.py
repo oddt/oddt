@@ -1,63 +1,63 @@
 import os
 import tempfile
 
-import rdkit
-from rdkit import Chem
+from numpy.testing import assert_array_equal, assert_almost_equal
+import pytest
 
-from nose.tools import (assert_equal,
-                        assert_not_equal,
-                        assert_almost_equal,
-                        assert_raises,
-                        assert_true)
+try:
+    import rdkit
+    from rdkit import Chem
 
-from numpy.testing import assert_array_equal
+    from oddt.toolkits.extras.rdkit_fixer import (AtomListToSubMol,
+                                                  PreparePDBMol,
+                                                  ExtractPocketAndLigand,
+                                                  IsResidueConnected,
+                                                  FetchStructure,
+                                                  PrepareComplexes)
+except ImportError:
+    rdkit = None
 
-from oddt.toolkits.extras.rdkit_fixer import (AtomListToSubMol,
-                                              PreparePDBMol,
-                                              ExtractPocketAndLigand,
-                                              IsResidueConnected,
-                                              FetchStructure,
-                                              PrepareComplexes)
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 test_dir = os.path.join(test_data_dir, 'data', 'pdb')
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_atom_list_to_submol():
     mol = Chem.MolFromSmiles('CCCCC(=O)O')
     submol = AtomListToSubMol(mol, range(3, 7))
-    assert_equal(submol.GetNumAtoms(), 4)
-    assert_equal(submol.GetNumAtoms(), 4)
-    assert_equal(submol.GetNumBonds(), 3)
-    assert_equal(submol.GetBondBetweenAtoms(1, 2).GetBondType(),
-                 rdkit.Chem.rdchem.BondType.DOUBLE)
+    assert submol.GetNumAtoms() == 4
+    assert submol.GetNumAtoms() == 4
+    assert submol.GetNumBonds() == 3
+    assert submol.GetBondBetweenAtoms(1, 2).GetBondType() == rdkit.Chem.rdchem.BondType.DOUBLE
 
     molfile = os.path.join(test_dir, '2qwe_Sbridge.pdb')
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
-    assert_equal(mol.GetConformer().Is3D(), True)
+    assert mol.GetConformer().Is3D()
     submol = AtomListToSubMol(mol, range(6), includeConformer=True)
-    assert_equal(submol.GetConformer().Is3D(), True)
+    assert submol.GetConformer().Is3D()
 
     # submol has residue info
     atom = submol.GetAtomWithIdx(0)
     info = atom.GetPDBResidueInfo()
-    assert_equal(info.GetResidueName(), 'CYS')
-    assert_equal(info.GetResidueNumber(), 92)
+    assert info.GetResidueName() == 'CYS'
+    assert info.GetResidueNumber() == 92
 
     # test multiple conformers
     mol.AddConformer(mol.GetConformer())
-    assert_equal(mol.GetNumConformers(), 2)
+    assert mol.GetNumConformers() == 2
     submol = AtomListToSubMol(mol, range(6), includeConformer=True)
-    assert_equal(submol.GetNumConformers(), 2)
+    assert submol.GetNumConformers() == 2
     assert_array_equal(submol.GetConformer().GetPositions(),
                        mol.GetConformer().GetPositions()[:6])
 
     submol2 = AtomListToSubMol(submol, range(3), includeConformer=True)
-    assert_equal(submol2.GetNumConformers(), 2)
+    assert submol2.GetNumConformers() == 2
     assert_array_equal(submol2.GetConformer().GetPositions(),
                        mol.GetConformer().GetPositions()[:3])
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_multivalent_Hs():
     """Test if fixer deals with multivalent Hs"""
 
@@ -67,17 +67,17 @@ def test_multivalent_Hs():
     mol = PreparePDBMol(mol, residue_whitelist=[], removeHs=False)
 
     atom = mol.GetAtomWithIdx(84)
-    assert_equal(atom.GetAtomicNum(), 1)  # is it H
-    assert_equal(atom.GetDegree(), 1)  # H should have 1 bond
+    assert atom.GetAtomicNum() == 1  # is it H
+    assert atom.GetDegree() == 1  # H should have 1 bond
 
     for n in atom.GetNeighbors():  # Check if neighbor is from the same residue
-        assert_equal(atom.GetPDBResidueInfo().GetResidueName(),
-                     n.GetPDBResidueInfo().GetResidueName())
+        assert atom.GetPDBResidueInfo().GetResidueName() == n.GetPDBResidueInfo().GetResidueName()
 
     # mol can be sanitized
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_HOH_bonding():
     """Test if fixer unbinds HOH"""
 
@@ -87,13 +87,14 @@ def test_HOH_bonding():
     mol = PreparePDBMol(mol, removeHOHs=False)
 
     atom = mol.GetAtomWithIdx(5)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
-    assert_equal(atom.GetDegree(), 0)  # HOH should have no bonds
+    assert atom.GetPDBResidueInfo().GetResidueName() == 'HOH'
+    assert atom.GetDegree() == 0  # HOH should have no bonds
 
     # mol can be sanitized
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_metal_bonding():
     """Test if fixer disconnects metals"""
 
@@ -103,15 +104,16 @@ def test_metal_bonding():
     mol = PreparePDBMol(mol)
 
     atom = mol.GetAtomWithIdx(36)
-    assert_equal(atom.GetAtomicNum(), 30)  # is it Zn
-    assert_equal(atom.GetDegree(), 0)  # Zn should have no bonds
-    assert_equal(atom.GetFormalCharge(), 2)
-    assert_equal(atom.GetNumExplicitHs(), 0)
+    assert atom.GetAtomicNum() == 30  # is it Zn
+    assert atom.GetDegree() == 0  # Zn should have no bonds
+    assert atom.GetFormalCharge() == 2
+    assert atom.GetNumExplicitHs() == 0
 
     # mol can be sanitized
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_interresidue_bonding():
     """Test if fixer removes wrong connections between residues"""
 
@@ -122,19 +124,20 @@ def test_interresidue_bonding():
 
     # check if O from PRO
     atom1 = mol.GetAtomWithIdx(11)
-    assert_equal(atom1.GetAtomicNum(), 8)
-    assert_equal(atom1.GetPDBResidueInfo().GetResidueName(), 'PRO')
+    assert atom1.GetAtomicNum() == 8
+    assert atom1.GetPDBResidueInfo().GetResidueName() == 'PRO'
     # ...and N from GLN
     atom2 = mol.GetAtomWithIdx(22)
-    assert_equal(atom2.GetAtomicNum(), 7)
-    assert_equal(atom2.GetPDBResidueInfo().GetResidueName(), 'GLN')
+    assert atom2.GetAtomicNum() == 7
+    assert atom2.GetPDBResidueInfo().GetResidueName() == 'GLN'
     # ...are not connected
-    assert_equal(mol.GetBondBetweenAtoms(11, 22), None)
+    assert mol.GetBondBetweenAtoms(11, 22) is None
 
     # mol can be sanitized
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_intraresidue_bonding():
     """Test if fixer removes wrong connections within single residue"""
 
@@ -144,20 +147,21 @@ def test_intraresidue_bonding():
 
     # check if N and C from GLU20 are not connected
     atom1 = mol.GetAtomWithIdx(11)
-    assert_equal(atom1.GetAtomicNum(), 7)
-    assert_equal(atom1.GetPDBResidueInfo().GetResidueName(), 'GLU')
-    assert_equal(atom1.GetPDBResidueInfo().GetResidueNumber(), 20)
+    assert atom1.GetAtomicNum() == 7
+    assert atom1.GetPDBResidueInfo().GetResidueName() == 'GLU'
+    assert atom1.GetPDBResidueInfo().GetResidueNumber() == 20
     atom2 = mol.GetAtomWithIdx(13)
-    assert_equal(atom2.GetAtomicNum(), 6)
-    assert_equal(atom2.GetPDBResidueInfo().GetResidueName(), 'GLU')
-    assert_equal(atom2.GetPDBResidueInfo().GetResidueNumber(), 20)
+    assert atom2.GetAtomicNum() == 6
+    assert atom2.GetPDBResidueInfo().GetResidueName() == 'GLU'
+    assert atom2.GetPDBResidueInfo().GetResidueNumber() == 20
 
-    assert_equal(mol.GetBondBetweenAtoms(11, 13), None)
+    assert mol.GetBondBetweenAtoms(11, 13) is None
 
     # mol can be sanitized
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_bondtype():
     """Test if fixer deals with non-standard residue and fixes bond types"""
 
@@ -167,21 +171,22 @@ def test_bondtype():
 
     # check if there is double bond between N and C from MSE
     atom1 = mol.GetAtomWithIdx(13)
-    assert_equal(atom1.GetAtomicNum(), 6)
-    assert_equal(atom1.GetPDBResidueInfo().GetResidueName(), 'MSE')
+    assert atom1.GetAtomicNum() == 6
+    assert atom1.GetPDBResidueInfo().GetResidueName() == 'MSE'
     atom2 = mol.GetAtomWithIdx(14)
-    assert_equal(atom2.GetAtomicNum(), 8)
-    assert_equal(atom2.GetPDBResidueInfo().GetResidueName(), 'MSE')
+    assert atom2.GetAtomicNum() == 8
+    assert atom2.GetPDBResidueInfo().GetResidueName() == 'MSE'
 
     # there is a bond and it is double
     bond = mol.GetBondBetweenAtoms(13, 14)
-    assert_not_equal(bond, None)
+    assert bond is not None
     assert_almost_equal(bond.GetBondTypeAsDouble(), 2.0)
 
     # mol can be sanitized
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_ring():
     """Test if fixer adds missing bond in ring"""
 
@@ -191,21 +196,22 @@ def test_ring():
 
     # check if there is double bond between N and C from MSE
     atom1 = mol.GetAtomWithIdx(12)
-    assert_equal(atom1.GetAtomicNum(), 6)
-    assert_equal(atom1.GetPDBResidueInfo().GetResidueName(), 'PHE')
+    assert atom1.GetAtomicNum() == 6
+    assert atom1.GetPDBResidueInfo().GetResidueName() == 'PHE'
     atom2 = mol.GetAtomWithIdx(13)
-    assert_equal(atom2.GetAtomicNum(), 6)
-    assert_equal(atom2.GetPDBResidueInfo().GetResidueName(), 'PHE')
+    assert atom2.GetAtomicNum() == 6
+    assert atom2.GetPDBResidueInfo().GetResidueName() == 'PHE'
 
     # there is a bond and it is aromatic
     bond = mol.GetBondBetweenAtoms(12, 13)
-    assert_not_equal(bond, None)
+    assert bond is not None
     assert_almost_equal(bond.GetBondTypeAsDouble(), 1.5)
 
     # mol can be sanitized
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_sulphur_bridge():
     """Test sulphur bridges retention"""
 
@@ -217,13 +223,14 @@ def test_sulphur_bridge():
     atom1 = mol.GetAtomWithIdx(5)
     atom2 = mol.GetAtomWithIdx(11)
     bond = mol.GetBondBetweenAtoms(atom1.GetIdx(), atom2.GetIdx())
-    assert_equal(atom1.GetPDBResidueInfo().GetName().strip(), 'SG')
-    assert_equal(atom1.GetPDBResidueInfo().GetResidueNumber(), 92)
-    assert_equal(atom2.GetPDBResidueInfo().GetName().strip(), 'SG')
-    assert_equal(atom2.GetPDBResidueInfo().GetResidueNumber(), 417)
-    assert_not_equal(bond, None)
+    assert atom1.GetPDBResidueInfo().GetName().strip() == 'SG'
+    assert atom1.GetPDBResidueInfo().GetResidueNumber() == 92
+    assert atom2.GetPDBResidueInfo().GetName().strip() == 'SG'
+    assert atom2.GetPDBResidueInfo().GetResidueNumber() == 417
+    assert bond is not None
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_pocket_extractor():
     """Test extracting pocket and ligand"""
 
@@ -232,56 +239,56 @@ def test_pocket_extractor():
 
     # there should be no pocket at 1A
     pocket, ligand = ExtractPocketAndLigand(mol, cutoff=1.)
-    assert_equal(pocket.GetNumAtoms(), 0)
-    assert_equal(ligand.GetNumAtoms(), 26)
+    assert pocket.GetNumAtoms() == 0
+    assert ligand.GetNumAtoms() == 26
 
     # small pocket of 5A
     pocket, ligand = ExtractPocketAndLigand(mol, cutoff=12.)
-    assert_equal(pocket.GetNumAtoms(), 928)
-    assert_equal(ligand.GetNumAtoms(), 26)
+    assert pocket.GetNumAtoms() == 928
+    assert ligand.GetNumAtoms() == 26
 
     # check if HOH is in pocket
     atom = pocket.GetAtomWithIdx(910)
-    assert_equal(atom.GetAtomicNum(), 8)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
+    assert atom.GetAtomicNum() == 8
+    assert atom.GetPDBResidueInfo().GetResidueName() == 'HOH'
 
     # Prepare and sanitize pocket and ligand
     pocket = PreparePDBMol(pocket)
     ligand = PreparePDBMol(ligand)
-    assert_equal(Chem.SanitizeMol(pocket), Chem.SanitizeFlags.SANITIZE_NONE)
-    assert_equal(Chem.SanitizeMol(ligand), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert Chem.SanitizeMol(pocket) == Chem.SanitizeFlags.SANITIZE_NONE
+    assert Chem.SanitizeMol(ligand) == Chem.SanitizeFlags.SANITIZE_NONE
 
     # Check atom/bond properies for both molecules
     bond = pocket.GetBondWithIdx(39)
-    assert_equal(bond.GetIsAromatic(), True)
-    assert_equal(bond.GetBeginAtom().GetPDBResidueInfo().GetResidueName(), 'TYR')
+    assert bond.GetIsAromatic()
+    assert bond.GetBeginAtom().GetPDBResidueInfo().GetResidueName() == 'TYR'
 
     atom = ligand.GetAtomWithIdx(22)
-    assert_equal(atom.GetAtomicNum(), 7)
-    assert_equal(atom.GetIsAromatic(), True)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'SR8')
+    assert atom.GetAtomicNum() == 7
+    assert atom.GetIsAromatic()
+    assert atom.GetPDBResidueInfo().GetResidueName() == 'SR8'
 
     # test if metal is in pocket
     molfile = os.path.join(test_dir, '4p6p_lig_zn.pdb')
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
-    assert_equal(mol.GetNumAtoms(), 176)
+    assert mol.GetNumAtoms() == 176
     pocket, ligand = ExtractPocketAndLigand(mol, cutoff=5.)
-    assert_equal(pocket.GetNumAtoms(), 162)
-    assert_equal(ligand.GetNumAtoms(), 14)
+    assert pocket.GetNumAtoms() == 162
+    assert ligand.GetNumAtoms() == 14
 
     atom = pocket.GetAtomWithIdx(153)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName().strip(), 'ZN')
+    assert atom.GetPDBResidueInfo().GetResidueName().strip() == 'ZN'
     atom = pocket.GetAtomWithIdx(160)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
+    assert atom.GetPDBResidueInfo().GetResidueName() == 'HOH'
 
     pocket, ligand = ExtractPocketAndLigand(mol, cutoff=5., expandResidues=False)
-    assert_equal(pocket.GetNumAtoms(), 74)
-    assert_equal(ligand.GetNumAtoms(), 14)
+    assert pocket.GetNumAtoms() == 74
+    assert ligand.GetNumAtoms() == 14
 
     atom = pocket.GetAtomWithIdx(65)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName().strip(), 'ZN')
+    assert atom.GetPDBResidueInfo().GetResidueName().strip() == 'ZN'
     atom = pocket.GetAtomWithIdx(73)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'HOH')
+    assert atom.GetPDBResidueInfo().GetResidueName() == 'HOH'
 
     # ligand and protein white/blacklist
     molfile = os.path.join(test_dir, '1dy3_2LIG.pdb')
@@ -289,43 +296,44 @@ def test_pocket_extractor():
 
     # by default the largest ligand - ATP
     pocket, ligand = ExtractPocketAndLigand(mol, cutoff=20.)
-    assert_equal(pocket.GetNumAtoms(), 304)
-    assert_equal(ligand.GetNumAtoms(), 31)
+    assert pocket.GetNumAtoms() == 304
+    assert ligand.GetNumAtoms() == 31
 
     atom = ligand.GetAtomWithIdx(0)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'ATP')
+    assert atom.GetPDBResidueInfo().GetResidueName() == 'ATP'
 
     # blacklist APT to get other largest ligand - 87Y
     pocket, ligand = ExtractPocketAndLigand(mol, cutoff=20.,
                                             ligand_residue_blacklist=['ATP'])
-    assert_equal(pocket.GetNumAtoms(), 304)
-    assert_equal(ligand.GetNumAtoms(), 23)
+    assert pocket.GetNumAtoms() == 304
+    assert ligand.GetNumAtoms() == 23
 
     atom = ligand.GetAtomWithIdx(0)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), '87Y')
+    assert atom.GetPDBResidueInfo().GetResidueName() == '87Y'
 
     # point to 87Y explicitly
     pocket, ligand = ExtractPocketAndLigand(mol, cutoff=20.,
                                             ligand_residue='87Y')
-    assert_equal(pocket.GetNumAtoms(), 304)
-    assert_equal(ligand.GetNumAtoms(), 23)
+    assert pocket.GetNumAtoms() == 304
+    assert ligand.GetNumAtoms() == 23
 
     atom = ligand.GetAtomWithIdx(0)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), '87Y')
+    assert atom.GetPDBResidueInfo().GetResidueName() == '87Y'
 
     # include APT in pocket to get other largest ligand - 87Y
     pocket, ligand = ExtractPocketAndLigand(mol, cutoff=20.,
                                             append_residues=['ATP'])
-    assert_equal(pocket.GetNumAtoms(), 304+31)
-    assert_equal(ligand.GetNumAtoms(), 23)
+    assert pocket.GetNumAtoms() == 304+31
+    assert ligand.GetNumAtoms() == 23
 
     atom = ligand.GetAtomWithIdx(0)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), '87Y')
+    assert atom.GetPDBResidueInfo().GetResidueName() == '87Y'
 
     atom = pocket.GetAtomWithIdx(310)
-    assert_equal(atom.GetPDBResidueInfo().GetResidueName(), 'ATP')
+    assert atom.GetPDBResidueInfo().GetResidueName() == 'ATP'
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_aromatic_ring():
     """Test aromaticity for partial matches"""
 
@@ -335,22 +343,22 @@ def test_aromatic_ring():
     mol = PreparePDBMol(mol)
 
     atom = mol.GetAtomWithIdx(6)
-    assert_equal(atom.GetAtomicNum(), 7)
+    assert atom.GetAtomicNum() == 7
     info = atom.GetPDBResidueInfo()
-    assert_equal(info.GetResidueName(), 'HIS')
-    assert_equal(info.GetResidueNumber(), 246)
-    assert_equal(info.GetName().strip(), 'ND1')
-    assert_equal(atom.GetIsAromatic(), True)
+    assert info.GetResidueName() == 'HIS'
+    assert info.GetResidueNumber() == 246
+    assert info.GetName().strip() == 'ND1'
+    assert atom.GetIsAromatic()
 
     atom = mol.GetAtomWithIdx(9)
-    assert_equal(atom.GetAtomicNum(), 7)
+    assert atom.GetAtomicNum() == 7
     info = atom.GetPDBResidueInfo()
-    assert_equal(info.GetResidueName(), 'HIS')
-    assert_equal(info.GetResidueNumber(), 246)
-    assert_equal(info.GetName().strip(), 'NE2')
-    assert_equal(atom.GetIsAromatic(), True)
+    assert info.GetResidueName() == 'HIS'
+    assert info.GetResidueNumber() == 246
+    assert info.GetName().strip() == 'NE2'
+    assert atom.GetIsAromatic()
 
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
     # there is only one atom from the ring and it shouldn't be aromatic
     molfile = os.path.join(test_dir, '3cx9_TYR.pdb')
@@ -358,15 +366,16 @@ def test_aromatic_ring():
     mol = PreparePDBMol(mol)
 
     atom = mol.GetAtomWithIdx(14)
-    assert_equal(atom.GetAtomicNum(), 6)
+    assert atom.GetAtomicNum() == 6
     info = atom.GetPDBResidueInfo()
-    assert_equal(info.GetResidueName(), 'TYR')
-    assert_equal(info.GetResidueNumber(), 138)
-    assert_equal(info.GetName().strip(), 'CG')
-    assert_equal(atom.GetIsAromatic(), False)
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert info.GetResidueName() == 'TYR'
+    assert info.GetResidueNumber() == 138
+    assert info.GetName().strip() == 'CG'
+    assert not atom.GetIsAromatic()
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_many_missing():
     """Test parsing residues with **many** missing atoms and bonds"""
 
@@ -374,19 +383,20 @@ def test_many_missing():
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol)
 
-    assert_equal(mol.GetNumAtoms(), 5)
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert mol.GetNumAtoms() == 5
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
-    assert_equal(mol.GetAtomWithIdx(4).GetDegree(), 0)
+    assert mol.GetAtomWithIdx(4).GetDegree() == 0
 
     # test if removal works
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol, remove_incomplete=True)
 
-    assert_equal(mol.GetNumAtoms(), 0)
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert mol.GetNumAtoms() == 0
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_remove_incomplete():
     """Test removing residues with missing atoms"""
 
@@ -395,23 +405,24 @@ def test_remove_incomplete():
 
     # keep all residues
     new_mol = PreparePDBMol(mol, remove_incomplete=False)
-    assert_equal(new_mol.GetNumAtoms(), 23)
+    assert new_mol.GetNumAtoms() == 23
     residues = set()
     for atom in new_mol.GetAtoms():
         residues.add(atom.GetPDBResidueInfo().GetResidueNumber())
-    assert_equal(residues, {137, 138, 139})
-    assert_equal(Chem.SanitizeMol(new_mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert residues, {137, 138 == 139}
+    assert Chem.SanitizeMol(new_mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
     # remove residue with missing sidechain
     new_mol = PreparePDBMol(mol, remove_incomplete=True)
-    assert_equal(new_mol.GetNumAtoms(), 17)
+    assert new_mol.GetNumAtoms() == 17
     residues = set()
     for atom in new_mol.GetAtoms():
         residues.add(atom.GetPDBResidueInfo().GetResidueNumber())
-    assert_equal(residues, {137, 139})
-    assert_equal(Chem.SanitizeMol(new_mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert residues, {137 == 139}
+    assert Chem.SanitizeMol(new_mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_custom_templates():
     """Test using custom templates"""
 
@@ -434,91 +445,95 @@ def test_custom_templates():
 
         # use TYR without sidechain - all matches should be complete
         new_mol = PreparePDBMol(mol, remove_incomplete=True, **kwargs)
-        assert_equal(new_mol.GetNumAtoms(), 23)
+        assert new_mol.GetNumAtoms() == 23
         residues = set()
         for atom in new_mol.GetAtoms():
             residues.add(atom.GetPDBResidueInfo().GetResidueNumber())
-        assert_equal(residues, {137, 138, 139})
-        assert_equal(Chem.SanitizeMol(new_mol), Chem.SanitizeFlags.SANITIZE_NONE)
+        assert residues, {137, 138 == 139}
+        assert Chem.SanitizeMol(new_mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_add_missing_atoms():
     # add missing atom at tryptophan
     molfile = os.path.join(test_dir, '5dhh_missingatomTRP.pdb')
     mol = Chem.MolFromPDBFile(molfile, sanitize=True)
     mol = Chem.RemoveHs(mol, sanitize=False)
 
-    assert_equal(mol.GetNumAtoms(), 26)
+    assert mol.GetNumAtoms() == 26
     mol = PreparePDBMol(mol, add_missing_atoms=True)
-    assert_equal(mol.GetNumAtoms(), 27)
+    assert mol.GetNumAtoms() == 27
 
     atom = mol.GetAtomWithIdx(21)
-    assert_equal(atom.GetAtomicNum(), 6)
+    assert atom.GetAtomicNum() == 6
     info = atom.GetPDBResidueInfo()
-    assert_equal(info.GetResidueName(), 'TRP')
-    assert_equal(info.GetResidueNumber(), 175)
-    assert_equal(info.GetName().strip(), 'C9')
-    assert_equal(atom.IsInRing(), True)
-    assert_equal(atom.GetIsAromatic(), True)
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert info.GetResidueName() == 'TRP'
+    assert info.GetResidueNumber() == 175
+    assert info.GetName().strip() == 'C9'
+    assert atom.IsInRing()
+    assert atom.GetIsAromatic()
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
     # add whole ring to tyrosine
     molfile = os.path.join(test_dir, '3cx9_TYR.pdb')
     mol = Chem.MolFromPDBFile(molfile, sanitize=True)
     mol = Chem.RemoveHs(mol, sanitize=False)
 
-    assert_equal(mol.GetNumAtoms(), 23)
+    assert mol.GetNumAtoms() == 23
     mol = PreparePDBMol(mol, add_missing_atoms=True)
-    assert_equal(mol.GetNumAtoms(), 29)
+    assert mol.GetNumAtoms() == 29
 
     atom = mol.GetAtomWithIdx(17)
-    assert_equal(atom.GetAtomicNum(), 6)
+    assert atom.GetAtomicNum() == 6
     info = atom.GetPDBResidueInfo()
-    assert_equal(info.GetResidueName(), 'TYR')
-    assert_equal(info.GetResidueNumber(), 138)
-    assert_equal(info.GetName().strip(), 'C6')
-    assert_equal(atom.IsInRing(), True)
-    assert_equal(atom.GetIsAromatic(), True)
-    assert_equal(Chem.SanitizeMol(mol), Chem.SanitizeFlags.SANITIZE_NONE)
+    assert info.GetResidueName() == 'TYR'
+    assert info.GetResidueNumber() == 138
+    assert info.GetName().strip() == 'C6'
+    assert atom.IsInRing()
+    assert atom.GetIsAromatic()
+    assert Chem.SanitizeMol(mol) == Chem.SanitizeFlags.SANITIZE_NONE
 
     # missing protein backbone atoms
     molfile = os.path.join(test_dir, '5ar7_HIS.pdb')
     mol = Chem.MolFromPDBFile(molfile, sanitize=False)
     mol = Chem.RemoveHs(mol, sanitize=False)
 
-    assert_equal(mol.GetNumAtoms(), 21)
-    assert_equal(mol.GetNumBonds(), 19)
+    assert mol.GetNumAtoms() == 21
+    assert mol.GetNumBonds() == 19
     mol = PreparePDBMol(mol, add_missing_atoms=True)
-    assert_equal(mol.GetNumAtoms(), 25)
-    assert_equal(mol.GetNumBonds(), 25)
+    assert mol.GetNumAtoms() == 25
+    assert mol.GetNumBonds() == 25
 
     # missing nucleotide backbone atoms
     molfile = os.path.join(test_dir, '1bpx_missingBase.pdb')
     mol = Chem.MolFromPDBFile(molfile, sanitize=False)
     mol = Chem.RemoveHs(mol, sanitize=False)
 
-    assert_equal(mol.GetNumAtoms(), 301)
-    assert_equal(mol.GetNumBonds(), 333)
+    assert mol.GetNumAtoms() == 301
+    assert mol.GetNumBonds() == 333
     mol = PreparePDBMol(mol, add_missing_atoms=True)
-    assert_equal(mol.GetNumAtoms(), 328)
-    assert_equal(mol.GetNumBonds(), 366)
+    assert mol.GetNumAtoms() == 328
+    assert mol.GetNumBonds() == 366
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_connected_residues():
     molfile = os.path.join(test_dir, '4p6p_lig_zn.pdb')
     mol = Chem.MolFromPDBFile(molfile, sanitize=False, removeHs=False)
     mol = PreparePDBMol(mol)    # we need to use fixer with rdkit < 2018
 
     # residue which has neighbours
-    assert_equal(IsResidueConnected(mol, range(120, 127)), True)
+    assert IsResidueConnected(mol, range(120, 127))
 
     # ligand
-    assert_equal(IsResidueConnected(mol, range(153, 167)), False)
+    assert not IsResidueConnected(mol, range(153, 167))
 
     # fragments of two residues
-    assert_raises(ValueError, IsResidueConnected, mol, range(5, 15))
+    with pytest.raises(ValueError):
+        IsResidueConnected(mol, range(5, 15))
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_fetch_structures():
     pdbid = '3ws8'
     tmpdir = tempfile.mkdtemp()
@@ -526,10 +541,11 @@ def test_fetch_structures():
     mol1 = FetchStructure(pdbid)
     mol2 = FetchStructure(pdbid, cache_dir=tmpdir)
     mol3 = FetchStructure(pdbid, cache_dir=tmpdir)
-    assert_equal(mol1.GetNumAtoms(), mol2.GetNumAtoms())
-    assert_equal(mol1.GetNumAtoms(), mol3.GetNumAtoms())
+    assert mol1.GetNumAtoms() == mol2.GetNumAtoms()
+    assert mol1.GetNumAtoms() == mol3.GetNumAtoms()
 
 
+@pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_prepare_complexes():
     ids = [
         '3WS9',    # simple case with everything fine
@@ -557,16 +573,15 @@ def test_prepare_complexes():
             values[pdbid][resname] = {k: float(v) for k, v
                                       in ligand.GetPropsAsDict().items()}
 
-    assert_equal(expected_values.keys(), values.keys())
+    assert expected_values.keys() == values.keys()
 
     for pdbid in expected_values:
-        assert_equal(values[pdbid].keys(), expected_values[pdbid].keys())
+        assert values[pdbid].keys() == expected_values[pdbid].keys()
         for resname in values[pdbid]:
-            assert_equal(values[pdbid][resname].keys(),
-                         expected_values[pdbid][resname].keys())
+            assert values[pdbid][resname].keys() == expected_values[pdbid][resname].keys()
             for key, val in values[pdbid][resname].items():
-                assert_equal(key in expected_values[pdbid][resname], True)
+                assert key in expected_values[pdbid][resname]
                 assert_almost_equal(expected_values[pdbid][resname][key], val)
     for idx in expected_values:
-        assert_true(os.path.exists(os.path.join(tmpdir, idx,
-                                                '%s.pdb' % idx)), idx)
+        assert os.path.exists(os.path.join(tmpdir, idx,
+                                           '%s.pdb' % idx))
