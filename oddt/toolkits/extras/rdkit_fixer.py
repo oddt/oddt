@@ -50,7 +50,7 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
     """
     if not isinstance(amap, list):
         amap = list(amap)
-    submol = Chem.RWMol()
+    submol = Chem.RWMol(Chem.Mol())
     for aix in amap:
         submol.AddAtom(mol.GetAtomWithIdx(aix))
     for i, j in combinations(amap, 2):
