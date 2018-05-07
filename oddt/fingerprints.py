@@ -383,6 +383,7 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
                 int(atom_dict['isaromatic']))
 
     else:
+        max_ring_size = 10  # dont catch macromolecular rings
         if is_openbabel_molecule(mol):
             atom = mol.OBMol.GetAtom(idx + 1)
             if atom.GetAtomicNum() == 1:
@@ -392,19 +393,27 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
                     atom.GetHvyValence(),
                     atom.ImplicitHydrogenCount() + atom.ExplicitHydrogenCount(),
                     atom.GetFormalCharge(),
-                    int(atom.IsInRing()),
+                    int(0 < atom.MemberOfRingSize() <= max_ring_size),
                     int(atom.IsAromatic()),)
         else:
             atom = mol.Mol.GetAtomWithIdx(idx)
             if atom.GetAtomicNum() == 1:
                 raise Exception('ECFP should not hash Hydrogens')
             n_hs = atom.GetTotalNumHs(includeNeighbors=True)
+
+            # get ring info for atom and check rign size
+            isring = False
+            if atom.IsInRing():
+                # FIXME: this is not efficient, fixed by rdkit/rdkit#1859
+                isring = any(atom.IsInRingSize(size)
+                             for size in range(3, max_ring_size + 1))
+
             return (atom.GetAtomicNum(),
                     atom.GetIsotope(),
                     atom.GetTotalDegree() - n_hs,
                     n_hs,
                     atom.GetFormalCharge(),
-                    int(atom.IsInRing()),
+                    int(isring),
                     int(atom.GetIsAromatic()),)
 
 
