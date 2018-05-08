@@ -1,6 +1,7 @@
 from __future__ import absolute_import, print_function
 from math import isnan, isinf
 
+import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
@@ -54,6 +55,19 @@ def MolFromPDBBlock(molBlock,
                         if bond.GetOtherAtom(atom).GetPDBResidueInfo().GetName().strip() == 'NE2':
                             bond.SetBondType(Chem.BondType.DOUBLE)
                             break
+
+    # Set metal coordination (zero order) bond orders to single to prevent adding Hs
+    if rdkit.__version__ >= '2018.03':
+        for bond in mol.GetBonds():
+            if bond.GetBondType() == Chem.BondType.ZERO:
+                a1 = bond.GetBeginAtom()
+                a2 = bond.GetEndAtom()
+                # single bonds only if there are enough electrons
+                if ((a1.GetAtomicNum() in _metals and
+                     a2.GetNumImplicitHs() + a2.GetNumExplicitHs() > 0) or
+                    (a2.GetAtomicNum() in _metals and
+                     a1.GetNumImplicitHs() + a1.GetNumExplicitHs() > 0)):
+                    bond.SetBondType(Chem.BondType.SINGLE)
 
     if sanitize:
         result = Chem.SanitizeMol(mol)
