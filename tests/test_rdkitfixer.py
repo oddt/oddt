@@ -64,7 +64,7 @@ def test_atom_list_to_submol():
                        [mol_conf.GetAtomPosition(i) for i in range(3)])
 
 
-@pytest.mark.skipif(rdkit is None, reason="RDKit required")
+@pytest.mark.skipif(rdkit is None or rdkit.__version__ < '2017.03', reason="RDKit required")
 def test_multivalent_Hs():
     """Test if fixer deals with multivalent Hs"""
 
