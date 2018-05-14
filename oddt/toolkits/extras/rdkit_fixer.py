@@ -1,4 +1,4 @@
-from __future__ import division, print_function
+from __future__ import division, print_function, absolute_import
 import os
 from collections import OrderedDict
 from itertools import combinations, chain

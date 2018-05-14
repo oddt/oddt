@@ -7,16 +7,16 @@ import pytest
 try:
     import rdkit
     from rdkit import Chem
+except ImportError:
+    rdkit = None
 
+if rdkit is not None:
     from oddt.toolkits.extras.rdkit_fixer import (AtomListToSubMol,
                                                   PreparePDBMol,
                                                   ExtractPocketAndLigand,
                                                   IsResidueConnected,
                                                   FetchStructure,
                                                   PrepareComplexes)
-except ImportError:
-    rdkit = None
-
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 test_dir = os.path.join(test_data_dir, 'data', 'pdb')
