@@ -48,13 +48,20 @@ def test_atom_list_to_submol():
     assert mol.GetNumConformers() == 2
     submol = AtomListToSubMol(mol, range(6), includeConformer=True)
     assert submol.GetNumConformers() == 2
-    assert_array_equal(submol.GetConformer().GetPositions(),
-                       mol.GetConformer().GetPositions()[:6])
+
+    # FIXME: Newer RDKit has GetPositions, 2016.03 does not
+    mol_conf = mol.GetConformer()
+    submol_conf = submol.GetConformer()
+    assert_array_equal([submol_conf.GetAtomPosition(i)
+                        for i in range(submol_conf.GetNumAtoms())],
+                       [mol_conf.GetAtomPosition(i) for i in range(6)])
 
     submol2 = AtomListToSubMol(submol, range(3), includeConformer=True)
+    submol2_conf = submol2.GetConformer()
     assert submol2.GetNumConformers() == 2
-    assert_array_equal(submol2.GetConformer().GetPositions(),
-                       mol.GetConformer().GetPositions()[:3])
+    assert_array_equal([submol2_conf.GetAtomPosition(i)
+                        for i in range(submol2_conf.GetNumAtoms())],
+                       [mol_conf.GetAtomPosition(i) for i in range(3)])
 
 
 @pytest.mark.skipif(rdkit is None, reason="RDKit required")

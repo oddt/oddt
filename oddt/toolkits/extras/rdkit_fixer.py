@@ -175,7 +175,9 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
     else:
         fixed_atoms = list(all_atoms.difference(moving_atoms))
     # extract submolecules containing atoms within cutoff
-    pos = np.array(mol.GetConformer(-1).GetPositions())
+    mol_conf = mol.GetConformer(-1)
+    pos = np.array([mol_conf.GetAtomPosition(i)
+                   for i in range(mol_conf.GetNumAtoms())])
     mask = (cdist(pos, pos[moving_atoms]) <= cutoff).any(axis=1)
     amap = np.where(mask)[0].tolist()
 
@@ -202,8 +204,9 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None,
 
     # get the positions backbone
     conf = mol.GetConformer(-1)
-    for idx, pos in zip(amap, submol.GetConformer(-1).GetPositions()):
-        conf.SetAtomPosition(idx, pos)
+    submol_conf = submol.GetConformer(-1)
+    for submol_idx, mol_idx in enumerate(amap,):
+        conf.SetAtomPosition(mol_idx, submol_conf.GetAtomPosition(submol_idx))
 
     # FIXME: there's no getLevel method, so we set to default level
     if not verbose:
@@ -287,7 +290,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
                         reverse=True)[0]
     ligand_amap = hetatm_residues[ligand_key]
     ligand = AtomListToSubMol(mol, ligand_amap, includeConformer=True)
-    # we should use GetPositions() hear, but it often leads to segfault (RDKit)
+    # we should use GetPositions() here, but it often leads to segfault (RDKit)
     conf = ligand.GetConformer()
     ligand_coords = np.array([conf.GetAtomPosition(i)
                               for i in range(ligand.GetNumAtoms())])
@@ -296,7 +299,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
     blacklist_ids = list(chain(*hetatm_residues.values()))
     protein_amap = np.array([i for i in range(mol.GetNumAtoms())
                              if i not in blacklist_ids])
-    # we should use GetPositions() hear, but it often leads to segfault (RDKit)
+    # we should use GetPositions() here, but it often leads to segfault (RDKit)
     conf = mol.GetConformer()
     protein_coords = np.array([conf.GetAtomPosition(i)
                               for i in protein_amap.tolist()])
