@@ -1128,7 +1128,7 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None,
 
             affinity_values = (
                 tab
-                .query('ligandId == @res_name')
+                [tab['ligandId'] == res_name]
                 [affinity_types]
                 .iloc[0]
             )
