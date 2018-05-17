@@ -11,7 +11,7 @@ except ImportError:
     rdkit = None
 
 if rdkit is not None:
-    from oddt.toolkits.extras.rdkit_fixer import (AtomListToSubMol,
+    from oddt.toolkits.extras.rdkit.fixer import (AtomListToSubMol,
                                                   PreparePDBMol,
                                                   ExtractPocketAndLigand,
                                                   IsResidueConnected,
