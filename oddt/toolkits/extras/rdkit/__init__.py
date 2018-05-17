@@ -1,16 +1,63 @@
 from __future__ import absolute_import, print_function
 from math import isnan, isinf
+from itertools import combinations
 
 import rdkit
 from rdkit import Chem
 from rdkit.Chem import AllChem
 
-_metals = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-           30, 31, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
-           50, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68,
-           69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
-           87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
-           102, 103)
+METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
+          37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 55, 56, 57,
+          58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74,
+          75, 76, 77, 78, 79, 80, 81, 82, 83, 87, 88, 89, 90, 91, 92, 93, 94,
+          95, 96, 97, 98, 99, 100, 101, 102, 103)
+
+
+def PathFromAtomList(mol, amap):
+    out = []
+    for i, j in combinations(amap, 2):
+        bond = mol.GetBondBetweenAtoms(i, j)
+        if bond:
+            out.append(bond.GetIdx())
+    return out
+
+
+def AtomListToSubMol(mol, amap, includeConformer=False):
+    """
+    Parameters
+    ----------
+        mol: rdkit.Chem.rdchem.Mol
+            Molecule
+        amap: array-like
+            List of atom indices (zero-based)
+        includeConformer: bool (default=True)
+            Toogle to include atoms coordinates in submolecule.
+
+    Returns
+    -------
+        submol: rdkit.Chem.rdchem.RWMol
+            Submol determined by specified atom list
+    """
+    if not isinstance(amap, list):
+        amap = list(amap)
+    submol = Chem.RWMol(Chem.Mol())
+    for aix in amap:
+        submol.AddAtom(mol.GetAtomWithIdx(aix))
+    for i, j in combinations(amap, 2):
+        bond = mol.GetBondBetweenAtoms(i, j)
+        if bond:
+            submol.AddBond(amap.index(i),
+                           amap.index(j),
+                           bond.GetBondType())
+    if includeConformer:
+        for conf in mol.GetConformers():
+            new_conf = Chem.Conformer(len(amap))
+            for i in range(len(amap)):
+                new_conf.SetAtomPosition(i, conf.GetAtomPosition(amap[i]))
+                new_conf.SetId(conf.GetId())
+                new_conf.Set3D(conf.Is3D())
+            submol.AddConformer(new_conf)
+    return submol
 
 
 def MolFromPDBBlock(molBlock,
@@ -63,9 +110,9 @@ def MolFromPDBBlock(molBlock,
                 a1 = bond.GetBeginAtom()
                 a2 = bond.GetEndAtom()
                 # single bonds only if there are enough electrons
-                if ((a1.GetAtomicNum() in _metals and
+                if ((a1.GetAtomicNum() in METALS and
                      a2.GetNumImplicitHs() + a2.GetNumExplicitHs() > 0) or
-                    (a2.GetAtomicNum() in _metals and
+                    (a2.GetAtomicNum() in METALS and
                      a1.GetNumImplicitHs() + a1.GetNumExplicitHs() > 0)):
                     bond.SetBondType(Chem.BondType.SINGLE)
 

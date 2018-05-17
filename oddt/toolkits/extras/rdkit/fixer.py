@@ -15,59 +15,7 @@ from rdkit import Chem
 from rdkit.Chem.AllChem import ConstrainedEmbed
 from rdkit.Chem.rdForceFieldHelpers import UFFGetMoleculeForceField
 
-
-METALS = (3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31,
-          37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 55, 56, 57,
-          58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74,
-          75, 76, 77, 78, 79, 80, 81, 82, 83, 87, 88, 89, 90, 91, 92, 93, 94,
-          95, 96, 97, 98, 99, 100, 101, 102, 103)
-
-
-def PathFromAtomList(mol, amap):
-    out = []
-    for i, j in combinations(amap, 2):
-        bond = mol.GetBondBetweenAtoms(i, j)
-        if bond:
-            out.append(bond.GetIdx())
-    return out
-
-
-def AtomListToSubMol(mol, amap, includeConformer=False):
-    """
-    Parameters
-    ----------
-        mol: rdkit.Chem.rdchem.Mol
-            Molecule
-        amap: array-like
-            List of atom indices (zero-based)
-        includeConformer: bool (default=True)
-            Toogle to include atoms coordinates in submolecule.
-
-    Returns
-    -------
-        submol: rdkit.Chem.rdchem.RWMol
-            Submol determined by specified atom list
-    """
-    if not isinstance(amap, list):
-        amap = list(amap)
-    submol = Chem.RWMol(Chem.Mol())
-    for aix in amap:
-        submol.AddAtom(mol.GetAtomWithIdx(aix))
-    for i, j in combinations(amap, 2):
-        bond = mol.GetBondBetweenAtoms(i, j)
-        if bond:
-            submol.AddBond(amap.index(i),
-                           amap.index(j),
-                           bond.GetBondType())
-    if includeConformer:
-        for conf in mol.GetConformers():
-            new_conf = Chem.Conformer(len(amap))
-            for i in range(len(amap)):
-                new_conf.SetAtomPosition(i, conf.GetAtomPosition(amap[i]))
-                new_conf.SetId(conf.GetId())
-                new_conf.Set3D(conf.Is3D())
-            submol.AddConformer(new_conf)
-    return submol
+from . import AtomListToSubMol
 
 
 class SanitizeError(Exception):
@@ -764,7 +712,7 @@ def PreparePDBMol(mol,
 
     if custom_templates is None or not replace_default_templates:
         filename = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                'fixer', 'pdb_residue_templates.smi')
+                                '..', 'pdb_residue_templates.smi')
         template_mols = ReadTemplates(filename, unique_resname)
     else:
         template_mols = {}
