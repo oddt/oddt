@@ -111,7 +111,7 @@ def ReadTemplates(filename, resnames):
     template_mols = {}
 
     with open(filename) as f:
-        for n, line in enumerate(f):
+        for line in f:
             data = line.split()
             # TODO: skip all residues that have 1 heavy atom
             if data[1] in resnames and data[1] != 'HOH':  # skip waters
@@ -538,7 +538,7 @@ def AddMissingAtoms(protein, residue, amap, template):
     if matched_atoms:  # instead of catching ValueError
         try:
             fixed_residue = ConstrainedEmbed(template, residue)
-        except ValueError as e:
+        except ValueError:
             raise AddAtomsError('Could not embed residue')
     else:
         residue2 = SimplifyMol(Chem.Mol(residue))
@@ -547,7 +547,7 @@ def AddMissingAtoms(protein, residue, amap, template):
         if matched_atoms:
             try:
                 fixed_residue = ConstrainedEmbed(template2, residue2)
-            except ValueError as e:
+            except ValueError:
                 raise AddAtomsError('Could not embed residue')
             # copy coordinates to molecule with appropriate bond orders
             fixed_residue2 = Chem.Mol(template)
@@ -1107,7 +1107,7 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12., affinity_types=None,
                     complex_mol,
                     cutoff=pocket_dist_cutoff,
                     ligand_residue=res_name)
-            except:
+            except Exception:
                 print('Cant get pocket and ligand for %s and %s'
                       % (pdbid, res_name))
                 continue
