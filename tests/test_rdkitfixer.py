@@ -576,7 +576,7 @@ def test_prepare_complexes():
     values = {}
     for pdbid, pairs in complexes.items():
         values[pdbid] = {}
-        for resname, (pocket, ligand) in pairs.items():
+        for resname, (_, ligand) in pairs.items():
             values[pdbid][resname] = {k: float(v) for k, v
                                       in ligand.GetPropsAsDict().items()}
 
