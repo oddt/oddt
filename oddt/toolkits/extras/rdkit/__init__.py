@@ -282,20 +282,21 @@ def MolFromPDBQTBlock(block, sanitize=True, removeHs=True):
 
         pdb_lines.append(pdb_line + atom_type)
     mol = Chem.MolFromPDBBlock('\n'.join(pdb_lines), sanitize=False)
-    mol.SetProp('_Name', name)
-    for k, v in data.items():
-        mol.SetProp(str(k), str(v))
     if sanitize:
         Chem.SanitizeMol(mol)
-
-    # reorder atoms using serial
-    if not sanitize:
+    else:
         Chem.GetSSSR(mol)
+    # reorder atoms using serial
     new_order = sorted(range(mol.GetNumAtoms()),
                        key=lambda i: (mol.GetAtomWithIdx(i)
                                       .GetPDBResidueInfo()
                                       .GetSerialNumber()))
     mol = Chem.RenumberAtoms(mol, new_order)
+
+    # properties must be set on final copy of Mol, RenumberAtoms purges data
+    mol.SetProp('_Name', name)
+    for k, v in data.items():
+        mol.SetProp(str(k), str(v))
 
     return mol
 

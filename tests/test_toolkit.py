@@ -453,6 +453,10 @@ def test_ss():
 
 def test_pdbqt():
     """RDKit PDBQT writer and reader"""
+    mol = next(oddt.toolkit.readfile('sdf', xiap_actives))
+    mol2 = oddt.toolkit.readstring('pdbqt', mol.write('pdbqt'))
+    assert mol.title == mol2.title
+
     # test loop breaks in DFS algorithm
     mol = oddt.toolkit.readstring('smi', 'CCc1cc(C)c(C)cc1-c1ccc(-c2cccc(C)c2)cc1')
     mol.make3D()
