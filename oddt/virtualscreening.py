@@ -336,7 +336,11 @@ class virtualscreening:
         """A method to exhaust the pipeline. Itself it is lazy (a generator)"""
         chunk_feed = chunker(self._mol_feed, chunksize=self.chunksize)
         # get first chunk and check if it is saturated
-        first_chunk = next(chunk_feed)
+        try:
+            first_chunk = next(chunk_feed)
+        except StopIteration:
+            raise StopIteration('There are no molecules loaded to the pipeline.')
+
         if len(first_chunk) == 0:
             warnings.warn('There is **zero** molecules at the output of the VS'
                           ' pipeline. Output file will be empty.')

@@ -89,6 +89,12 @@ def test_vs_docking():
                                    for mol in mols], vina_rmsd)
 
 
+def test_vs_empty():
+    vs = virtualscreening(n_cpu=1)
+    with pytest.raises(StopIteration, match='no molecules loaded'):
+        vs.fetch()
+
+
 def test_vs_docking_empty():
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('smi', os.path.join(dude_data_dir, 'actives_rdkit.smi'))
