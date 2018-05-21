@@ -273,6 +273,7 @@ def test_vs_scoring():
                                                'rfscore_v2', 'rfscore_v3'])
             data = pd.read_csv(csvfile.name)
             assert len(data.columns) == 4
+            assert len(data) == len(mols)
             assert 'nnscore' in data.columns
             assert 'rfscore_v1' in data.columns
             assert 'rfscore_v2' in data.columns
