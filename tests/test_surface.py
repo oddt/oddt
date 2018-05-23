@@ -110,7 +110,7 @@ def test_find_surface_residues():
     if oddt.toolkit.backend == 'ob':
         ref_len_1 = 762
         ref_len_2 = 968
-        ref_len_3 = 654
+        ref_len_3 = 655
         ref_len_4 = 379
     else:
         ref_len_1 = 759

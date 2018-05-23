@@ -36,12 +36,12 @@ def test_vs_scoring_vina():
     assert 'vina_hydrogen' in mol_data
     assert 'vina_hydrophobic' in mol_data
     assert 'vina_repulsion' in mol_data
-    assert mol_data['vina_affinity'] == '-3.57594'
-    assert mol_data['vina_gauss1'] == '63.01213'
-    assert mol_data['vina_gauss2'] == '999.07625'
+    assert mol_data['vina_affinity'] == '-3.57615'
+    assert mol_data['vina_gauss1'] == '63.01398'
+    assert mol_data['vina_gauss2'] == '999.07529'
     assert mol_data['vina_hydrogen'] == '0.0'
-    assert mol_data['vina_hydrophobic'] == '26.12648'
-    assert mol_data['vina_repulsion'] == '3.63178'
+    assert mol_data['vina_hydrophobic'] == '26.12638'
+    assert mol_data['vina_repulsion'] == '3.63122'
 
 
 def test_vs_docking():
