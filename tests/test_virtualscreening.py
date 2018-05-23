@@ -80,7 +80,7 @@ def test_vs_docking():
         # OB 2.3.2 will fail the following, since Hs are removed, etc.
         pass
     else:
-        vina_rmsd = [8.153, 5.325, 8.514, 8.510, 9.060, 8.995, 8.626]
+        vina_rmsd = [8.153, 5.326, 8.515, 8.510, 9.060, 8.995, 8.627]
         assert_array_equal([mol.smiles for mol in mols],
                            [ref_mol.smiles] * len(mols))
 
