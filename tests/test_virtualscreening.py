@@ -68,9 +68,9 @@ def test_vs_docking():
     assert 'vina_rmsd_lb' in mol_data
     assert 'vina_rmsd_ub' in mol_data
     if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
-        vina_scores = [-5.3, -4.0, -3.8, -3.7, -3.4, -3.4, -3.0]
+        vina_scores = [-5.8, -5.5, -5.0, -4.8, -4.6, -4.2, -3.6]
     else:
-        vina_scores = [-6.3, -6.0, -5.8, -5.8, -3.9, -3.0, -1.1]
+        vina_scores = [-6.4, -6.0, -5.7, -4.1, -3.9, -3.7, -3.5]
     assert_array_equal([float(m.data['vina_affinity']) for m in mols], vina_scores)
 
     # verify the SMILES of molecules
@@ -80,7 +80,7 @@ def test_vs_docking():
         # OB 2.3.2 will fail the following, since Hs are removed, etc.
         pass
     else:
-        vina_rmsd = [8.153, 5.326, 8.515, 8.510, 9.060, 8.995, 8.627]
+        vina_rmsd = [8.212, 8.543, 7.383, 7.837, 7.946, 7.533, 8.074]
         assert_array_equal([mol.smiles for mol in mols],
                            [ref_mol.smiles] * len(mols))
 
