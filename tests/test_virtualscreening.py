@@ -80,13 +80,12 @@ def test_vs_docking():
         # OB 2.3.2 will fail the following, since Hs are removed, etc.
         pass
     else:
-        vina_rmsd = [8.153314, 5.32554, 8.514586, 8.510169, 9.060128, 8.995098,
-                     8.626776]
+        vina_rmsd = [8.153, 5.325, 8.514, 8.510, 9.060, 8.995, 8.626]
         assert_array_equal([mol.smiles for mol in mols],
                            [ref_mol.smiles] * len(mols))
 
         assert_array_almost_equal([rmsd(ref_mol, mol, method='min_symmetry')
-                                   for mol in mols], vina_rmsd)
+                                   for mol in mols], vina_rmsd, decimal=3)
 
 
 def test_vs_empty():
