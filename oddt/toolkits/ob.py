@@ -597,8 +597,8 @@ class Molecule(pybel.Molecule):
         r = []
         for ring in self.sssr:
             if ring.IsAromatic():
-                path = ring._path
-                atoms = atom_dict[np.in1d(atom_dict['id'], path)]
+                path = np.array(ring._path) - 1  # NOTE: mol.sssr is 1-based
+                atoms = atom_dict[path]
                 if len(atoms):
                     atom = atoms[0]
                     coords = atoms['coords']

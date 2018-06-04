@@ -825,7 +825,7 @@ class Molecule(object):
         r = []
         for path in self.sssr:
             if self.Mol.GetAtomWithIdx(path[0]).GetIsAromatic():
-                atoms = atom_dict[np.in1d(atom_dict['id'], path)]
+                atoms = atom_dict[path]
                 if len(atoms):
                     atom = atoms[0]
                     coords = atoms['coords']
