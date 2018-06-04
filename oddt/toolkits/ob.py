@@ -598,15 +598,20 @@ class Molecule(pybel.Molecule):
         for ring in self.sssr:
             if ring.IsAromatic():
                 path = np.array(ring._path) - 1  # NOTE: mol.sssr is 1-based
+
+                # always walk the rings in the same direction
+                path = np.roll(path, -np.argmin(path))
+                if path[1] - path[0] > path[-1] - path[0]:
+                    path = np.roll(path[::-1], 1)
+
                 atoms = atom_dict[path]
                 if len(atoms):
                     atom = atoms[0]
                     coords = atoms['coords']
                     centroid = coords.mean(axis=0)
                     # get vector perpendicular to ring
-                    vector = np.cross(coords - np.vstack((coords[1:], coords[:1])),
-                                      np.vstack((coords[1:], coords[:1])) - np.vstack((coords[2:], coords[:2]))
-                                      ).mean(axis=0) - centroid
+                    ring_vectors = coords - centroid
+                    vector = np.cross(ring_vectors, np.roll(ring_vectors, 1)).mean(axis=0)
                     r.append((centroid,
                               vector,
                               atom['resid'],
