@@ -58,22 +58,25 @@ def test_halogenbonds():
                        [])
 
 
-@pytest.mark.skip
 def test_pi_stacking():
     """Pi-stacking test"""
-    pi_parallel_count = [pi_stacking(rec,
-                                     mol,
-                                     cutoff=8)[2].sum() for mol in mols]
-    print(pi_parallel_count)
-    # assert_array_equal(pi_parallel_count,
-    #                    [])
+    lig = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data',
+                                                         'pdbbind', '10gs',
+                                                         '10gs_ligand.sdf')))
+    rec = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data',
+                                                         'pdbbind', '10gs',
+                                                         '10gs_pocket.pdb')))
+    rec.protein = True
+    ring, _, strict_parallel, strict_perpendicular = pi_stacking(rec, lig, cutoff=8)
 
-    pi_perpendicular_count = [pi_stacking(rec,
-                                          mol,
-                                          cutoff=8)[3].sum() for mol in mols]
-    print(pi_perpendicular_count)
-    assert_array_equal(pi_perpendicular_count,
-                       [])
+    print(ring['resnum'])
+    assert len(ring) == 6
+    assert strict_parallel.sum() == 3
+    assert strict_perpendicular.sum() == 0
+    assert_array_equal(ring['resid'], [1, 2, 2, 17, 17, 58])
+    # re-check indexing of residues
+    assert_array_equal(rec.res_dict[ring['resid']]['resnum'], [7, 8, 8, 38, 38, 108])
+    assert_array_equal(ring['resnum'], [7, 8, 8, 38, 38, 108])
 
 
 @pytest.mark.skip
