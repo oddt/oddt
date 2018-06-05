@@ -1,5 +1,5 @@
 import os
-from collections import OrderedDict
+from collections import OrderedDict, deque
 
 from six.moves.cPickle import loads, dumps
 import numpy as np
@@ -10,6 +10,7 @@ from numpy.testing import assert_array_equal, assert_array_almost_equal
 
 import oddt
 from oddt.spatial import rmsd
+from oddt.toolkits.common import canonize_ring_path
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 xiap_receptor = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
@@ -516,3 +517,14 @@ def test_residue_info():
     assert res.number == 92
     assert res.chain == 'A'
     assert res.name == 'GLN'
+
+
+def test_canonize_ring_path():
+    """Test canonic paths"""
+    path0 = list(range(6))
+    path = deque(path0)
+    path.rotate(3)
+
+    assert canonize_ring_path(path) == path0
+    path.reverse()
+    assert canonize_ring_path(path) == path0
