@@ -1,4 +1,5 @@
 """Code common to all toolkits"""
+from collections import deque
 import numpy as np
 
 from oddt.spatial import dihedral, distance
@@ -70,3 +71,36 @@ def detect_secondary_structure(res_dict):
             res_dict['isbeta'][mask_group] = False
 
     return res_dict
+
+
+def canonize_ring_path(path):
+    """Make a canonic path - list of consecutive atom IDXs bonded in a ring
+    sorted in an uniform fasion.
+        1) Move the smallest index to position 0
+        2) Look for the smallest first step (delta IDX)
+        3) Ff -1 is smallest, inverse the path and move min IDX to position 0
+
+    Parameters
+    ----------
+    path : list of integers
+        A list of consecutive atom indices in a ring
+
+    Returns
+    -------
+    canonic_path : list of integers
+        Sorted list of atoms
+    """
+    if isinstance(path, deque):
+        path_deque = path
+        path = list(path)
+    elif isinstance(path, list):
+        path_deque = deque(path)
+    else:
+        raise ValueError('Path must be a list')
+    # FIXME: Py2 deque does not have deque.index()
+    for _ in range(path.index(min(path))):
+        path_deque.rotate(-1)
+    if path_deque[1] - path_deque[0] > path_deque[-1] - path_deque[0]:
+        path_deque.reverse()
+        path_deque.rotate(1)
+    return list(path_deque)

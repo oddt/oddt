@@ -47,7 +47,7 @@ from rdkit.Chem.AllChem import ComputeGasteigerCharges
 from rdkit.Chem.Pharm2D import Gobbi_Pharm2D, Generate
 from rdkit.Chem import CanonicalRankAtoms
 
-from oddt.toolkits.common import detect_secondary_structure
+from oddt.toolkits.common import detect_secondary_structure, canonize_ring_path
 from oddt.toolkits.extras.rdkit import (_sybyl_atom_type,
                                         MolFromPDBBlock,
                                         MolToPDBQTBlock,
@@ -825,13 +825,7 @@ class Molecule(object):
         r = []
         for path in self.sssr:
             if self.Mol.GetAtomWithIdx(path[0]).GetIsAromatic():
-
-                # always walk the rings in the same direction
-                path = np.roll(path, -np.argmin(path))
-                if path[1] - path[0] > path[-1] - path[0]:
-                    path = np.roll(path[::-1], 1)
-
-                atoms = atom_dict[path]
+                atoms = atom_dict[canonize_ring_path(path)]
                 if len(atoms):
                     atom = atoms[0]
                     coords = atoms['coords']

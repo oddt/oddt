@@ -21,7 +21,7 @@ import numpy as np
 from openbabel import OBAtomAtomIter, OBAtomBondIter, OBTypeTable
 
 from oddt.utils import check_molecule
-from oddt.toolkits.common import detect_secondary_structure
+from oddt.toolkits.common import detect_secondary_structure, canonize_ring_path
 
 ob.OBIterWithDepth.__next__ = ob.OBIterWithDepth.next
 
@@ -597,14 +597,8 @@ class Molecule(pybel.Molecule):
         r = []
         for ring in self.sssr:
             if ring.IsAromatic():
-                path = np.array(ring._path) - 1  # NOTE: mol.sssr is 1-based
-
-                # always walk the rings in the same direction
-                path = np.roll(path, -np.argmin(path))
-                if path[1] - path[0] > path[-1] - path[0]:
-                    path = np.roll(path[::-1], 1)
-
-                atoms = atom_dict[path]
+                path = [x - 1 for x in ring._path]  # NOTE: mol.sssr is 1-based
+                atoms = atom_dict[canonize_ring_path(path)]
                 if len(atoms):
                     atom = atoms[0]
                     coords = atoms['coords']
