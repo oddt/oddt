@@ -530,4 +530,4 @@ def test_canonize_ring_path():
     assert canonize_ring_path(path) == path0
 
     with pytest.raises(ValueError):
-        canonize_ring_path(range(6))
+        canonize_ring_path(tuple(range(6)))
