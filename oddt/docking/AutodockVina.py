@@ -295,9 +295,12 @@ class autodock_vina(object):
                 clone.data.update(score)
 
                 # Calculate RMSD to the input pose
-                clone.data['vina_rmsd_input'] = rmsd(ligand, clone)
-                clone.data['vina_rmsd_input_min'] = rmsd(ligand, clone,
-                                                         method='min_symmetry')
+                try:
+                    clone.data['vina_rmsd_input'] = rmsd(ligand, clone)
+                    clone.data['vina_rmsd_input_min'] = rmsd(ligand, clone,
+                                                             method='min_symmetry')
+                except Exception:
+                    pass
                 output_array.append(clone)
         rmtree(ligand_dir)
         return output_array
