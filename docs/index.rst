@@ -207,7 +207,7 @@ Get all acceptor atoms:
 
 .. code-block:: python
 
-    mol.atom_dict[‘is_acceptor’]
+    mol.atom_dict['isacceptor']
 
 
 Interaction Fingerprints
@@ -235,7 +235,7 @@ File with more than one molecule
 
 When files are loaded, You can check interactions between molecules. Let's find out, which amino acids creates hydrogen bonds
 ::
-  protein_atoms, ligand_atoms, strict = hbond(protein, ligand)
+  protein_atoms, ligand_atoms, strict = hbonds(protein, ligand)
   print(protein_atoms['resname'])
 
 Or check hydrophobic contacts between molecules
