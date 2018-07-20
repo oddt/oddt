@@ -75,7 +75,7 @@ One of the most common operation would be iterating through molecules atoms
 
 .. code-block:: Python
 
-    mol = oddt.toolkit.readstring(‘smi’, ‘c1cccc1’)
+    mol = oddt.toolkit.readstring('smi', 'c1cccc1')
     for atom in mol:
         print(atom.idx)
 
@@ -114,14 +114,14 @@ Reading from file
 
 .. code-block:: python
 
-    for mol in oddt.toolkit.readfile(‘smi’, ‘test.smi’):
+    for mol in oddt.toolkit.readfile('smi', 'test.smi'):
         print(mol.title)
 
 Reading from string
 
 .. code-block:: python
 
-    mol = oddt.toolkit.readstring(‘smi’, ‘c1ccccc1 benzene’):
+    mol = oddt.toolkit.readstring('smi', 'c1ccccc1 benzene'):
         print(mol.title)
 
 .. note:: You can force molecules to be read in asynchronously, aka “lazy molecules”. Current default is not to produce lazy molecules due to OpenBabel’s Memory Leaks in OBConverter. Main advantage of lazy molecules is using them in multiprocessing, then conversion is spreaded on all jobs.
@@ -130,7 +130,7 @@ Reading molecules from file in asynchronous manner
 
 .. code-block:: python
 
-    for mol in oddt.toolkit.readfile(‘smi’, ‘test.smi’, lazy=True):
+    for mol in oddt.toolkit.readfile('smi', 'test.smi', lazy=True):
         pass
 
 This example will execute instantaneously, since no molecules were evaluated.
