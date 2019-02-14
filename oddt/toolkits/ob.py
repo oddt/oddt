@@ -93,7 +93,7 @@ def _filereader_pdb(filename, opt=None):
     with gzip.open(filename) if filename.split('.')[-1] == 'gz' else open(filename) as f:
         for line in f:
             block += line
-            if line[:4] == 'ENDMDL':
+            if line[:6] == 'ENDMDL':
                 yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
                 n += 1
                 block = ''
