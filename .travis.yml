@@ -6,17 +6,15 @@ env:
         # Minimal required package versions
         - ODDT_TOOLKIT=ob CONDA_PY=2.7 MINIMAL_REQ=1
         - ODDT_TOOLKIT=rdk CONDA_PY=2.7  MINIMAL_REQ=1
-        - ODDT_TOOLKIT=ob CONDA_PY=3.4 MINIMAL_REQ=1
-        - ODDT_TOOLKIT=rdk CONDA_PY=3.4  MINIMAL_REQ=1
         # Recent versions
         - ODDT_TOOLKIT=ob CONDA_PY=2.7
-        - ODDT_TOOLKIT=ob CONDA_PY=3.4
         - ODDT_TOOLKIT=ob CONDA_PY=3.5
         - ODDT_TOOLKIT=ob CONDA_PY=3.6
+        - ODDT_TOOLKIT=ob CONDA_PY=3.7
         - ODDT_TOOLKIT=rdk CONDA_PY=2.7
-        - ODDT_TOOLKIT=rdk CONDA_PY=3.4
         - ODDT_TOOLKIT=rdk CONDA_PY=3.5
         - ODDT_TOOLKIT=rdk CONDA_PY=3.6
+        - ODDT_TOOLKIT=rdk CONDA_PY=3.7
 
     global:
         secure: "XOHub9EE1aj4xDWvws5Ej1oGvb5Dw2vVnDRKpU9ZP5Ko9yJ6AYvy3zDeHBb83htp2JSxdciIB5voBb3LF+o0YliBpHdgrub8CgV8VH3Lpl+f0X14yBsnP/swwY0Lde/Xyq2lq6FcP3siNx8OpaSFFTDIZnAqt/kKzUzBknd9wgA="
