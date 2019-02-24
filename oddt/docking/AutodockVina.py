@@ -358,8 +358,8 @@ def write_vina_pdbqt(mol, directory, flexible=True, name_id=None):
 
     if is_openbabel_molecule(mol):
         if flexible:
-            # auto bonding (b), perserve atom names (n) indices (p) and Hs (h)
-            kwargs = {'opt': {'b': None, 'p': None, 'h': None, 'n': None}}
+            # auto bonding (b), perserve atom indices (p) and Hs (h)
+            kwargs = {'opt': {'b': None, 'p': None, 'h': None}}
         else:
             # for proteins write rigid mol (r) and combine all frags in one (c)
             kwargs = {'opt': {'r': None, 'c': None, 'h': None}}
