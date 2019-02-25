@@ -5,6 +5,7 @@ import os
 import warnings
 from tempfile import mkdtemp
 from shutil import rmtree
+from distutils.spawn import find_executable
 
 from six import string_types
 
@@ -88,10 +89,8 @@ class autodock_vina(object):
             self.center = auto_ligand.coords.mean(axis=0).round(3)
         # autodetect Vina executable
         if not executable:
-            try:
-                self.executable = (subprocess.check_output(['which', 'vina'])
-                                   .decode('ascii').split('\n')[0])
-            except subprocess.CalledProcessError:
+            self.executable = find_executable('vina')
+            if not self.executable:
                 raise Exception('Could not find Autodock Vina binary.'
                                 'You have to install it globaly or supply binary'
                                 'full directory via `executable` parameter.')
