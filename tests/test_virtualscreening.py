@@ -76,8 +76,9 @@ def test_vs_docking():
     # verify the SMILES of molecules
     ref_mol = next(oddt.toolkit.readfile('sdf', xiap_crystal_ligand))
 
-    if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
+    if oddt.toolkit.backend == 'ob':
         # OB 2.3.2 will fail the following, since Hs are removed, etc.
+        # OB 2.4 recognizes the smiles chirality wrong
         pass
     else:
         vina_rmsd = [8.153314, 5.32554, 8.514586, 8.510169, 9.060128, 8.995098,
