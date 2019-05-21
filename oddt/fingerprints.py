@@ -28,7 +28,9 @@ __all__ = ['InteractionFingerprint',
            'ECFP',
            'PLEC',
            'dice',
-           'tanimoto']
+           'tanimoto',
+           'ri_score',
+           'b_factor']
 
 
 def InteractionFingerprint(ligand, protein, strict=True):
@@ -776,7 +778,7 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
         else:
             fillvalue = protein_ecfp[-1]
         for pair in zip_longest(ligand_ecfp, protein_ecfp, fillvalue=fillvalue):
-                result.append(hash32(pair))
+            result.append(hash32(pair))
     # folding and sorting
     plec = np.sort(fold(np.array(result), size=size))
 
@@ -874,9 +876,29 @@ def distance(a, b):
     return np.sqrt(ne.evaluate('sum((a - b)**2, axis=2)'))
 
 
-def b_factor(ligand, protein, cutoff=10., correlation_type='exponential',
+def b_factor(ligand, protein, correlation_type='exponential',
              tau=3., k=40, v=40):
-    """Flexibility-Rigity Index, based on  10.1021/acs.jcim.7b00226"""
+    """ Flexibility-Rigity Index, based on 10.1021/acs.jcim.7b00226.
+
+    Parameters
+    ----------
+    ligand, protein : oddt.toolkit.Molecule object
+        Molecules, which are used to compute score.
+
+    correlation_type: string (default='exponential')
+        Type of kernel -> 'exponential' or 'lorenz'.
+
+    tau: float (deault=3.)
+        Adjustable parameter.
+
+    k, v: int (deafult=40)
+        If set to high values, correlation functions behave like ideal low-pass filter.
+
+    Returns
+    -------
+    b_factor : float
+        Flexibility-Rigity score.
+    """
     # dicts with heavy atoms
     ligand_atoms = ligand.atom_dict[ligand.atom_dict['atomicnum'] > 1]
     protein_atoms = protein.atom_dict[protein.atom_dict['atomicnum'] > 1]
@@ -913,8 +935,30 @@ def b_factor(ligand, protein, cutoff=10., correlation_type='exponential',
     return delta_bfactor
 
 
-def ri_score(ligand, protein, cutoff=10., correlation_type='exponential',
-             tau=3.,  k=40, v=40):
+def ri_score(ligand, protein, correlation_type='exponential', tau=3., k=40, v=40):
+    """ Rigidity index based scoring functions (RI-Score), based on
+    10.1021/acs.jcim.7b00226.
+
+    Parameters
+    ----------
+    ligand, protein : oddt.toolkit.Molecule object
+        Molecules, which are used to compute score
+
+    correlation_type: string (default='exponential')
+        Type of kernel -> 'exponential' or 'lorenz'
+
+    tau: float (deault=3.)
+        Adjustable parameter.
+
+    k, v: int (deafult=40)
+        If set to high values, correlation functions behave like ideal low-pass filter.
+
+    Returns
+    -------
+    ri_score: float
+        Rigidity score.
+
+    """
     # dicts with heavy atoms
     ligand_atoms = ligand.atom_dict[ligand.atom_dict['atomicnum'] > 1]
     protein_atoms = protein.atom_dict[protein.atom_dict['atomicnum'] > 1]
@@ -933,6 +977,36 @@ def ri_score(ligand, protein, cutoff=10., correlation_type='exponential',
 
 def correlation(distance, weight, radius, radius_secondary=None,
                 correlation_type='exponential', tau=3., k=40, v=40):
+    """ Generalized exponential functions used in Flexibility-Rigidity Index computation.
+        Parameters
+        ----------
+        distance:
+            Distance between coords of heavy atoms.
+
+        weight: float (default=1)
+            Particle-type dependent weight.
+
+        radius:
+            Radius of protein atoms.
+
+        radius_secondary:
+            Radius of ligand atoms.
+
+        correlation_type: string (default='exponential')
+            Type of kernel -> 'exponential' or 'lorenz'
+
+        tau: float (deault=3.)
+            Adjustable parameter.
+
+        k, v: int (deafult=40)
+            If set to high values, correlation functions behave like ideal low-pass filter.
+
+        Returns
+        -------
+        correlation: float
+            Correlation function score.
+
+    """
     assert len(distance) == len(radius)
     # the Numexpr versions are 2x faster and use less memory
     # eta is now calculated on the fly in the numexpr to save memory
@@ -941,9 +1015,11 @@ def correlation(distance, weight, radius, radius_secondary=None,
         radius_secondary = radius
     radius = radius[:, np.newaxis]  # numexpr does not hadle this well
     if correlation_type == 'exponential':
-        return float(ne.evaluate('sum(weight * exp(-((distance / (radius * radius_secondary * tau)) ** k)))'))
+        return float(ne.evaluate('sum(weight * exp(-((distance /'
+                                 '(radius * radius_secondary * tau)) ** k)))'))
     elif correlation_type == 'lorentz':
-        return float(ne.evaluate('sum(weight * 1. / (1. + ((distance / (radius * radius_secondary * tau)) ** v)))'))
+        return float(ne.evaluate('sum(weight * 1. / (1. + ((distance /'
+                                 '(radius * radius_secondary * tau)) ** v)))'))
     else:
         raise ValueError('"%s" is unsupported correlation function type. '
                          'Use one of: ["exponential", "lorentz"]/' % correlation_type)
