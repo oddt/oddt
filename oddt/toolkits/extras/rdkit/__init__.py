@@ -64,8 +64,13 @@ def MolFromPDBBlock(molBlock,
                     sanitize=True,
                     removeHs=True,
                     flavor=0):
+    # before 2019.03 pre-sanitization is required
+    pre_sanitize = False
+    if sanitize and rdkit.__version__ <= '2018.09':
+        pre_sanitize = True
+
     mol = Chem.MolFromPDBBlock(molBlock,
-                               sanitize=sanitize,
+                               sanitize=pre_sanitize,
                                removeHs=removeHs,
                                flavor=flavor)
     if mol is None:
@@ -102,6 +107,7 @@ def MolFromPDBBlock(molBlock,
                         if bond.GetOtherAtom(atom).GetPDBResidueInfo().GetName().strip() == 'NE2':
                             bond.SetBondType(Chem.BondType.DOUBLE)
                             break
+    mol.UpdatePropertyCache(strict=sanitize)
 
     # Set metal coordination (zero order) bond orders to single to prevent adding Hs
     if rdkit.__version__ >= '2018.03':
