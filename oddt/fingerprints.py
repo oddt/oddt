@@ -17,7 +17,6 @@ from oddt.interactions import (pi_stacking,
                                hydrophobic_contacts,
                                acceptor_metal,
                                close_contacts)
-from oddt.spatial import rmsd
 
 
 __all__ = ['InteractionFingerprint',
@@ -26,10 +25,18 @@ __all__ = ['InteractionFingerprint',
            'similarity_SPLIF',
            'ECFP',
            'PLEC',
+           'fold',
+           'MIN_HASH_VALUE',
+           'MAX_HASH_VALUE',
+           'sparse_to_dense',
+           'sparse_to_csr_matrix',
+           'csr_matrix_to_sparse',
+           'dense_to_sparse',
            'dice',
            'tanimoto',
+           'b_factor',
            'ri_score',
-           'b_factor']
+           ]
 
 
 def InteractionFingerprint(ligand, protein, strict=True):
@@ -777,7 +784,7 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
         else:
             fillvalue = protein_ecfp[-1]
         for pair in zip_longest(ligand_ecfp, protein_ecfp, fillvalue=fillvalue):
-            result.append(hash32(pair))
+                result.append(hash32(pair))
     # folding and sorting
     plec = np.sort(fold(np.array(result), size=size))
 
