@@ -1,76 +1,11 @@
 import numpy as np
-import math
 from oddt.spatial import distance, rotate
 from oddt.docking.AutodockVina import autodock_vina
-
-
-def get_children(molecule, mother, restricted):
-    atoms = np.zeros(len(molecule.atoms), dtype=bool)
-    atoms[mother] = True
-    d = 1  # Pass first
-    prev = 0
-    while d > 0:
-        atoms[[n.idx0
-               for i in np.nonzero(atoms)[0] if i != restricted
-               for n in molecule.atoms[i].neighbors if n.idx0 != restricted]] = True
-        d = atoms.sum() - prev
-        prev = atoms.sum()
-    return atoms
-
-
-def get_close_neighbors(molecule, a_idx, num_bonds=1):
-    atoms = np.zeros(len(molecule.atoms), dtype=bool)
-    atoms[a_idx] = True
-    for i in range(num_bonds):
-        atoms[[n.idx0
-               for i in np.nonzero(atoms)[0]
-               for n in molecule.atoms[i].neighbors]] = True
-    return atoms
-
-
-def change_dihedral(coords, a1, a2, a3, a4, target_angle, rot_mask):
-    sin = math.sin(target_angle)
-    cos = math.cos(target_angle)
-    t = 1 - cos
-    v0 = coords[a2] - coords[a3]
-    v = (v0) / np.linalg.norm(v0)
-    rot_matrix = np.array([[t * v[0] * v[0] + cos,
-                            t * v[0] * v[1] + sin * v[2],
-                            t * v[0] * v[2] - sin * v[1]],
-                           [t * v[0] * v[1] - sin * v[2],
-                            t * v[1] * v[1] + cos,
-                            t * v[1] * v[2] + sin * v[0]],
-                           [t * v[0] * v[2] + sin * v[1],
-                            t * v[1] * v[2] - sin * v[0],
-                            t * v[2] * v[2] + cos]])
-
-    centroid = coords[a3]
-    coords = coords - centroid
-    # Old and slower version
-    # coords[rot_mask] = (coords[rot_mask,np.newaxis,:] * rot_matrix).sum(axis=2)
-    coords[rot_mask] = np.einsum("ij,jk->ik", coords[rot_mask], rot_matrix)
-    return coords + centroid
-
-
-def num_rotors_pdbqt(lig):
-    i = 0
-    for atom in lig.atoms:
-        if atom.atomicnum == 1:
-            continue
-        num_local_rot = sum(int(b.isrotor) for b in atom.bonds)
-        if num_local_rot == 0:
-            pass
-        elif num_local_rot == 1:
-            i += 0.5
-        elif num_local_rot == 2:
-            i += 1.0
-        elif num_local_rot >= 3:
-            i += 0.5
-    return i
+from oddt.docking.internal import get_children, get_close_neighbors, change_dihedral, num_rotors_pdbqt
 
 
 class custom_engine(object):
-    def __init__(self, rec, lig=None, box=None, box_size=1., weights=None):
+    def __init__(self, rec, lig=None, box=None, box_size=1.):
         self.box_size = box_size  # TODO: Unify box
         if rec:
             self.set_protein(rec)
@@ -78,8 +13,6 @@ class custom_engine(object):
             self.set_ligand(lig)
 
         self.set_box(box)
-        # constants
-        self.weights = weights or np.array((-0.0356, -0.00516, 0.840, -0.0351, -0.587, 0.0585))
         self.mask_inter = {}
         self.mask_intra = {}
 
@@ -102,13 +35,11 @@ class custom_engine(object):
             self.mask_inter = {}
         else:
             self.rec_dict = rec.atom_dict[rec.atom_dict['atomicnum'] != 1].copy()
-            self.rec_dict = self.correct_radius(self.rec_dict)
             self.mask_inter = {}
 
     def set_ligand(self, lig):
         lig_hvy_mask = (lig.atom_dict['atomicnum'] != 1)
         self.lig_dict = lig.atom_dict[lig_hvy_mask].copy()
-        self.lig_dict = self.correct_radius(self.lig_dict)
         self.num_rotors = num_rotors_pdbqt(lig)
         self.mask_inter = {}
         self.mask_intra = {}
@@ -152,22 +83,7 @@ class custom_engine(object):
         self.lig_dict['coords'] = coords
 
     def score(self, coords=None):
-        return (self.score_inter(coords) * self.weights[:5]).sum() / (1 + self.weights[5] * self.num_rotors)
-        # inter = (self.score_inter(coords) * self.weights[:5]).sum()
-        # total = (self.score_total(coords) * self.weights[:5]).sum()
-        # return total/(1+self.weights[5]*self.num_rotors)
-
-    def weighted_total(self, coords=None):
-        return (self.score_total(coords) * self.weights[:5]).sum()
-
-    def score_total(self, coords=None):
         return self.score_inter(coords) + self.score_intra(coords)
-
-    def weighted_inter(self, coords=None):
-        return (self.score_inter(coords) * self.weights[:5]).sum()
-
-    def weighted_intra(self, coords=None):
-        return (self.score_intra(coords) * self.weights[:5]).sum()
 
     def score_inter(self, coords=None):
         if coords is None:
@@ -243,23 +159,6 @@ class custom_engine(object):
 
         return np.array(intra)
 
-    def correct_radius(self, atom_dict):
-        vina_r = {6: 1.9,
-                  7: 1.8,
-                  8: 1.7,
-                  9: 1.5,
-                  15: 2.1,
-                  16: 2.0,
-                  17: 1.8,
-                  35: 2.0,
-                  53: 2.2,
-                  }
-        for a, r in vina_r.items():
-            atom_dict['radius'][atom_dict['atomicnum'] == a] = r
-        # metals - 1.2 A
-        atom_dict['radius'][atom_dict['ismetal']] = 1.2
-        return atom_dict
-
 
 class ligand_mutations(object):
     def __init__(self, c0, num_rotors, engine, box_size=1):
@@ -327,10 +226,10 @@ class Dock:
                 # self.engine = GeneticAlgorithm(self.custom_engine, scoring_function=self.scoring_function)
                 pass
 
-    def perdorm(self):
+    def perform(self):
         if self.method == 'AutodockVina':
             self.engine.dock(self.ligand)
-            # self.engine.score()     ???
+            # self.engine.score()
         else:
             # self.engine.perform()
             pass
