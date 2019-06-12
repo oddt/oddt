@@ -1,6 +1,5 @@
 import os
-import numpy as np
-from numpy.testing import assert_almost_equal
+from numpy.testing import assert_array_less
 import oddt
 from oddt.docking.dock import Dock
 
@@ -18,17 +17,16 @@ _ = list(map(lambda x: x.addh(only_polar=True), mols))
 lig = mols[0]
 
 
-# TODO
-# def test_genetic_algorithm():
-#     ga_params = {'n_population': 20, 'n_generations': 20, 'top_individuals': 2,
-#                  'top_parents': 5, 'crossover_prob': 0.9, 'seed': 123}
-#
-#     engine = Dock(receptor, lig, docking_type='GeneticAlgorithm', sampling_params=ga_params)
-#     _, score = engine.output
-#
-#     if oddt.toolkit.backend == 'ob':
-#         target_score = np.array([1])
-#     else:
-#         target_score = np.array([1])
-#
-#     assert_almost_equal(score, target_score, decimal=2)
+def test_genetic_algorithm():
+    """Checks, whether genetic algorithm is minimizing energy of protein-ligand complex."""
+    ga_params = {'n_population': 20, 'n_generations': 20, 'top_individuals': 2,
+                 'top_parents': 5, 'crossover_prob': 0.9, 'seed': 123}
+    init_scores, scores = [], []
+    for mol in mols[:5]:
+        docker = Dock(receptor, mol, docking_type='GeneticAlgorithm', additional_params=ga_params)
+        init_scores.append(docker.engine.best_score)
+        docker.perform()
+        _, score = docker.output
+        scores.append(score)
+
+    assert_array_less(scores, init_scores)

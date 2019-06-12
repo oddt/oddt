@@ -1,6 +1,7 @@
 from oddt.docking.AutodockVina import autodock_vina
 from oddt.docking.GeneticAlgorithm import GeneticAlgorithm
 from oddt.docking.CustomEngine import CustomEngine
+from oddt.docking.internal import write_ligand_to_pdbqt
 
 
 class Dock(object):
@@ -29,8 +30,8 @@ class Dock(object):
         2. rfscore ( from oddt.scoring.rfscore )
         3. interaction energy between receptor and ligand (default)
 
-    sampling_params: dict
-        Parameters unique for corresponding sampling method (MCMC or GeneticAlgorithm).
+    additional_params: dict
+        Additional parameters specific for chosen engine.
 
     Returns
     -------
@@ -39,32 +40,33 @@ class Dock(object):
 
     """
 
-    def __init__(self, receptor, ligands, docking_type, scoring_func=None, sampling_params={}):
+    def __init__(self, receptor, ligands, docking_type, scoring_func=None, additional_params={}):
         self.docking_type = docking_type
         self.ligands = ligands
         self.scoring_function = scoring_func
         self.output = None
         if self.docking_type == 'AutodockVina':
-            self.engine = autodock_vina(protein=receptor)
+            self.engine = autodock_vina(protein=receptor, **additional_params)
         else:
             if isinstance(self.ligands, list):
                 raise Exception('Currently MCMC/GeneticAlgorithms methods supports only single molecule.')
             self.custom_engine = CustomEngine(receptor, lig=ligands, scoring_func=scoring_func)
             if self.docking_type == 'MCMC':
-                # self.engine = MCMCAlgorithm(self.custom_engine, sampling_params)
+                # self.engine = MCMCAlgorithm(self.custom_engine, **additional_params)
                 pass
             elif self.docking_type == 'GeneticAlgorithm':
-                self.engine = GeneticAlgorithm(self.custom_engine, **sampling_params)
+                self.engine = GeneticAlgorithm(self.custom_engine, **additional_params)
             else:
                 raise Exception('Choose supported sampling algorithm.')
 
-        self.perform()
-
-    def perform(self):
+    def perform(self, directory=None):
         if self.docking_type == 'AutodockVina':
-            self.engine.dock(self.ligand)
+            self.engine.dock(self.ligands)
         else:  # MCMC / GeneticAlgorithm
             self.output = self.engine.perform()
 
-        # TODO
-        # self.save_output()
+            # save found conformation
+            if directory:
+                conformation, score = self.output
+                self.ligands.set_coords(conformation)
+                write_ligand_to_pdbqt(directory, self.ligands)

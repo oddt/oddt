@@ -1,7 +1,10 @@
 """ ODDT's internal docking/scoring engines """
+import os
+import re
 import numpy as np
 import math
 from oddt.spatial import distance, rotate
+from oddt.utils import is_openbabel_molecule
 
 
 def get_children(molecule, mother, restricted):
@@ -81,6 +84,24 @@ def generate_rotor_vector(num_rotors):
     rot_vec = np.random.uniform(-np.pi, np.pi, size=3)
     rotors_vec = np.random.uniform(-np.pi, np.pi, size=num_rotors)
     return np.hstack((trans_vec, rot_vec, rotors_vec))
+
+
+def write_ligand_to_pdbqt(directory, lig):
+    name_id = ''
+
+    # We expect name such as 0_ZINC123456.pdbqt or simply ZINC123456.pdbqt if no
+    # name_id is specified. All non alpha-numeric signs are replaced with underscore.
+    mol_file = ('_'.join(filter(None, [str(name_id),
+                                       re.sub('[^A-Za-z0-9]+', '_', lig.title)]
+                                )) + '.pdbqt')
+    # prepend path to filename
+    mol_file = os.path.join(directory, mol_file)
+    if is_openbabel_molecule(lig):
+        # auto bonding (b), perserve atom indices (p) and Hs (h)
+        kwargs = {'opt': {'b': None, 'p': None, 'h': None}}
+    else:
+        kwargs = {'flexible': True}
+    lig.write('pdbqt', mol_file, overwrite=True, **kwargs)
 
 
 class vina_docking(object):
@@ -234,7 +255,7 @@ class vina_docking(object):
         intra.append(np.exp(-(d[mask] / 0.5)**2).sum())
         # Gauss 2
         intra.append(np.exp(-((d[mask] - 3.) / 2.)**2).sum())
-        # Repiulsion
+        # Repulsion
         intra.append((d[(d < 0) & mask]**2).sum())
 
         # Hydrophobic

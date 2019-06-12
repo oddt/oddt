@@ -1,6 +1,7 @@
 import numpy as np
 from oddt.spatial import distance
 from oddt.docking.internal import vina_ligand, get_children, get_close_neighbors, num_rotors_pdbqt
+from oddt.scoring.functions import nnscore, rfscore
 
 
 class CustomEngine(object):
@@ -10,6 +11,7 @@ class CustomEngine(object):
             self.receptor = rec
             self.set_protein(rec)
         if lig:
+            self.ligand = lig
             self.set_ligand(lig)
         self.prepare_scoring_function(scoring_func)
         self.set_box(box)
@@ -82,25 +84,23 @@ class CustomEngine(object):
     def prepare_scoring_function(self, scoring_func):
         sf = None
         if scoring_func == 'nnscore':
-            from oddt.scoring.functions.NNScore import nnscore
             sf = nnscore.load()
             sf.set_protein(self.receptor)
         elif scoring_func == 'rfscore':
-            from oddt.scoring.functions.RFScore import rfscore
             sf = rfscore.load()
             sf.set_protein(self.receptor)
         self.trained_scorer = sf
 
     def score(self, coords=None):
+        if coords is None:
+            coords = self.lig_dict['coords']
         if self.trained_scorer:  # nnscore/rfscore
-            return self.trained_scorer.score(coords)
+            self.ligand.coords = coords
+            return self.trained_scorer.predict([self.ligand])[0]
         else:
             return np.sum(self.score_inter(coords) + self.score_intra(coords))
 
-    def score_inter(self, coords=None):
-        if coords is None:
-            coords = self.lig_dict['coords']
-
+    def score_inter(self, coords):
         # Inter-molecular
         r = distance(self.rec_dict['coords'], coords)
         d = (r - self.rec_dict['radius'][:, np.newaxis] - self.lig_dict['radius'][np.newaxis, :])
@@ -111,7 +111,7 @@ class CustomEngine(object):
         inter.append(np.exp(-(d[mask] / 0.5)**2).sum())
         # Gauss 2
         inter.append(np.exp(-((d[mask] - 3.) / 2.)**2).sum())
-        # Repiulsion
+        # Repulsion
         inter.append((d[(d < 0) & mask]**2).sum())
 
         # Hydrophobic
@@ -134,9 +134,7 @@ class CustomEngine(object):
 
         return np.array(inter)
 
-    def score_intra(self, coords=None):
-        if coords is None:
-            coords = self.lig_dict['coords']
+    def score_intra(self, coords):
         # Intra-molceular
         r = distance(coords, coords)
         d = (r - self.lig_dict['radius'][:, np.newaxis] - self.lig_dict['radius'][np.newaxis, :])
@@ -148,7 +146,7 @@ class CustomEngine(object):
         intra.append(np.exp(-(d[mask] / 0.5)**2).sum())
         # Gauss 2
         intra.append(np.exp(-((d[mask] - 3.) / 2.)**2).sum())
-        # Repiulsion
+        # Repulsion
         intra.append((d[(d < 0) & mask]**2).sum())
 
         # Hydrophobic
