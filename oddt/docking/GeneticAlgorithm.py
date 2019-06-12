@@ -1,7 +1,6 @@
 from __future__ import division, print_function
 from itertools import combinations
 import numpy as np
-from tqdm import tqdm
 from joblib import Parallel, delayed
 from oddt.docking.internal import generate_rotor_vector
 from oddt import random_seed
@@ -64,7 +63,7 @@ class GeneticAlgorithm(object):
         # generate conformations
         conformations = self.generate_conformations()
 
-        for _ in tqdm(range(self.n_generations)):
+        for _ in range(self.n_generations):
             # score conformations and sort them by their energy, the lower the better
             sorted_scores_indices = self.analyze_conformations(conformations)
 
