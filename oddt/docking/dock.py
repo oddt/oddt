@@ -1,3 +1,7 @@
+import os
+import re
+import oddt
+from oddt.utils import is_openbabel_molecule
 from oddt.docking.AutodockVina import autodock_vina
 from oddt.docking.GeneticAlgorithm import GeneticAlgorithm
 from oddt.docking.CustomEngine import CustomEngine
@@ -12,11 +16,11 @@ class Dock(object):
 
     Parameters
     ----------
-    receptor: Molecule
+    receptor: Molecule or file name
         Protein object to be used while generating descriptors.
 
-    ligands: Molecule or list of them
-        Molecules, to dock. Currently mcmc/ga methods supports only single molecule.
+    ligands: Molecule or list of them or sdf file name with ligands
+        Molecules, to dock.
 
     docking_type: string
         Docking engine type:
@@ -44,29 +48,50 @@ class Dock(object):
         self.docking_type = docking_type
         self.ligands = ligands
         self.scoring_function = scoring_func
-        self.output = None
+        self.output = []
         if self.docking_type == 'AutodockVina':
             self.engine = autodock_vina(protein=receptor, **additional_params)
         else:
-            if isinstance(self.ligands, list):
-                raise Exception('Currently MCMC/GeneticAlgorithms methods supports only single molecule.')
-            self.custom_engine = CustomEngine(receptor, lig=ligands, scoring_func=scoring_func)
-            if self.docking_type == 'MCMC':
-                # self.engine = MCMCAlgorithm(self.custom_engine, **additional_params)
-                pass
-            elif self.docking_type == 'GeneticAlgorithm':
-                self.engine = GeneticAlgorithm(self.custom_engine, **additional_params)
+            # CustomEngine
+            if isinstance(receptor, str):
+                rec_format = receptor.split('.')[-1]
+                try:
+                    self.receptor = next(oddt.toolkit.readfile(rec_format, receptor))
+                except:
+                    raise Exception("Unsupported receptor file format.")
             else:
-                raise Exception('Choose supported sampling algorithm.')
+                self.receptor = receptor
+            self.receptor.protein = True
+            self.receptor.addh(only_polar=True)
+
+            if isinstance(self.ligands, str):
+                self.ligands = list(oddt.toolkit.readfile('sdf', ligands))
+            if isinstance(self.ligands, oddt.toolkit.Molecule):
+                self.ligands = [self.ligands]
+            _ = list(map(lambda x: x.addh(only_polar=True), self.ligands))
+
+            self.custom_engines = []
+            for ligand in self.ligands:
+                assert(isinstance(ligand, oddt.toolkit.Molecule))
+                custom_engine = CustomEngine(receptor, lig=ligand, scoring_func=scoring_func)
+                if self.docking_type == 'MCMC':
+                    # custom_engines.append(MCMCAlgorithm(self.custom_engine, **additional_params))
+                    pass
+                elif self.docking_type == 'GeneticAlgorithm':
+                    self.custom_engines.append(GeneticAlgorithm(custom_engine, **additional_params))
+                else:
+                    raise Exception('Choose supported sampling algorithm.')
 
     def perform(self, directory=None):
         if self.docking_type == 'AutodockVina':
             self.engine.dock(self.ligands)
         else:  # MCMC / GeneticAlgorithm
-            self.output = self.engine.perform()
+            for engine in self.custom_engines:
+                new_output = engine.perform()
+                self.output.append(new_output)
 
-            # save found conformation
-            if directory:
-                conformation, score = self.output
-                self.ligands.set_coords(conformation)
-                write_ligand_to_pdbqt(directory, self.ligands)
+                # save found conformation
+                if directory:
+                    conformation, score = new_output
+                    engine.ligand.set_coords(conformation)
+                    write_ligand_to_pdbqt(directory, engine.ligand)

@@ -21,12 +21,9 @@ def test_genetic_algorithm():
     """Checks, whether genetic algorithm is minimizing energy of protein-ligand complex."""
     ga_params = {'n_population': 20, 'n_generations': 20, 'top_individuals': 2,
                  'top_parents': 5, 'crossover_prob': 0.9, 'seed': 123}
-    init_scores, scores = [], []
-    for mol in mols[:5]:
-        docker = Dock(receptor, mol, docking_type='GeneticAlgorithm', additional_params=ga_params)
-        init_scores.append(docker.engine.best_score)
-        docker.perform()
-        _, score = docker.output
-        scores.append(score)
+    docker = Dock(receptor, mols[:5], docking_type='GeneticAlgorithm', additional_params=ga_params)
+    init_scores = [engine.best_score for engine in docker.custom_engines]
+    docker.perform()
+    scores = [score for _, score in docker.output]
 
     assert_array_less(scores, init_scores)
