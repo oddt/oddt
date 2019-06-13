@@ -1,4 +1,5 @@
 import numpy as np
+import oddt
 from oddt.spatial import distance
 from oddt.docking.internal import vina_ligand, get_children, get_close_neighbors, num_rotors_pdbqt
 from oddt.scoring.functions import nnscore, rfscore
@@ -8,11 +9,34 @@ class CustomEngine(object):
     def __init__(self, rec, lig=None, scoring_func=None, box=None, box_size=1.):
         self.box_size = box_size
         if rec:
-            self.receptor = rec
-            self.set_protein(rec)
+            if isinstance(rec, str):
+                receptor_format = rec.split('.')[-1]
+                try:
+                    self.receptor = next(oddt.toolkit.readfile(receptor_format, rec))
+                except ValueError:
+                    raise Exception('Unsupported receptor file format.')
+            elif isinstance(rec, oddt.toolkit.Molecule):
+                self.receptor = rec
+            else:
+                raise Exception('Unsupported protein format.')
+
+            self.receptor.protein = True
+            self.receptor.addh(only_polar=True)
+            self.set_protein(self.receptor)
         if lig:
-            self.ligand = lig
-            self.set_ligand(lig)
+            if isinstance(lig, str):
+                ligand_format = lig.split('.')[-1]
+                try:
+                    self.ligand = list(oddt.toolkit.readfile(ligand_format, lig))
+                except ValueError:
+                    raise Exception('Unsupported ligand file format.')
+            elif isinstance(lig, oddt.toolkit.Molecule):
+                self.ligand = lig
+            else:
+                raise Exception('Unsupported ligand format.')
+            self.ligand.addh(only_polar=True)
+            self.set_ligand(self.ligand)
+
         self.prepare_scoring_function(scoring_func)
         self.set_box(box)
         self.mask_inter = {}
@@ -32,6 +56,7 @@ class CustomEngine(object):
             self.box = box
 
     def set_protein(self, rec):
+        """Prepare protein to docking."""
         if rec is None:
             self.rec_dict = None
             self.mask_inter = {}
@@ -40,6 +65,7 @@ class CustomEngine(object):
             self.mask_inter = {}
 
     def set_ligand(self, lig):
+        """Prepare ligand to docking."""
         lig_hvy_mask = (lig.atom_dict['atomicnum'] != 1)
         self.lig_dict = lig.atom_dict[lig_hvy_mask].copy()
         self.num_rotors = num_rotors_pdbqt(lig)
@@ -82,6 +108,7 @@ class CustomEngine(object):
         self.lig = vina_ligand(self.lig_dict['coords'].copy(), len(self.rotors), self, self.box_size)
 
     def prepare_scoring_function(self, scoring_func):
+        """Initiate scoring functions."""
         sf = None
         if scoring_func == 'nnscore':
             sf = nnscore.load()
@@ -92,6 +119,7 @@ class CustomEngine(object):
         self.trained_scorer = sf
 
     def score(self, coords=None):
+        """Score given coordinates."""
         if coords is None:
             coords = self.lig_dict['coords']
         if self.trained_scorer:  # nnscore/rfscore
@@ -101,6 +129,7 @@ class CustomEngine(object):
             return np.sum(self.score_inter(coords) + self.score_intra(coords))
 
     def score_inter(self, coords):
+        """Calculate inter-molecular energy between protein and ligand."""
         # Inter-molecular
         r = distance(self.rec_dict['coords'], coords)
         d = (r - self.rec_dict['radius'][:, np.newaxis] - self.lig_dict['radius'][np.newaxis, :])
@@ -135,6 +164,7 @@ class CustomEngine(object):
         return np.array(inter)
 
     def score_intra(self, coords):
+        """Calculate intra-molecular energy between protein and ligand."""
         # Intra-molceular
         r = distance(coords, coords)
         d = (r - self.lig_dict['radius'][:, np.newaxis] - self.lig_dict['radius'][np.newaxis, :])

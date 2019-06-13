@@ -1,7 +1,4 @@
-import os
-import re
-import oddt
-from oddt.utils import is_openbabel_molecule
+from joblib import Parallel, delayed
 from oddt.docking.AutodockVina import autodock_vina
 from oddt.docking.GeneticAlgorithm import GeneticAlgorithm
 from oddt.docking.CustomEngine import CustomEngine
@@ -34,45 +31,30 @@ class Dock(object):
         2. rfscore ( from oddt.scoring.rfscore )
         3. interaction energy between receptor and ligand (default)
 
+     n_jobs: int (default=-1)
+            Number of cores to use for docking, -1 means all are allocated.
+
     additional_params: dict
         Additional parameters specific for chosen engine.
 
-    Returns
-    -------
-    conformation, score: np.array, float
-        Best conformation with its score.
-
     """
 
-    def __init__(self, receptor, ligands, docking_type, scoring_func=None, additional_params={}):
+    def __init__(self, receptor, ligands, docking_type, scoring_func=None, n_jobs=-1, additional_params={}):
         self.docking_type = docking_type
         self.ligands = ligands
         self.scoring_function = scoring_func
+        self.n_jobs = n_jobs
         self.output = []
+        if not isinstance(ligands, list):
+            self.ligands = [ligands]
+
         if self.docking_type == 'AutodockVina':
             self.engine = autodock_vina(protein=receptor, **additional_params)
         else:
             # CustomEngine
-            if isinstance(receptor, str):
-                rec_format = receptor.split('.')[-1]
-                try:
-                    self.receptor = next(oddt.toolkit.readfile(rec_format, receptor))
-                except:
-                    raise Exception("Unsupported receptor file format.")
-            else:
-                self.receptor = receptor
-            self.receptor.protein = True
-            self.receptor.addh(only_polar=True)
-
-            if isinstance(self.ligands, str):
-                self.ligands = list(oddt.toolkit.readfile('sdf', ligands))
-            if isinstance(self.ligands, oddt.toolkit.Molecule):
-                self.ligands = [self.ligands]
-            _ = list(map(lambda x: x.addh(only_polar=True), self.ligands))
-
             self.custom_engines = []
+            # for every ligand there's separate engine spawned
             for ligand in self.ligands:
-                assert(isinstance(ligand, oddt.toolkit.Molecule))
                 custom_engine = CustomEngine(receptor, lig=ligand, scoring_func=scoring_func)
                 if self.docking_type == 'MCMC':
                     # custom_engines.append(MCMCAlgorithm(self.custom_engine, **additional_params))
@@ -80,18 +62,21 @@ class Dock(object):
                 elif self.docking_type == 'GeneticAlgorithm':
                     self.custom_engines.append(GeneticAlgorithm(custom_engine, **additional_params))
                 else:
-                    raise Exception('Choose supported sampling algorithm.')
+                    raise Exception('Choose supported docking type.')
 
-    def perform(self, directory=None):
+    @staticmethod
+    def dock_single_molecule(engine, directory):
+        conformation, score = engine.perform()
+        ligand = engine.engine.ligand
+        ligand.coords = conformation
+        write_ligand_to_pdbqt(directory, ligand)
+        return ligand, score
+
+    def dock(self, directory=None):
         if self.docking_type == 'AutodockVina':
-            self.engine.dock(self.ligands)
-        else:  # MCMC / GeneticAlgorithm
-            for engine in self.custom_engines:
-                new_output = engine.perform()
-                self.output.append(new_output)
-
-                # save found conformation
-                if directory:
-                    conformation, score = new_output
-                    engine.ligand.set_coords(conformation)
-                    write_ligand_to_pdbqt(directory, engine.ligand)
+            self.output = self.engine.dock(self.ligands)
+        else:
+            # MCMC / GeneticAlgorithm
+            self.output = Parallel(n_jobs=self.n_jobs, backend='threading', verbose=0, pre_dispatch='all')(
+                delayed(self.dock_single_molecule)(engine, directory) for engine in self.custom_engines)
+        return self.output

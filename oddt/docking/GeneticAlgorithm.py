@@ -65,9 +65,8 @@ class GeneticAlgorithm(object):
 
         for _ in range(self.n_generations):
             # score conformations and sort them by their energy, the lower the better
-            sorted_scores_indices = self.analyze_conformations(conformations)
+            sorted_conformations = self.analyze_conformations(conformations)
 
-            sorted_conformations = conformations[sorted_scores_indices]
             # pair top conformations and shuffle them (in place)
             if self.n_parents:
                 conformations = sorted_conformations[:self.top_parents]
@@ -91,23 +90,25 @@ class GeneticAlgorithm(object):
         return self.best_conformation, self.best_score
 
     def analyze_conformations(self, conformations):
+        """Returns conformations sorted by the scores."""
         scores = self.score_conformations(conformations)
-        sorted_scores_indices = np.argsort(scores)
+        sorted_conformations = conformations[np.argsort(scores)]
 
-        current_step_best_conformation = conformations[sorted_scores_indices[0]]
-        current_step_best_score = scores[sorted_scores_indices[0]]
+        current_step_best_conformation, current_step_best_score = sorted_conformations[0], scores[0]
         if current_step_best_score < self.best_score:
             self.best_conformation = current_step_best_conformation
             self.best_score = current_step_best_score
-        return sorted_scores_indices
+        return sorted_conformations
 
     def generate_conformation(self):
         return self.engine.lig.mutate(generate_rotor_vector(self.num_rotors))
 
     def generate_conformations(self):
+        """Generate new conformations."""
         return np.array([self.generate_conformation() for i in range(self.n_population)])
 
     def generate_child(self, parent1, parent2):
+        """Generate child based on parents coordinates."""
         if np.random.random() < self.crossover_prob:
             # crossover
             x, y = np.sort(np.random.randint(len(parent1), size=2))
@@ -117,4 +118,5 @@ class GeneticAlgorithm(object):
             return self.generate_conformations()[0]
 
     def score_conformations(self, conformations):
+        """Score given conformations with scoring function defined for engine."""
         return np.array([self.engine.score(conformation) for conformation in conformations])
