@@ -2,12 +2,13 @@ import numpy as np
 import oddt
 from oddt.spatial import distance
 from oddt.docking.internal import vina_ligand, get_children, get_close_neighbors, num_rotors_pdbqt
-from oddt.scoring.functions import nnscore, rfscore
+from oddt.scoring.functions import nnscore, rfscore, ri_score
 
 
 class CustomEngine(object):
     def __init__(self, rec, lig=None, scoring_func=None, box=None, box_size=1.):
         self.box_size = box_size
+        self.scoring_func = scoring_func
         if rec:
             if isinstance(rec, str):
                 receptor_format = rec.split('.')[-1]
@@ -21,7 +22,7 @@ class CustomEngine(object):
                 raise Exception('Unsupported protein format.')
 
             self.receptor.protein = True
-            self.receptor.addh(only_polar=True)
+            self.receptor.removeh()
             self.set_protein(self.receptor)
         if lig:
             if isinstance(lig, str):
@@ -34,10 +35,10 @@ class CustomEngine(object):
                 self.ligand = lig
             else:
                 raise Exception('Unsupported ligand format.')
-            self.ligand.addh(only_polar=True)
+            self.ligand.removeh()
             self.set_ligand(self.ligand)
 
-        self.prepare_scoring_function(scoring_func)
+        self.prepare_scoring_function()
         self.set_box(box)
         self.mask_inter = {}
         self.mask_intra = {}
@@ -107,13 +108,13 @@ class CustomEngine(object):
         # Setup cached ligand coords
         self.lig = vina_ligand(self.lig_dict['coords'].copy(), len(self.rotors), self, self.box_size)
 
-    def prepare_scoring_function(self, scoring_func):
-        """Initiate scoring functions."""
+    def prepare_scoring_function(self):
+        """Initiate scoring functions based on AI/ML methods."""
         sf = None
-        if scoring_func == 'nnscore':
+        if self.scoring_func == 'nnscore':
             sf = nnscore.load()
             sf.set_protein(self.receptor)
-        elif scoring_func == 'rfscore':
+        elif self.scoring_func == 'rfscore':
             sf = rfscore.load()
             sf.set_protein(self.receptor)
         self.trained_scorer = sf
@@ -122,11 +123,15 @@ class CustomEngine(object):
         """Score given coordinates."""
         if coords is None:
             coords = self.lig_dict['coords']
+        self.ligand.coords = coords
         if self.trained_scorer:  # nnscore/rfscore
-            self.ligand.coords = coords
             return self.trained_scorer.predict([self.ligand])[0]
-        else:
+        elif self.scoring_func == 'ri_score':
+            return ri_score(self.ligand, self.receptor)
+        elif self.scoring_func == 'interaction_energy':
             return np.sum(self.score_inter(coords) + self.score_intra(coords))
+        else:
+            raise Exception('Unsupported scoring function.')
 
     def score_inter(self, coords):
         """Calculate inter-molecular energy between protein and ligand."""

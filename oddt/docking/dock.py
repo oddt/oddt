@@ -27,9 +27,10 @@ class Dock(object):
 
     scoring_func: String
         Scoring functions are applied only for CustomEngine.
-        1. nnscore ( from oddt.scoring.nnscore )
-        2. rfscore ( from oddt.scoring.rfscore )
-        3. interaction energy between receptor and ligand (default)
+        1. interaction_energy between receptor and ligand (default)
+        2. nnscore ( from oddt.scoring.nnscore )
+        3. rfscore ( from oddt.scoring.rfscore )
+        4. ri_score ( from.oddt.scoring.ri_score)
 
      n_jobs: int (default=-1)
             Number of cores to use for docking, -1 means all are allocated.
@@ -39,7 +40,8 @@ class Dock(object):
 
     """
 
-    def __init__(self, receptor, ligands, docking_type, scoring_func=None, n_jobs=-1, additional_params={}):
+    def __init__(self, receptor, ligands, docking_type, scoring_func='interaction_energy', n_jobs=-1,
+                 additional_params={}):
         self.docking_type = docking_type
         self.ligands = ligands
         self.scoring_function = scoring_func
@@ -65,11 +67,13 @@ class Dock(object):
                     raise Exception('Choose supported docking type.')
 
     @staticmethod
-    def dock_single_molecule(engine, directory):
-        conformation, score = engine.perform()
-        ligand = engine.engine.ligand
+    def dock_single_molecule(docker, directory):
+        conformation, score = docker.perform()
+        ligand = docker.engine.ligand.clone
         ligand.coords = conformation
-        write_ligand_to_pdbqt(directory, ligand)
+        if directory:
+            # if directory is given, then molecule is saved to file
+            write_ligand_to_pdbqt(directory, ligand)
         return ligand, score
 
     def dock(self, directory=None):
@@ -78,5 +82,5 @@ class Dock(object):
         else:
             # MCMC / GeneticAlgorithm
             self.output = Parallel(n_jobs=self.n_jobs, backend='threading', verbose=0, pre_dispatch='all')(
-                delayed(self.dock_single_molecule)(engine, directory) for engine in self.custom_engines)
+                delayed(self.dock_single_molecule)(docker, directory) for docker in self.custom_engines)
         return self.output
