@@ -76,13 +76,11 @@ class GeneticAlgorithm(object):
             # top individuals (with best scores) are saved for next generation
             current_top_individuals = sorted_conformations[:self.top_individuals]
 
-            generated_offspring = Parallel(
-                n_jobs=-1, backend='threading', verbose=0, pre_dispatch='all')(
-                delayed(self.generate_child)(parent1, parent2)
-                for parent1, parent2 in parents[:self.n_parents])
+            offspring = [self.generate_child(parent1, parent2)
+                         for parent1, parent2 in parents[:self.n_parents]]
 
             # set offspring and top individuals as conformations for next generation
-            conformations = np.vstack((current_top_individuals, generated_offspring))
+            conformations = np.vstack((current_top_individuals, offspring))
 
         # compute scores for last generation
         self.analyze_conformations(conformations)

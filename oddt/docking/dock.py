@@ -5,6 +5,16 @@ from oddt.docking.CustomEngine import CustomEngine
 from oddt.docking.internal import write_ligand_to_pdbqt
 
 
+def dock_single_molecule(docker, directory):
+    conformation, score = docker.perform()
+    ligand = docker.engine.ligand.clone
+    ligand.coords = conformation
+    if directory:
+        # if directory is given, then molecule is saved to file
+        write_ligand_to_pdbqt(directory, ligand)
+    return ligand, score
+
+
 class Dock(object):
     """
     Universal pipeline for molecular docking. There are two types of engines:
@@ -66,21 +76,11 @@ class Dock(object):
                 else:
                     raise Exception('Choose supported docking type.')
 
-    @staticmethod
-    def dock_single_molecule(docker, directory):
-        conformation, score = docker.perform()
-        ligand = docker.engine.ligand.clone
-        ligand.coords = conformation
-        if directory:
-            # if directory is given, then molecule is saved to file
-            write_ligand_to_pdbqt(directory, ligand)
-        return ligand, score
-
     def dock(self, directory=None):
         if self.docking_type == 'AutodockVina':
             self.output = self.engine.dock(self.ligands)
         else:
             # MCMC / GeneticAlgorithm
-            self.output = Parallel(n_jobs=self.n_jobs, backend='threading', verbose=0, pre_dispatch='all')(
-                delayed(self.dock_single_molecule)(docker, directory) for docker in self.custom_engines)
+            self.output = Parallel(n_jobs=self.n_jobs, backend='threading', verbose=13, pre_dispatch='all')(
+                delayed(dock_single_molecule)(docker, directory) for docker in self.custom_engines)
         return self.output
