@@ -21,7 +21,8 @@ def test_genetic_algorithm():
                  'top_parents': 10, 'crossover_prob': 0.9, 'seed': 123}
 
     for scoring_func in ['interaction_energy', 'ri_score']:
-        docker = Dock(receptor, mols[:5], docking_type='GeneticAlgorithm', additional_params=ga_params)
+        docker = Dock(receptor, mols[:5], docking_type='GeneticAlgorithm',
+                      scoring_func=scoring_func, additional_params=ga_params)
         init_scores = [engine.best_score for engine in docker.custom_engines]
         docker.dock()
         scores = [score for _, score in docker.output]
