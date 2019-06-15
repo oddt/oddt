@@ -4,6 +4,7 @@ from scipy.optimize import minimize
 
 from oddt import random_seed
 from oddt.docking.MCMCUtils import MCMCUtils
+from oddt.docking.internal import generate_rotor_vector
 
 
 class OptimizationMethod(Enum):
@@ -68,7 +69,7 @@ class MCMCAlgorithm(object):
 
         """
 
-        x1 = self.generate_rotor_vector()
+        x1 = generate_rotor_vector(self.num_rotors)
         c1 = self.engine.lig.mutate(x1)
         e1 = self.engine.score(c1)
         out = {'score': e1, 'conformation': c1.copy().tolist()}
@@ -132,11 +133,3 @@ class MCMCAlgorithm(object):
             x2 = self.mcmc_utils.rand_mutate_big(x1.copy())
             c2 = self.engine.lig.mutate(x2)
         return c2, x2
-
-    # generate random coordinate
-    def generate_rotor_vector(self):
-
-        trans_vec = np.random.uniform(-1, 1, size=3)
-        rot_vec = np.random.uniform(-np.pi, np.pi, size=3)
-        rotors_vec = np.random.uniform(-np.pi, np.pi, size=self.num_rotors)
-        return np.hstack((trans_vec, rot_vec, rotors_vec))
