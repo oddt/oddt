@@ -118,7 +118,7 @@ forcefields = list(_forcefields.keys())
 """A list of supported forcefields"""
 
 
-def _filereader_mol2(filename):
+def _filereader_mol2(filename, lazy=False):
     block = ''
     data = ''
     n = 0
@@ -129,32 +129,42 @@ def _filereader_mol2(filename):
                 data += line
             elif line[:17] == '@<TRIPOS>MOLECULE':
                 if n > 0:  # skip `zero` molecule (any preciding comments and spaces)
-                    yield Molecule(source={'fmt': 'mol2', 'string': block})
+                    if lazy:
+                        yield Molecule(source={'fmt': 'mol2', 'string': block})
+                    else:
+                        yield readstring('mol2', block)
                 n += 1
                 block = data
                 data = ''
             block += line
         # open last molecule
         if block:
-            yield Molecule(source={'fmt': 'mol2', 'string': block})
+            if lazy:
+                yield Molecule(source={'fmt': 'mol2', 'string': block})
+            else:
+                yield readstring('mol2', block)
 
 
-def _filereader_sdf(filename):
+def _filereader_sdf(filename, lazy=False):
     block = ''
     n = 0
     with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
-        for line in f:
-            line = line.decode('ascii')
-            block += line
-            if line[:4] == '$$$$':
+        if lazy:
+            for line in f:
+                line = line.decode('ascii')
+                block += line
+                if line[:4] == '$$$$':
+                    yield Molecule(source={'fmt': 'sdf', 'string': block})
+                    n += 1
+                    block = ''
+            if block:  # open last molecule if any
                 yield Molecule(source={'fmt': 'sdf', 'string': block})
-                n += 1
-                block = ''
-        if block:  # open last molecule if any
-            yield Molecule(source={'fmt': 'sdf', 'string': block})
+        else:
+            for mol in Chem.ForwardSDMolSupplier(f):
+                yield Molecule(mol)
 
 
-def _filereader_pdb(filename, opt=None):
+def _filereader_pdb(filename, lazy=False, opt=None):
     block = ''
     n = 0
     with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
@@ -162,14 +172,20 @@ def _filereader_pdb(filename, opt=None):
             line = line.decode('ascii')
             block += line
             if line[:6] == 'ENDMDL':
+                if lazy:
+                    yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
+                else:
+                    yield readstring('pdb', block)
+                n += 1
+                block = ''
+        if block:  # open last molecule if any
+            if lazy:
                 yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
-                n += 1
-                block = ''
-        if block:  # open last molecule if any
-            yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
+            else:
+                yield readstring('pdb', block)
 
 
-def _filereader_pdbqt(filename, opt=None):
+def _filereader_pdbqt(filename, lazy=False, opt=None):
     block = ''
     n = 0
     with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
@@ -177,11 +193,17 @@ def _filereader_pdbqt(filename, opt=None):
             line = line.decode('ascii')
             block += line
             if line[:6] == 'ENDMDL':
-                yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt})
+                if lazy:
+                    yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt})
+                else:
+                    yield readstring('pdbqt', block)
                 n += 1
                 block = ''
         if block:  # open last molecule if any
-            yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt})
+            if lazy:
+                yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt})
+            else:
+                yield readstring('pdbqt', block)
 
 
 def readfile(format, filename, lazy=False, opt=None, **kwargs):
@@ -215,17 +237,13 @@ def readfile(format, filename, lazy=False, opt=None, **kwargs):
     # errors in the format and errors in opening the file.
     # Then switch to an iterator...
     if format in ["sdf", "mol"]:
-        if lazy:
-            return _filereader_sdf(filename)
-        else:
-            filename_handle = gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb')
-            return (Molecule(Mol) for Mol in Chem.ForwardSDMolSupplier(filename_handle, **kwargs))
+        return _filereader_sdf(filename, lazy=lazy)
     elif format == "pdb":
-        return _filereader_pdb(filename)
+        return _filereader_pdb(filename, lazy=lazy)
     elif format == "pdbqt":
-        return _filereader_pdbqt(filename)
+        return _filereader_pdbqt(filename, lazy=lazy)
     elif format == "mol2":
-        return _filereader_mol2(filename)
+        return _filereader_mol2(filename, lazy=lazy)
     elif format == "smi":
         iterator = Chem.SmilesMolSupplier(filename, delimiter=" \t",
                                           titleLine=False, **kwargs)
