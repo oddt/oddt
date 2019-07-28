@@ -397,7 +397,7 @@ def parse_vina_scoring_output(output):
         dicitionary containing scores computed by Autodock Vina
     """
     out = {}
-    r = re.compile('^(Affinity:|\s{4})')
+    r = re.compile(r'^(Affinity:|\s{4})')
     for line in output.decode('ascii').split('\n')[13:]:  # skip some output
         if r.match(line):
             m = line.replace(' ', '').split(':')
@@ -421,7 +421,7 @@ def parse_vina_docking_output(output):
         dicitionary containing scores computed by Autodock Vina
     """
     out = []
-    r = re.compile('^\s+\d\s+')
+    r = re.compile(r'^\s+\d\s+')
     for line in output.decode('ascii').split('\n')[13:]:  # skip some output
         if r.match(line):
             s = line.split()
