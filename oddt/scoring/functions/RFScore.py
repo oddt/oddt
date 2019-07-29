@@ -168,6 +168,9 @@ class rfscore(scorer):
             ('OOB', self.model.oob_prediction_, self.train_target)]
 
         for name, pred, target in sets:
+            if len(target) < 3:
+                print('There are less than 3 values to predict, skipping.', file=sys.stderr)
+                continue
             print('%s set:' % name,
                   'R2_score: %.4f' % r2_score(target, pred),
                   'Rp: %.4f' % pearsonr(target, pred)[0],
