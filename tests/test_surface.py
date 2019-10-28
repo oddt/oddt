@@ -31,7 +31,8 @@ def test_generate_surface_marching_cubes():
     # versions of skimage older than 0.12 use a slightly different version of the marching cubes algorithm
     # producing slightly different results
     if LooseVersion(skimage_version) >= LooseVersion('0.13'):
-        if oddt.toolkit.backend == 'ob':
+        if (oddt.toolkit.backend == 'ob' or
+                oddt.toolkit.backend == 'rdk' and oddt.toolkits.rdk.__version__ >= '2019.09'):
             ref_vert_shape_1 = (9040, 3)
             ref_face_shape_1 = (18094, 3)
             ref_vert_shape_2 = (35950, 3)
@@ -112,6 +113,11 @@ def test_find_surface_residues():
         ref_len_2 = 968
         ref_len_3 = 654
         ref_len_4 = 379
+    elif oddt.toolkit.backend == 'rdk' and oddt.toolkits.rdk.__version__ >= '2019.09':
+        ref_len_1 = 762
+        ref_len_2 = 968
+        ref_len_3 = 664
+        ref_len_4 = 393
     else:
         ref_len_1 = 759
         ref_len_2 = 966
