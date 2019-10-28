@@ -111,7 +111,7 @@ def test_sdf():
     with NamedTemporaryFile(suffix='.sdf') as f:
         df.to_sdf(f.name)
         df2 = opd.read_sdf(f.name)
-    assert_array_equal(df.columns, df2.columns)
+    assert_array_equal(df.columns.sort_values(), df2.columns.sort_values())
     with NamedTemporaryFile(suffix='.sdf') as f:
         df.to_sdf(f.name, columns=['name', 'uniprot_id', 'act'])
         df2 = opd.read_sdf(f.name)
