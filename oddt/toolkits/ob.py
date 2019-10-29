@@ -13,17 +13,23 @@ from tempfile import NamedTemporaryFile
 import gzip
 from base64 import b64encode
 from six import PY3, text_type
-from sklearn.utils.deprecation import deprecated
-import pybel
-import openbabel as ob
-from pybel import *
+
 import numpy as np
-from openbabel import OBAtomAtomIter, OBAtomBondIter, OBTypeTable
+from sklearn.utils.deprecation import deprecated
+try:
+    from openbabel import pybel, openbabel as ob
+    from openbabel.pybel import *
+    from openbabel.openbabel import OBAtomAtomIter, OBAtomBondIter, OBTypeTable
+except ImportError:
+    import pybel
+    import openbabel as ob
+    from pybel import *
+    from openbabel import OBAtomAtomIter, OBAtomBondIter, OBTypeTable
+    ob.OBIterWithDepth.__next__ = ob.OBIterWithDepth.next
 
 from oddt.utils import check_molecule
 from oddt.toolkits.common import detect_secondary_structure, canonize_ring_path
 
-ob.OBIterWithDepth.__next__ = ob.OBIterWithDepth.next
 
 backend = 'ob'
 image_backend = 'png'  # png or svg
@@ -47,7 +53,10 @@ typetable.SetFromType('INT')
 typetable.SetToType('SYB')
 
 # setup ElementTable
-elementtable = ob.OBElementTable()
+if __version__ >= '3.0.0':
+    GetVdwRad = ob.GetVdwRad
+else:
+    GetVdwRad = ob.OBElementTable().GetVdwRad
 
 # hash OB!
 ob.obErrorLog.StopLogging()
@@ -477,7 +486,7 @@ class Molecule(pybel.Molecule):
             assert i == atom.idx0
             atom_dict[i] = (i,
                             coords,
-                            elementtable.GetVdwRad(atomicnum),
+                            GetVdwRad(atomicnum),
                             partialcharge,
                             atomicnum,
                             atomtype,
