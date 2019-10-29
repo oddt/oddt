@@ -388,10 +388,19 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
             atom = mol.OBMol.GetAtom(idx + 1)
             if atom.GetAtomicNum() == 1:
                 raise Exception('ECFP should not hash Hydrogens')
+            # OB 3.0 compatibility
+            if hasattr(atom, 'GetHvyValence'):
+                heavy_degree = atom.GetHvyValence()
+            else:
+                heavy_degree = atom.GetHvyDegree()
+            if hasattr(atom, 'ImplicitHydrogenCount'):
+                hs_count = atom.ImplicitHydrogenCount() + atom.ExplicitHydrogenCount()
+            else:
+                hs_count = atom.GetImplicitHCount()
             return (atom.GetAtomicNum(),
                     atom.GetIsotope(),
-                    atom.GetHvyValence(),
-                    atom.ImplicitHydrogenCount() + atom.ExplicitHydrogenCount(),
+                    heavy_degree,
+                    hs_count,
                     atom.GetFormalCharge(),
                     int(0 < atom.MemberOfRingSize() <= max_ring_size),
                     int(atom.IsAromatic()),)
