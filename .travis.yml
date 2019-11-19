@@ -68,7 +68,7 @@ install:
         else
             conda install -q -c anaconda numpy "scipy<1.3" scikit-learn joblib pandas scikit-image xlsxwriter;
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
-                conda install -q -c openbabel openbabel;
+                conda install -q -c conda-forge openbabel;
             elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
                 if [[ "$CONDA_PY" == "3.5" ]]; then
                     conda install -q -c rdkit -c anaconda rdkit boost=1.65;
