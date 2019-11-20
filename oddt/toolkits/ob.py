@@ -378,7 +378,7 @@ class Molecule(pybel.Molecule):
     def canonic_order(self):
         """ Returns np.array with canonic order of heavy atoms in the molecule """
         tmp = self.clone
-        tmp.write('can')
+        tmp.write('can', opt={'O': None})
         return np.array(tmp.data['SMILES Atom Order'].split(), dtype=int) - 1
 
     @property
@@ -961,6 +961,7 @@ class Smarts(pybel.Smarts):
         if isinstance(smartspattern, Molecule):
             tmp = smartspattern.write('smi', opt={'i': None,
                                                   'c': None,
+                                                  'O': None,
                                                   'h': None})
             self.amap = np.array(smartspattern.data['SMILES Atom Order'].split(), dtype=int) - 1
             smartspattern = tmp.lstrip().split()[0]  # extract only SMILES
