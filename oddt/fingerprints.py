@@ -396,7 +396,7 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
             if hasattr(atom, 'ImplicitHydrogenCount'):
                 hs_count = atom.ImplicitHydrogenCount() + atom.ExplicitHydrogenCount()
             else:
-                hs_count = atom.GetImplicitHCount()
+                hs_count = atom.GetTotalDegree() - heavy_degree
             return (atom.GetAtomicNum(),
                     atom.GetIsotope(),
                     heavy_degree,

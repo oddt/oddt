@@ -11,6 +11,7 @@ import oddt
 from oddt.fingerprints import (InteractionFingerprint,
                                SimpleInteractionFingerprint,
                                ECFP,
+                               _ECFP_atom_repr,
                                SPLIF,
                                similarity_SPLIF,
                                PLEC,
@@ -243,6 +244,22 @@ def test_sparse_similarity():
                         tanimoto(mol1_fp_dense, mol2_fp_dense))
     assert tanimoto([], [], sparse=True) == 0.
     assert tanimoto(np.zeros(10), np.zeros(10), sparse=False) == 0.
+
+
+def test_ecfp_repr():
+    """Test exact ECFP representation to track down the changes"""
+    mol = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+
+    res = [(6, 0, 1, 3, 0, 0, 0), (6, 0, 3, 0, 0, 1, 1), (6, 0, 3, 0, 0, 1, 1), (6, 0, 3, 0, 0, 1, 1),
+           (6, 0, 2, 1, 0, 1, 1), (6, 0, 2, 1, 0, 1, 1), (6, 0, 2, 1, 0, 1, 1), (6, 0, 1, 3, 0, 0, 0),
+           (7, 0, 2, 1, 0, 0, 0), (6, 0, 3, 0, 0, 0, 0), (8, 0, 1, 0, 0, 0, 0), (6, 0, 2, 2, 0, 0, 0),
+           (7, 0, 3, 0, 0, 1, 0), (6, 0, 2, 2, 0, 1, 0), (6, 0, 2, 2, 0, 1, 0), (7, 0, 3, 0, 0, 1, 0),
+           (6, 0, 2, 2, 0, 1, 0), (6, 0, 2, 2, 0, 1, 0), (6, 0, 2, 2, 0, 0, 0), (6, 0, 3, 0, 0, 0, 0),
+           (8, 0, 1, 0, 0, 0, 0), (7, 0, 3, 0, 0, 1, 0), (6, 0, 2, 2, 0, 1, 0), (6, 0, 2, 2, 0, 1, 0),
+           (6, 0, 3, 0, 0, 1, 1), (6, 0, 3, 0, 0, 1, 1), (6, 0, 2, 2, 0, 1, 0), (6, 0, 2, 1, 0, 1, 1),
+           (6, 0, 2, 1, 0, 1, 1), (16, 0, 2, 0, 0, 1, 1)]
+
+    assert_array_equal([_ECFP_atom_repr(mol, i) for i in range(len(mol.atoms))], res)
 
 
 def test_ecfp():
