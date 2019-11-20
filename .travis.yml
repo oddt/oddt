@@ -76,11 +76,11 @@ install:
             fi
         fi
         conda install -q -c bioconda autodock-vina
-        conda install -q -c conda-forge pytest pytest-cov
+        conda install -q pytest pytest-cov pytest-xdist
         pip install coveralls
     - python setup.py install
 script:
-    - pytest --cov=oddt -v -s --durations=0 tests/
+    - pytest --cov=oddt -n 2 -v -s --durations=0 tests/
     - oddt_cli --help
     - oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
     - oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity ifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
