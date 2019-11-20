@@ -201,9 +201,14 @@ def test_diverse_conformers():
 
     assert len(res) == 10
     if oddt.toolkit.backend == 'ob':
-        assert_array_almost_equal(res, [0., 3.043712, 3.897143, 3.289482,
-                                        3.066374, 2.909683, 2.913927,
-                                        3.488244, 3.70603, 3.597467])
+        if oddt.toolkit.__version__ < '0.3':
+            assert_array_almost_equal(res, [0., 3.043712, 3.897143, 3.289482,
+                                            3.066374, 2.909683, 2.913927,
+                                            3.488244, 3.70603, 3.597467])
+        else:
+            assert_array_almost_equal(res, [0., 1.37277 , 2.489789, 2.759941,
+                                            2.968366, 3.228773, 3.392191,
+                                            3.921166, 3.185065, 3.283915])
     # else:
     #     if oddt.toolkit.__version__ > '2016.03.9':
     #         assert_array_almost_equal(res, [1.237538, 2.346984, 0.900624,
