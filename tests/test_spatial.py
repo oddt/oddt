@@ -88,10 +88,7 @@ def test_dihedral():
     # Check benzene ring dihedral
     mol = oddt.toolkit.readstring('smi', 'c1ccccc1')
     mol.make3D()
-    assert_array_almost_equal(dihedral(mol.coords[0],
-                                       mol.coords[1],
-                                       mol.coords[2],
-                                       mol.coords[3]), 0, decimal=1)
+    assert abs(dihedral(*mol.coords[:4])) < 2.
 
 
 def test_distance():
