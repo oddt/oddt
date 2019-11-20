@@ -10,11 +10,9 @@ env:
         - ODDT_TOOLKIT=rdk CONDA_PY=3.5  MINIMAL_REQ=1
         # Recent versions
         - ODDT_TOOLKIT=ob CONDA_PY=2.7
-        - ODDT_TOOLKIT=ob CONDA_PY=3.5
         - ODDT_TOOLKIT=ob CONDA_PY=3.6
         - ODDT_TOOLKIT=ob CONDA_PY=3.7
         - ODDT_TOOLKIT=rdk CONDA_PY=2.7
-        - ODDT_TOOLKIT=rdk CONDA_PY=3.5
         - ODDT_TOOLKIT=rdk CONDA_PY=3.6
         - ODDT_TOOLKIT=rdk CONDA_PY=3.7
 
