@@ -25,8 +25,16 @@ __all__ = ['InteractionFingerprint',
            'similarity_SPLIF',
            'ECFP',
            'PLEC',
+           'fold',
+           'MIN_HASH_VALUE',
+           'MAX_HASH_VALUE',
+           'sparse_to_dense',
+           'sparse_to_csr_matrix',
+           'csr_matrix_to_sparse',
+           'dense_to_sparse',
            'dice',
-           'tanimoto']
+           'tanimoto',
+           ]
 
 
 def InteractionFingerprint(ligand, protein, strict=True):

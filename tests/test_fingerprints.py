@@ -23,7 +23,7 @@ from oddt.fingerprints import (InteractionFingerprint,
                                csr_matrix_to_sparse,
                                dense_to_sparse,
                                dice,
-                               tanimoto)
+                               tanimoto,)
 from .utils import shuffle_mol
 
 
@@ -88,7 +88,8 @@ def test_sparse_densify():
     np.random.seed(0)
     sparse_fps = np.random.randint(0, 1024, size=(20, 100))
     dense = np.vstack(sparse_to_dense(fp, size=1024) for fp in sparse_fps)
-    csr = sparse_vstack(sparse_to_csr_matrix(fp, size=1024) for fp in sparse_fps)
+    csr = sparse_vstack(sparse_to_csr_matrix(fp, size=1024)
+                        for fp in sparse_fps)
     assert_array_equal(dense, csr.toarray())
 
     # test exceptions
@@ -227,8 +228,10 @@ def test_similarity():
 
 def test_sparse_similarity():
     """Sparse similarity"""
-    mol1 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
-    mol2 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol1 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol2 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
 
     mol1_fp_dense = ECFP(mol1, depth=8, size=4096, sparse=False)
     mol2_fp_dense = ECFP(mol2, depth=8, size=4096, sparse=False)
@@ -264,8 +267,10 @@ def test_ecfp_repr():
 
 def test_ecfp():
     """ECFP fingerprints"""
-    mol1 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
-    mol2 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol1 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol2 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
 
     mol1_fp = ECFP(mol1, depth=8, size=4096, sparse=False)
     mol2_fp = ECFP(mol2, depth=8, size=4096, sparse=False)
@@ -326,8 +331,10 @@ def test_ecfp():
 
 def test_fcfp():
     """FCFP fingerprints"""
-    mol1 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
-    mol2 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol1 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol2 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
 
     mol1_fp = ECFP(mol1, depth=8, size=4096,
                    sparse=False, use_pharm_features=True)
@@ -374,7 +381,8 @@ def test_fcfp():
 
 def test_ecfp_invaraiants():
     """ECFP: test random reordering"""
-    sildenafil = oddt.toolkit.readstring("smi", "CCCc1nn(C)c2c(=O)[nH]c(-c3cc(S(=O)(=O)N4CCN(C)CC4)ccc3OCC)nc12")
+    sildenafil = oddt.toolkit.readstring(
+        "smi", "CCCc1nn(C)c2c(=O)[nH]c(-c3cc(S(=O)(=O)N4CCN(C)CC4)ccc3OCC)nc12")
 
     params = {'depth': 4, 'size': 4096, 'sparse': True}
     fp = ECFP(sildenafil, **params)
@@ -600,3 +608,4 @@ def test_plec_similarity():
                           sparse=False) for mol in mols[1:]]
     assert_array_almost_equal(outcome_sparse, target_outcome, decimal=2)
     assert_array_almost_equal(outcome_dense, target_outcome, decimal=2)
+
