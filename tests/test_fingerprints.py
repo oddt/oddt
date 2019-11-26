@@ -23,7 +23,9 @@ from oddt.fingerprints import (InteractionFingerprint,
                                csr_matrix_to_sparse,
                                dense_to_sparse,
                                dice,
-                               tanimoto)
+                               tanimoto,
+                               ri_score,
+                               b_factor)
 from .utils import shuffle_mol
 
 
@@ -88,7 +90,8 @@ def test_sparse_densify():
     np.random.seed(0)
     sparse_fps = np.random.randint(0, 1024, size=(20, 100))
     dense = np.vstack(sparse_to_dense(fp, size=1024) for fp in sparse_fps)
-    csr = sparse_vstack(sparse_to_csr_matrix(fp, size=1024) for fp in sparse_fps)
+    csr = sparse_vstack(sparse_to_csr_matrix(fp, size=1024)
+                        for fp in sparse_fps)
     assert_array_equal(dense, csr.toarray())
 
     # test exceptions
@@ -227,8 +230,10 @@ def test_similarity():
 
 def test_sparse_similarity():
     """Sparse similarity"""
-    mol1 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
-    mol2 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol1 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol2 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
 
     mol1_fp_dense = ECFP(mol1, depth=8, size=4096, sparse=False)
     mol2_fp_dense = ECFP(mol2, depth=8, size=4096, sparse=False)
@@ -264,8 +269,10 @@ def test_ecfp_repr():
 
 def test_ecfp():
     """ECFP fingerprints"""
-    mol1 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
-    mol2 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol1 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol2 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
 
     mol1_fp = ECFP(mol1, depth=8, size=4096, sparse=False)
     mol2_fp = ECFP(mol2, depth=8, size=4096, sparse=False)
@@ -326,8 +333,10 @@ def test_ecfp():
 
 def test_fcfp():
     """FCFP fingerprints"""
-    mol1 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
-    mol2 = oddt.toolkit.readstring("smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol1 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)C)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
+    mol2 = oddt.toolkit.readstring(
+        "smi", "CC1=C(C(=CC=C1)O)NC(=O)CN2CCN(CC2)CC(=O)N3CCC4=C(C3)C=CS4")
 
     mol1_fp = ECFP(mol1, depth=8, size=4096,
                    sparse=False, use_pharm_features=True)
@@ -374,7 +383,8 @@ def test_fcfp():
 
 def test_ecfp_invaraiants():
     """ECFP: test random reordering"""
-    sildenafil = oddt.toolkit.readstring("smi", "CCCc1nn(C)c2c(=O)[nH]c(-c3cc(S(=O)(=O)N4CCN(C)CC4)ccc3OCC)nc12")
+    sildenafil = oddt.toolkit.readstring(
+        "smi", "CCCc1nn(C)c2c(=O)[nH]c(-c3cc(S(=O)(=O)N4CCN(C)CC4)ccc3OCC)nc12")
 
     params = {'depth': 4, 'size': 4096, 'sparse': True}
     fp = ECFP(sildenafil, **params)
@@ -600,3 +610,63 @@ def test_plec_similarity():
                           sparse=False) for mol in mols[1:]]
     assert_array_almost_equal(outcome_sparse, target_outcome, decimal=2)
     assert_array_almost_equal(outcome_dense, target_outcome, decimal=2)
+
+
+def test_ri_score():
+    """Rigidity Index"""
+    receptor = next(oddt.toolkit.readfile('pdb', os.path.join(
+        test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    receptor.protein = True
+    receptor.addh(only_polar=True)
+
+    ligands = list(oddt.toolkit.readfile('sdf', os.path.join(
+        test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+    ligands = list(filter(lambda x: x.title == '312335', ligands))
+    _ = list(map(lambda x: x.addh(only_polar=True), ligands))
+
+    if oddt.toolkit.backend == 'ob':
+        ri_score_target = np.array([
+            1798.951, 1815.714, 1851.27, 1781.166, 1789.73, 1766.882,
+            1792.726, 1747.342, 1836.919, 1766.815, 1816.401, 1569.533,
+            1544.601, 1530.015, 1785.551, 1896.576, 1555.909, 1710.525,
+            1707.488, 1586.404])
+    else:
+
+        ri_score_target = np.array([
+            4211.84, 4193.968, 4295.324, 4140.516, 4182.688, 4130.795, 4212.946,
+            4119.207, 4261.942, 4146.171, 4175.418, 3810.425, 3695.924, 3702.532,
+            4144.078, 4317.129, 3763.041, 4082.63, 4063.534, 3751.247])
+
+    ri_score_computed = np.array(
+        [ri_score(ligand, receptor) for ligand in ligands])
+
+    assert_almost_equal(ri_score_target, ri_score_computed, 2)
+
+
+def test_b_factor():
+    """Flexibility-Rigity Index"""
+    receptor = next(oddt.toolkit.readfile('pdb', os.path.join(
+        test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
+    receptor.protein = True
+    receptor.addh(only_polar=True)
+
+    ligands = list(oddt.toolkit.readfile('sdf', os.path.join(
+        test_data_dir, 'data/dude/xiap/actives_docked.sdf')))
+    ligands = list(filter(lambda x: x.title == '312335', ligands))
+    _ = list(map(lambda x: x.addh(only_polar=True), ligands))
+
+    if oddt.toolkit.backend == 'ob':
+        b_factor_target = np.array([
+            -0.052, -0.053, -0.053, -0.052, -0.052, -0.051, -0.052, -0.051,
+            - 0.053, -0.051, -0.052, -0.048, -0.048, -0.048, -0.052, -0.054,
+            - 0.048, -0.051, -0.051, -0.049])
+    else:
+        b_factor_target = np.array([
+            -0.055, -0.055, -0.056, -0.055, -0.055, -0.055, -0.055, -0.054,
+            -0.056, -0.055, -0.055, -0.052, -0.05, -0.05, -0.055, -0.057,
+            -0.051, -0.054, -0.054, -0.051])
+
+    b_factor_computed = np.array(
+        [b_factor(ligand, receptor) for ligand in ligands])
+
+    assert_almost_equal(b_factor_target, b_factor_computed, decimal=3)
