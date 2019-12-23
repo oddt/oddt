@@ -61,7 +61,7 @@ class pdbbind(object):
             if version == 2007:
                 csv_file = os.path.join(self.home, 'INDEX.%i.%s.data'
                                         % (version, pdbind_set))
-            elif version == 2016:
+            elif version >= 2016:
                 csv_file = os.path.join(self.home, 'index', 'INDEX_%s_data.%i'
                                         % (pdbind_set, version))
             else:
