@@ -40,7 +40,7 @@ def roc_auc(y_true, y_score, pos_label=None, ascending_score=True):
     if ascending_score:
         y_score = -y_score
     fpr, tpr, tresholds = roc(y_true, y_score, pos_label=pos_label)
-    return auc(fpr, tpr, reorder=False)
+    return auc(fpr, tpr)
 
 
 def rmse(y_true, y_pred):
@@ -145,7 +145,7 @@ def roc_log_auc(y_true, y_score, pos_label=None, ascending_score=True,
     fpr = fpr.clip(log_min)
     idx = (fpr <= log_max)
     log_fpr = 1 - np.log10(fpr[idx]) / np.log10(log_min)
-    return auc(log_fpr, tpr[idx], reorder=False)
+    return auc(log_fpr, tpr[idx])
 
 
 def random_roc_log_auc(log_min=0.001, log_max=1.):

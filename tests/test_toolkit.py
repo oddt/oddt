@@ -250,7 +250,7 @@ def test_indices():
     assert atom.idx1 == 1
 
     # the unmarked index is deprecated in ODDT
-    with pytest.warns(DeprecationWarning):
+    with pytest.warns((DeprecationWarning, FutureWarning)):
         assert atom.idx == 1
 
 
