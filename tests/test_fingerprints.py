@@ -87,7 +87,7 @@ def test_sparse_densify():
     # test stacking
     np.random.seed(0)
     sparse_fps = np.random.randint(0, 1024, size=(20, 100))
-    dense = np.vstack(sparse_to_dense(fp, size=1024) for fp in sparse_fps)
+    dense = np.vstack([sparse_to_dense(fp, size=1024) for fp in sparse_fps])
     csr = sparse_vstack(sparse_to_csr_matrix(fp, size=1024) for fp in sparse_fps)
     assert_array_equal(dense, csr.toarray())
 

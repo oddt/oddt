@@ -417,8 +417,8 @@ class ensemble_descriptor(object):
                                    for desc_gen in self._desc_gens)))
 
     def build(self, mols, *args, **kwargs):
-        desc = np.hstack(desc_gen.build(mols, *args, **kwargs)
-                         for desc_gen in self._desc_gens)
+        desc = np.hstack(tuple(desc_gen.build(mols, *args, **kwargs)
+                         for desc_gen in self._desc_gens))
         return desc
 
     def set_protein(self, protein):
