@@ -1,5 +1,10 @@
 ### Development version (Git)
 
+### Version 0.7 (2019-12-23)
+* Support recent RDKit and Openbabel
+* Implement PDBfixes (@marta-sd)
+* Fixed ECFP bugs
+* Last release that supports Python 2.7 
 
 ### Version 0.6 (2018-02-28)
 * Virtual Screening module has ben rewritten to use batches of ligands
