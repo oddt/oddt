@@ -21,9 +21,9 @@ env:
 deploy:
     # pypi
     - provider: pypi
-      user: mwojcikowski
+      user: __token__
       password:
-          secure: Y1+kPOAjQhFZW9N25q8StT5TFvJiUhecTbmpHIlGzlPi/L/RUE8txXXI5e7o4lD0bz5pqDtoKwF8Nas2VQJGS/dE0lkjmsDR/cQdjoSd88BflhxaqlvL6L2fVmIZ2RWXXmrlE6s/Obw1JpMjtzhCGk0ywe306Z1NVkj1VEURIlc=
+        secure: "XTqFOx7QK+yseHwfx2J7AhbRWIZLYK83sEAxchezO7lvMo7kNa2vSB5AJCIMikgCgsr96OTCH5o57PtD5wEjxzXckEtyArqFboio67zNhWsA+qonLjFCCJy2zjpXXrEMZMUnWySQQsaAK4HLJg01IE+fNOnw6EX4t5TkhKJ2MpM="
       distributions: sdist
       on:
           tags: true
