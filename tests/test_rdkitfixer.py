@@ -568,7 +568,7 @@ def test_prepare_complexes():
     expected_values = {
         '3WS9': {'X4D': {'IC50': 92.0}},
         '3BYM': {'AM0': {'IC50': 6.0}},
-        '2PIN': {'LEG': {'IC50': 1500.0}, '4HY': {'IC50': 0.04435}},
+        '2PIN': {'LEG': {'IC50': 1500.0}},
         '3CYU': {'0CR': {'Kd': 60.0}},
         '1A28': {'STR': {'Ki': 5.1}},
     }
