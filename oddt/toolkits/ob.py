@@ -946,7 +946,7 @@ class Outputfile(pybel.Outputfile):
 class Fingerprint(pybel.Fingerprint):
     @property
     def raw(self):
-        fp = np.zeros(len(self.fp) * ob.OBFingerprint.Getbitsperint(), dtype=int)
+        fp = np.zeros(len(self.fp) * ob.OBFingerprint.Getbitsperint(), dtype=np.int64)
         np.add.at(fp, np.array(self.bits) - 1, 1)  # self.bits is 1-based
         return fp
 

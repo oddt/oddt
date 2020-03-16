@@ -609,7 +609,7 @@ def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
     protein_atoms, ligand_atoms = close_contacts(
         protein_dict, ligand_dict, cutoff=distance_cutoff)
     splif = np.zeros((len(ligand_atoms)),
-                     dtype=[('hash', int), ('ligand_coords', np.float32, (7, 3)),
+                     dtype=[('hash', np.int64), ('ligand_coords', np.float32, (7, 3)),
                             ('protein_coords', np.float32, (7, 3))])
 
     lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, int(aidx))
