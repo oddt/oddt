@@ -319,7 +319,7 @@ def test_dicts():
     for name in common_cols:
         if issubclass(np.dtype(data[name].dtype).type, np.number):
             mask = data[name] - corr_data[name] > 1e-6
-            for i in np.argwhere(mask):
+            for i in np.argwhere(mask.values):
                 print(i, data[name][i].values, corr_data[name][i].values,
                       mols[data['mol_idx'][int(i)]].write('smi'))
             assert_array_almost_equal(
@@ -328,7 +328,7 @@ def test_dicts():
                 err_msg='Mols atom_dict\'s collumn: "%s" is not equal' % name)
         else:
             mask = data[name] != corr_data[name]
-            for i in np.argwhere(mask):
+            for i in np.argwhere(mask.values):
                 print(i, data[name][i].values, corr_data[name][i].values,
                       mols[data['mol_idx'][int(i)]].write('smi'))
             assert_array_equal(
@@ -363,7 +363,7 @@ def test_dicts():
     for name in common_cols:
         if issubclass(np.dtype(data[name].dtype).type, np.number):
             mask = data[name] - corr_data[name] > 1e-6
-            for i in np.argwhere(mask):
+            for i in np.argwhere(mask.values):
                 print(i,
                       data['atomtype'][i].values,
                       data['resname'][i].values,
@@ -375,7 +375,7 @@ def test_dicts():
                 err_msg='Protein atom_dict\'s collumn: "%s" is not equal' % name)
         else:
             mask = data[name] != corr_data[name]
-            for i in np.argwhere(mask):
+            for i in np.argwhere(mask.values):
                 print(i,
                       data['atomtype'][i].values,
                       data['resname'][i].values,
