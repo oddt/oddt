@@ -429,19 +429,19 @@ def test_splif_similarity():
         test_data_dir, 'data/dude/xiap/receptor_rdkit.pdb')))
     receptor.protein = True
     receptor.addh(only_polar=True)
-    # print(outcome)
     ref = SPLIF(mols[0], receptor)
-    outcome = [similarity_SPLIF(ref, SPLIF(mol, receptor)) for mol in mols[1:]]
+    outcome = [similarity_SPLIF(ref, SPLIF(mol, receptor)) for mol in mols]
     if oddt.toolkit.backend == 'ob':
-        target_outcome = np.array([0.694,  0.639,  0.707,  0.657,  0.690,
-                                   0.450,  0.702,  0.477,  0.576,  0.669,
-                                   0.658,  0.714,  0.683,  0.585,  0.535,
-                                   0.611,  0.554,  0.665,  0.697])
+        target_outcome = np.array([1.000, 0.811, 0.690, 0.833, 0.654,
+                                   0.860, 0.373, 0.833, 0.389, 0.550,
+                                   0.790, 0.771, 0.915, 0.851, 0.525,
+                                   0.436, 0.701, 0.479, 0.743, 0.728])
     else:
-        target_outcome = np.array([0.694,  0.639,  0.707,  0.657,  0.690,
-                                   0.467,  0.702,  0.485,  0.599,  0.669,
-                                   0.658,  0.714,  0.683,  0.585,  0.535,
-                                   0.611,  0.554,  0.665,  0.697])
+        target_outcome = np.array([1.000, 0.811, 0.690, 0.833, 0.654,
+                                   0.860, 0.387, 0.833, 0.394, 0.572,
+                                   0.790, 0.771, 0.915, 0.851, 0.525,
+                                   0.436, 0.701, 0.479, 0.743, 0.728])
+
     assert_array_almost_equal(outcome, target_outcome, decimal=3)
 
 

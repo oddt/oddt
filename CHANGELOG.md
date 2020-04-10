@@ -1,4 +1,5 @@
 ### Development version (Git)
+* Fix calculating similarity of SPLIF fingerprints
 
 ### Version 0.7 (2019-12-23)
 * Support recent RDKit and Openbabel

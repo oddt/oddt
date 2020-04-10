@@ -693,12 +693,14 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
         query_protein = query_pair['protein_coords']
         rmsd_ligand = combinatorial_rmsd(ref_ligand, query_ligand)
         rmsd_protein = combinatorial_rmsd(ref_protein, query_protein)
-        n_matching = ((rmsd_ligand < rmsd_cutoff) &
-                      (rmsd_protein < rmsd_cutoff)).sum()
-        numla += n_matching
-        numpa += n_matching
-        nula += (rmsd_ligand < rmsd_cutoff).sum()
-        nupa += (rmsd_protein < rmsd_cutoff).sum()
+        num_matching_ligand = (rmsd_ligand < rmsd_cutoff).any(axis=0).sum()
+        num_matching_protein = (rmsd_protein < rmsd_cutoff).any(axis=0).sum()
+        num_all_ligand = len(ref_ligand) + len(query_ligand) - num_matching_ligand
+        num_all_protein = len(ref_protein) + len(query_protein) - num_matching_protein
+        numla += num_matching_ligand
+        numpa += num_matching_protein
+        nula += num_all_ligand
+        nupa += num_all_protein
     if nula == 0 or nupa == 0:
         return 0.
     else:
