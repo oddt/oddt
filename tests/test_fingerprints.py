@@ -1,4 +1,6 @@
 import os
+from itertools import combinations
+
 import numpy as np
 from scipy.sparse import vstack as sparse_vstack
 from numpy.testing import (assert_array_equal,
@@ -430,19 +432,24 @@ def test_splif_similarity():
     receptor.protein = True
     receptor.addh(only_polar=True)
     ref = SPLIF(mols[0], receptor)
-    outcome = [similarity_SPLIF(ref, SPLIF(mol, receptor)) for mol in mols]
+    splif_fps = [SPLIF(mol, receptor) for mol in mols]
+    outcome = [similarity_SPLIF(ref, fp) for fp in splif_fps]
     if oddt.toolkit.backend == 'ob':
-        target_outcome = np.array([1.000, 0.811, 0.690, 0.833, 0.654,
-                                   0.860, 0.373, 0.833, 0.389, 0.550,
-                                   0.790, 0.771, 0.915, 0.851, 0.525,
-                                   0.436, 0.701, 0.479, 0.743, 0.728])
+        target_outcome = np.array([1.000, 0.779, 0.649, 0.805, 0.630,
+                                   0.802, 0.348, 0.817, 0.362, 0.532,
+                                   0.732, 0.705, 0.856, 0.797, 0.502,
+                                   0.408, 0.653, 0.436, 0.708, 0.688])
     else:
-        target_outcome = np.array([1.000, 0.811, 0.690, 0.833, 0.654,
-                                   0.860, 0.387, 0.833, 0.394, 0.572,
-                                   0.790, 0.771, 0.915, 0.851, 0.525,
-                                   0.436, 0.701, 0.479, 0.743, 0.728])
+        target_outcome = np.array([1.000, 0.779, 0.649, 0.805, 0.630,
+                                   0.802, 0.360, 0.817, 0.367, 0.553,
+                                   0.732, 0.705, 0.856, 0.797, 0.502,
+                                   0.408, 0.653, 0.436, 0.708, 0.688])
 
     assert_array_almost_equal(outcome, target_outcome, decimal=3)
+
+    # check if similarity is symmetric
+    for fp1, fp2 in combinations(splif_fps, 2):
+        assert similarity_SPLIF(fp1, fp2) == similarity_SPLIF(fp2, fp1)
 
 
 def test_plec():
