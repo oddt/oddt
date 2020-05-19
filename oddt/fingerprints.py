@@ -742,7 +742,7 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
 
 
 def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
-         size=16384, count_bits=True, sparse=True, ignore_hoh=True):
+         size=16384, count_bits=True, sparse=True, ignore_hoh=True, bits_info=None):
     """Protein ligand extended connectivity fingerprint. For every pair of
     atoms in contact, compute ECFP and then hash every single, corresponding
     depth.
@@ -774,6 +774,11 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
         Should the water molecules be ignored. This is based on the name of the
         residue ('HOH').
 
+    bits_info : dict or None (default = None)
+        If dictionary is provided it is filled with information about bit contents.
+        Root atom index and depth is provided for both ligand and protein.
+        Dictionary is modified in-place.
+
     Returns
     -------
     PLEC : numpy array
@@ -781,6 +786,7 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
 
     """
     result = []
+    bit_info_content = []
     # removing h
     protein_mask = protein_no_h = (protein.atom_dict['atomicnum'] != 1)
     if ignore_hoh:
@@ -815,13 +821,26 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
         # it's used, when ligand_ecfp and protein_ecfp are not the same size,
         # so if one is shorter the last given ECFP is used
         if depth_ligand < depth_protein:
-            fillvalue = ligand_ecfp[-1]
+            fillvalue = depth_ligand, ligand_ecfp[-1]
         else:
-            fillvalue = protein_ecfp[-1]
-        for pair in zip_longest(ligand_ecfp, protein_ecfp, fillvalue=fillvalue):
-                result.append(hash32(pair))
+            fillvalue = depth_protein, protein_ecfp[-1]
+        for (ligand_depth, ligand_bit), (protein_depth, protein_bit) in zip_longest(
+                enumerate(ligand_ecfp), enumerate(protein_ecfp), fillvalue=fillvalue):
+            result.append(hash32((ligand_bit, protein_bit)))
+            if bits_info is not None:
+                bit_info_content.append({
+                    'ligand_root_atom_idx': ligand_atom,
+                    'ligand_depth': ligand_depth,
+                    'protein_root_atom_idx': protein_atom,
+                    'protein_depth': protein_depth,
+                })
+
     # folding and sorting
     plec = np.sort(fold(np.array(result), size=size)).astype(np.min_scalar_type(size))
+
+    # add bits info after folding
+    if bits_info is not None:
+        bits_info.update(dict(zip(plec, bit_info_content)))
 
     # count_bits
     if not count_bits:
