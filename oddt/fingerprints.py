@@ -346,6 +346,60 @@ def hash32(value):
     return hash(value) & 0xffffffff
 
 
+def get_atom_environments(mol, root_atom_idx, depth):
+    """Get circular environments of atom indices up to certain depth.
+    Atoms from each depth are kept separate.
+    BFS search is done until atom outside of given depth is found.
+
+    Parameters
+    ----------
+    mol : oddt.toolkit.Molecule object
+        Molecule object containing environments
+
+    root_atom_idx : int
+        0-based index of root atom for all environments
+
+    depth : int
+        Maximum depth of environments to return
+
+    Returns
+    -------
+    envs: list (size = depth + 1)
+        List of atoms at each respective environment depth
+    """
+
+    if is_openbabel_molecule(mol):
+        envs = OrderedDict([(i, []) for i in range(depth + 1)])
+        last_depth = 0
+        for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol,
+                                                                        root_atom_idx + 1):
+            # FIX for disconnected fragments in OB
+            if ((current_depth > depth + 1) or
+                    (last_depth > current_depth) or
+                    (last_depth == 1 and current_depth == 1)):
+                break
+            last_depth = current_depth
+            if atom.GetAtomicNum() == 1:
+                continue
+            envs[current_depth - 1].append(atom.GetIdx() - 1)
+        envs = list(envs.values())
+    else:
+        envs = [[root_atom_idx]]
+        visited = [root_atom_idx]
+        for r in range(1, depth + 1):
+            current_depth_atoms = []
+            for atom_idx in envs[r - 1]:
+                for neighbor in mol.Mol.GetAtomWithIdx(atom_idx).GetNeighbors():
+                    if neighbor.GetAtomicNum() == 1:
+                        continue
+                    n_idx = neighbor.GetIdx()
+                    if n_idx not in visited and n_idx not in current_depth_atoms:
+                        current_depth_atoms.append(n_idx)
+                        visited.append(n_idx)
+            envs.append(current_depth_atoms)
+    return envs
+
+
 def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
     """Simple description of atoms used in ECFP/FCFP. Bonds are not described
     accounted for. Hydrogens are explicitly forbidden, they raise Exception.
@@ -456,36 +510,7 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
     environment_hashes : list of ints
         Hashed environments for certain atom
     """
-    if is_openbabel_molecule(mol):
-        envs = OrderedDict([(i, []) for i in range(depth + 1)])
-        last_depth = 0
-        for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol,
-                                                                        idx + 1):
-            # FIX for disconnected fragments in OB
-            if ((current_depth > depth + 1) or
-                    (last_depth > current_depth) or
-                    (last_depth == 1 and current_depth == 1)):
-                break
-            last_depth = current_depth
-            if atom.GetAtomicNum() == 1:
-                continue
-            envs[current_depth - 1].append(atom.GetIdx() - 1)
-        envs = list(envs.values())
-    else:
-        envs = [[idx]]
-        visited = [idx]
-        for r in range(1, depth + 1):
-            tmp = []
-            for atom_idx in envs[r - 1]:
-                for neighbor in mol.Mol.GetAtomWithIdx(atom_idx).GetNeighbors():
-                    if neighbor.GetAtomicNum() == 1:
-                        continue
-                    n_idx = neighbor.GetIdx()
-                    if n_idx not in visited and n_idx not in tmp:
-                        tmp.append(n_idx)
-                        visited.append(n_idx)
-            envs.append(tmp)
-
+    envs = get_atom_environments(mol, root_atom_idx=idx, depth=depth)
     atom_env = []
     for r in range(1, depth + 2):  # there are depth + 1 elements, so +2
         atom_env.append(list(chain(*envs[:r])))
