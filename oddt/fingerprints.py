@@ -5,7 +5,7 @@
 """
 from __future__ import division
 from itertools import chain
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 import sys
 
 from six.moves import zip_longest
@@ -812,6 +812,8 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     """
     result = []
     bit_info_content = []
+    plec_bit_info_record = namedtuple('PLEC_bit_info_record',
+                                      'ligand_root_atom_idx ligand_depth protein_root_atom_idx protein_depth')
     # removing h
     protein_mask = protein_no_h = (protein.atom_dict['atomicnum'] != 1)
     if ignore_hoh:
@@ -853,19 +855,22 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
                 enumerate(ligand_ecfp), enumerate(protein_ecfp), fillvalue=fillvalue):
             result.append(hash32((ligand_bit, protein_bit)))
             if bits_info is not None:
-                bit_info_content.append({
-                    'ligand_root_atom_idx': ligand_atom,
-                    'ligand_depth': ligand_depth,
-                    'protein_root_atom_idx': protein_atom,
-                    'protein_depth': protein_depth,
-                })
+                bit_info_content.append(plec_bit_info_record(
+                    ligand_root_atom_idx=ligand_atom,
+                    ligand_depth=ligand_depth,
+                    protein_root_atom_idx= protein_atom,
+                    protein_depth=protein_depth
+                ))
 
     # folding and sorting
     plec = np.sort(fold(np.array(result), size=size)).astype(np.min_scalar_type(size))
 
     # add bits info after folding
     if bits_info is not None:
-        bits_info.update(dict(zip(plec, bit_info_content)))
+        for bit_number, atom_info in zip(plec, bit_info_content):
+            if bit_number not in bits_info:
+                bits_info[bit_number] = set()
+            bits_info[bit_number].add(atom_info)
 
     # count_bits
     if not count_bits:
