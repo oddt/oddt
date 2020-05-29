@@ -386,6 +386,9 @@ class Molecule(object):
             return super(Molecule, cls).__new__(cls)
 
     def __init__(self, Mol=None, source=None, protein=False):
+        if Mol and not isinstance(Mol, (Molecule, Chem.Mol)):
+            raise ValueError('Mol needs to be ODDT or RDKit molecule instance')
+
         if hasattr(Mol, "_cinfony"):
             a, b = Mol._exchange
             if a == 0:

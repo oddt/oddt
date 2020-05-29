@@ -134,6 +134,9 @@ class Molecule(pybel.Molecule):
         # lazy
         self._source = source  # dict with keys: n, fmt, string, filename
 
+        if OBMol and not isinstance(OBMol, (Molecule, pybel.Molecule, ob.OBMol)):
+            raise ValueError('OBMol needs to be ODDT, Pybel or OB molecule instance')
+
         # call parent constructor
         super(Molecule, self).__init__(OBMol)
 
