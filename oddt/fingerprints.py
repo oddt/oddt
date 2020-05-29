@@ -832,17 +832,18 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
 
     # folding and sorting
     plec = fold(np.array(result), size=size)
-    sort_indexes = np.argsort(plec)
-    plec = plec[sort_indexes]
 
     # add bits info after folding
     if bits_info is not None:
+        sort_indexes = np.argsort(plec)
+        plec = plec[sort_indexes]
         # sort bit info according to folded PLEC
-        sorted_bit_info_content = [bit_info_content[i] for i in sort_indexes]
-        for bit_number, atom_info in zip(plec, sorted_bit_info_content):
+        for bit_number, bit_info_idx in zip(plec, sort_indexes):
             if bit_number not in bits_info:
                 bits_info[bit_number] = set()
-            bits_info[bit_number].add(atom_info)
+            bits_info[bit_number].add(bit_info_content[bit_info_idx])
+    else:
+        plec = np.sort(plec)
 
     # count_bits
     if not count_bits:
