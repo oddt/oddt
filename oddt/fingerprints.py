@@ -734,6 +734,10 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
         return np.sqrt((numla / nula) * (numpa / nupa))
 
 
+PLEC_bit_info_record = namedtuple('PLEC_bit_info_record',
+                                  'ligand_root_atom_idx ligand_depth protein_root_atom_idx protein_depth')
+
+
 def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
          size=16384, count_bits=True, sparse=True, ignore_hoh=True, bits_info=None):
     """Protein ligand extended connectivity fingerprint. For every pair of
@@ -780,8 +784,7 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     """
     result = []
     bit_info_content = []
-    plec_bit_info_record = namedtuple('PLEC_bit_info_record',
-                                      'ligand_root_atom_idx ligand_depth protein_root_atom_idx protein_depth')
+
     # removing h
     protein_mask = protein_no_h = (protein.atom_dict['atomicnum'] != 1)
     if ignore_hoh:
@@ -823,7 +826,7 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
                 enumerate(ligand_ecfp), enumerate(protein_ecfp), fillvalue=fillvalue):
             result.append(hash32((ligand_bit, protein_bit)))
             if bits_info is not None:
-                bit_info_content.append(plec_bit_info_record(
+                bit_info_content.append(PLEC_bit_info_record(
                     ligand_root_atom_idx=ligand_atom,
                     ligand_depth=ligand_depth,
                     protein_root_atom_idx= protein_atom,
