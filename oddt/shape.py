@@ -1,5 +1,5 @@
-from __future__ import print_function
-import sys
+import logging
+
 import numpy as np
 from numpy.linalg import norm
 from scipy.stats import moment
@@ -156,8 +156,11 @@ def electroshape(mol):
     if (mol.atom_dict['coords'] == 0).all():
         raise Exception('Molecule needs 3D coordinates')
 
+    if (mol.atom_dict['charge'] == 0).all():
+        logging.warning('All partial charges are zero. ElectroShape strongly relies on them.')
+
     if np.isnan(mol.atom_dict['charge']).any():
-        print('Nan values in charge values of molecule ' + mol.title, file=sys.stderr)
+        logging.warning('Nan values in charge values of molecule ' + mol.title)
 
     charge = np.nan_to_num(mol.atom_dict['charge'])
 
