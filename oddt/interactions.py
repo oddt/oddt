@@ -27,6 +27,8 @@ __all__ = ['close_contacts',
            'acceptor_metal',
            'pi_metal']
 
+BASE_ANGLES = np.array((0, 180, 120, 109.5, 90), dtype=float)
+
 
 def close_contacts(x, y, cutoff, x_column='coords', y_column='coords',
                    cutoff_low=0.):
@@ -62,7 +64,16 @@ def close_contacts(x, y, cutoff, x_column='coords', y_column='coords',
         return x[[]], y[[]]
 
 
-def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, base_angle=120, tolerance=30):
+def _check_angles(angles, hybridizations, tolerance):
+    """Helper function for checking if interactions are strict"""
+    angles = np.nan_to_num(angles)  # NaN's throw warning on comparisons
+    ideal_angles = np.take(BASE_ANGLES, hybridizations)[:, np.newaxis]
+    lower_bound = ideal_angles - tolerance
+    upper_bound = ideal_angles + tolerance
+    return ((angles > lower_bound) & (angles < upper_bound)).any(axis=-1)
+
+
+def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, tolerance=30):
     """Returns pairs of acceptor-donor atoms, which meet H-bond criteria
 
     Parameters
@@ -73,13 +84,8 @@ def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, base_angle=120, tolerance=30):
     cutoff : float, (default=3.5)
         Distance cutoff for A-D pairs
 
-    base_angle : int, (default=120)
-        Base angle determining allowed direction of hydrogen bond formation,
-        which is devided by the number of neighbors of acceptor atom
-        to establish final directional angle
-
     tolerance : int, (default=30)
-        Range (+/- tolerance) from perfect direction (base_angle/n_neighbors)
+        Range (+/- tolerance) from perfect direction defined by acceptor/donor hybridization
         in which H-bonds are considered as strict.
 
     Returns
@@ -101,21 +107,17 @@ def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, base_angle=120, tolerance=30):
         angle1 = angle(d['coords'][:, np.newaxis, :],
                        a['coords'][:, np.newaxis, :],
                        a['neighbors'])
-        a_neighbors_num = np.sum(~np.isnan(a['neighbors'][:, :, 0]), axis=-1)[:, np.newaxis]
         angle2 = angle(a['coords'][:, np.newaxis, :],
                        d['coords'][:, np.newaxis, :],
                        d['neighbors'])
-        d_neighbors_num = np.sum(~np.isnan(d['neighbors'][:, :, 0]), axis=-1)[:, np.newaxis]
-        strict = (((np.nan_to_num(angle1) > (base_angle / a_neighbors_num - tolerance)) |
-                   np.isnan(angle1)) &
-                  ((np.nan_to_num(angle2) > (base_angle / d_neighbors_num - tolerance)) |
-                   np.isnan(angle2))).all(axis=-1)
+        strict = (_check_angles(angle1, a['hybridization'], tolerance) &
+                  _check_angles(angle2, d['hybridization'], tolerance))
         return a, d, strict
     else:
         return a, d, np.array([], dtype=bool)
 
 
-def hbonds(mol1, mol2, *args, **kwargs):
+def hbonds(mol1, mol2, cutoff=3.5, tolerance=30):
     """Calculates H-bonds between molecules
 
     Parameters
@@ -126,13 +128,8 @@ def hbonds(mol1, mol2, *args, **kwargs):
     cutoff : float, (default=3.5)
         Distance cutoff for A-D pairs
 
-    base_angle : int, (default=120)
-        Base angle determining allowed direction of hydrogen bond formation,
-        which is devided by the number of neighbors of acceptor atom
-        to establish final directional angle
-
     tolerance : int, (default=30)
-        Range (+/- tolerance) from perfect direction (base_angle/n_neighbors)
+        Range (+/- tolerance) from perfect direction defined by atoms hybridization
         in which H-bonds are considered as strict.
 
     Returns
@@ -145,15 +142,13 @@ def hbonds(mol1, mol2, *args, **kwargs):
         form 'strict' H-bond (pass all angular cutoffs). If false,
         only distance cutoff is met, therefore the bond is 'crude'.
     """
-    a1, d1, s1 = hbond_acceptor_donor(mol1, mol2, *args, **kwargs)
-    a2, d2, s2 = hbond_acceptor_donor(mol2, mol1, *args, **kwargs)
+    a1, d1, s1 = hbond_acceptor_donor(mol1, mol2, cutoff=cutoff, tolerance=tolerance)
+    a2, d2, s2 = hbond_acceptor_donor(mol2, mol1, cutoff=cutoff, tolerance=tolerance)
     return np.concatenate((a1, d2)), np.concatenate((d1, a2)), np.concatenate((s1, s2))
 
 
 def halogenbond_acceptor_halogen(mol1,
                                  mol2,
-                                 base_angle_acceptor=120,
-                                 base_angle_halogen=180,
                                  tolerance=30,
                                  cutoff=4):
     """Returns pairs of acceptor-halogen atoms, which meet halogen bond criteria
@@ -166,16 +161,8 @@ def halogenbond_acceptor_halogen(mol1,
     cutoff : float, (default=4)
         Distance cutoff for A-H pairs
 
-    base_angle_acceptor : int, (default=120)
-        Base angle determining allowed direction of halogen bond formation,
-        which is devided by the number of neighbors of acceptor atom
-        to establish final directional angle
-
-    base_angle_halogen : int (default=180)
-        Ideal base angle between halogen bond and halogen-neighbor bond
-
     tolerance : int, (default=30)
-        Range (+/- tolerance) from perfect direction (base_angle/n_neighbors)
+        Range (+/- tolerance) from perfect direction defined by atoms hybridization
         in which halogen bonds are considered as strict.
 
     Returns
@@ -200,18 +187,14 @@ def halogenbond_acceptor_halogen(mol1,
         angle2 = angle(a['coords'][:, np.newaxis, :],
                        h['coords'][:, np.newaxis, :],
                        h['neighbors'])
-        a_neighbors_num = np.sum(~np.isnan(a['neighbors'][:, :, 0]), axis=-1)[:, np.newaxis]
-        h_neighbors_num = np.sum(~np.isnan(h['neighbors'][:, :, 0]), axis=-1)[:, np.newaxis]
-        strict = (((np.nan_to_num(angle1) > (base_angle_acceptor / a_neighbors_num - tolerance)) |
-                   np.isnan(angle1)) &
-                  ((np.nan_to_num(angle2) > (base_angle_halogen / h_neighbors_num - tolerance)) |
-                   np.isnan(angle2))).all(axis=-1)
+        strict = (_check_angles(angle1, a['hybridization'], tolerance) &
+                  _check_angles(angle2, h['hybridization'], tolerance))
         return a, h, strict
     else:
         return a, h, np.array([], dtype=bool)
 
 
-def halogenbonds(mol1, mol2, **kwargs):
+def halogenbonds(mol1, mol2, cutoff=4, tolerance=30):
     """Calculates halogen bonds between molecules
 
     Parameters
@@ -222,16 +205,8 @@ def halogenbonds(mol1, mol2, **kwargs):
     cutoff : float, (default=4)
         Distance cutoff for A-H pairs
 
-    base_angle_acceptor : int, (default=120)
-        Base angle determining allowed direction of halogen bond formation,
-        which is devided by the number of neighbors of acceptor atom
-        to establish final directional angle
-
-    base_angle_halogen : int (default=180)
-        Ideal base angle between halogen bond and halogen-neighbor bond
-
     tolerance : int, (default=30)
-        Range (+/- tolerance) from perfect direction (base_angle/n_neighbors)
+        Range (+/- tolerance) from perfect direction defined by atoms hybridization
         in which halogen bonds are considered as strict.
 
     Returns
@@ -244,8 +219,8 @@ def halogenbonds(mol1, mol2, **kwargs):
         form 'strict' halogen bond (pass all angular cutoffs). If false,
         only distance cutoff is met, therefore the bond is 'crude'.
     """
-    a1, h1, s1 = halogenbond_acceptor_halogen(mol1, mol2, **kwargs)
-    a2, h2, s2 = halogenbond_acceptor_halogen(mol2, mol1, **kwargs)
+    a1, h1, s1 = halogenbond_acceptor_halogen(mol1, mol2, cutoff=cutoff, tolerance=tolerance)
+    a2, h2, s2 = halogenbond_acceptor_halogen(mol2, mol1, cutoff=cutoff, tolerance=tolerance)
     return np.concatenate((a1, h2)), np.concatenate((h1, a2)), np.concatenate((s1, s2))
 
 
@@ -406,7 +381,7 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30):
         return r1, plus2, np.array([], dtype=bool)
 
 
-def acceptor_metal(mol1, mol2, base_angle=120, tolerance=30, cutoff=4):
+def acceptor_metal(mol1, mol2, tolerance=30, cutoff=4):
     """Returns pairs of acceptor-metal atoms, which meet metal coordination criteria
     Note: This function is directional (mol1 holds acceptors, mol2 holds metals)
 
@@ -418,13 +393,8 @@ def acceptor_metal(mol1, mol2, base_angle=120, tolerance=30, cutoff=4):
     cutoff : float, (default=4)
         Distance cutoff for A-M pairs
 
-    base_angle : int, (default=120)
-        Base angle determining allowed direction of metal coordination,
-        which is devided by the number of neighbors of acceptor atom
-        to establish final directional angle
-
     tolerance : int, (default=30)
-        Range (+/- tolerance) from perfect direction (base_angle/n_neighbors)
+        Range (+/- tolerance) from perfect direction defined by atoms hybridization
         in metal coordination are considered as strict.
 
     Returns
@@ -447,9 +417,7 @@ def acceptor_metal(mol1, mol2, base_angle=120, tolerance=30, cutoff=4):
         angle1 = angle(m['coords'][:, np.newaxis, :],
                        a['coords'][:, np.newaxis, :],
                        a['neighbors'])
-        a_neighbors_num = np.sum(~np.isnan(a['neighbors'][:, :, 0]), axis=-1)[:, np.newaxis]
-        strict = ((np.nan_to_num(angle1) > (base_angle / a_neighbors_num - tolerance)) |
-                  np.isnan(angle1)).all(axis=-1)
+        strict = _check_angles(angle1, a['hybridization'], tolerance)
         return a, m, strict
     else:
         return a, m, np.array([], dtype=bool)
