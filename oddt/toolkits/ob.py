@@ -485,6 +485,8 @@ class Molecule(pybel.Molecule):
                                                               max_neighbors),
                                   UserWarning)
                     break
+                if nbr_atom.atomicnum == 1:
+                    continue
                 neighbors[n] = (nbr_atom.idx0, nbr_atom.coords, nbr_atom.atomicnum)
             assert i == atom.idx0
             atom_dict[i] = (i,
