@@ -180,7 +180,7 @@ def test_vs_similarity():
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('ifp', cutoff=0.8, query=ref_mol, protein=receptor)
     if oddt.toolkit.backend == 'ob':
-        assert len(list(vs.fetch())) == 18
+        assert len(list(vs.fetch())) == 22
     else:
         assert len(list(vs.fetch())) == 22
 
@@ -188,7 +188,7 @@ def test_vs_similarity():
     vs.load_ligands('sdf', xiap_actives_docked)
     vs.similarity('sifp', cutoff=0.8, query=ref_mol, protein=receptor)
     if oddt.toolkit.backend == 'ob':
-        assert len(list(vs.fetch())) == 18
+        assert len(list(vs.fetch())) == 22
     else:
         assert len(list(vs.fetch())) == 22
 
