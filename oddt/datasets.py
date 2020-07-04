@@ -2,13 +2,47 @@
 from __future__ import print_function
 import sys
 import os
-import six
-import pandas as pd
+import logging
 from os.path import isfile, isdir
 from os import listdir
-import warnings
+
+import six
+import pandas as pd
 
 from oddt import toolkit
+
+
+CASF_2016_IDS = {
+    '1a30', '1nc3', '1r5y', '2al5', '2qbp', '2weg', '2yfe', '3arv', '3dx1', '3fv1',
+    '3jvs', '3nx7', '3rr4', '3ui7', '4agq', '4e5w', '4ih5', '4kzq', '4twp', '1bcu',
+    '1nvq', '1s38', '2br1', '2qbq', '2wer', '2yge', '3ary', '3dx2', '3fv2', '3jya',
+    '3o9i', '3rsx', '3uo4', '4bkt', '4e6q', '4ih7', '4kzu', '4ty7', '1bzc', '1o0h',
+    '1sqa', '2brb', '2qbr', '2wn9', '2yki', '3b1m', '3dxg', '3g0w', '3k5v', '3oe4',
+    '3ryj', '3up2', '4cig', '4ea2', '4ivb', '4llx', '4u4s', '1c5z', '1o3f', '1syi',
+    '2c3i', '2qe4', '2wnc', '2ymd', '3b27', '3e5a', '3g2n', '3kgp', '3oe5', '3syr',
+    '3uri', '4ciw', '4eky', '4ivc', '4lzs', '4w9c', '1e66', '1o5b', '1u1b', '2cbv',
+    '2qnq', '2wtv', '2zb1', '3b5r', '3e92', '3g2z', '3kr8', '3ozs', '3tsk', '3utu',
+    '4cr9', '4eo8', '4ivd', '4m0y', '4w9h', '1eby', '1owh', '1uto', '2cet', '2r9w',
+    '2wvt', '2zcq', '3b65', '3e93', '3g31', '3kwa', '3ozt', '3twp', '3uuo', '4cra',
+    '4eor', '4j21', '4m0z', '4w9i', '1g2k', '1oyt', '1vso', '2fvd', '2v00', '2x00',
+    '2zcr', '3b68', '3ebp', '3gbb', '3l7b', '3p5o', '3u5j', '3wtj', '4crc', '4f09',
+    '4j28', '4mgd', '4w9l', '1gpk', '1p1n', '1w4o', '2fxs', '2v7a', '2xb8', '2zda',
+    '3bgz', '3ehy', '3gc5', '3lka', '3prs', '3u8k', '3wz8', '4ddh', '4f2w', '4j3l',
+    '4mme', '4wiv', '1gpn', '1p1q', '1y6r', '2hb1', '2vkm', '2xbv', '2zy1', '3bv9',
+    '3ejr', '3ge7', '3mss', '3pww', '3u8n', '3zdg', '4ddk', '4f3c', '4jfs', '4ogj',
+    '4x6p', '1h22', '1ps3', '1yc1', '2iwx', '2vvn', '2xdl', '3acw', '3cj4', '3f3a',
+    '3gnw', '3myg', '3pxf', '3u9q', '3zso', '4de1', '4f9w', '4jia', '4owm', '5a7b',
+    '1h23', '1pxn', '1ydr', '2j78', '2vw5', '2xii', '3ag9', '3coy', '3f3c', '3gr2',
+    '3n76', '3pyy', '3udh', '3zsx', '4de2', '4gfm', '4jsz', '4pcs', '5aba', '1k1i',
+    '1q8t', '1ydt', '2j7h', '2w4x', '2xj7', '3ao4', '3coz', '3f3d', '3gv9', '3n7a',
+    '3qgy', '3ueu', '3zt2', '4de3', '4gid', '4jxs', '4qac', '5c28', '1lpg', '1q8u',
+    '1z6e', '2p15', '2w66', '2xnb', '3arp', '3d4z', '3f3e', '3gy4', '3n86', '3qqs',
+    '3uev', '4abg', '4djv', '4gkm', '4k18', '4qd6', '5c2h', '1mq6', '1qf1', '1z95',
+    '2p4y', '2wbg', '2xys', '3arq', '3d6q', '3fcq', '3ivg', '3nq9', '3r88', '3uew',
+    '4agn', '4dld', '4gr0', '4k77', '4rfm', '5dwr', '1nc1', '1qkt', '1z9g', '2pog',
+    '2wca', '2y5h', '3aru', '3dd0', '3fur', '3jvr', '3nw9', '3rlr', '3uex', '4agp',
+    '4dli', '4hge', '4kz6', '4tmn', '5tmn'
+}
 
 
 class pdbbind(object):
@@ -62,8 +96,9 @@ class pdbbind(object):
                 csv_file = os.path.join(self.home, 'INDEX.%i.%s.data'
                                         % (version, pdbind_set))
             elif version >= 2016:
+                pdbind_set_csv = 'refined' if pdbind_set == 'core' else pdbind_set
                 csv_file = os.path.join(self.home, 'index', 'INDEX_%s_data.%i'
-                                        % (pdbind_set, version))
+                                        % (pdbind_set_csv, version))
             else:
                 csv_file = os.path.join(self.home, 'INDEX_%s_data.%i'
                                         % (pdbind_set, version))
@@ -77,12 +112,16 @@ class pdbbind(object):
                                           'release_year',
                                           'act'],
                                    comment='#')
+                if version >= 2016 and pdbind_set == 'core':
+                    data = data[data['pdbid'].isin(CASF_2016_IDS)]
                 self._set_ids[pdbind_set] = data['pdbid'].tolist()
                 self._set_act[pdbind_set] = data['act'].tolist()
                 self.sets[pdbind_set] = dict(zip(self._set_ids[pdbind_set],
                                                  self._set_act[pdbind_set]))
+            else:
+                raise IOError('PDBbind v%i set %s not found' % (version, pdbind_set))
         if len(self.sets) == 0:
-            raise Exception('There is no PDBbind set availabe')
+            raise IOError('There is no PDBbind set availabe')
 
     @property
     def ids(self):
@@ -102,13 +141,13 @@ class pdbbind(object):
                     'current toolkit. Proceed at your own risk.' % pdbid)
         if pdbid in self.ids:
             if pdbid in self.protein_blacklist[toolkit.backend]:
-                warnings.warn(warn_msg, UserWarning)
+                logging.warning(warn_msg)
             return _pdbbind_id(self.home, pdbid, opt=self.opt)
         elif (isinstance(pdbid, int) and
               pdbid < len(self.ids) and
               pdbid >= -len(self.ids)):
             if self.ids[pdbid] in self.protein_blacklist[toolkit.backend]:
-                warnings.warn(warn_msg, UserWarning)
+                logging.warning(warn_msg)
             return _pdbbind_id(self.home + '', self.ids[pdbid], opt=self.opt)
         else:
             raise KeyError('There is no such target ("%s")' % pdbid)

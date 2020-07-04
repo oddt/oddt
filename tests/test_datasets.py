@@ -22,7 +22,7 @@ def test_pdbbind():
     with pytest.raises(ValueError):
         pdbbind(home=os.path.join(test_data_dir, 'data', 'pdbbind'))
 
-    for year in [2007, 2013, 2016]:
+    for year in [2007, 2013]:
         pdbbind_db = pdbbind(home=os.path.join(test_data_dir, 'data', 'pdbbind'),
                              version=year, default_set='core')
 

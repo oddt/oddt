@@ -80,7 +80,7 @@ class scorer(object):
 
     def _gen_pdbbind_desc(self,
                           pdbbind_dir,
-                          pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
+                          pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019),
                           desc_path=None,
                           include_general_set=False,
                           use_proteins=False,
