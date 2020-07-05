@@ -255,7 +255,7 @@ def test_model_train(model):
 
     data_dir = os.path.join(test_data_dir, 'data')
     home_dir = mkdtemp()
-    pdbbind_versions = (2007, 2013, 2016)
+    pdbbind_versions = (2007, 2013)
 
     pdbbind_dir = os.path.join(data_dir, 'pdbbind')
     for pdbbind_v in pdbbind_versions:
