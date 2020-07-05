@@ -121,7 +121,7 @@ class nnscore(scorer):
             return self.save(sf_pickle)
 
     @classmethod
-    def load(self, filename=None, pdbbind_version=2016):
+    def load(self, filename=None, pdbbind_version=2019):
         if filename is None:
             fname = 'NNScore_pdbbind%i.pickle' % (pdbbind_version)
             for f in [fname, path_join(dirname(__file__), fname)]:
