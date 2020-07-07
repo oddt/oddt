@@ -20,6 +20,9 @@ from oddt.fingerprints import (InteractionFingerprint,
                                fold,
                                MIN_HASH_VALUE,
                                MAX_HASH_VALUE,
+                               min_hash,
+                               hash32,
+                               choice,
                                sparse_to_dense,
                                sparse_to_csr_matrix,
                                csr_matrix_to_sparse,
@@ -59,6 +62,26 @@ def test_folding():
     # Range check
     fp = np.arange(1, MAX_HASH_VALUE, 1e6, dtype=int)
     assert_array_equal(fold(fp, MAX_HASH_VALUE), fp - 1)
+
+
+@pytest.mark.parametrize('a, size', [(4, 1), (4, 4), (2**32, 2**10)])
+@pytest.mark.parametrize('sampler', (None, np.random.RandomState(42)))
+def test_choice(a, size, sampler):
+    sample = choice(a, size, sampler=sampler)
+    assert len(sample) == size
+    assert len(sample) == len(set(sample))
+    assert (sample >= 0).all()
+    assert (sample < a).all()
+
+
+@pytest.mark.parametrize('seed', [0, 42, 123])
+@pytest.mark.parametrize('permutations', [2**i for i in range(8, 12)])
+def test_min_hashing(permutations, seed):
+    strings = ['C', 'CC', 'CO']
+    hashes = list(map(hash32, strings))
+    min_hashes = [min_hash(hashes, random_seed=seed, permutations=permutations)
+                  for _ in range(2)]
+    assert_array_equal(*min_hashes)
 
 
 def test_sparse_densify():

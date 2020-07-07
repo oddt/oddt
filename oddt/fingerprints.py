@@ -340,10 +340,40 @@ def csr_matrix_to_sparse(fp):
 MIN_HASH_VALUE = 0
 MAX_HASH_VALUE = 2 ** 32
 
+# prime number used for min_hash
+PRIME = 2 ** 61 - 1
+
 
 def hash32(value):
     """Platform independend 32bit hashing method"""
     return hash(value) & 0xffffffff
+
+
+def choice(A, k, sampler=None):
+    """np.random.choice replacement to deal with large numbers"""
+    sampler = sampler or np.random
+    sample = []
+    while len(sample) < k:
+        sampled_values = sampler.choice(A, k-len(sample))
+        for s in sampled_values:
+            if s not in sample:
+                sample.append(s)
+    return np.array(sample)
+
+
+def min_hash(hashed_values, permutations=128, random_seed=42):
+    """Calculates MinHash for a set hashed values. The resulting array will
+    have `permutations` values from [0, `MAX_HASH_VALUE`) range
+
+    adapted from:
+    https://github.com/reymond-group/mhfp/blob/1c281cf77c7129829cae7648cc83673b4f8315e8/mhfp/encoder.py#L138
+    """
+    sampler = np.random.RandomState(random_seed)
+    a = choice(MAX_HASH_VALUE, permutations, sampler).reshape((-1, 1))
+    b = choice(MAX_HASH_VALUE, permutations, sampler).reshape((-1, 1))
+    min_hashed_values = np.remainder(
+        np.remainder(a * hashed_values + b, PRIME), MAX_HASH_VALUE).min(axis=1)
+    return min_hashed_values
 
 
 def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
