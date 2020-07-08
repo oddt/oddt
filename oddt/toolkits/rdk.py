@@ -792,7 +792,7 @@ class Molecule(object):
             atom_dict['isplus'][np.intersect1d(matches, not_carbon)] = True
 
         # Acidic group
-        patt = Chem.MolFromSmarts('[$([C,S](=[O,S,P])-[O;H1])]')
+        patt = Chem.MolFromSmarts('[CX3](=O)[OX1H0-,OX2H1]')
         matches = np.array(self.Mol.GetSubstructMatches(patt, maxMatches=5000)).flatten()
         if len(matches) > 0:
             atom_dict['isminus'][np.intersect1d(matches, not_carbon)] = True

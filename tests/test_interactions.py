@@ -118,7 +118,7 @@ def test_pi_stacking():
 def test_salt_bridges():
     """Salt bridges test"""
     salt_bridges_count = np.array([len(salt_bridges(rec, mol)[0]) for mol in mols])
-    assert (salt_bridges_count > 0).any()
+    assert (salt_bridges_count > 0).all()
 
 
 def test_pi_cation():

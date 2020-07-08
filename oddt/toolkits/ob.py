@@ -536,7 +536,7 @@ class Molecule(pybel.Molecule):
             atom_dict['isplus'][np.intersect1d(matches - 1, not_carbon)] = True
 
         # Acidic group
-        patt = Smarts('[$([C,S](=[O,S,P])-[O;H1])]')
+        patt = Smarts('[CX3](=O)[OX1H0-,OX2H1]')
         matches = np.array(patt.findall(self)).flatten()
         if len(matches) > 0:
             atom_dict['isminus'][np.intersect1d(matches - 1, not_carbon)] = True
