@@ -4,15 +4,11 @@ cache: pip
 env:
     matrix:
         # Minimal required package versions
-        - ODDT_TOOLKIT=ob CONDA_PY=2.7 MINIMAL_REQ=1
-        - ODDT_TOOLKIT=rdk CONDA_PY=2.7  MINIMAL_REQ=1
-        - ODDT_TOOLKIT=ob CONDA_PY=3.5 MINIMAL_REQ=1
-        - ODDT_TOOLKIT=rdk CONDA_PY=3.5  MINIMAL_REQ=1
+        - ODDT_TOOLKIT=ob CONDA_PY=3.6 MINIMAL_REQ=1
+        - ODDT_TOOLKIT=rdk CONDA_PY=3.6  MINIMAL_REQ=1
         # Recent versions
-        - ODDT_TOOLKIT=ob CONDA_PY=2.7
         - ODDT_TOOLKIT=ob CONDA_PY=3.6
         - ODDT_TOOLKIT=ob CONDA_PY=3.7
-        - ODDT_TOOLKIT=rdk CONDA_PY=2.7
         - ODDT_TOOLKIT=rdk CONDA_PY=3.6
         - ODDT_TOOLKIT=rdk CONDA_PY=3.7
 
@@ -56,23 +52,19 @@ install:
     - source activate test-environment
     - |
         if [[ "$MINIMAL_REQ" == "1" ]]; then
-            conda install -q -c conda-forge numpy=1.11 numpy-base=1.11 scipy=0.17.1 joblib=0.10.0 scikit-image=0.12.3 xlsxwriter \
+            conda install -q -c conda-forge numpy=1.12 scipy=0.19 joblib=0.10.3 scikit-image=0.12.3 xlsxwriter \
                 scikit-learn=0.18 pandas=0.19.2;
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
-                conda install -q -c oddt/label/travis openbabel=2.3.2;
+                conda install -q -c conda-forge openbabel=3.0.0;
             elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
-                conda install -q -c rdkit rdkit=2016.03.4 numpy=1.11;
+                conda install -q -c rdkit rdkit=2018.03 numpy=1.12;
             fi
         else
             conda install -q -c anaconda numpy "scipy<1.3" scikit-learn joblib pandas scikit-image xlsxwriter;
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
                 conda install -q -c conda-forge openbabel;
             elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
-                if [[ "$CONDA_PY" == "3.5" ]]; then
-                    conda install -q -c rdkit -c anaconda rdkit boost=1.65;
-                else
-                    conda install -q -c rdkit rdkit;
-                fi;
+                conda install -q -c rdkit rdkit;
             fi
         fi
         conda install -q -c bioconda autodock-vina
