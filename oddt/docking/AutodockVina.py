@@ -263,29 +263,21 @@ class autodock_vina(object):
 
             # docked conformations may have wrong connectivity - use source ligand
             if is_openbabel_molecule(ligand):
-                if oddt.toolkits.ob.__version__ >= '2.4.0':
-                    # find the order of PDBQT atoms assigned by OpenBabel
-                    with open(ligand_file) as f:
-                        write_order = [int(line[7:12].strip())
-                                       for line in f
-                                       if line[:4] == 'ATOM']
-                    new_order = sorted(range(len(write_order)),
-                                       key=write_order.__getitem__)
-                    new_order = [i + 1 for i in new_order]  # OBMol has 1 based idx
+                # find the order of PDBQT atoms assigned by OpenBabel
+                with open(ligand_file) as f:
+                    write_order = [int(line[7:12].strip())
+                                   for line in f
+                                   if line[:4] == 'ATOM']
+                new_order = sorted(range(len(write_order)),
+                                   key=write_order.__getitem__)
+                new_order = [i + 1 for i in new_order]  # OBMol has 1 based idx
 
-                    assert len(new_order) == len(ligand.atoms)
-                else:
-                    # Openbabel 2.3.2 does not support perserving atom order.
-                    # We read back the PDBQT ligand to get "correct" bonding.
-                    ligand = next(oddt.toolkit.readfile('pdbqt', ligand_file))
-                    if 'REMARK' in ligand.data:
-                        del ligand.data['REMARK']
+                assert len(new_order) == len(ligand.atoms)
 
             docked_ligands = oddt.toolkit.readfile('pdbqt', ligand_outfile)
             for docked_ligand, score in zip(docked_ligands, scores):
                 # Renumber atoms to match the input ligand
-                if (is_openbabel_molecule(docked_ligand) and
-                        oddt.toolkits.ob.__version__ >= '2.4.0'):
+                if is_openbabel_molecule(docked_ligand):
                     docked_ligand.OBMol.RenumberAtoms(new_order)
                 # HACK: copy docked coordinates onto source ligand
                 # We assume that the order of atoms match between ligands
@@ -366,20 +358,7 @@ def write_vina_pdbqt(mol, directory, flexible=True, name_id=None):
     else:
         kwargs = {'flexible': flexible}
 
-    # HACK: fix OB 2.3.2 PDBQT bugs
-    if (not flexible and is_openbabel_molecule(mol) and
-            oddt.toolkits.ob.__version__ < '2.4.0'):
-        with open(mol_file, 'w') as f:
-            for line in mol.write('pdbqt', overwrite=True, **kwargs).split('\n'):
-                # remove OB 2.3 ROOT/ENDROOT tags
-                if line in ['ROOT', 'ENDROOT']:
-                    continue
-                elif line[:7] == 'TORSDOF':
-                    f.write('TER\n')
-                else:
-                    f.write(line + '\n')
-    else:
-        mol.write('pdbqt', mol_file, overwrite=True, **kwargs)
+    mol.write('pdbqt', mol_file, overwrite=True, **kwargs)
     return mol_file
 
 

@@ -9,6 +9,7 @@ from itertools import chain
 from subprocess import check_output
 import warnings
 from tempfile import NamedTemporaryFile
+import logging
 
 import gzip
 from base64 import b64encode
@@ -47,16 +48,14 @@ try:
     __version__ = check_output(['obabel', '-V']).split()[2].decode('ascii')
 except Exception as e:
     __version__ = ''
+
+if __version__ and __version__ < '3.0.0':
+    logging.error('Installed OpenBabel version %s is not supported.' % __version__)
+
 # setup typetable to translate atom types
 typetable = OBTypeTable()
 typetable.SetFromType('INT')
 typetable.SetToType('SYB')
-
-# setup ElementTable
-if __version__ >= '3.0.0':
-    GetVdwRad = ob.GetVdwRad
-else:
-    GetVdwRad = ob.OBElementTable().GetVdwRad
 
 # hash OB!
 ob.obErrorLog.StopLogging()
@@ -112,9 +111,6 @@ def _filereader_pdb(filename, opt=None):
 
 def readfile(format, filename, opt=None, lazy=False):
     if format == 'mol2':
-        if __version__ < '2.4.0':
-            warnings.warn('OpenBabel 2.3.2 does not support writing data in '
-                          'comments ["-xc"]. Please upgrade to OB 2.4')
         if opt:
             opt['c'] = None
         else:
@@ -212,12 +208,6 @@ class Molecule(pybel.Molecule):
         # Use lazy molecule if possible
         if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
             return self._source['string']
-        # Workaround OB 2.3.2 + Py3 PNG encoding error
-        elif format == '_png2' and filename is None and PY3 and __version__ < '2.4.0':
-            with NamedTemporaryFile(suffix='.png') as f:
-                super(Molecule, self).write(format=format, filename=f.name, overwrite=True, opt=opt)
-                output = f.read()
-            return output
         else:
             return super(Molecule, self).write(format=format, filename=filename, overwrite=overwrite, opt=opt)
 
@@ -284,17 +274,7 @@ class Molecule(pybel.Molecule):
             * mmff94
             * others supported by OpenBabel (`obabel -L charges`)
         """
-        if __version__ < '2.4.0':  # TODO: Get rid of this block for new OB
-            if model in pybel._getpluginnames('charges'):
-                m = pybel._getplugins(ob.OBChargeModel.FindType, [model])[model]
-                if not m.ComputeCharges(self.OBMol):
-                    raise Exception('Could not assigh partial charges for '
-                                    'molecule "%s"' % self.title)
-            else:
-                raise ValueError('Model "%s" is not supported in OpenBabel' %
-                                 model)
-        else:
-            super(Molecule, self).calccharges(model)
+        super(Molecule, self).calccharges(model)
         self._clear_cache()
 
     # Custom ODDT properties #
@@ -491,7 +471,7 @@ class Molecule(pybel.Molecule):
             assert i == atom.idx0
             atom_dict[i] = (i,
                             coords,
-                            GetVdwRad(atomicnum),
+                            ob.GetVdwRad(atomicnum),
                             partialcharge,
                             atomicnum,
                             atomtype,
@@ -717,10 +697,6 @@ def diverse_conformers_generator(mol, n_conf=10, method='confab', seed=None,
     mols : list of oddt.toolkit.Molecule objects
         Molecules with diverse conformers
     """
-    if __version__ < '2.4.0':
-        raise NotImplementedError('Diverse conformer generation is not '
-                                  'implemented in OpenBabel before 2.4.0.')
-
     check_molecule(mol, force_coords=True)
     mol_clone = mol.clone
     if seed is not None and hasattr(ob, 'OBRandom'):
