@@ -62,7 +62,7 @@ install:
                 conda install -q -c rdkit rdkit=2018.03 numpy=1.12;
             fi
         else
-            conda install -q -c anaconda numpy "scipy<1.3" scikit-learn joblib pandas scikit-image xlsxwriter;
+            conda install -q -c anaconda numpy scikit-learn joblib pandas scikit-image xlsxwriter;
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
                 conda install -q -c conda-forge openbabel;
             elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
