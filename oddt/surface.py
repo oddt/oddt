@@ -12,11 +12,7 @@ from scipy.spatial import cKDTree
 
 try:
     from skimage.morphology import ball, binary_closing
-    from skimage import __version__ as skimage_version
-    if LooseVersion(skimage_version) >= LooseVersion('0.13'):
-        from skimage.measure import marching_cubes_lewiner as marching_cubes
-    else:
-        from skimage.measure import marching_cubes
+    from skimage.measure import marching_cubes
 except ImportError as e:
     warnings.warn('scikit-image could not be imported and is required for'
                   'generating molecular surfaces.')
@@ -112,9 +108,6 @@ def generate_surface_marching_cubes(molecule, remove_hoh=False, scaling=1.,
 
     # Verts already scaled by the marching cubes function (spacing parameter)
     # Only need to scale the offset
-    # Results in skimage version lower than 0.11 are offset by 1 in each direction
-    if LooseVersion(skimage_version) < LooseVersion('0.11'):
-        verts += 1 / scaling
     return verts - offset / scaling, faces
 
 
