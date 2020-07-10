@@ -9,8 +9,10 @@ env:
         # Recent versions
         - ODDT_TOOLKIT=ob CONDA_PY=3.6
         - ODDT_TOOLKIT=ob CONDA_PY=3.7
+        - ODDT_TOOLKIT=ob CONDA_PY=3.8
         - ODDT_TOOLKIT=rdk CONDA_PY=3.6
         - ODDT_TOOLKIT=rdk CONDA_PY=3.7
+        - ODDT_TOOLKIT=rdk CONDA_PY=3.8
 
     global:
         secure: "XOHub9EE1aj4xDWvws5Ej1oGvb5Dw2vVnDRKpU9ZP5Ko9yJ6AYvy3zDeHBb83htp2JSxdciIB5voBb3LF+o0YliBpHdgrub8CgV8VH3Lpl+f0X14yBsnP/swwY0Lde/Xyq2lq6FcP3siNx8OpaSFFTDIZnAqt/kKzUzBknd9wgA="
@@ -64,7 +66,7 @@ install:
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
                 conda install -q -c conda-forge openbabel;
             elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
-                conda install -q -c rdkit rdkit;
+                conda install -q -c conda-forge rdkit;
             fi
         fi
         conda install -q -c bioconda autodock-vina
