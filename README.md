@@ -22,7 +22,7 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   * Sklearn (0.18+)
   * joblib (0.10+)
   * pandas (0.19.2+)
-  * Skimage (0.13+) (optional, only for surface generation)
+  * Skimage (0.12.3+) (optional, only for surface generation)
 
 ## Install
 

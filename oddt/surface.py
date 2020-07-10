@@ -5,13 +5,20 @@ from __future__ import division
 from numbers import Number
 import warnings
 
-import oddt.toolkits
+from distutils.version import LooseVersion
+
 import numpy as np
 from scipy.spatial import cKDTree
 
+import oddt.toolkits
+
 try:
     from skimage.morphology import ball, binary_closing
-    from skimage.measure import marching_cubes_lewiner
+    from skimage import __version__ as skimage_version
+    if LooseVersion(skimage_version) >= LooseVersion('0.13'):
+        from skimage.measure import marching_cubes_lewiner
+    else:
+        from skimage.measure import marching_cubes as marching_cubes_lewiner
 except ImportError as e:
     warnings.warn('scikit-image could not be imported and is required for'
                   'generating molecular surfaces.')

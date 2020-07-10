@@ -54,7 +54,7 @@ install:
     - source activate test-environment
     - |
         if [[ "$MINIMAL_REQ" == "1" ]]; then
-            conda install -q -c conda-forge numpy=1.12 scipy=0.19 joblib=0.10.3 scikit-image=0.13 xlsxwriter \
+            conda install -q -c conda-forge numpy=1.12 scipy=0.19 joblib=0.10.3 scikit-image=0.12.3 xlsxwriter \
                 scikit-learn=0.18 pandas=0.19.2;
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
                 conda install -q -c conda-forge openbabel=3.0.0;
