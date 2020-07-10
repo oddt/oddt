@@ -233,6 +233,11 @@ class universal_descriptor(object):
         protein: oddt.toolkit.Molecule or None (default=None)
             Default protein to use as reference
 
+        shape: int or tuple (default=None)
+            The final shape of output
+
+        sparse: bool (default=True)
+            Flag to return sparse matrix
         """
         self.func = func
         self.protein = protein

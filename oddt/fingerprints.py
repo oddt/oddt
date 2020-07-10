@@ -789,7 +789,7 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
         for pair in zip_longest(ligand_ecfp, protein_ecfp, fillvalue=fillvalue):
                 result.append(hash32(pair))
     # folding and sorting
-    plec = np.sort(fold(np.array(result), size=size))
+    plec = np.sort(fold(np.array(result), size=size)).astype(np.min_scalar_type(size))
 
     # count_bits
     if not count_bits:
