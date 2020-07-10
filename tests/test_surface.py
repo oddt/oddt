@@ -4,6 +4,7 @@ from distutils.version import LooseVersion
 import numpy as np
 import pytest
 from numpy.testing import assert_array_equal
+from skimage import __version__ as skimage_version
 
 import oddt
 from oddt.surface import (generate_surface_marching_cubes,
@@ -29,25 +30,45 @@ def test_generate_surface_marching_cubes():
 
     # versions of skimage older than 0.12 use a slightly different version of the marching cubes algorithm
     # producing slightly different results
-    if (oddt.toolkit.backend == 'ob' or
-            oddt.toolkit.backend == 'rdk' and oddt.toolkits.rdk.__version__ >= '2019.09'):
-        ref_vert_shape_1 = (9040, 3)
-        ref_face_shape_1 = (18094, 3)
-        ref_vert_shape_2 = (35950, 3)
-        ref_face_shape_2 = (71926, 3)
-        ref_vert_shape_3 = (9040, 3)
-        ref_face_shape_3 = (18094, 3)
-        ref_vert_shape_4 = (14881, 3)
-        ref_face_shape_4 = (30468, 3)
+    if LooseVersion(skimage_version) >= LooseVersion('0.13'):
+        if (oddt.toolkit.backend == 'ob' or
+                oddt.toolkit.backend == 'rdk' and oddt.toolkits.rdk.__version__ >= '2019.09'):
+            ref_vert_shape_1 = (9040, 3)
+            ref_face_shape_1 = (18094, 3)
+            ref_vert_shape_2 = (35950, 3)
+            ref_face_shape_2 = (71926, 3)
+            ref_vert_shape_3 = (9040, 3)
+            ref_face_shape_3 = (18094, 3)
+            ref_vert_shape_4 = (14881, 3)
+            ref_face_shape_4 = (30468, 3)
+        else:
+            ref_vert_shape_1 = (9044, 3)
+            ref_face_shape_1 = (18102, 3)
+            ref_vert_shape_2 = (35788, 3)
+            ref_face_shape_2 = (71578, 3)
+            ref_vert_shape_3 = (9044, 3)
+            ref_face_shape_3 = (18102, 3)
+            ref_vert_shape_4 = (15035, 3)
+            ref_face_shape_4 = (30848, 3)
     else:
-        ref_vert_shape_1 = (9044, 3)
-        ref_face_shape_1 = (18102, 3)
-        ref_vert_shape_2 = (35788, 3)
-        ref_face_shape_2 = (71578, 3)
-        ref_vert_shape_3 = (9044, 3)
-        ref_face_shape_3 = (18102, 3)
-        ref_vert_shape_4 = (15035, 3)
-        ref_face_shape_4 = (30848, 3)
+        if oddt.toolkit.backend == 'ob':
+            ref_vert_shape_1 = (5923, 3)
+            ref_face_shape_1 = (11862, 3)
+            ref_vert_shape_2 = (20819, 3)
+            ref_face_shape_2 = (41634, 3)
+            ref_vert_shape_3 = (5923, 3)
+            ref_face_shape_3 = (11862, 3)
+            ref_vert_shape_4 = (10263, 3)
+            ref_face_shape_4 = (21658, 3)
+        else:
+            ref_vert_shape_1 = (5916, 3)
+            ref_face_shape_1 = (11848, 3)
+            ref_vert_shape_2 = (20845, 3)
+            ref_face_shape_2 = (41686, 3)
+            ref_vert_shape_3 = (5916, 3)
+            ref_face_shape_3 = (11848, 3)
+            ref_vert_shape_4 = (10243, 3)
+            ref_face_shape_4 = (21686, 3)
 
     assert ref_vert_shape_1 == verts1.shape
     assert ref_face_shape_1 == faces1.shape
