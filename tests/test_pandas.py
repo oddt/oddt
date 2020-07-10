@@ -87,7 +87,7 @@ def test_substruct_sim_search():
 
 def test_mol2():
     """Writing and reading of mol2 fils to/from ChemDataFrame"""
-    if (oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ >= '2.4.0'):
+    if oddt.toolkit.backend == 'ob':
         df = opd.read_sdf(input_fname)
         with NamedTemporaryFile(suffix='.mol2') as f:
             df.to_mol2(f.name)

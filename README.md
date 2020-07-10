@@ -15,12 +15,12 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   * Issues: https://github.com/oddt/oddt/issues
 
 ## Requrements
-  * Python 2.7 or 3.5+
-  * OpenBabel (2.3.2+) or/and RDKit (2016.03)
-  * Numpy (1.11+)
-  * Scipy (0.17+)
+  * Python 3.6+
+  * OpenBabel (3.0+) or/and RDKit (2018.03+)
+  * Numpy (1.12+)
+  * Scipy (0.19+)
   * Sklearn (0.18+)
-  * joblib (0.9.4+)
+  * joblib (0.10+)
   * pandas (0.19.2+)
   * Skimage (0.12.3+) (optional, only for surface generation)
 
@@ -44,13 +44,13 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   > conda install -c oddt oddt
 
   You can add a toolkit of your choice or install them along with oddt:
-  > conda install -c oddt oddt rdkit openbabel
+  > conda install -c conda-forge oddt rdkit openbabel
 
   (Optionally) Install OpenBabel (using [official  channel](https://anaconda.org/openbabel/openbabel)):
-  > conda install -c openbabel openbabel
+  > conda install -c conda-forge openbabel
 
   (Optionally) install RDKit (using [official channel](https://anaconda.org/rdkit/rdkit)):
-  > conda install -c rdkit rdkit
+  > conda install -c conda-forge rdkit
 
   Upgrading procedure using conda is straightforward:
   > conda update -c oddt oddt

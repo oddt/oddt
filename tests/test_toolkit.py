@@ -190,11 +190,6 @@ def test_diverse_conformers():
     )
     mol.make3D()
 
-    if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '2.4.0':
-        with pytest.raises(NotImplementedError):
-            diverse_conformers_generator(mol)
-        return None  # skip test for older OB
-
     res = []
     for conf in diverse_conformers_generator(mol, seed=123456):
         res.append(rmsd(mol, conf))

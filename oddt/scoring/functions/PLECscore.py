@@ -107,7 +107,6 @@ class PLECscore(scorer):
             model = RandomForestRegressor(n_estimators=100,
                                           n_jobs=n_jobs,
                                           verbose=0,
-                                          oob_score=True,
                                           random_state=0)
         else:
             raise ValueError('The version "%s" is not supported by PLECscore'
@@ -273,8 +272,6 @@ class PLECscore(scorer):
             sets = [
                 ('Test', self.model.predict(self.test_descs), self.test_target),
                 ('Train', self.model.predict(self.train_descs), self.train_target)]
-            if self.version == 'rf':
-                sets.append(('OOB', self.model.oob_prediction_, self.train_target))
 
             for name, pred, target in sets:
                 if len(target) < 3:
