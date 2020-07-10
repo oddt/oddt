@@ -822,11 +822,8 @@ def dice(a, b, sparse=False):
 
     """
     if sparse:
-        # TODO numpy 1.9.0 has return_counts
-        a_unique, inv = np.unique(a, return_inverse=True)
-        a_counts = np.bincount(inv)
-        b_unique, inv = np.unique(b, return_inverse=True)
-        b_counts = np.bincount(inv)
+        a_unique, a_counts = np.unique(a, return_counts=True)
+        b_unique, b_counts = np.unique(b, return_counts=True)
         a_b_intersection = np.intersect1d(
             a_unique, b_unique, assume_unique=True)
         a_b = np.minimum(a_counts[np.in1d(a_unique, a_b_intersection)],
