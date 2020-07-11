@@ -4,11 +4,14 @@
 
 """
 from __future__ import division
-from six.moves import zip_longest
 from itertools import chain
 from collections import OrderedDict
+import sys
+
+from six.moves import zip_longest
 import numpy as np
 from scipy.sparse import csr_matrix, isspmatrix_csr
+
 import oddt
 from oddt.utils import is_openbabel_molecule
 from oddt.interactions import (pi_stacking,
@@ -343,7 +346,36 @@ MAX_HASH_VALUE = 2 ** 32
 
 def hash32(value):
     """Platform independend 32bit hashing method"""
-    return hash(value) & 0xffffffff
+    return hash_fnv1a_python(value) & 0xffffffff
+
+
+if sys.version_info < (3, 8):
+    hash_fnv1a_python = hash
+else:
+    def hash_fnv1a_python(input_object):
+        """Function hashing nested tuple of ints as implemented in Python 2.4-3.7.
+        It uses modified FNV-1a algorithm. Implementation ported from Python source:
+        https://github.com/python/cpython/blob/3.7/Objects/tupleobject.c#L348-L369
+        """
+        hash_value = 0x345678
+        multiplier = 1000003
+        input_length = len(input_object)
+        max_uint_mask = 2 * sys.maxsize + 1
+        for idx, item in enumerate(input_object, 1):
+            if isinstance(item, tuple):
+                y = hash_fnv1a_python(item)
+            elif isinstance(item, int):
+                y = item
+            else:
+                raise ValueError('Unsupported type %s' % type(input_object))
+            if y == -1:
+                return -1
+            hash_value = ((hash_value ^ y) * multiplier) & max_uint_mask
+            multiplier += (82520 + 2 * (input_length - idx))
+        hash_value += 97531
+        if hash_value == -1:
+            return -2
+        return hash_value & max_uint_mask
 
 
 def _ECFP_atom_repr(mol, idx, use_pharm_features=False):

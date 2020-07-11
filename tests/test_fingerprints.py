@@ -1,4 +1,5 @@
 import os
+import sys
 from itertools import combinations
 
 import numpy as np
@@ -24,6 +25,7 @@ from oddt.fingerprints import (InteractionFingerprint,
                                sparse_to_csr_matrix,
                                csr_matrix_to_sparse,
                                dense_to_sparse,
+                               hash_fnv1a_python,
                                dice,
                                tanimoto)
 from .utils import shuffle_mol
@@ -59,6 +61,18 @@ def test_folding():
     # Range check
     fp = np.arange(1, MAX_HASH_VALUE, 1e6, dtype=int)
     assert_array_equal(fold(fp, MAX_HASH_VALUE), fp - 1)
+
+@pytest.mark.skipif(sys.version_info > (3, 7), reason="Only testable with old Python Hash implementation")
+def test_hashing_function():
+    """Verify the implementation of Python 2.4-3.7 hash function in Python"""
+    sample_list = list(range(-10, 10))
+    # add nested structure
+    sample_list.append(tuple(sample_list))
+    sample_list.append(tuple(sample_list))
+    for sample_tuple in combinations(sample_list, r=5):
+        python_hash = hash(sample_tuple)
+        custom_hash = hash_fnv1a_python(sample_tuple)
+        assert python_hash == custom_hash
 
 
 def test_sparse_densify():
