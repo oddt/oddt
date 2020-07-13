@@ -67,7 +67,10 @@ def test_vs_docking():
     assert 'vina_affinity' in mol_data
     assert 'vina_rmsd_lb' in mol_data
     assert 'vina_rmsd_ub' in mol_data
-    vina_scores = [-6.3, -6.0, -5.8, -5.8, -3.9, -3.0, -1.1]
+    if oddt.toolkit.backend == 'ob' and oddt.toolkit.__version__ < '3.0':
+        vina_scores = [-5.3, -4.0, -3.8, -3.7, -3.4, -3.4, -3.0]
+    else:
+        vina_scores = [-6.3, -6.0, -5.8, -5.8, -3.9, -3.0, -1.1]
     assert_array_equal([float(m.data['vina_affinity']) for m in mols], vina_scores)
 
     # verify the SMILES of molecules
@@ -175,19 +178,19 @@ def test_vs_similarity():
 
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
-    vs.similarity('ifp', cutoff=0.8, query=ref_mol, protein=receptor)
+    vs.similarity('ifp', cutoff=0.9, query=ref_mol, protein=receptor)
     if oddt.toolkit.backend == 'ob':
-        assert len(list(vs.fetch())) == 22
+        assert len(list(vs.fetch())) == 11
     else:
-        assert len(list(vs.fetch())) == 22
+        assert len(list(vs.fetch())) == 10
 
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('sdf', xiap_actives_docked)
-    vs.similarity('sifp', cutoff=0.8, query=ref_mol, protein=receptor)
+    vs.similarity('sifp', cutoff=0.9, query=ref_mol, protein=receptor)
     if oddt.toolkit.backend == 'ob':
-        assert len(list(vs.fetch())) == 22
+        assert len(list(vs.fetch())) == 11
     else:
-        assert len(list(vs.fetch())) == 22
+        assert len(list(vs.fetch())) == 10
 
     # test wrong method error
     with pytest.raises(ValueError):
