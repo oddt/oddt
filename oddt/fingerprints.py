@@ -5,7 +5,7 @@
 """
 from __future__ import division
 from itertools import chain
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 import sys
 
 from six.moves import zip_longest
@@ -378,6 +378,60 @@ else:
         return hash_value & max_uint_mask
 
 
+def get_atom_environments(mol, root_atom_idx, depth):
+    """Get circular environments of atom indices up to certain depth.
+    Atoms from each depth are kept separate.
+    BFS search is done until atom outside of given depth is found.
+
+    Parameters
+    ----------
+    mol : oddt.toolkit.Molecule object
+        Molecule object containing environments
+
+    root_atom_idx : int
+        0-based index of root atom for all environments
+
+    depth : int
+        Maximum depth of environments to return
+
+    Returns
+    -------
+    envs: list (size = depth + 1)
+        List of atoms at each respective environment depth
+    """
+
+    if is_openbabel_molecule(mol):
+        envs = OrderedDict([(i, []) for i in range(depth + 1)])
+        last_depth = 0
+        for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol,
+                                                                        root_atom_idx + 1):
+            # FIX for disconnected fragments in OB
+            if ((current_depth > depth + 1) or
+                    (last_depth > current_depth) or
+                    (last_depth == 1 and current_depth == 1)):
+                break
+            last_depth = current_depth
+            if atom.GetAtomicNum() == 1:
+                continue
+            envs[current_depth - 1].append(atom.GetIdx() - 1)
+        envs = list(envs.values())
+    else:
+        envs = [[root_atom_idx]]
+        visited = [root_atom_idx]
+        for r in range(1, depth + 1):
+            current_depth_atoms = []
+            for atom_idx in envs[r - 1]:
+                for neighbor in mol.Mol.GetAtomWithIdx(atom_idx).GetNeighbors():
+                    if neighbor.GetAtomicNum() == 1:
+                        continue
+                    n_idx = neighbor.GetIdx()
+                    if n_idx not in visited and n_idx not in current_depth_atoms:
+                        current_depth_atoms.append(n_idx)
+                        visited.append(n_idx)
+            envs.append(current_depth_atoms)
+    return envs
+
+
 def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
     """Simple description of atoms used in ECFP/FCFP. Bonds are not described
     accounted for. Hydrogens are explicitly forbidden, they raise Exception.
@@ -488,36 +542,7 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
     environment_hashes : list of ints
         Hashed environments for certain atom
     """
-    if is_openbabel_molecule(mol):
-        envs = OrderedDict([(i, []) for i in range(depth + 1)])
-        last_depth = 0
-        for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol,
-                                                                        idx + 1):
-            # FIX for disconnected fragments in OB
-            if ((current_depth > depth + 1) or
-                    (last_depth > current_depth) or
-                    (last_depth == 1 and current_depth == 1)):
-                break
-            last_depth = current_depth
-            if atom.GetAtomicNum() == 1:
-                continue
-            envs[current_depth - 1].append(atom.GetIdx() - 1)
-        envs = list(envs.values())
-    else:
-        envs = [[idx]]
-        visited = [idx]
-        for r in range(1, depth + 1):
-            tmp = []
-            for atom_idx in envs[r - 1]:
-                for neighbor in mol.Mol.GetAtomWithIdx(atom_idx).GetNeighbors():
-                    if neighbor.GetAtomicNum() == 1:
-                        continue
-                    n_idx = neighbor.GetIdx()
-                    if n_idx not in visited and n_idx not in tmp:
-                        tmp.append(n_idx)
-                        visited.append(n_idx)
-            envs.append(tmp)
-
+    envs = get_atom_environments(mol, root_atom_idx=idx, depth=depth)
     atom_env = []
     for r in range(1, depth + 2):  # there are depth + 1 elements, so +2
         atom_env.append(list(chain(*envs[:r])))
@@ -741,8 +766,12 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
         return np.sqrt((numla / nula) * (numpa / nupa))
 
 
+PLEC_bit_info_record = namedtuple('PLEC_bit_info_record',
+                                  'ligand_root_atom_idx ligand_depth protein_root_atom_idx protein_depth')
+
+
 def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
-         size=16384, count_bits=True, sparse=True, ignore_hoh=True):
+         size=16384, count_bits=True, sparse=True, ignore_hoh=True, bits_info=None):
     """Protein ligand extended connectivity fingerprint. For every pair of
     atoms in contact, compute ECFP and then hash every single, corresponding
     depth.
@@ -774,6 +803,11 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
         Should the water molecules be ignored. This is based on the name of the
         residue ('HOH').
 
+    bits_info : dict or None (default = None)
+        If dictionary is provided it is filled with information about bit contents.
+        Root atom index and depth is provided for both ligand and protein.
+        Dictionary is modified in-place.
+
     Returns
     -------
     PLEC : numpy array
@@ -781,6 +815,8 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
 
     """
     result = []
+    bit_info_content = []
+
     # removing h
     protein_mask = protein_no_h = (protein.atom_dict['atomicnum'] != 1)
     if ignore_hoh:
@@ -815,13 +851,34 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
         # it's used, when ligand_ecfp and protein_ecfp are not the same size,
         # so if one is shorter the last given ECFP is used
         if depth_ligand < depth_protein:
-            fillvalue = ligand_ecfp[-1]
+            fillvalue = depth_ligand, ligand_ecfp[-1]
         else:
-            fillvalue = protein_ecfp[-1]
-        for pair in zip_longest(ligand_ecfp, protein_ecfp, fillvalue=fillvalue):
-                result.append(hash32(pair))
+            fillvalue = depth_protein, protein_ecfp[-1]
+        for (ligand_depth, ligand_bit), (protein_depth, protein_bit) in zip_longest(
+                enumerate(ligand_ecfp), enumerate(protein_ecfp), fillvalue=fillvalue):
+            result.append(hash32((ligand_bit, protein_bit)))
+            if bits_info is not None:
+                bit_info_content.append(PLEC_bit_info_record(
+                    ligand_root_atom_idx=ligand_atom,
+                    ligand_depth=ligand_depth,
+                    protein_root_atom_idx= protein_atom,
+                    protein_depth=protein_depth
+                ))
+
     # folding and sorting
-    plec = np.sort(fold(np.array(result), size=size)).astype(np.min_scalar_type(size))
+    plec = fold(np.array(result), size=size)
+
+    # add bits info after folding
+    if bits_info is not None:
+        sort_indexes = np.argsort(plec)
+        plec = plec[sort_indexes].astype(np.min_scalar_type(size))
+        # sort bit info according to folded PLEC
+        for bit_number, bit_info_idx in zip(plec, sort_indexes):
+            if bit_number not in bits_info:
+                bits_info[bit_number] = set()
+            bits_info[bit_number].add(bit_info_content[bit_info_idx])
+    else:
+        plec = np.sort(plec).astype(np.min_scalar_type(size))
 
     # count_bits
     if not count_bits:
