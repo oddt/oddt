@@ -40,13 +40,25 @@ def test_close_contacts():
 def test_hbonds():
     """H-Bonds test"""
     hbonds_count = np.array([hbonds(rec, mol)[2].sum() for mol in mols])
-    assert (hbonds_count > 0).all()
+    assert_array_equal(hbonds_count,
+                       [2, 5, 4, 4, 3, 4, 2, 3, 4, 3, 3, 3, 3, 3, 5, 4, 3, 5,
+                        4, 5, 5, 3, 4, 6, 3, 4, 4, 4, 3, 3, 4, 3, 4, 3, 3, 3,
+                        3, 3, 3, 4, 3, 4, 4, 3, 4, 3, 5, 4, 3, 3, 3, 6, 4, 2,
+                        2, 3, 4, 4, 4, 4, 5, 2, 3, 4, 4, 3, 3, 3, 2, 5, 3, 4,
+                        3, 3, 5, 2, 3, 2, 2, 3, 5, 3, 3, 2, 3, 4, 2, 4, 3, 3,
+                        3, 5, 3, 4, 6, 4, 5, 3, 3, 2])
 
 
 def test_halogenbonds():
     """Halogen-Bonds test"""
     halogenbonds_count = np.array([len(halogenbonds(rec, mol)[2]) for mol in mols])
-    assert (halogenbonds_count > 0).any()
+    assert_array_equal(halogenbonds_count,
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
 
 def test_pi_stacking():
@@ -118,20 +130,43 @@ def test_pi_stacking():
 def test_salt_bridges():
     """Salt bridges test"""
     salt_bridges_count = np.array([len(salt_bridges(rec, mol)[0]) for mol in mols])
-    assert (salt_bridges_count > 0).all()
+    assert_array_equal(salt_bridges_count,
+                       [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                        2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                        2, 2, 2, 2, 1, 2, 2, 2, 2, 2])
 
 
 def test_pi_cation():
     """Pi-cation test"""
     pi_cation_count = np.array([len(pi_cation(rec, mol)[2]) for mol in mols])
-    assert (pi_cation_count > 0).any()
+    assert_array_equal(pi_cation_count,
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 2, 0, 0, 0, 0, 0])
 
     pi_cation_count = np.array([len(pi_cation(mol, rec)[2]) for mol in mols])
-    assert (pi_cation_count > 0).any()
+    assert_array_equal(pi_cation_count,
+                       [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                        2, 1, 1, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 1, 0, 2, 1, 0,
+                        2, 0, 0, 1, 1, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0, 1, 1,
+                        0, 1, 0, 0, 1, 2, 2, 1, 0, 1, 1, 1, 1, 0, 0, 1, 0, 0,
+                        0, 0, 0, 0, 1, 0, 0, 0, 2, 1, 0, 1, 0, 0, 1, 0, 1, 1,
+                        0, 1, 0, 0, 0, 0, 2, 0, 0, 1])
     # Strict
     pi_cation_count = np.array([pi_cation(mol, rec)[2].sum() for mol in mols])
-    assert (pi_cation_count > 0).any()
-
+    assert_array_equal(pi_cation_count,
+                       [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+                        0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
 
 def test_hyd_contacts():
     """Hydrophobic Contacts test"""
