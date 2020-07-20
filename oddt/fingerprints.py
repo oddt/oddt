@@ -963,3 +963,44 @@ def tanimoto(a, b, sparse=False):
         if denominator > 0:
             return a_b / denominator
     return 0.
+
+
+def get_molecular_shingles(mol, depth=2, atom_idxs=None):
+    """Get molecular shingles of given depth. They are equivalent to ECFP environments,
+    but use SMILES as a representation for each environment.
+
+    Parameters
+    ----------
+    mol: oddt.toolkit.Molecule instance
+        Query molecule object
+
+    detpth: int (default=2)
+        Bond depth of environtment that is used for shingles generation
+
+    atom_idxs: iterable of ints or None (default=None)
+        Which atoms to use for shingles generation. By default use all atoms.
+
+    Returns
+    -------
+    shingles: list
+        List of molecular shingles (canonical SMILES)
+
+    References
+    ----------
+        https://doi.org/10.1186/s13321-018-0321-8
+    """
+    shingles = []
+    atom_idxs = atom_idxs or range(len(mol.atoms))
+    for atom_idx in atom_idxs:
+        env = list(chain.from_iterable(get_atom_environments(mol, root_atom_idx=atom_idx, depth=depth)))
+        if is_openbabel_molecule(mol):
+            atom_idx_string = ' '.join(str(i + 1) for i in env)  # this is one-based
+            # OB fragment smiles contains names and whitespaces
+            fragment_smiles = mol.write('smi', opt={'c': None, 'F': atom_idx_string}).strip().split()[0]
+            shingles.append(fragment_smiles)
+
+        else:
+            fragment_smiles = oddt.toolkit.Chem.MolFragmentToSmiles(mol.Mol, atomsToUse=env, isomericSmiles=True)
+            shingles.append(fragment_smiles)
+
+    return shingles

@@ -25,6 +25,7 @@ from oddt.fingerprints import (InteractionFingerprint,
                                sparse_to_csr_matrix,
                                csr_matrix_to_sparse,
                                dense_to_sparse,
+                               get_molecular_shingles,
                                hash_fnv1a_python,
                                dice,
                                tanimoto)
@@ -591,3 +592,27 @@ def test_plec_similarity():
                           sparse=False) for mol in mols[1:]]
     assert_array_almost_equal(outcome_sparse, target_outcome, decimal=2)
     assert_array_almost_equal(outcome_dense, target_outcome, decimal=2)
+
+
+def test_molecular_shingles():
+    sildenafil = oddt.toolkit.readstring("smi", "CCCc1nn(C)c2c(=O)[nH]c(-c3cc(S(=O)(=O)N4CCN(C)CC4)ccc3OCC)nc12")
+    if oddt.toolkit.backend == 'ob':
+        target_shingles = [
+            'CCC', 'CCCc', 'CCCc(c)n', 'CCN(C)CC', 'CCN(CC)S(=O)(=O)c', 'CCO', 'CCOc', 'CCOc(c)c', 'CCc1nncc1n', 'CN(C)C',
+            'CN(C)S(=O)(=O)c(c)c', 'CN(S)CCN', 'CN(S)CCN', 'COc(cc)c(c)c', 'Cc1ccn(n1)C', 'Cn(c)n', 'Cn1ncc(c1c(=O)[nH])n',
+            'Cn1nccc1c', 'NCCN(C)C', 'NCCN(C)C', 'cS(=O)(=O)N', 'cS(=O)(=O)N', 'c[nH]c(=O)c(c)n', 'cc(=O)[nH]',
+            'cc([nH])nc(c)c', 'cc(c)cc(S)c', 'cc(n)[nH]c(=O)c', 'ccc(c(O)c)c(n)[nH]', 'ccc(cc)S(=O)(=O)N', 'cccc(O)c',
+            'cccc(S)c', 'cnc([nH]c)c(c)c', 'cnc1c(C)nnc1c']
+    else:
+
+        target_shingles = [
+            'CCC', 'CCN(C)CC', 'CCO', 'CCc1nncc1n', 'CN(C)C', 'CN(C)CCN', 'CN(C)CCN', 'CN(S)CCN', 'CN(S)CCN', 'Cc1ccn(C)n1',
+            'Cn1ncc(n)c1c([nH])=O', 'c-c([nH])nc(c)c', 'c-c(c)c(cc)OC', 'c-c(c)cc(c)S', 'c-c(n)[nH]c(c)=O', 'cCCC', 'cOCC',
+            'cS(=O)(=O)N(CC)CC', 'cS(N)(=O)=O', 'cS(N)(=O)=O', 'c[nH]c(=O)c(c)n', 'cc([nH])=O', 'cc(c)OCC',
+            'cc(c)S(=O)(=O)N(C)C', 'cc(n)CCC', 'cc1ccnn1C', 'ccc(-c(n)[nH])c(c)O', 'ccc(cc)S(N)(=O)=O', 'cccc(c)O',
+            'cccc(c)S', 'cn(C)n', 'cnc([nH]c)-c(c)c', 'cnc1c(C)nnc1c']
+
+    for n in range(10):
+        sildenafil = shuffle_mol(sildenafil)
+        shingles = sorted(get_molecular_shingles(sildenafil))
+        assert_array_equal(shingles, target_shingles)
