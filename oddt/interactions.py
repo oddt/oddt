@@ -73,7 +73,7 @@ def _check_angles(angles, hybridizations, tolerance):
     return ((angles > lower_bound) & (angles < upper_bound)).any(axis=-1)
 
 
-def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, tolerance=30):
+def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, tolerance=30, donor_exact=False):
     """Returns pairs of acceptor-donor atoms, which meet H-bond criteria
 
     Parameters
@@ -87,6 +87,10 @@ def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, tolerance=30):
     tolerance : int, (default=30)
         Range (+/- tolerance) from perfect direction defined by acceptor/donor hybridization
         in which H-bonds are considered as strict.
+    donor_exact : bool
+        Use exact protonation states for donors, i.e. require Hs on donor.
+        By default ODDT implies some tautomeric structures as protonated,
+        even if there is no H on specific atom.
 
     Returns
     -------
@@ -99,8 +103,11 @@ def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, tolerance=30):
         form 'strict' H-bond (pass all angular cutoffs). If false,
         only distance cutoff is met, therefore the bond is 'crude'.
     """
+    donor_mask = mol2.atom_dict['isdonor']
+    if donor_exact:
+        donor_mask = donor_mask & (mol2.atom_dict['numhs'] > 0)
     a, d = close_contacts(mol1.atom_dict[mol1.atom_dict['isacceptor']],
-                          mol2.atom_dict[mol2.atom_dict['isdonor']],
+                          mol2.atom_dict[donor_mask],
                           cutoff)
     # skip empty values
     if len(a) > 0 and len(d) > 0:
@@ -117,7 +124,7 @@ def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, tolerance=30):
         return a, d, np.array([], dtype=bool)
 
 
-def hbonds(mol1, mol2, cutoff=3.5, tolerance=30):
+def hbonds(mol1, mol2, cutoff=3.5, tolerance=30, mol1_exact=False, mol2_exact=False):
     """Calculates H-bonds between molecules
 
     Parameters
@@ -132,6 +139,11 @@ def hbonds(mol1, mol2, cutoff=3.5, tolerance=30):
         Range (+/- tolerance) from perfect direction defined by atoms hybridization
         in which H-bonds are considered as strict.
 
+    mol1_exact, mol2_exact : bool
+        If set to true, exact protonations states are used for respective molecules,
+        i.e. require Hs. By default ODDT implies some tautomeric structures as protonated,
+        even if there is no H on specific atom.
+
     Returns
     -------
     mol1_atoms, mol2_atoms : atom_dict-type numpy array
@@ -142,8 +154,8 @@ def hbonds(mol1, mol2, cutoff=3.5, tolerance=30):
         form 'strict' H-bond (pass all angular cutoffs). If false,
         only distance cutoff is met, therefore the bond is 'crude'.
     """
-    a1, d1, s1 = hbond_acceptor_donor(mol1, mol2, cutoff=cutoff, tolerance=tolerance)
-    a2, d2, s2 = hbond_acceptor_donor(mol2, mol1, cutoff=cutoff, tolerance=tolerance)
+    a1, d1, s1 = hbond_acceptor_donor(mol1, mol2, cutoff=cutoff, tolerance=tolerance, donor_exact=mol2_exact)
+    a2, d2, s2 = hbond_acceptor_donor(mol2, mol1, cutoff=cutoff, tolerance=tolerance, donor_exact=mol1_exact)
     return np.concatenate((a1, d2)), np.concatenate((d1, a2)), np.concatenate((s1, s2))
 
 
@@ -273,7 +285,7 @@ def pi_stacking(mol1, mol2, cutoff=5, tolerance=30):
         return r1, r2, np.array([], dtype=bool), np.array([], dtype=bool)
 
 
-def salt_bridge_plus_minus(mol1, mol2, cutoff=4):
+def salt_bridge_plus_minus(mol1, mol2, cutoff=4, cation_exact=False, anion_exact=False):
     """Returns pairs of plus-mins atoms, which meet salt bridge criteria
 
     Parameters
@@ -284,19 +296,28 @@ def salt_bridge_plus_minus(mol1, mol2, cutoff=4):
     cutoff : float, (default=4)
         Distance cutoff for A-H pairs
 
+    cation_exact, anion_exact : bool
+        Requires interacting atoms to have non-zero formal charge.
+
     Returns
     -------
     plus, minus : atom_dict-type numpy array
         Aligned arrays of atoms forming salt bridge, firstly plus, secondly minus
 
     """
-    m1_plus, m2_minus = close_contacts(mol1.atom_dict[mol1.atom_dict['isplus']],
-                                       mol2.atom_dict[mol2.atom_dict['isminus']],
+    cation_map = mol1.atom_dict['isplus']
+    if cation_exact:
+        cation_map = cation_map & (mol1.atom_dict['formalcharge'] > 0)
+    anion_map = mol2.atom_dict['isminus']
+    if anion_exact:
+        anion_map = anion_map & (mol2.atom_dict['formalcharge'] < 0)
+    m1_plus, m2_minus = close_contacts(mol1.atom_dict[cation_map],
+                                       mol2.atom_dict[anion_map],
                                        cutoff)
     return m1_plus, m2_minus
 
 
-def salt_bridges(mol1, mol2, *args, **kwargs):
+def salt_bridges(mol1, mol2, cutoff=4, mol1_exact=False, mol2_exact=False):
     """Calculates salt bridges between molecules
 
     Parameters
@@ -307,13 +328,18 @@ def salt_bridges(mol1, mol2, *args, **kwargs):
     cutoff : float, (default=4)
         Distance cutoff for plus-minus pairs
 
+    cation_exact, anion_exact : bool
+        Requires interacting atoms to have non-zero formal charge.
+
     Returns
     -------
     mol1_atoms, mol2_atoms : atom_dict-type numpy array
         Aligned arrays of atoms forming salt bridges
     """
-    m1_plus, m2_minus = salt_bridge_plus_minus(mol1, mol2, *args, **kwargs)
-    m2_plus, m1_minus = salt_bridge_plus_minus(mol2, mol1, *args, **kwargs)
+    m1_plus, m2_minus = salt_bridge_plus_minus(mol1, mol2, cutoff=cutoff,
+                                               cation_exact=mol1_exact, anion_exact=mol2_exact)
+    m2_plus, m1_minus = salt_bridge_plus_minus(mol2, mol1, cutoff=cutoff,
+                                               cation_exact=mol2_exact, anion_exact=mol1_exact)
     return np.concatenate((m1_plus, m1_minus)), np.concatenate((m2_minus, m2_plus))
 
 
