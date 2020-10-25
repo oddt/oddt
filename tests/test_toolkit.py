@@ -287,6 +287,8 @@ def test_dicts():
     skip_cols = ['radius', 'charge', 'id',
                  # following fields need to be standarized
                  'hybridization',
+                 'numhs',
+                 'formalcharge',
                  ]
     all_cols = [name for name in mols[0].atom_dict.dtype.names
                 if name not in ['coords', 'neighbors', 'neighbors_id']]
@@ -339,6 +341,8 @@ def test_dicts():
     skip_cols = ['radius', 'charge', 'resid', 'id',
                  # following fields need to be standarized
                  'hybridization',
+                 'numhs',
+                 'formalcharge',
                  ]
     common_cols = [name for name in all_cols if name not in skip_cols]
 

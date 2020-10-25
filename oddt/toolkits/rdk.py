@@ -662,6 +662,8 @@ class Molecule(object):
                       ('atomicnum', np.int8),
                       ('atomtype', 'U5' if PY3 else 'a5'),
                       ('hybridization', np.int8),
+                      ('numhs', np.uint8),
+                      ('formalcharge', np.int8),
                       ('neighbors_id', np.int16, max_neighbors),
                       ('neighbors', np.float32, (max_neighbors, 3)),
                       # residue info
@@ -732,6 +734,8 @@ class Molecule(object):
                             atomicnum,
                             atomtype,
                             np.clip(atom.Atom.GetHybridization() - 1, 0, 3),
+                            atom.Atom.GetTotalNumHs(includeNeighbors=True),
+                            atom.Atom.GetFormalCharge(),
                             neighbors['id'],
                             neighbors['coords'],
                             # residue info
