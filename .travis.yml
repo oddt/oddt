@@ -59,7 +59,7 @@ install:
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
                 conda install -q -c conda-forge openbabel=3.0.0;
             elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
-                conda install -q -c rdkit rdkit=2018.03 numpy=1.12;
+                conda install -q -c conda-forge rdkit=2018.03 boost=1.68;
             fi
         else
             conda install -q -c anaconda numpy scikit-learn joblib pandas scikit-image xlsxwriter;
