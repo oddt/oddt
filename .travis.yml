@@ -66,7 +66,7 @@ install:
             if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
                 conda install -q -c conda-forge openbabel;
             elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
-                conda install -q -c conda-forge rdkit;
+                conda install -q -c conda-forge rdkit=2019.09;
             fi
         fi
         conda install -q -c bioconda autodock-vina
