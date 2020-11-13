@@ -118,7 +118,7 @@ forcefields = list(_forcefields.keys())
 """A list of supported forcefields"""
 
 
-def _filereader_mol2(filename, lazy=False):
+def _filereader_mol2(filename, lazy=False, **kwargs):
     block = ''
     data = ''
     n = 0
@@ -130,9 +130,9 @@ def _filereader_mol2(filename, lazy=False):
             elif line[:17] == '@<TRIPOS>MOLECULE':
                 if n > 0:  # skip `zero` molecule (any preciding comments and spaces)
                     if lazy:
-                        yield Molecule(source={'fmt': 'mol2', 'string': block})
+                        yield Molecule(source={'fmt': 'mol2', 'string': block, 'kwargs': kwargs})
                     else:
-                        yield readstring('mol2', block)
+                        yield readstring('mol2', block, **kwargs)
                 n += 1
                 block = data
                 data = ''
@@ -140,12 +140,12 @@ def _filereader_mol2(filename, lazy=False):
         # open last molecule
         if block:
             if lazy:
-                yield Molecule(source={'fmt': 'mol2', 'string': block})
+                yield Molecule(source={'fmt': 'mol2', 'string': block, 'kwargs': kwargs})
             else:
-                yield readstring('mol2', block)
+                yield readstring('mol2', block, **kwargs)
 
 
-def _filereader_sdf(filename, lazy=False):
+def _filereader_sdf(filename, lazy=False, **kwargs):
     block = ''
     n = 0
     with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
@@ -154,17 +154,17 @@ def _filereader_sdf(filename, lazy=False):
                 line = line.decode('ascii')
                 block += line
                 if line[:4] == '$$$$':
-                    yield Molecule(source={'fmt': 'sdf', 'string': block})
+                    yield Molecule(source={'fmt': 'sdf', 'string': block, 'kwargs': kwargs})
                     n += 1
                     block = ''
             if block:  # open last molecule if any
-                yield Molecule(source={'fmt': 'sdf', 'string': block})
+                yield Molecule(source={'fmt': 'sdf', 'string': block, 'kwargs': kwargs})
         else:
-            for mol in Chem.ForwardSDMolSupplier(f):
+            for mol in Chem.ForwardSDMolSupplier(f, **kwargs):
                 yield Molecule(mol)
 
 
-def _filereader_pdb(filename, lazy=False, opt=None):
+def _filereader_pdb(filename, lazy=False, opt=None, **kwargs):
     block = ''
     n = 0
     with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
@@ -173,19 +173,19 @@ def _filereader_pdb(filename, lazy=False, opt=None):
             block += line
             if line[:6] == 'ENDMDL':
                 if lazy:
-                    yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
+                    yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt, 'kwargs': kwargs})
                 else:
-                    yield readstring('pdb', block)
+                    yield readstring('pdb', block, **kwargs)
                 n += 1
                 block = ''
         if block:  # open last molecule if any
             if lazy:
-                yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt})
+                yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt, 'kwargs': kwargs})
             else:
-                yield readstring('pdb', block)
+                yield readstring('pdb', block, **kwargs)
 
 
-def _filereader_pdbqt(filename, lazy=False, opt=None):
+def _filereader_pdbqt(filename, lazy=False, opt=None, **kwargs):
     block = ''
     n = 0
     with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
@@ -194,16 +194,16 @@ def _filereader_pdbqt(filename, lazy=False, opt=None):
             block += line
             if line[:6] == 'ENDMDL':
                 if lazy:
-                    yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt})
+                    yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt, 'kwargs': kwargs})
                 else:
-                    yield readstring('pdbqt', block)
+                    yield readstring('pdbqt', block, **kwargs)
                 n += 1
                 block = ''
         if block:  # open last molecule if any
             if lazy:
-                yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt})
+                yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt, 'kwargs': kwargs})
             else:
-                yield readstring('pdbqt', block)
+                yield readstring('pdbqt', block, **kwargs)
 
 
 def readfile(format, filename, lazy=False, opt=None, **kwargs):
@@ -237,13 +237,13 @@ def readfile(format, filename, lazy=False, opt=None, **kwargs):
     # errors in the format and errors in opening the file.
     # Then switch to an iterator...
     if format in ["sdf", "mol"]:
-        return _filereader_sdf(filename, lazy=lazy)
+        return _filereader_sdf(filename, lazy=lazy, **kwargs)
     elif format == "pdb":
-        return _filereader_pdb(filename, lazy=lazy)
+        return _filereader_pdb(filename, lazy=lazy, **kwargs)
     elif format == "pdbqt":
-        return _filereader_pdbqt(filename, lazy=lazy)
+        return _filereader_pdbqt(filename, lazy=lazy, **kwargs)
     elif format == "mol2":
-        return _filereader_mol2(filename, lazy=lazy)
+        return _filereader_mol2(filename, lazy=lazy, **kwargs)
     elif format == "smi":
         iterator = Chem.SmilesMolSupplier(filename, delimiter=" \t",
                                           titleLine=False, **kwargs)
@@ -279,7 +279,7 @@ def readstring(format, string, **kwargs):
     string = str(string)
     format = format.lower()
     if format in ["mol", "sdf"]:
-        supplier = Chem.SDMolSupplier()
+        supplier = Chem.SDMolSupplier(**kwargs)
         supplier.SetData(string)
         mol = next(supplier)
         del supplier
@@ -317,15 +317,15 @@ class Outputfile(object):
        write(molecule)
        close()
     """
-    def __init__(self, format, filename, overwrite=False):
+    def __init__(self, format, filename, overwrite=False, **kwargs):
         self.format = format
         self.filename = filename
         if not overwrite and os.path.isfile(self.filename):
             raise IOError("%s already exists. Use 'overwrite=True' to overwrite it." % self.filename)
         if format == "sdf":
-            self._writer = Chem.SDWriter(self.filename)
+            self._writer = Chem.SDWriter(self.filename, **kwargs)
         elif format == "smi":
-            self._writer = Chem.SmilesWriter(self.filename, isomericSmiles=True, includeHeader=False)
+            self._writer = Chem.SmilesWriter(self.filename, isomericSmiles=True, includeHeader=False, **kwargs)
         elif format in ('inchi', 'inchikey') and Chem.INCHI_AVAILABLE:
             self._writer = open(filename, 'w')
         elif format in ('mol2', 'pdbqt'):
@@ -335,6 +335,7 @@ class Outputfile(object):
         else:
             raise ValueError("%s is not a recognised RDKit format" % format)
         self.total = 0  # The total number of molecules written to the file
+        self.writer_kwargs = kwargs
 
     def write(self, molecule):
         """Write a molecule to the output file.
@@ -345,10 +346,10 @@ class Outputfile(object):
         if not self.filename:
             raise IOError("Outputfile instance is closed.")
         if self.format in ('inchi', 'inchikey', 'mol2'):
-            self._writer.write(molecule.write(self.format) + '\n')
+            self._writer.write(molecule.write(self.format, **self.writer_kwargs) + '\n')
         if self.format == 'pdbqt':
             self._writer.write('MODEL %i\n' % (self.total + 1) +
-                               molecule.write(self.format) + '\nENDMDL\n')
+                               molecule.write(self.format, **self.writer_kwargs) + '\nENDMDL\n')
         else:
             self._writer.write(molecule.Mol)
         self.total += 1
@@ -417,7 +418,8 @@ class Molecule(object):
     @property
     def Mol(self):
         if not self._Mol and self._source:
-            tmp_mol = readstring(self._source['fmt'], self._source['string'])
+            kwargs = self._source.get('kwargs', {})
+            tmp_mol = readstring(self._source['fmt'], self._source['string'], **kwargs)
             if tmp_mol is None:
                 self = None
                 return None
