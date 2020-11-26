@@ -407,7 +407,11 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30, cation_exact=False):
                                x_column='centroid')
     if len(r1) > 0 and len(plus2) > 0:
         angle1 = angle_2v(r1['vector'], plus2['coords'] - r1['centroid'])
-        strict = (angle1 > 180 - tolerance) | (angle1 < tolerance)
+        ideal_angle = 30  # angle to normal vector
+        strict = (
+            ((angle1 > ideal_angle - tolerance) & (angle1 < ideal_angle + tolerance)) |
+            ((angle1 > 180 - ideal_angle - tolerance) & (angle1 < 180 - ideal_angle + tolerance))
+        )
         return r1, plus2, strict
     else:
         return r1, plus2, np.array([], dtype=bool)
