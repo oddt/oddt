@@ -366,7 +366,7 @@ def hydrophobic_contacts(mol1, mol2, cutoff=4):
     return h1, h2
 
 
-def pi_cation(mol1, mol2, cutoff=5, tolerance=30):
+def pi_cation(mol1, mol2, cutoff=5, tolerance=30, cation_exact=False):
     """Returns pairs of ring-cation atoms, which meet pi-cation criteria
 
     Parameters
@@ -380,6 +380,9 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30):
     tolerance : int, (default=30)
         Range (+/- tolerance) from perfect direction (perpendicular)
         in which pi-cation are considered as strict.
+
+    cation_exact : bool
+        Requires interacting atoms to have non-zero formal charge.
 
     Returns
     -------
@@ -395,8 +398,11 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30):
         therefore the interaction is 'crude'.
 
     """
+    cation_map = mol2.atom_dict['isplus']
+    if cation_exact:
+        cation_map = cation_map & (mol2.atom_dict['formalcharge'] > 0)
     r1, plus2 = close_contacts(mol1.ring_dict,
-                               mol2.atom_dict[mol2.atom_dict['isplus']],
+                               mol2.atom_dict[cation_map],
                                cutoff,
                                x_column='centroid')
     if len(r1) > 0 and len(plus2) > 0:
