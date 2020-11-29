@@ -200,7 +200,7 @@ def halogenbond_acceptor_halogen(mol1,
                        h['coords'][:, np.newaxis, :],
                        h['neighbors'])
         strict = (_check_angles(angle1, a['hybridization'], tolerance) &
-                  _check_angles(angle2, h['hybridization'], tolerance))
+                  _check_angles(angle2, np.ones_like(h['hybridization']), tolerance))
         return a, h, strict
     else:
         return a, h, np.array([], dtype=bool)
