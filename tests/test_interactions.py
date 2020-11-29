@@ -8,6 +8,7 @@ from oddt.interactions import (close_contacts,
                                hbonds,
                                distance,
                                halogenbonds,
+                               halogenbond_acceptor_halogen,
                                pi_stacking,
                                salt_bridges,
                                pi_cation,
@@ -55,6 +56,25 @@ def test_hbonds():
                      3, 3, 5, 2, 3, 2, 2, 3, 5, 3, 3, 2, 3, 4, 2, 4, 3, 3,
                      3, 5, 3, 4, 6, 4, 5, 3, 3, 2]
     assert_array_equal(hbonds_count, exp_count)
+
+
+def test_acceptor_halogen():
+    pocket = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/pdb/4lb3_pocket.pdb')))
+    pocket.protein = True
+    ligand = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/pdb/4lb3_ligand.sdf')))
+
+    acceptors, halogens, strict = halogenbond_acceptor_halogen(pocket, ligand, tolerance=20)
+    assert strict.sum() == 0
+
+    acceptors, halogens, strict = halogenbond_acceptor_halogen(pocket, ligand, tolerance=30)
+    assert strict.sum() == 1
+    assert acceptors[strict]['resname'].tolist() == ['THR']
+    assert halogens[strict]['atomtype'].tolist() == ['I']
+
+    acceptors, halogens, strict = halogenbond_acceptor_halogen(pocket, ligand, tolerance=40)
+    assert strict.sum() == 2
+    assert acceptors[strict]['resname'].tolist() == ['VAL', 'THR']
+    assert halogens[strict]['atomtype'].tolist() == ['Cl', 'I']
 
 
 def test_halogenbonds():
