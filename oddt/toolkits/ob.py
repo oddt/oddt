@@ -603,7 +603,7 @@ class Molecule(pybel.Molecule):
                     centroid = coords.mean(axis=0)
                     # get vector perpendicular to ring
                     ring_vectors = coords - centroid
-                    vector = np.cross(ring_vectors, np.roll(ring_vectors, 1)).mean(axis=0)
+                    vector = np.cross(ring_vectors, np.roll(ring_vectors, shift=-1, axis=0)).mean(axis=0)
                     r.append((centroid,
                               vector,
                               atom['resid'],
