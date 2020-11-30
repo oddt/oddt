@@ -276,10 +276,20 @@ def pi_stacking(mol1, mol2, cutoff=5, tolerance=30):
         angle2 = angle(r1['vector'] + r1['centroid'],
                        r1['centroid'],
                        r2['centroid'])
+        angle3 = angle(r2['vector'] + r2['centroid'],
+                       r2['centroid'],
+                       r1['centroid'])
         strict_parallel = (((angle1 > 180 - tolerance) | (angle1 < tolerance)) &
                            ((angle2 > 180 - tolerance) | (angle2 < tolerance)))
-        strict_perpendicular = (((angle1 > 90 - tolerance) & (angle1 < 90 + tolerance)) &
-                                ((angle2 > 180 - tolerance) | (angle2 < tolerance)))
+        strict_perpendicular = (
+                (angle1 > 90 - tolerance) & (angle1 < 90 + tolerance) &
+                (
+                    ((angle2 > 180 - tolerance) | (angle2 < tolerance)) &
+                    ((angle3 > 90 - tolerance) | (angle3 < 90 + tolerance)) |
+                    ((angle2 > 90 - tolerance) | (angle2 < 90 + tolerance)) &
+                    ((angle3 > 180 - tolerance) | (angle3 < tolerance))
+                )
+        )
         return r1, r2, strict_parallel, strict_perpendicular
     else:
         return r1, r2, np.array([], dtype=bool), np.array([], dtype=bool)
