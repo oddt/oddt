@@ -218,7 +218,7 @@ def ExtractPocketAndLigand(mol, cutoff=12., expandResidues=True,
     for res_id in list(hetatm_residues.keys()):  # exhaust keys since we modify
         # Treat single atom residues (waters + metals) as pocket residues
         # Also append listed residues to protein
-        if (len(hetatm_residues[res_id]) == 1 or
+        if (len(hetatm_residues[res_id]) == 1 and res_id[1] != ligand_residue or
                 append_residues is not None and res_id[1] in append_residues):
             protein_residues[res_id] = hetatm_residues[res_id]
             del hetatm_residues[res_id]
