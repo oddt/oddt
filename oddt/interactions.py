@@ -280,7 +280,8 @@ def pi_stacking(mol1, mol2, cutoff=5, tolerance=30):
                        r2['centroid'],
                        r1['centroid'])
         strict_parallel = (((angle1 > 180 - tolerance) | (angle1 < tolerance)) &
-                           ((angle2 > 180 - tolerance) | (angle2 < tolerance)))
+                           ((angle2 > 180 - tolerance) | (angle2 < tolerance) |
+                            (angle3 > 180 - tolerance) | (angle3 < tolerance)))
         strict_perpendicular = (
                 (angle1 > 90 - tolerance) & (angle1 < 90 + tolerance) &
                 (
