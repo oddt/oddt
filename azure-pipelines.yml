@@ -1,0 +1,78 @@
+# Python package
+# Create and test a Python package on multiple Python versions.
+# Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
+# https://docs.microsoft.com/azure/devops/pipelines/languages/python
+
+trigger:
+- main
+
+pool:
+  vmImage: 'ubuntu-latest'
+strategy:
+  matrix:
+    Python_min_ob:
+      python.version: '3.6'
+      ODDT_TOOLKIT: 'ob'
+      MINIMAL_REQ: '1'
+    Python_min_rdk:
+      python.version: '3.6'
+      ODDT_TOOLKIT: 'rdk'
+      MINIMAL_REQ: '1'
+    Python36_ob:
+      python.version: '3.6'
+      ODDT_TOOLKIT: 'ob'
+    Python36_rdk:
+      python.version: '3.6'
+      ODDT_TOOLKIT: 'rdk'
+    Python37_ob:
+      python.version: '3.7'
+      ODDT_TOOLKIT: 'ob'
+    Python37_rdk:
+      python.version: '3.7'
+      ODDT_TOOLKIT: 'rdk'
+    Python38_ob:
+      python.version: '3.8'
+      ODDT_TOOLKIT: 'ob'
+    Python38_rdk:
+      python.version: '3.8'
+      ODDT_TOOLKIT: 'rdk'
+steps:
+- bash: echo "##vso[task.prependpath]$CONDA/bin"
+  displayName: Add conda to PATH
+
+- bash: |
+    conda config --set always_yes yes --set changeps1 no
+    conda install -q -c conda-forge mamba
+    mamba create -q -n testenv python=$(python.version)
+    source activate /usr/share/miniconda/envs/testenv
+    if [[ "$MINIMAL_REQ" == "1" ]]; then
+      mamba install -q -c conda-forge numpy=1.12 scipy=0.19 joblib=0.10.3 scikit-image=0.12.3 xlsxwriter \
+        scikit-learn=0.18 pandas=0.19.2;
+      if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
+        mamba install -q -c conda-forge openbabel=3.0.0;
+      elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
+        mamba install -q -c conda-forge rdkit=2018.03 boost=1.68;
+      fi
+    else
+      mamba install -q -c anaconda numpy scikit-learn joblib pandas scikit-image xlsxwriter six
+      if [[ "$ODDT_TOOLKIT" == "ob" ]]; then
+        mamba install -q -c conda-forge openbabel;
+      elif [[ "$ODDT_TOOLKIT" == "rdk" ]]; then
+        mamba install -q -c conda-forge rdkit;
+      fi
+    fi
+    mamba install -q -c bioconda autodock-vina
+    mamba install -q -c conda-forge pytest pytest-cov pytest-xdist
+    pip install coveralls
+    python setup.py install
+    echo "Using toolkit: ${ODDT_TOOLKIT}"
+    pytest --cov=oddt -n 2 -v -s --durations=0 tests/
+    oddt_cli --help
+    oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
+    oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity ifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
+    oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity sifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
+    oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity usr --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
+    oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity usr_cat --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
+    oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity electroshape --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
+    oddt_cli tests/data/dude/xiap/actives_docked.sdf --score pleclinear --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
+  displayName: 'pytest'
