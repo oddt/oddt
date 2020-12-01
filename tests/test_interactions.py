@@ -58,7 +58,54 @@ def test_hbonds():
     assert_array_equal(hbonds_count, exp_count)
 
 
-def test_acceptor_halogen():
+def test_pi_stacking_parallel_pdb():
+    pocket = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/pdb/4bfq_pocket.pdb')))
+    pocket.protein = True
+    ligand = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/pdb/4bfq_ligand.sdf')))
+
+    pi1, pi2, strict_parallel, strict_perpendicular = pi_stacking(pocket, ligand, tolerance=30)
+    assert strict_parallel.sum() == 2
+    assert strict_perpendicular.sum() == 0
+    assert pi1['resname'].tolist() == ['TYR', 'TYR']
+
+    pi1, pi2, strict_parallel, strict_perpendicular = pi_stacking(ligand, pocket, tolerance=30)
+    assert strict_parallel.sum() == 2
+    assert strict_perpendicular.sum() == 0
+    assert pi2['resname'].tolist() == ['TYR', 'TYR']
+
+def test_pi_stacking_perpendicular_pdb():
+    pocket = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/pdb/4ljh_pocket.pdb')))
+    pocket.protein = True
+    ligand = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/pdb/4ljh_ligand.sdf')))
+
+    pi1, pi2, strict_parallel, strict_perpendicular = pi_stacking(pocket, ligand, tolerance=30)
+    assert strict_parallel.sum() == 0
+    assert strict_perpendicular.sum() == 1
+    assert pi1['resname'].tolist() == ['HIS']
+
+    pi1, pi2, strict_parallel, strict_perpendicular = pi_stacking(ligand, pocket, tolerance=30)
+    assert strict_parallel.sum() == 0
+    assert strict_perpendicular.sum() == 1
+    assert pi2['resname'].tolist() == ['HIS']
+
+
+def test_pi_cation_pdb():
+    pocket = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/pdb/1lpi_pocket.pdb')))
+    pocket.protein = True
+    ligand = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/pdb/1lpi_ligand.sdf')))
+
+    atom_pi, atom_cation, strict = pi_cation(pocket, ligand, tolerance=30)
+    assert strict.sum() == 2
+    assert atom_pi[strict]['resname'].tolist() == ['TRP', 'TRP']
+    assert atom_cation[strict]['atomtype'].tolist() == ['Na', 'Na']
+
+    atom_pi, atom_cation, strict = pi_cation(pocket, ligand, tolerance=10)
+    assert strict.sum() == 1
+    assert atom_pi[strict]['resname'].tolist() == ['TRP']
+    assert atom_cation[strict]['atomtype'].tolist() == ['Na']
+
+
+def test_acceptor_halogen_pdb():
     pocket = next(oddt.toolkit.readfile('pdb', os.path.join(test_data_dir, 'data/pdb/4lb3_pocket.pdb')))
     pocket.protein = True
     ligand = next(oddt.toolkit.readfile('sdf', os.path.join(test_data_dir, 'data/pdb/4lb3_ligand.sdf')))
@@ -137,7 +184,6 @@ def test_pi_stacking():
 
     assert_array_almost_equal(distance(rec_centroids, lig_centroids), centroids_dist)
 
-    print(sorted(rec.ring_dict['vector'].tolist()))
     assert len(lig.ring_dict) == 2
     assert_array_almost_equal(sorted(lig.ring_dict['centroid'].tolist()), lig_centroids, decimal=5)
     assert_array_almost_equal(sorted(lig.ring_dict['vector'].tolist()), lig_vectors, decimal=5)
@@ -146,7 +192,7 @@ def test_pi_stacking():
     assert_array_almost_equal(sorted(rec.ring_dict['vector'].tolist()), rec_vectors, decimal=5)
 
     assert len(ring) == 6
-    assert strict_parallel.sum() == 3
+    assert strict_parallel.sum() == 4
     assert strict_perpendicular.sum() == 3
     resids = sorted(ring['resid'])
     # assert_array_equal(resids, [1, 2, 2, 17, 17, 58])
