@@ -6,6 +6,7 @@ import warnings
 from tempfile import mkdtemp
 from shutil import rmtree
 from distutils.spawn import find_executable
+from tempfile import gettempdir
 
 from six import string_types
 
@@ -26,7 +27,7 @@ class autodock_vina(object):
                  num_modes=9,
                  energy_range=3,
                  seed=None,
-                 prefix_dir='/tmp',
+                 prefix_dir=None,
                  n_cpu=1,
                  executable=None,
                  autocleanup=True,
@@ -63,8 +64,10 @@ class autodock_vina(object):
         seed: int or None (default=None)
             Random seed for Autodock Vina
 
-        prefix_dir: string (default=/tmp)
-            Temporary directory for Autodock Vina files
+        prefix_dir: string or None (default=None)
+            Temporary directory for Autodock Vina files.
+            By default (None) system temporary directory is used,
+            for reference see `tempfile.gettempdir`.
 
         executable: string or None (default=None)
             Autodock Vina executable location in the system.
@@ -76,7 +79,7 @@ class autodock_vina(object):
         skip_bad_mols: bool (default=True)
             Should molecules that crash Autodock Vina be skipped.
         """
-        self.dir = prefix_dir
+        self.dir = prefix_dir or gettempdir()
         self._tmp_dir = None
         # define binding site
         self.size = size
