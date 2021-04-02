@@ -354,7 +354,7 @@ if os.environ.get('READTHEDOCS', None) == 'True':
     os.system("sphinx-apidoc -f -o rst/ ../oddt")
 
     try:
-        from unittest.mock import MagicMock # Python 3.3
+        from unittest.mock import patch, MagicMock # Python 3.3
     except ImportError:
         from mock import patch, MagicMock
 
