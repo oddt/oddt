@@ -628,7 +628,7 @@ class Molecule(pybel.Molecule):
             self._res_dict.setflags(write=False)
 
     def __getstate__(self):
-        pickle_format = 'sdf'
+        pickle_format = 'mol2'
         return {'fmt': self._source['fmt'] if self._source else pickle_format,
                 'string': self._source['string'] if self._source else self.write(pickle_format),
                 'data': dict(self.data.items()) if self._source is None else {},
