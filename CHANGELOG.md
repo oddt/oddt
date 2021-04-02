@@ -1,5 +1,11 @@
 ### Development version (Git)
+
+### Version 0.8 (2021-04-02)
+* Multiple bugfixes in oddt.interactions module
+* Option to force explicitly charged atoms in interactions via `exact` argument
+* Generate bit information for PLEC fingerprints
 * Fix calculating similarity of SPLIF fingerprints
+* Drop support for Python older than 3.6
 
 ### Version 0.7 (2019-12-23)
 * Support recent RDKit and Openbabel
