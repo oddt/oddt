@@ -56,7 +56,7 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   > conda update -c oddt oddt
 
 ### Documentation
-Automatic documentation for ODDT is available on [Readthedocs.org](https://oddt.readthedocs.org/). Additionally it can be build localy:
+Automatic documentation for ODDT is available on [Readthedocs.org](https://oddt.readthedocs.org/). Additionally, it can be build locally:
    > cd docs
 
    > make html

@@ -34,6 +34,7 @@ class autodock_vina(object):
                  skip_bad_mols=True):
         """Autodock Vina docking engine, which extends it's capabilities:
         automatic box (auto-centering on ligand).
+        Other software compatible with Vina API can also be used (e.g. QuickVina).
 
         Parameters
         ----------
@@ -42,11 +43,11 @@ class autodock_vina(object):
 
         auto_ligand: oddt.toolkit.Molecule object or string (default=None)
             Ligand use to center the docking box. Either ODDT molecule or
-            a file (opened based on extesion and read to ODDT molecule).
+            a file (opened based on extension and read to ODDT molecule).
             Box is centered on geometric center of molecule.
 
         size: tuple, shape=[3] (default=(20, 20, 20))
-            Dimentions of docking box (in Angstroms)
+            Dimensions of docking box (in Angstroms)
 
         center: tuple, shape=[3] (default=(0,0,0))
             The center of docking box in cartesian space.
@@ -71,7 +72,7 @@ class autodock_vina(object):
 
         executable: string or None (default=None)
             Autodock Vina executable location in the system.
-            It's realy necessary if autodetection fails.
+            It's really necessary if autodetection fails.
 
         autocleanup: bool (default=True)
             Should the docking engine clean up after execution?
@@ -95,7 +96,7 @@ class autodock_vina(object):
             self.executable = find_executable('vina')
             if not self.executable:
                 raise Exception('Could not find Autodock Vina binary.'
-                                'You have to install it globaly or supply binary'
+                                'You have to install it globally or supply binary'
                                 'full directory via `executable` parameter.')
         else:
             self.executable = executable

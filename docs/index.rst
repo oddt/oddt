@@ -14,14 +14,14 @@ Installation
 Requirements
 ````````````
 
-* Python 2.7+ or 3.4+
-* OpenBabel (2.3.2+) or/and RDKit (2016.03)
-* Numpy (1.8+)
-* Scipy (0.14+)
+* Python 3.6+
+* OpenBabel (3.0+) or/and RDKit (2018.03+)
+* Numpy (1.12+)
+* Scipy (0.19+)
 * Sklearn (0.18+)
-* joblib (0.8+)
-* pandas (0.17.1+)
-* Skimage (0.10+) (optional, only for surface generation)
+* joblib (0.10+)
+* pandas (0.19.2+)
+* Skimage (0.12.3+) (optional, only for surface generation)
 
 .. note:: All installation methods assume that one of toolkits is installed. For detailed installation procedure visit toolkit’s website (OpenBabel, RDKit)
 
@@ -41,9 +41,9 @@ Finally you can install ODDT straight from the source
 
 .. code-block:: bash
 
-    wget https://github.com/oddt/oddt/archive/0.5.tar.gz
-    tar zxvf 0.5.tar.gz
-    cd oddt-0.5/
+    wget https://github.com/oddt/oddt/archive/0.8.tar.gz
+    tar zxvf 0.8.tar.gz
+    cd oddt-0.8/
     python setup.py install
 
 Common installation problems

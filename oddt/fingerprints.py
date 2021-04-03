@@ -791,26 +791,26 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     distance_cutoff: float (default=4.5)
         Cutoff distance for close contacts.
 
-    sparse : bool (default = True)
+    sparse: bool (default = True)
         Should fingerprints be dense (contain all bits) or sparse (just the on
         bits).
 
-    count_bits : bool (default = True)
+    count_bits: bool (default = True)
         Should the bits be counted or unique. In dense representation it
         translates to integer array (count_bits=True) or boolean array if False.
 
-    ignore_hoh : bool (default = True)
+    ignore_hoh: bool (default = True)
         Should the water molecules be ignored. This is based on the name of the
         residue ('HOH').
 
-    bits_info : dict or None (default = None)
+    bits_info: dict or None (default = None)
         If dictionary is provided it is filled with information about bit contents.
         Root atom index and depth is provided for both ligand and protein.
         Dictionary is modified in-place.
 
     Returns
     -------
-    PLEC : numpy array
+    PLEC: numpy array
         fp (size = atoms in contacts * max(depth_protein, depth_ligand))
 
     """
