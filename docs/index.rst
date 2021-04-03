@@ -158,7 +158,7 @@ Atom basic information
 Residue information for current atom
 
 * '*resid*', type: ``int16`` - residue ID
-* '*resnumber*', type: ``int16`` - residue number
+* '*resnum*', type: ``int16`` - residue number
 * '*resname*', type: ``a3`` - Residue name (3 letters)
 * '*isbackbone*', type: ``bool`` - is atom part of backbone
 
@@ -192,11 +192,11 @@ res_dict
 --------
 
 * '*id*', type: ``int16`` - residue ID
-* '*resnumber*', type: ``int16`` - residue number
+* '*resnum*', type: ``int16`` - residue number
 * '*resname*', type: ``a3`` - Residue name (3 letters)
-* '*N*', type: ``float32``, shape: 3 - cordinates of backbone N atom
-* '*CA*', type: ``float32``, shape: 3 - cordinates of backbone CA atom
-* '*C*', type: ``float32``, shape: 3 - cordinates of backbone C atom
+* '*N*', type: ``float32``, shape: 3 - coordinates of backbone N atom
+* '*CA*', type: ``float32``, shape: 3 - coordinates of backbone CA atom
+* '*C*', type: ``float32``, shape: 3 - coordinates of backbone C atom
 * '*isalpha*', type: ``bool`` - is residue a part of alpha helix
 * '*isbeta*', type: ``bool'`` - is residue a part of beta strand
 
