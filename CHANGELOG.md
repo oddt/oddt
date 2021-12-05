@@ -1,6 +1,6 @@
 ### Development version (Git)
 
-### Version 0.8 (2021-04-02)
+### Version 0.8 (2021-12-05)
 * Multiple bugfixes in oddt.interactions module
 * Option to force explicitly charged atoms in interactions via `exact` argument
 * Generate bit information for PLEC fingerprints
