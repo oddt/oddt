@@ -521,11 +521,6 @@ class ChemDataFrame(pd.DataFrame):
         """ Force new class to be usead as constructor when slicing """
         return ChemSeries
 
-    @property
-    def _constructor_expanddim(self):
-        """ Force new class to be usead as constructor when expandig dims """
-        return ChemPanel
-
 
 # Copy some docscrings from upstream classes
 for method in ['to_html', 'to_csv', 'to_excel']:
@@ -533,24 +528,3 @@ for method in ['to_html', 'to_csv', 'to_excel']:
         getattr(ChemDataFrame, method).__doc__ = getattr(pd.DataFrame, method).__doc__
     except AttributeError:  # Python 2 compatible
         getattr(ChemDataFrame, method).__func__.__doc__ = getattr(pd.DataFrame, method).__func__.__doc__
-
-
-class ChemPanel(pd.Panel):
-    """Modified `pandas.Panel` to adopt higher dimension data than
-    `ChemDataFrame`. Main purpose is to store molecular fingerprints in one
-    column and keep 2D numpy array underneath.
-
-    .. versionadded:: 0.3
-    """
-    _metadata = ['_molecule_column']
-    _molecule_column = None
-
-    @property
-    def _constructor(self):
-        """ Force new class to be usead as constructor """
-        return ChemPanel
-
-    @property
-    def _constructor_sliced(self):
-        """ Force new class to be usead as constructor when slicing """
-        return ChemDataFrame
