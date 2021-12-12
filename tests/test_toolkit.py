@@ -196,25 +196,15 @@ def test_diverse_conformers():
 
     assert len(res) == 10
     if oddt.toolkit.backend == 'ob':
-        if oddt.toolkit.__version__ < '0.3':
-            assert_array_almost_equal(res, [0., 3.043712, 3.897143, 3.289482,
-                                            3.066374, 2.909683, 2.913927,
-                                            3.488244, 3.70603, 3.597467])
-        else:
-            assert_array_almost_equal(res, [0.0, 1.372770, 2.489789, 2.759941,
-                                            2.968366, 3.228773, 3.392191,
-                                            3.921166, 3.185065, 3.283915])
-    # else:
-    #     if oddt.toolkit.__version__ > '2016.03.9':
-    #         assert_array_almost_equal(res, [1.237538, 2.346984, 0.900624,
-    #                                         3.469511, 1.886213, 2.128909,
-    #                                         2.852608, 1.312513, 1.291595,
-    #                                         1.326843])
-    #     else:
-    #         assert_array_almost_equal(res, [3.08995, 2.846358, 3.021795,
-    #                                         1.720319, 2.741972, 2.965332,
-    #                                         2.925344, 2.930157, 2.934049,
-    #                                         3.009545])
+        assert_array_almost_equal(res, [0., 1.37277, 2.489789,
+                                        2.759941, 2.968366, 3.228773,
+                                        3.392191, 3.921166, 3.185065,
+                                        3.283915])
+    else:
+        assert_array_almost_equal(res, [0.936988, 1.503496, 1.164301,
+                                        3.163069, 2.708822, 2.286577,
+                                        2.089655, 1.717158, 2.349108,
+                                        1.15787])
 
     # check all implemented methods
     if oddt.toolkit.backend == 'ob':
@@ -230,10 +220,6 @@ def test_diverse_conformers():
                                                 seed=123456,
                                                 n_conf=10,
                                                 method=method)) == 10
-        assert len(diverse_conformers_generator(mol,
-                                                seed=123456,
-                                                n_conf=20,
-                                                method=method)) == 20
 
 
 def test_indices():
