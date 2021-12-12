@@ -17,6 +17,8 @@ xiap_receptor = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
                              'receptor_rdkit.pdb')
 xiap_actives = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
                             'actives_docked.sdf')
+inha_ligand = os.path.join(test_data_dir, 'data', 'dude', 'inha',
+                            'crystal_ligand.mol2')
 
 
 def test_mol():
@@ -134,6 +136,21 @@ ATOM      8  O5  HOH     4       0.000   0.000   0.000  1.00  0.00           O
 def test_pickle():
     """Pickle molecules"""
     mols = list(oddt.toolkit.readfile('sdf', xiap_actives))
+    for mol in mols:
+        mol.addh()
+    pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
+
+    assert_array_equal(list(map(lambda x: x.title, mols)),
+                       list(map(lambda x: x.title, pickled_mols)))
+
+    assert_array_equal(list(map(lambda x: x.smiles, mols)),
+                       list(map(lambda x: x.smiles, pickled_mols)))
+
+    for mol, pickled_mol in zip(mols, pickled_mols):
+        assert dict(mol.data) == dict(pickled_mol.data)
+
+    # test mol2 sourced molecules
+    mols = list(oddt.toolkit.readfile('mol2', inha_ligand))
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
 
     assert_array_equal(list(map(lambda x: x.title, mols)),
