@@ -65,8 +65,14 @@ steps:
     mamba install -q -c conda-forge pytest pytest-cov pytest-xdist
     pip install coveralls
     python setup.py install
+  displayName: 'Prepare Environment'
+
+- bash: |
     echo "Using toolkit: ${ODDT_TOOLKIT}"
     pytest --cov=oddt -n 2 -v -s --durations=0 tests/
+  displayName: 'pytest'
+
+- bash: |
     oddt_cli --help
     oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
     oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity ifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
@@ -75,4 +81,4 @@ steps:
     oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity usr_cat --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
     oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity electroshape --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
     oddt_cli tests/data/dude/xiap/actives_docked.sdf --score pleclinear --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
-  displayName: 'pytest'
+  displayName: 'CLI tests'
