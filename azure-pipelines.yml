@@ -41,6 +41,7 @@ steps:
   displayName: Add conda to PATH
 
 - bash: |
+    source ${CONDA}/etc/profile.d/conda.sh
     conda config --set always_yes yes --set changeps1 no
     conda install -q -c conda-forge mamba
     mamba create -q -n testenv python=$(python.version)
@@ -68,12 +69,14 @@ steps:
   displayName: 'Prepare Environment'
 
 - bash: |
+    source ${CONDA}/etc/profile.d/conda.sh
     conda activate testenv
     echo "Using toolkit: ${ODDT_TOOLKIT}"
     pytest --cov=oddt -n 2 -v -s --durations=0 tests/
   displayName: 'pytest'
 
 - bash: |
+    source ${CONDA}/etc/profile.d/conda.sh
     conda activate testenv
     oddt_cli --help
     oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
