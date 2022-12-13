@@ -15,10 +15,10 @@ import oddt.toolkits
 try:
     from skimage.morphology import ball, binary_closing
     from skimage import __version__ as skimage_version
-    if LooseVersion(skimage_version) >= LooseVersion('0.13'):
-        from skimage.measure import marching_cubes_lewiner
+    if LooseVersion('0.19') > LooseVersion(skimage_version) >= LooseVersion('0.13'):
+        from skimage.measure import marching_cubes_lewiner as marching_cubes
     else:
-        from skimage.measure import marching_cubes as marching_cubes_lewiner
+        from skimage.measure import marching_cubes
 except ImportError as e:
     warnings.warn('scikit-image could not be imported and is required for'
                   'generating molecular surfaces.')
@@ -110,7 +110,7 @@ def generate_surface_marching_cubes(molecule, remove_hoh=False, scaling=1.,
     grid = binary_closing(grid, ball(probe_radius * 2 * scaling))
 
     # Marching cubes
-    verts, faces = marching_cubes_lewiner(grid, level=0, spacing=spacing)[:2]
+    verts, faces = marching_cubes(grid, level=0, spacing=spacing)[:2]
 
     # Verts already scaled by the marching cubes function (spacing parameter)
     # Only need to scale the offset

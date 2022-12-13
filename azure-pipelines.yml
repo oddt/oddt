@@ -41,10 +41,11 @@ steps:
   displayName: Add conda to PATH
 
 - bash: |
+    source ${CONDA}/etc/profile.d/conda.sh
     conda config --set always_yes yes --set changeps1 no
     conda install -q -c conda-forge mamba
     mamba create -q -n testenv python=$(python.version)
-    source activate /usr/share/miniconda/envs/testenv
+    conda activate testenv
     if [[ "$MINIMAL_REQ" == "1" ]]; then
       mamba install -q -c conda-forge numpy=1.12 scipy=0.19 joblib=0.10.3 scikit-image=0.12.3 xlsxwriter \
         scikit-learn=0.18 pandas=0.19.2;
@@ -65,8 +66,18 @@ steps:
     mamba install -q -c conda-forge pytest pytest-cov pytest-xdist
     pip install coveralls
     python setup.py install
+  displayName: 'Prepare Environment'
+
+- bash: |
+    source ${CONDA}/etc/profile.d/conda.sh
+    conda activate testenv
     echo "Using toolkit: ${ODDT_TOOLKIT}"
     pytest --cov=oddt -n 2 -v -s --durations=0 tests/
+  displayName: 'pytest'
+
+- bash: |
+    source ${CONDA}/etc/profile.d/conda.sh
+    conda activate testenv
     oddt_cli --help
     oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
     oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity ifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
@@ -75,4 +86,4 @@ steps:
     oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity usr_cat --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
     oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity electroshape --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
     oddt_cli tests/data/dude/xiap/actives_docked.sdf --score pleclinear --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
-  displayName: 'pytest'
+  displayName: 'CLI tests'

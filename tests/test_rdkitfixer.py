@@ -552,6 +552,7 @@ def test_fetch_structures():
     assert mol1.GetNumAtoms() == mol3.GetNumAtoms()
 
 
+@pytest.mark.skip  # skip test due to deprecated API
 @pytest.mark.skipif(rdkit is None, reason="RDKit required")
 def test_prepare_complexes():
     ids = [
