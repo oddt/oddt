@@ -1,5 +1,5 @@
 import os
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 import numpy as np
 import pytest
@@ -30,7 +30,7 @@ def test_generate_surface_marching_cubes():
 
     # versions of skimage older than 0.12 use a slightly different version of the marching cubes algorithm
     # producing slightly different results
-    if LooseVersion(skimage_version) >= LooseVersion('0.13'):
+    if Version(skimage_version) >= Version('0.13'):
         if (oddt.toolkit.backend == 'ob' or
                 oddt.toolkit.backend == 'rdk' and oddt.toolkits.rdk.__version__ >= '2019.09'):
             ref_vert_shape_1 = (9040, 3)
