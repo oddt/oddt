@@ -3,7 +3,7 @@
 from sklearn.ensemble import RandomForestRegressor as randomforest
 from sklearn.svm import SVR
 from sklearn.linear_model import LinearRegression as mlr
-from sklearn.base import RegressorMixin
+from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
@@ -14,7 +14,7 @@ from sklearn.cross_decomposition import PLSRegression as pls
 __all__ = ["randomforest", "svm", "pls", "neuralnetwork", "mlr"]
 
 
-class OddtRegressor(RegressorMixin):
+class OddtRegressor(RegressorMixin, BaseEstimator):
     _model = None
 
     def __init__(self, *args, **kwargs):
@@ -51,7 +51,10 @@ class neuralnetwork(OddtRegressor):
     _model = MLPRegressor
 
     def __init__(self, *args, **kwargs):
-        super(neuralnetwork, self).__init__(*args, **kwargs)
+        if args:
+            super(neuralnetwork, self).__init__(*args[1:], hidden_layer_sizes=args[0], **kwargs)
+        else:
+            super(neuralnetwork, self).__init__(**kwargs)
 
 
 class svm(OddtRegressor):

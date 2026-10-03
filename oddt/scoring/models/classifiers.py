@@ -1,6 +1,6 @@
 from sklearn.ensemble import RandomForestClassifier as randomforest
 from sklearn.svm import SVC
-from sklearn.base import ClassifierMixin
+from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
@@ -9,7 +9,7 @@ from sklearn.neural_network import MLPClassifier
 __all__ = ["randomforest", "svm", "neuralnetwork"]
 
 
-class OddtClassifier(ClassifierMixin):
+class OddtClassifier(ClassifierMixin, BaseEstimator):
     _model = None
 
     def __init__(self, *args, **kwargs):
