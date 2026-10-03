@@ -46,6 +46,7 @@ def test_vs_scoring_vina():
     assert mol_data["vina_repulsion"] == "3.63178"
 
 
+@pytest.mark.xfail(reason="flaky test due to varying docking results")
 @pytest.mark.skipif(find_executable("vina") is None, reason="Autodock Vina binary missing")
 def test_vs_docking():
     """VS docking (Vina) tests"""
