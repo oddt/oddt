@@ -1,4 +1,5 @@
 """ODDT pipeline framework for virtual screening"""
+
 from __future__ import print_function
 import sys
 import csv
@@ -10,14 +11,13 @@ import warnings
 
 import six
 from six.moves import filter
+
 # from joblib import Parallel, delayed
 
 import oddt
 from oddt.utils import is_molecule, compose_iter, chunker, method_caller
 from oddt.scoring import scorer
-from oddt.fingerprints import (InteractionFingerprint,
-                               SimpleInteractionFingerprint,
-                               dice)
+from oddt.fingerprints import InteractionFingerprint, SimpleInteractionFingerprint, dice
 from oddt.shape import usr, usr_cat, electroshape, usr_similarity
 
 
@@ -66,9 +66,7 @@ def _filter(mols, expression, soft_fail=0):
 def _filter_similarity(mols, distance, generator, query_fps, cutoff):
     """Filter molecules by a certain distance to the reference fingerprints.
     User must supply distance funtion, FP generator, query FPs and cutoff."""
-    return list(filter(
-        lambda q: any(distance(generator(q), q_fp) >= float(cutoff)
-                      for q_fp in query_fps), mols))
+    return list(filter(lambda q: any(distance(generator(q), q_fp) >= float(cutoff) for q_fp in query_fps), mols))
 
 
 class virtualscreening:
@@ -103,15 +101,12 @@ class virtualscreening:
             Path to a file, which is loaded to pipeline
 
         """
-        if fmt == 'mol2' and oddt.toolkit.backend == 'ob':
-            if 'opt' in kwargs:
-                kwargs['opt']['c'] = None
+        if fmt == "mol2" and oddt.toolkit.backend == "ob":
+            if "opt" in kwargs:
+                kwargs["opt"]["c"] = None
             else:
-                kwargs['opt'] = {'c': None}
-        self._mol_feed = chain(self._mol_feed,
-                               oddt.toolkit.readfile(fmt,
-                                                     ligands_file,
-                                                     **kwargs))
+                kwargs["opt"] = {"c": None}
+        self._mol_feed = chain(self._mol_feed, oddt.toolkit.readfile(fmt, ligands_file, **kwargs))
 
     def apply_filter(self, expression, soft_fail=0):
         """Filtering method, can use raw expressions (strings to be evaled
@@ -131,41 +126,42 @@ class virtualscreening:
             The number of faulures molecule can have to pass filter, aka.
             soft-fails.
         """
-        if expression in ['l5', 'ro5', 'ro3', 'pains']:
+        if expression in ["l5", "ro5", "ro3", "pains"]:
             # define presets
             # TODO: move presets to another config file
             # Lipinski rule of 5's
-            if expression.lower() in ['l5', 'ro5']:
-                self._pipe.append((partial(_filter,
-                                           expression=['mol.molwt < 500',
-                                                       'mol.HBA1 <= 10',
-                                                       'mol.HBD <= 5',
-                                                       'mol.logP <= 5'],
-                                           soft_fail=soft_fail)))
+            if expression.lower() in ["l5", "ro5"]:
+                self._pipe.append(
+                    (
+                        partial(
+                            _filter,
+                            expression=["mol.molwt < 500", "mol.HBA1 <= 10", "mol.HBD <= 5", "mol.logP <= 5"],
+                            soft_fail=soft_fail,
+                        )
+                    )
+                )
             # Rule of three
-            elif expression.lower() == 'ro3':
-                self._pipe.append((partial(_filter,
-                                           expression=['mol.molwt < 300',
-                                                       'mol.HBA1 <= 3',
-                                                       'mol.HBD <= 3',
-                                                       'mol.logP <= 3'],
-                                           soft_fail=soft_fail)))
+            elif expression.lower() == "ro3":
+                self._pipe.append(
+                    (
+                        partial(
+                            _filter,
+                            expression=["mol.molwt < 300", "mol.HBA1 <= 3", "mol.HBD <= 3", "mol.logP <= 3"],
+                            soft_fail=soft_fail,
+                        )
+                    )
+                )
             # PAINS filter
-            elif expression.lower() == 'pains':
+            elif expression.lower() == "pains":
                 pains_smarts = {}
-                with open(join(dirname(__file__),
-                               'filter', 'pains.smarts')) as pains_file:
+                with open(join(dirname(__file__), "filter", "pains.smarts")) as pains_file:
                     csv_reader = csv.reader(pains_file, delimiter="\t")
                     for line in csv_reader:
                         if len(line) > 1:
                             pains_smarts[line[1][8:-2]] = line[0]
-                self._pipe.append((partial(_filter_smarts,
-                                           smarts=list(pains_smarts.values()),
-                                           soft_fail=soft_fail)))
+                self._pipe.append((partial(_filter_smarts, smarts=list(pains_smarts.values()), soft_fail=soft_fail)))
         else:
-            self._pipe.append((partial(_filter,
-                                       expression=expression,
-                                       soft_fail=soft_fail)))
+            self._pipe.append((partial(_filter, expression=expression, soft_fail=soft_fail)))
 
     def similarity(self, method, query, cutoff=0.9, protein=None):
         """Similarity filter. Supported structural methods:
@@ -202,30 +198,34 @@ class virtualscreening:
             query = [query]
 
         # choose fp/usr and appropriate distance
-        if method.lower() == 'ifp':
+        if method.lower() == "ifp":
             gen = partial(InteractionFingerprint, protein=protein)
             dist = dice
-        elif method.lower() == 'sifp':
+        elif method.lower() == "sifp":
             gen = partial(SimpleInteractionFingerprint, protein=protein)
             dist = dice
-        elif method.lower() == 'usr':
+        elif method.lower() == "usr":
             gen = usr
             dist = usr_similarity
-        elif method.lower() == 'usr_cat':
+        elif method.lower() == "usr_cat":
             gen = usr_cat
             dist = usr_similarity
-        elif method.lower() == 'electroshape':
+        elif method.lower() == "electroshape":
             gen = electroshape
             dist = usr_similarity
         else:
             raise ValueError('Similarity filter "%s" is not supported.' % method)
         # generate FPs for query molecules once
         query_fps = [gen(q) for q in query]
-        self._pipe.append(partial(_filter_similarity,
-                                  distance=dist,
-                                  generator=gen,  # same generator for pipe mols
-                                  query_fps=query_fps,
-                                  cutoff=cutoff))
+        self._pipe.append(
+            partial(
+                _filter_similarity,
+                distance=dist,
+                generator=gen,  # same generator for pipe mols
+                query_fps=query_fps,
+                cutoff=cutoff,
+            )
+        )
 
     def dock(self, engine, protein, *args, **kwargs):
         """Docking procedure.
@@ -243,13 +243,13 @@ class virtualscreening:
         1. Audodock Vina (```engine="autodock_vina"```), see
         :class:`oddt.docking.autodock_vina`.
         """
-        if engine.lower() == 'autodock_vina':
+        if engine.lower() == "autodock_vina":
             from oddt.docking import autodock_vina
+
             engine = autodock_vina(protein, *args, **kwargs)
         else:
-            raise ValueError('Docking engine %s was not implemented in ODDT'
-                             % engine)
-        self._pipe.append(partial(method_caller, engine, 'dock'))
+            raise ValueError("Docking engine %s was not implemented in ODDT" % engine)
+        self._pipe.append(partial(method_caller, engine, "dock"))
 
     def score(self, function, protein=None, *args, **kwargs):
         """Scoring procedure compatible with any scoring function implemented
@@ -269,12 +269,11 @@ class virtualscreening:
         Additional parameters are passed directly to the scoring function.
         """
         if isinstance(protein, six.string_types):
-            extension = protein.split('.')[-1]
+            extension = protein.split(".")[-1]
             protein = next(oddt.toolkit.readfile(extension, protein))
             protein.protein = True
         elif protein is None:
-            raise ValueError('Protein needs to be set for structure based '
-                             'scoring')
+            raise ValueError("Protein needs to be set for structure based " "scoring")
         # trigger cache
         protein.atom_dict
 
@@ -282,55 +281,57 @@ class virtualscreening:
             if isfile(function):
                 sf = scorer.load(function)
                 sf.set_protein(protein)
-            elif function.lower().startswith('rfscore'):
+            elif function.lower().startswith("rfscore"):
                 from oddt.scoring.functions.RFScore import rfscore
+
                 new_kwargs = {}
-                for bit in function.lower().split('_'):
-                    if bit.startswith('pdbbind'):
-                        new_kwargs['pdbbind_version'] = int(bit.replace('pdbbind', ''))
-                    elif bit.startswith('v'):
-                        new_kwargs['version'] = int(bit.replace('v', ''))
+                for bit in function.lower().split("_"):
+                    if bit.startswith("pdbbind"):
+                        new_kwargs["pdbbind_version"] = int(bit.replace("pdbbind", ""))
+                    elif bit.startswith("v"):
+                        new_kwargs["version"] = int(bit.replace("v", ""))
                 sf = rfscore.load(**new_kwargs)
                 sf.set_protein(protein)
-            elif function.lower().startswith('nnscore'):
+            elif function.lower().startswith("nnscore"):
                 from oddt.scoring.functions.NNScore import nnscore
+
                 new_kwargs = {}
-                for bit in function.lower().split('_'):
-                    if bit.startswith('pdbbind'):
-                        new_kwargs['pdbbind_version'] = int(bit.replace('pdbbind', ''))
+                for bit in function.lower().split("_"):
+                    if bit.startswith("pdbbind"):
+                        new_kwargs["pdbbind_version"] = int(bit.replace("pdbbind", ""))
                 sf = nnscore.load(**new_kwargs)
                 sf.set_protein(protein)
-            elif function.lower().startswith('plec'):
+            elif function.lower().startswith("plec"):
                 from oddt.scoring.functions.PLECscore import PLECscore
+
                 new_kwargs = {}
-                for bit in function.lower().split('_'):
-                    if bit.startswith('pdbbind'):
-                        new_kwargs['pdbbind_version'] = int(bit.replace('pdbbind', ''))
-                    elif bit.startswith('plec'):
-                        new_kwargs['version'] = bit.replace('plec', '')
-                    elif bit.startswith('p'):
-                        new_kwargs['depth_protein'] = int(bit.replace('p', ''))
-                    elif bit.startswith('l'):
-                        new_kwargs['depth_ligand'] = int(bit.replace('l', ''))
-                    elif bit.startswith('s'):
-                        new_kwargs['size'] = int(bit.replace('s', ''))
+                for bit in function.lower().split("_"):
+                    if bit.startswith("pdbbind"):
+                        new_kwargs["pdbbind_version"] = int(bit.replace("pdbbind", ""))
+                    elif bit.startswith("plec"):
+                        new_kwargs["version"] = bit.replace("plec", "")
+                    elif bit.startswith("p"):
+                        new_kwargs["depth_protein"] = int(bit.replace("p", ""))
+                    elif bit.startswith("l"):
+                        new_kwargs["depth_ligand"] = int(bit.replace("l", ""))
+                    elif bit.startswith("s"):
+                        new_kwargs["size"] = int(bit.replace("s", ""))
                 sf = PLECscore.load(**new_kwargs)
                 sf.set_protein(protein)
-            elif function.lower() == 'autodock_vina':
+            elif function.lower() == "autodock_vina":
                 from oddt.docking import autodock_vina
+
                 sf = autodock_vina(protein, *args, **kwargs)
                 sf.set_protein(protein)
             else:
-                raise ValueError('Scoring Function %s was not implemented in '
-                                 'ODDT' % function)
+                raise ValueError("Scoring Function %s was not implemented in " "ODDT" % function)
         else:
             if isinstance(function, scorer):
                 sf = function
                 sf.set_protein(protein)
             else:
-                raise ValueError('Supplied object "%s" is not an ODDT scoring '
-                                 'funtion' % function.__name__)
-        self._pipe.append(partial(method_caller, sf, 'predict_ligands'))
+                raise ValueError('Supplied object "%s" is not an ODDT scoring ' "funtion" % function.__name__)
+        self._pipe.append(partial(method_caller, sf, "predict_ligands"))
 
     def fetch(self):
         """A method to exhaust the pipeline. Itself it is lazy (a generator)"""
@@ -339,42 +340,41 @@ class virtualscreening:
         try:
             first_chunk = next(chunk_feed)
         except StopIteration:
-            raise StopIteration('There are no molecules loaded to the pipeline.')
+            raise StopIteration("There are no molecules loaded to the pipeline.")
 
         if len(first_chunk) == 0:
-            warnings.warn('There is **zero** molecules at the output of the VS'
-                          ' pipeline. Output file will be empty.')
+            warnings.warn("There is **zero** molecules at the output of the VS" " pipeline. Output file will be empty.")
         elif len(first_chunk) < self.chunksize and self.n_cpu > 1:
-            warnings.warn('The chunksize (%i) seams to be to large.'
-                          % self.chunksize)
+            warnings.warn("The chunksize (%i) seams to be to large." % self.chunksize)
 
             # use methods multithreading when we have less molecules than cores
             if len(first_chunk) < self.n_cpu:
-                warnings.warn('Falling back to sub-methods multithreading as '
-                              'the number of molecules is less than cores '
-                              '(%i < %i)' % (len(first_chunk),  self.n_cpu))
+                warnings.warn(
+                    "Falling back to sub-methods multithreading as "
+                    "the number of molecules is less than cores "
+                    "(%i < %i)" % (len(first_chunk), self.n_cpu)
+                )
                 for func in self._pipe:
-                    if hasattr(func, 'n_cpu'):
+                    if hasattr(func, "n_cpu"):
                         func.n_cpu = self.n_cpu
-                    elif hasattr(func, 'n_jobs'):
+                    elif hasattr(func, "n_jobs"):
                         func.n_jobs = self.n_cpu
                     elif isinstance(func, partial):
                         for func2 in func.args:
-                            if hasattr(func2, 'n_cpu'):
+                            if hasattr(func2, "n_cpu"):
                                 func2.n_cpu = self.n_cpu
-                            elif hasattr(func2, 'n_jobs'):
+                            elif hasattr(func2, "n_jobs"):
                                 func2.n_jobs = self.n_cpu
                 # turn off VS multiprocessing
                 self.n_cpu = 1
 
         # TODO add some verbosity or progress bar
         if self.n_cpu != 1:
-            out = (Pool(self.n_cpu if self.n_cpu > 0 else None)
-                   .imap(partial(compose_iter, funcs=self._pipe),
-                         (chunk for chunk in chain([first_chunk], chunk_feed))))
+            out = Pool(self.n_cpu if self.n_cpu > 0 else None).imap(
+                partial(compose_iter, funcs=self._pipe), (chunk for chunk in chain([first_chunk], chunk_feed))
+            )
         else:
-            out = (compose_iter(chunk, self._pipe)
-                   for chunk in chain([first_chunk], chunk_feed))
+            out = (compose_iter(chunk, self._pipe) for chunk in chain([first_chunk], chunk_feed))
 
         # FIXME use joblib version as soon as it gets return_generator merged
         # out = Parallel(n_jobs=self.n_cpu)(
@@ -398,35 +398,27 @@ class virtualscreening:
         csv_filename: string
             Optional path to a CSV file
         """
-        if fmt == 'mol2' and oddt.toolkit.backend == 'ob':
-            if 'opt' in kwargs:
-                kwargs['opt']['c'] = None
+        if fmt == "mol2" and oddt.toolkit.backend == "ob":
+            if "opt" in kwargs:
+                kwargs["opt"]["c"] = None
             else:
-                kwargs['opt'] = {'c': None}
-        output_mol_file = oddt.toolkit.Outputfile(fmt,
-                                                  filename,
-                                                  overwrite=True,
-                                                  **kwargs)
+                kwargs["opt"] = {"c": None}
+        output_mol_file = oddt.toolkit.Outputfile(fmt, filename, overwrite=True, **kwargs)
         if csv_filename:
-            f = open(csv_filename, 'w')
+            f = open(csv_filename, "w")
             csv_file = None
         for mol in self.fetch():
             if csv_filename:
                 data = mol.data.to_dict()
                 # filter some internal data
-                blacklist_keys = ['OpenBabel Symmetry Classes',
-                                  'MOL Chiral Flag',
-                                  'PartialCharges',
-                                  'TORSDO',
-                                  'REMARK']
+                blacklist_keys = ["OpenBabel Symmetry Classes", "MOL Chiral Flag", "PartialCharges", "TORSDO", "REMARK"]
                 for b in blacklist_keys:
                     if b in data:
                         del data[b]
                 if len(data) > 0:
-                    data['name'] = mol.title
+                    data["name"] = mol.title
                 else:
-                    print("There is no data to write in CSV file",
-                          file=sys.stderr)
+                    print("There is no data to write in CSV file", file=sys.stderr)
                     return False
                 if csv_file is None:
                     csv_file = csv.DictWriter(f, data.keys(), **kwargs)
@@ -439,7 +431,7 @@ class virtualscreening:
             f.close()
         # TODO keep_pipe using hdf5 to store molecules
         if isfile(filename):
-            kwargs.pop('overwrite', None)  # this argument is unsupported
+            kwargs.pop("overwrite", None)  # this argument is unsupported
             self.load_ligands(fmt, filename, **kwargs)
 
     def write_csv(self, csv_filename, fields=None, keep_pipe=False, **kwargs):
@@ -456,30 +448,25 @@ class virtualscreening:
         keep_pipe: bool (default=False)
             If set to True, the ligand pipe is sustained.
         """
-        if hasattr(csv_filename, 'write'):
+        if hasattr(csv_filename, "write"):
             f = csv_filename
         else:
-            f = open(csv_filename, 'w')
+            f = open(csv_filename, "w")
         csv_file = None
         for mol in self.fetch():
             data = mol.data.to_dict()
             # filter some internal data
-            blacklist_keys = ['OpenBabel Symmetry Classes',
-                              'MOL Chiral Flag',
-                              'PartialCharges',
-                              'TORSDO',
-                              'REMARK']
+            blacklist_keys = ["OpenBabel Symmetry Classes", "MOL Chiral Flag", "PartialCharges", "TORSDO", "REMARK"]
             for b in blacklist_keys:
                 if b in data:
                     del data[b]
             if len(data) > 0:
-                data['name'] = mol.title
+                data["name"] = mol.title
             else:
                 print("There is no data to write in CSV file", file=sys.stderr)
                 return False
             if csv_file is None:
-                csv_file = csv.DictWriter(f, fields or data.keys(),
-                                          extrasaction='ignore', **kwargs)
+                csv_file = csv.DictWriter(f, fields or data.keys(), extrasaction="ignore", **kwargs)
                 csv_file.writeheader()
             csv_file.writerow(data)
             # TODO keep_pipe using hdf5 to store molecules

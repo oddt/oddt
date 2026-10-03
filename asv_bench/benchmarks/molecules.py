@@ -1,7 +1,8 @@
 import os
 import oddt
 
-test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
+test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
+
 
 class CommonBenchMolecule(object):
     def setup(self):
@@ -25,15 +26,19 @@ class CommonBenchMolecule(object):
 
 class BenchSmallMolecule(CommonBenchMolecule):
     """Test molecule methods"""
+
     def setup(self):
-        self.mols = list(oddt.toolkit.readfile('sdf', '%s/tests/data/dude/xiap/actives_docked.sdf' % test_data_dir))[:10]
+        self.mols = list(oddt.toolkit.readfile("sdf", "%s/tests/data/dude/xiap/actives_docked.sdf" % test_data_dir))[
+            :10
+        ]
 
 
 class BenchProteinMolecule(CommonBenchMolecule):
     """Test molecule methods"""
-    goal_time = 1.
+
+    goal_time = 1.0
 
     def setup(self):
-        self.mols = list(oddt.toolkit.readfile('pdb', '%s/tests/data/dude/xiap/receptor_rdkit.pdb' % test_data_dir))
+        self.mols = list(oddt.toolkit.readfile("pdb", "%s/tests/data/dude/xiap/receptor_rdkit.pdb" % test_data_dir))
         for mol in self.mols:
             mol.protein = True

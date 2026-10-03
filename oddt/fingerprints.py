@@ -1,8 +1,9 @@
 """
-    Module checks interactions between two molecules and
-    creates interacion fingerprints.
+Module checks interactions between two molecules and
+creates interacion fingerprints.
 
 """
+
 from __future__ import division
 from itertools import chain
 from collections import OrderedDict, namedtuple
@@ -14,22 +15,26 @@ from scipy.sparse import csr_matrix, isspmatrix_csr
 
 import oddt
 from oddt.utils import is_openbabel_molecule
-from oddt.interactions import (pi_stacking,
-                               hbond_acceptor_donor,
-                               salt_bridge_plus_minus,
-                               hydrophobic_contacts,
-                               acceptor_metal,
-                               close_contacts)
+from oddt.interactions import (
+    pi_stacking,
+    hbond_acceptor_donor,
+    salt_bridge_plus_minus,
+    hydrophobic_contacts,
+    acceptor_metal,
+    close_contacts,
+)
 
 
-__all__ = ['InteractionFingerprint',
-           'SimpleInteractionFingerprint',
-           'SPLIF',
-           'similarity_SPLIF',
-           'ECFP',
-           'PLEC',
-           'dice',
-           'tanimoto']
+__all__ = [
+    "InteractionFingerprint",
+    "SimpleInteractionFingerprint",
+    "SPLIF",
+    "similarity_SPLIF",
+    "ECFP",
+    "PLEC",
+    "dice",
+    "tanimoto",
+]
 
 
 def InteractionFingerprint(ligand, protein, strict=True):
@@ -63,49 +68,43 @@ def InteractionFingerprint(ligand, protein, strict=True):
         Vector of calculated IFP (size = no residues * 8 type of interaction)
 
     """
-    resids = np.unique(protein.atom_dict['resid'])
+    resids = np.unique(protein.atom_dict["resid"])
     IFP = np.zeros((len(resids), 8), dtype=np.uint8)
 
     # hydrophobic contacts (column = 0)
-    hydrophobic = hydrophobic_contacts(protein, ligand)[0]['resid']
+    hydrophobic = hydrophobic_contacts(protein, ligand)[0]["resid"]
     np.add.at(IFP, (np.searchsorted(resids, np.sort(hydrophobic)[::-1]), 0), 1)
 
     # aromatic face to face (Column = 1), aromatic edge to face (Column = 2)
-    rings, _, strict_parallel, strict_perpendicular = pi_stacking(
-        protein, ligand)
-    np.add.at(IFP, (np.searchsorted(
-        resids, np.sort(rings[strict_parallel]['resid'])[::-1]), 1), 1)
-    np.add.at(IFP, (np.searchsorted(
-        resids, np.sort(rings[strict_perpendicular]['resid'])[::-1]), 2), 1)
+    rings, _, strict_parallel, strict_perpendicular = pi_stacking(protein, ligand)
+    np.add.at(IFP, (np.searchsorted(resids, np.sort(rings[strict_parallel]["resid"])[::-1]), 1), 1)
+    np.add.at(IFP, (np.searchsorted(resids, np.sort(rings[strict_perpendicular]["resid"])[::-1]), 2), 1)
 
     # h-bonds, protein as a donor (Column = 3)
     _, donors, strict0 = hbond_acceptor_donor(ligand, protein)
     if strict is False:
         strict0 = None
-    np.add.at(IFP, (np.searchsorted(
-        resids, np.sort(donors[strict0]['resid'])[::-1]), 3), 1)
+    np.add.at(IFP, (np.searchsorted(resids, np.sort(donors[strict0]["resid"])[::-1]), 3), 1)
 
     # h-bonds, protein as an acceptor (Column = 4)
     acceptors, _, strict1 = hbond_acceptor_donor(protein, ligand)
     if strict is False:
         strict1 = None
-    np.add.at(IFP, (np.searchsorted(
-        resids, np.sort(acceptors[strict1]['resid'])[::-1]), 4), 1)
+    np.add.at(IFP, (np.searchsorted(resids, np.sort(acceptors[strict1]["resid"])[::-1]), 4), 1)
 
     # salt bridges, protein positively charged (Column = 5)
     plus, _ = salt_bridge_plus_minus(protein, ligand)
-    np.add.at(IFP, (np.searchsorted(resids, np.sort(plus['resid'])[::-1]), 5), 1)
+    np.add.at(IFP, (np.searchsorted(resids, np.sort(plus["resid"])[::-1]), 5), 1)
 
     # salt bridges, protein negatively charged (Colum = 6)
     _, minus = salt_bridge_plus_minus(ligand, protein)
-    np.add.at(IFP, (np.searchsorted(resids, np.sort(minus['resid'])[::-1]), 6), 1)
+    np.add.at(IFP, (np.searchsorted(resids, np.sort(minus["resid"])[::-1]), 6), 1)
 
     # salt bridges, ionic bond with metal ion (Column = 7)
     _, metal, strict2 = acceptor_metal(protein, ligand)
     if strict is False:
         strict2 = None
-    np.add.at(IFP, (np.searchsorted(
-        resids, np.sort(metal[strict2]['resid'])[::-1]), 7), 1)
+    np.add.at(IFP, (np.searchsorted(resids, np.sort(metal[strict2]["resid"])[::-1]), 7), 1)
 
     return IFP.flatten()
 
@@ -146,75 +145,86 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
 
     """
 
-    amino_acids = np.array(['', 'ALA', 'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU',
-                            'GLY', 'HIS', 'ILE', 'LEU', 'LYS', 'MET', 'PHE',
-                            'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL'],
-                           dtype='<U3')
+    amino_acids = np.array(
+        [
+            "",
+            "ALA",
+            "ARG",
+            "ASN",
+            "ASP",
+            "CYS",
+            "GLN",
+            "GLU",
+            "GLY",
+            "HIS",
+            "ILE",
+            "LEU",
+            "LYS",
+            "MET",
+            "PHE",
+            "PRO",
+            "SER",
+            "THR",
+            "TRP",
+            "TYR",
+            "VAL",
+        ],
+        dtype="<U3",
+    )
 
     IFP = np.zeros((len(amino_acids), 8), dtype=np.uint8)
 
     # hydrophobic (Column = 0)
-    hydrophobic = hydrophobic_contacts(protein, ligand)[0]['resname']
-    hydrophobic[~np.in1d(hydrophobic, amino_acids)] = ''
-    np.add.at(IFP, (np.searchsorted(amino_acids,
-                                    np.sort(hydrophobic)[::-1]), 0), 1)
+    hydrophobic = hydrophobic_contacts(protein, ligand)[0]["resname"]
+    hydrophobic[~np.in1d(hydrophobic, amino_acids)] = ""
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(hydrophobic)[::-1]), 0), 1)
 
     # aromatic face to face (Column = 1), aromatic edge to face (Column = 2)
-    rings, _, strict_parallel, strict_perpendicular = pi_stacking(
-        protein, ligand)
-    rings[strict_parallel]['resname'][~np.in1d(
-        rings[strict_parallel]['resname'], amino_acids)] = ''
-    np.add.at(IFP, (np.searchsorted(
-        amino_acids, np.sort(rings[strict_parallel]['resname'])[::-1]), 1), 1)
-    rings[strict_perpendicular]['resname'][~np.in1d(
-        rings[strict_perpendicular]['resname'], amino_acids)] = ''
-    np.add.at(IFP, (np.searchsorted(
-        amino_acids,
-        np.sort(rings[strict_perpendicular]['resname'])[::-1]), 2), 1)
+    rings, _, strict_parallel, strict_perpendicular = pi_stacking(protein, ligand)
+    rings[strict_parallel]["resname"][~np.in1d(rings[strict_parallel]["resname"], amino_acids)] = ""
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(rings[strict_parallel]["resname"])[::-1]), 1), 1)
+    rings[strict_perpendicular]["resname"][~np.in1d(rings[strict_perpendicular]["resname"], amino_acids)] = ""
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(rings[strict_perpendicular]["resname"])[::-1]), 2), 1)
 
     # hbonds donated by the protein (Column = 3)
     _, donors, strict0 = hbond_acceptor_donor(ligand, protein)
-    donors['resname'][~np.in1d(donors['resname'], amino_acids)] = ''
+    donors["resname"][~np.in1d(donors["resname"], amino_acids)] = ""
     if strict is False:
         strict0 = None
-    np.add.at(IFP, (np.searchsorted(
-        amino_acids, np.sort(donors[strict0]['resname'])[::-1]), 3), 1)
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(donors[strict0]["resname"])[::-1]), 3), 1)
 
     # hbonds donated by the ligand (Column = 4)
     acceptors, _, strict1 = hbond_acceptor_donor(protein, ligand)
-    acceptors['resname'][~np.in1d(acceptors['resname'], amino_acids)] = ''
+    acceptors["resname"][~np.in1d(acceptors["resname"], amino_acids)] = ""
     if strict is False:
         strict1 = None
-    np.add.at(IFP, (np.searchsorted(
-        amino_acids, np.sort(acceptors[strict1]['resname'])[::-1]), 4), 1)
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(acceptors[strict1]["resname"])[::-1]), 4), 1)
 
     # ionic bond with protein cation(Column = 5)
     plus, _ = salt_bridge_plus_minus(protein, ligand)
-    plus['resname'][~np.in1d(plus['resname'], amino_acids)] = ''
-    np.add.at(IFP, (np.searchsorted(amino_acids,
-                                    np.sort(plus['resname'])[::-1]), 5), 1)
+    plus["resname"][~np.in1d(plus["resname"], amino_acids)] = ""
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(plus["resname"])[::-1]), 5), 1)
 
     # ionic bond with protein anion(Column = 6)
     _, minus = salt_bridge_plus_minus(ligand, protein)
-    minus['resname'][~np.in1d(minus['resname'], amino_acids)] = ''
-    np.add.at(IFP, (np.searchsorted(amino_acids,
-                                    np.sort(minus['resname'])[::-1]), 6), 1)
+    minus["resname"][~np.in1d(minus["resname"], amino_acids)] = ""
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(minus["resname"])[::-1]), 6), 1)
 
     # ionic bond with metal ion (Column = 7)
     _, metal, strict2 = acceptor_metal(protein, ligand)
-    metal['resname'][~np.in1d(metal['resname'], amino_acids)] = ''
+    metal["resname"][~np.in1d(metal["resname"], amino_acids)] = ""
     if strict is False:
         strict2 = None
-    np.add.at(IFP, (np.searchsorted(
-        amino_acids, np.sort(metal[strict2]['resname'])[::-1]), 7), 1)
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(metal[strict2]["resname"])[::-1]), 7), 1)
 
     return IFP.flatten()
 
 
 def fold(fp, size):
     """Folding array a to given size and cast to most compact dtype"""
-    fp = np.floor((np.array(fp).astype(np.float64) - MIN_HASH_VALUE) /
-                  (abs(MAX_HASH_VALUE - MIN_HASH_VALUE) / (size - 1)))
+    fp = np.floor(
+        (np.array(fp).astype(np.float64) - MIN_HASH_VALUE) / (abs(MAX_HASH_VALUE - MIN_HASH_VALUE) / (size - 1))
+    )
     if size < 65535:
         fp = fp.astype(np.uint16)
     elif size < 4294967295:
@@ -289,9 +299,7 @@ def sparse_to_csr_matrix(fp, size, count_bits=True):
         cols = np.unique(fp)
         values = np.ones_like(cols)
     rows = np.zeros_like(cols)
-    return csr_matrix((values, (rows, cols)),
-                      shape=(1, size),
-                      dtype=np.uint8 if count_bits else bool)
+    return csr_matrix((values, (rows, cols)), shape=(1, size), dtype=np.uint8 if count_bits else bool)
 
 
 def dense_to_sparse(fp):
@@ -333,25 +341,25 @@ def csr_matrix_to_sparse(fp):
         the indices are dupplicated according to count.
     """
     if not isspmatrix_csr(fp):
-        raise ValueError('fp is not CSR sparse matrix but %s (%s)' %
-                         (type(fp), fp))
+        raise ValueError("fp is not CSR sparse matrix but %s (%s)" % (type(fp), fp))
     # FIXME: change these methods to work for stacked fps (2D)
     return np.repeat(fp.indices, fp.data)
 
 
 # ranges for hashing function
 MIN_HASH_VALUE = 0
-MAX_HASH_VALUE = 2 ** 32
+MAX_HASH_VALUE = 2**32
 
 
 def hash32(value):
     """Platform independend 32bit hashing method"""
-    return hash_fnv1a_python(value) & 0xffffffff
+    return hash_fnv1a_python(value) & 0xFFFFFFFF
 
 
 if sys.version_info < (3, 8):
     hash_fnv1a_python = hash
 else:
+
     def hash_fnv1a_python(input_object):
         """Function hashing nested tuple of ints as implemented in Python 2.4-3.7.
         It uses modified FNV-1a algorithm. Implementation ported from Python source:
@@ -367,11 +375,11 @@ else:
             elif isinstance(item, int):
                 y = item
             else:
-                raise ValueError('Unsupported type %s' % type(input_object))
+                raise ValueError("Unsupported type %s" % type(input_object))
             if y == -1:
                 return -1
             hash_value = ((hash_value ^ y) * multiplier) & max_uint_mask
-            multiplier += (82520 + 2 * (input_length - idx))
+            multiplier += 82520 + 2 * (input_length - idx)
         hash_value += 97531
         if hash_value == -1:
             return -2
@@ -403,12 +411,9 @@ def get_atom_environments(mol, root_atom_idx, depth):
     if is_openbabel_molecule(mol):
         envs = OrderedDict([(i, []) for i in range(depth + 1)])
         last_depth = 0
-        for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol,
-                                                                        root_atom_idx + 1):
+        for atom, current_depth in oddt.toolkits.ob.ob.OBMolAtomBFSIter(mol.OBMol, root_atom_idx + 1):
             # FIX for disconnected fragments in OB
-            if ((current_depth > depth + 1) or
-                    (last_depth > current_depth) or
-                    (last_depth == 1 and current_depth == 1)):
+            if (current_depth > depth + 1) or (last_depth > current_depth) or (last_depth == 1 and current_depth == 1):
                 break
             last_depth = current_depth
             if atom.GetAtomicNum() == 1:
@@ -459,61 +464,65 @@ def _ECFP_atom_repr(mol, idx, use_pharm_features=False):
     """
     if use_pharm_features:
         atom_dict = mol.atom_dict[idx]
-        if atom_dict['atomicnum'] == 1:
-            raise Exception('ECFP should not hash Hydrogens')
-        return (int(atom_dict['isdonor']),
-                int(atom_dict['isacceptor']),
-                int(atom_dict['ishydrophobe']),
-                int(atom_dict['isplus']),
-                int(atom_dict['isminus']),
-                int(atom_dict['isaromatic']))
+        if atom_dict["atomicnum"] == 1:
+            raise Exception("ECFP should not hash Hydrogens")
+        return (
+            int(atom_dict["isdonor"]),
+            int(atom_dict["isacceptor"]),
+            int(atom_dict["ishydrophobe"]),
+            int(atom_dict["isplus"]),
+            int(atom_dict["isminus"]),
+            int(atom_dict["isaromatic"]),
+        )
 
     else:
         max_ring_size = 10  # dont catch macromolecular rings
         if is_openbabel_molecule(mol):
             atom = mol.OBMol.GetAtom(idx + 1)
             if atom.GetAtomicNum() == 1:
-                raise Exception('ECFP should not hash Hydrogens')
+                raise Exception("ECFP should not hash Hydrogens")
             # OB 3.0 compatibility
-            if hasattr(atom, 'GetHvyValence'):
+            if hasattr(atom, "GetHvyValence"):
                 heavy_degree = atom.GetHvyValence()
             else:
                 heavy_degree = atom.GetHvyDegree()
-            if hasattr(atom, 'ImplicitHydrogenCount'):
+            if hasattr(atom, "ImplicitHydrogenCount"):
                 hs_count = atom.ImplicitHydrogenCount() + atom.ExplicitHydrogenCount()
             else:
                 hs_count = atom.GetTotalDegree() - heavy_degree
-            return (atom.GetAtomicNum(),
-                    atom.GetIsotope(),
-                    heavy_degree,
-                    hs_count,
-                    atom.GetFormalCharge(),
-                    int(0 < atom.MemberOfRingSize() <= max_ring_size),
-                    int(atom.IsAromatic()),)
+            return (
+                atom.GetAtomicNum(),
+                atom.GetIsotope(),
+                heavy_degree,
+                hs_count,
+                atom.GetFormalCharge(),
+                int(0 < atom.MemberOfRingSize() <= max_ring_size),
+                int(atom.IsAromatic()),
+            )
         else:
             atom = mol.Mol.GetAtomWithIdx(idx)
             if atom.GetAtomicNum() == 1:
-                raise Exception('ECFP should not hash Hydrogens')
+                raise Exception("ECFP should not hash Hydrogens")
             n_hs = atom.GetTotalNumHs(includeNeighbors=True)
 
             # get ring info for atom and check rign size
             isring = False
             if atom.IsInRing():
                 # FIXME: this is not efficient, fixed by rdkit/rdkit#1859
-                isring = any(atom.IsInRingSize(size)
-                             for size in range(3, max_ring_size + 1))
+                isring = any(atom.IsInRingSize(size) for size in range(3, max_ring_size + 1))
 
-            return (atom.GetAtomicNum(),
-                    atom.GetIsotope(),
-                    atom.GetTotalDegree() - n_hs,
-                    n_hs,
-                    atom.GetFormalCharge(),
-                    int(isring),
-                    int(atom.GetIsAromatic()),)
+            return (
+                atom.GetAtomicNum(),
+                atom.GetIsotope(),
+                atom.GetTotalDegree() - n_hs,
+                n_hs,
+                atom.GetFormalCharge(),
+                int(isring),
+                int(atom.GetIsAromatic()),
+            )
 
 
-def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
-                    atom_repr_dict=None):
+def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False, atom_repr_dict=None):
     """Generate hashed environments for single atom up to certain depth
     (bond-wise). Hydrogens are ignored during neighbor lookup.
 
@@ -549,24 +558,22 @@ def _ECFP_atom_hash(mol, idx, depth=2, use_pharm_features=False,
 
     # Get atom representation only once, pull indices from largest env
     if atom_repr_dict is None:
-        atom_repr = [_ECFP_atom_repr(mol, aidx,
-                                     use_pharm_features=use_pharm_features)
-                     for aidx in atom_env[-1]]
+        atom_repr = [_ECFP_atom_repr(mol, aidx, use_pharm_features=use_pharm_features) for aidx in atom_env[-1]]
     elif isinstance(atom_repr_dict, dict):
         atom_repr = [atom_repr_dict[aidx] for aidx in atom_env[-1]]
     else:
-        raise ValueError('`atom_repr_dict` must be a dictionary, as atom idxs '
-                         'do not need to be continuous (eg. missing Hs).')
+        raise ValueError(
+            "`atom_repr_dict` must be a dictionary, as atom idxs " "do not need to be continuous (eg. missing Hs)."
+        )
     # Get atom invariants
     out_hash = []
     for layer in atom_env:
-        layer_invariant = tuple(sorted(atom_repr[:len(layer)]))
+        layer_invariant = tuple(sorted(atom_repr[: len(layer)]))
         out_hash.append(hash32(layer_invariant))
     return out_hash
 
 
-def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
-         use_pharm_features=False):
+def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True, use_pharm_features=False):
     """Extended connectivity fingerprints (ECFP) with an option to include
     atom features (FCPF). Depth of a fingerprint is counted as bond-steps, thus
     the depth for ECFP2 = 1, ECPF4 = 2, ECFP6 = 3, etc.
@@ -611,12 +618,11 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True,
     for idx, atom in enumerate(mol.atoms):
         if atom.atomicnum == 1:
             continue
-        atom_repr_dict[idx] = _ECFP_atom_repr(
-            mol, idx, use_pharm_features=use_pharm_features)
+        atom_repr_dict[idx] = _ECFP_atom_repr(mol, idx, use_pharm_features=use_pharm_features)
     for idx in atom_repr_dict.keys():
-        mol_hashed.append(_ECFP_atom_hash(mol, idx, depth=depth,
-                                          use_pharm_features=use_pharm_features,
-                                          atom_repr_dict=atom_repr_dict))
+        mol_hashed.append(
+            _ECFP_atom_hash(mol, idx, depth=depth, use_pharm_features=use_pharm_features, atom_repr_dict=atom_repr_dict)
+        )
     mol_hashed = np.array(sorted(chain(*mol_hashed)))
 
     # folding
@@ -660,46 +666,48 @@ def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
     """
 
     # removing h
-    protein_dict = protein.atom_dict[protein.atom_dict['atomicnum'] != 1]
-    ligand_dict = ligand.atom_dict[ligand.atom_dict['atomicnum'] != 1]
+    protein_dict = protein.atom_dict[protein.atom_dict["atomicnum"] != 1]
+    ligand_dict = ligand.atom_dict[ligand.atom_dict["atomicnum"] != 1]
 
-    protein_atoms, ligand_atoms = close_contacts(
-        protein_dict, ligand_dict, cutoff=distance_cutoff)
-    splif = np.zeros((len(ligand_atoms)),
-                     dtype=[('hash', np.int64), ('ligand_coords', np.float32, (7, 3)),
-                            ('protein_coords', np.float32, (7, 3))])
+    protein_atoms, ligand_atoms = close_contacts(protein_dict, ligand_dict, cutoff=distance_cutoff)
+    splif = np.zeros(
+        (len(ligand_atoms)),
+        dtype=[("hash", np.int64), ("ligand_coords", np.float32, (7, 3)), ("protein_coords", np.float32, (7, 3))],
+    )
 
-    lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, int(aidx))
-                     for aidx in ligand_dict['id']}
-    prot_atom_repr = {aidx: _ECFP_atom_repr(protein, int(aidx))
-                      for aidx in protein_dict['id']}
+    lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, int(aidx)) for aidx in ligand_dict["id"]}
+    prot_atom_repr = {aidx: _ECFP_atom_repr(protein, int(aidx)) for aidx in protein_dict["id"]}
 
-    for i, (ligand_atom, protein_atom) in enumerate(zip(ligand_atoms,
-                                                        protein_atoms)):
-        if ligand_atom['atomicnum'] == 1 or protein_atom['atomicnum'] == 1:
+    for i, (ligand_atom, protein_atom) in enumerate(zip(ligand_atoms, protein_atoms)):
+        if ligand_atom["atomicnum"] == 1 or protein_atom["atomicnum"] == 1:
             continue
         # function sorted used below solves isue, when order of parameteres
         # is not correct -> splif(protein, ligand)
-        splif[i] = (hash32(tuple(sorted((
-            _ECFP_atom_hash(ligand,
-                            int(ligand_atom['id']),
-                            depth=depth,
-                            atom_repr_dict=lig_atom_repr)[-1],
-            _ECFP_atom_hash(protein,
-                            int(protein_atom['id']),
-                            depth=depth,
-                            atom_repr_dict=prot_atom_repr)[-1])))),
-                    np.vstack((ligand_atom['coords'].reshape((1, 3)),
-                               ligand_atom['neighbors'])),
-                    np.vstack((protein_atom['coords'].reshape((1, 3)),
-                               protein_atom['neighbors'])))
+        splif[i] = (
+            hash32(
+                tuple(
+                    sorted(
+                        (
+                            _ECFP_atom_hash(ligand, int(ligand_atom["id"]), depth=depth, atom_repr_dict=lig_atom_repr)[
+                                -1
+                            ],
+                            _ECFP_atom_hash(
+                                protein, int(protein_atom["id"]), depth=depth, atom_repr_dict=prot_atom_repr
+                            )[-1],
+                        )
+                    )
+                )
+            ),
+            np.vstack((ligand_atom["coords"].reshape((1, 3)), ligand_atom["neighbors"])),
+            np.vstack((protein_atom["coords"].reshape((1, 3)), protein_atom["neighbors"])),
+        )
 
     # folding
-    splif['hash'] = fold(splif['hash'], size)
+    splif["hash"] = fold(splif["hash"], size)
     return np.sort(splif)
 
 
-def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
+def similarity_SPLIF(reference, query, rmsd_cutoff=1.0):
     """Calculates similarity between structural interaction fingerprints,
     based on doi:http://pubs.acs.org/doi/abs/10.1021/ci500319f.
 
@@ -718,15 +726,17 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
     """
 
     # intersection of reference and query hashed atoms
-    index = np.intersect1d(reference['hash'], query['hash'])
+    index = np.intersect1d(reference["hash"], query["hash"])
 
-    ref_intersection = reference[np.where(np.in1d(reference['hash'], index))]
-    ref_group_intersection = np.split(ref_intersection, np.searchsorted(
-        ref_intersection['hash'], index[1:]))  # reference
+    ref_intersection = reference[np.where(np.in1d(reference["hash"], index))]
+    ref_group_intersection = np.split(
+        ref_intersection, np.searchsorted(ref_intersection["hash"], index[1:])
+    )  # reference
 
-    query_intersection = query[np.where(np.in1d(query['hash'], index))]
-    query_group_intersection = np.split(query_intersection, np.searchsorted(
-        query_intersection['hash'], index[1:]))  # query
+    query_intersection = query[np.where(np.in1d(query["hash"], index))]
+    query_group_intersection = np.split(
+        query_intersection, np.searchsorted(query_intersection["hash"], index[1:])
+    )  # query
 
     numla = 0  # number of unique matching ligand atoms
     nula = 0  # number of unique ligand atoms
@@ -736,18 +746,17 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
     def combinatorial_rmsd(reference, query):
         """Calculates root mean square deviation between groups of points. It
         takes two matrices of shapes e.g (2, 5, 3) and (4, 5, 3) -> (2, 4)."""
-        return np.sqrt(np.nansum(np.mean(
-            (reference[:, np.newaxis, ...] - query)**2, axis=-1), axis=-1))
+        return np.sqrt(np.nansum(np.mean((reference[:, np.newaxis, ...] - query) ** 2, axis=-1), axis=-1))
 
     for pair in range(len(ref_group_intersection)):
         # reference protein-ligand pair
         ref_pair = ref_group_intersection[pair]
         # query protein-ligand pair
         query_pair = query_group_intersection[pair]
-        ref_ligand = ref_pair['ligand_coords']
-        ref_protein = ref_pair['protein_coords']
-        query_ligand = query_pair['ligand_coords']
-        query_protein = query_pair['protein_coords']
+        ref_ligand = ref_pair["ligand_coords"]
+        ref_protein = ref_pair["protein_coords"]
+        query_ligand = query_pair["ligand_coords"]
+        query_protein = query_pair["protein_coords"]
         rmsd_ligand = combinatorial_rmsd(ref_ligand, query_ligand)
         rmsd_protein = combinatorial_rmsd(ref_protein, query_protein)
         passing_ligand = rmsd_ligand < rmsd_cutoff
@@ -761,17 +770,28 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.):
         nula += num_all_ligand
         nupa += num_all_protein
     if nula == 0 or nupa == 0:
-        return 0.
+        return 0.0
     else:
         return np.sqrt((numla / nula) * (numpa / nupa))
 
 
-PLEC_bit_info_record = namedtuple('PLEC_bit_info_record',
-                                  'ligand_root_atom_idx ligand_depth protein_root_atom_idx protein_depth')
+PLEC_bit_info_record = namedtuple(
+    "PLEC_bit_info_record", "ligand_root_atom_idx ligand_depth protein_root_atom_idx protein_depth"
+)
 
 
-def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
-         size=16384, count_bits=True, sparse=True, ignore_hoh=True, bits_info=None):
+def PLEC(
+    ligand,
+    protein,
+    depth_ligand=2,
+    depth_protein=4,
+    distance_cutoff=4.5,
+    size=16384,
+    count_bits=True,
+    sparse=True,
+    ignore_hoh=True,
+    bits_info=None,
+):
     """Protein ligand extended connectivity fingerprint. For every pair of
     atoms in contact, compute ECFP and then hash every single, corresponding
     depth.
@@ -818,33 +838,23 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
     bit_info_content = []
 
     # removing h
-    protein_mask = protein_no_h = (protein.atom_dict['atomicnum'] != 1)
+    protein_mask = protein_no_h = protein.atom_dict["atomicnum"] != 1
     if ignore_hoh:
         # a copy is needed, so not modifing inplace
-        protein_mask = protein_mask & (protein.atom_dict['resname'] != 'HOH')
+        protein_mask = protein_mask & (protein.atom_dict["resname"] != "HOH")
     protein_dict = protein.atom_dict[protein_mask]
-    ligand_dict = ligand.atom_dict[ligand.atom_dict['atomicnum'] != 1]
+    ligand_dict = ligand.atom_dict[ligand.atom_dict["atomicnum"] != 1]
 
     # atoms in contact
-    protein_atoms, ligand_atoms = close_contacts(
-        protein_dict, ligand_dict, cutoff=distance_cutoff)
+    protein_atoms, ligand_atoms = close_contacts(protein_dict, ligand_dict, cutoff=distance_cutoff)
 
-    lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, aidx)
-                     for aidx in ligand_dict['id'].tolist()}
+    lig_atom_repr = {aidx: _ECFP_atom_repr(ligand, aidx) for aidx in ligand_dict["id"].tolist()}
     # HOH residues might be connected to metal atoms
-    prot_atom_repr = {aidx: _ECFP_atom_repr(protein, aidx)
-                      for aidx in protein.atom_dict[protein_no_h]['id'].tolist()}
+    prot_atom_repr = {aidx: _ECFP_atom_repr(protein, aidx) for aidx in protein.atom_dict[protein_no_h]["id"].tolist()}
 
-    for ligand_atom, protein_atom in zip(ligand_atoms['id'].tolist(),
-                                         protein_atoms['id'].tolist()):
-        ligand_ecfp = _ECFP_atom_hash(ligand,
-                                      ligand_atom,
-                                      depth=depth_ligand,
-                                      atom_repr_dict=lig_atom_repr)
-        protein_ecfp = _ECFP_atom_hash(protein,
-                                       protein_atom,
-                                       depth=depth_protein,
-                                       atom_repr_dict=prot_atom_repr)
+    for ligand_atom, protein_atom in zip(ligand_atoms["id"].tolist(), protein_atoms["id"].tolist()):
+        ligand_ecfp = _ECFP_atom_hash(ligand, ligand_atom, depth=depth_ligand, atom_repr_dict=lig_atom_repr)
+        protein_ecfp = _ECFP_atom_hash(protein, protein_atom, depth=depth_protein, atom_repr_dict=prot_atom_repr)
         assert len(ligand_ecfp) == depth_ligand + 1
         assert len(protein_ecfp) == depth_protein + 1
         # fillvalue is parameter from zip_longest
@@ -855,15 +865,18 @@ def PLEC(ligand, protein, depth_ligand=2, depth_protein=4, distance_cutoff=4.5,
         else:
             fillvalue = depth_protein, protein_ecfp[-1]
         for (ligand_depth, ligand_bit), (protein_depth, protein_bit) in zip_longest(
-                enumerate(ligand_ecfp), enumerate(protein_ecfp), fillvalue=fillvalue):
+            enumerate(ligand_ecfp), enumerate(protein_ecfp), fillvalue=fillvalue
+        ):
             result.append(hash32((ligand_bit, protein_bit)))
             if bits_info is not None:
-                bit_info_content.append(PLEC_bit_info_record(
-                    ligand_root_atom_idx=ligand_atom,
-                    ligand_depth=ligand_depth,
-                    protein_root_atom_idx= protein_atom,
-                    protein_depth=protein_depth
-                ))
+                bit_info_content.append(
+                    PLEC_bit_info_record(
+                        ligand_root_atom_idx=ligand_atom,
+                        ligand_depth=ligand_depth,
+                        protein_root_atom_idx=protein_atom,
+                        protein_depth=protein_depth,
+                    )
+                )
 
     # folding and sorting
     plec = fold(np.array(result), size=size)
@@ -913,10 +926,10 @@ def dice(a, b, sparse=False):
     if sparse:
         a_unique, a_counts = np.unique(a, return_counts=True)
         b_unique, b_counts = np.unique(b, return_counts=True)
-        a_b_intersection = np.intersect1d(
-            a_unique, b_unique, assume_unique=True)
-        a_b = np.minimum(a_counts[np.in1d(a_unique, a_b_intersection)],
-                         b_counts[np.in1d(b_unique, a_b_intersection)]).sum()
+        a_b_intersection = np.intersect1d(a_unique, b_unique, assume_unique=True)
+        a_b = np.minimum(
+            a_counts[np.in1d(a_unique, a_b_intersection)], b_counts[np.in1d(b_unique, a_b_intersection)]
+        ).sum()
         denominator = len(a) + len(b)
         if denominator > 0:
             return 2 * a_b.astype(float) / denominator
@@ -925,7 +938,7 @@ def dice(a, b, sparse=False):
         denominator = a.sum() + b.sum()
         if denominator > 0:
             return 2 * a_b.astype(float) / denominator
-    return 0.
+    return 0.0
 
 
 def tanimoto(a, b, sparse=False):
@@ -962,7 +975,7 @@ def tanimoto(a, b, sparse=False):
         denominator = a.sum() + b.sum() - a_b
         if denominator > 0:
             return a_b / denominator
-    return 0.
+    return 0.0
 
 
 def get_molecular_shingles(mol, depth=2, atom_idxs=None):
@@ -994,9 +1007,9 @@ def get_molecular_shingles(mol, depth=2, atom_idxs=None):
     for atom_idx in atom_idxs:
         env = list(chain.from_iterable(get_atom_environments(mol, root_atom_idx=atom_idx, depth=depth)))
         if is_openbabel_molecule(mol):
-            atom_idx_string = ' '.join(str(i + 1) for i in env)  # this is one-based
+            atom_idx_string = " ".join(str(i + 1) for i in env)  # this is one-based
             # OB fragment smiles contains names and whitespaces
-            fragment_smiles = mol.write('smi', opt={'c': None, 'F': atom_idx_string}).strip().split()[0]
+            fragment_smiles = mol.write("smi", opt={"c": None, "F": atom_idx_string}).strip().split()[0]
             shingles.append(fragment_smiles)
 
         else:

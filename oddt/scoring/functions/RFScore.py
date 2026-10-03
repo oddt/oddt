@@ -17,8 +17,7 @@ from oddt import random_seed
 from oddt.metrics import rmse, standard_deviation_error
 from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
-from oddt.scoring.descriptors import (close_contacts_descriptor,
-                                      oddt_vina_descriptor)
+from oddt.scoring.descriptors import close_contacts_descriptor, oddt_vina_descriptor
 
 
 # numpy after pickling gives Runtime Warnings
@@ -84,69 +83,63 @@ class rfscore(scorer):
             cutoff = 12
             mtry = 6
             descriptors = close_contacts_descriptor(
-                protein,
-                cutoff=cutoff,
-                protein_types=protein_atomic_nums,
-                ligand_types=ligand_atomic_nums)
+                protein, cutoff=cutoff, protein_types=protein_atomic_nums, ligand_types=ligand_atomic_nums
+            )
         elif version == 2:
             cutoff = np.array([0, 2, 4, 6, 8, 10, 12])
             mtry = 14
             descriptors = close_contacts_descriptor(
-                protein,
-                cutoff=cutoff,
-                protein_types=protein_atomic_nums,
-                ligand_types=ligand_atomic_nums)
+                protein, cutoff=cutoff, protein_types=protein_atomic_nums, ligand_types=ligand_atomic_nums
+            )
         elif version == 3:
             cutoff = 12
             mtry = 6
             cc = close_contacts_descriptor(
-                protein,
-                cutoff=cutoff,
-                protein_types=protein_atomic_nums,
-                ligand_types=ligand_atomic_nums)
-            vina_scores = ['vina_gauss1',
-                           'vina_gauss2',
-                           'vina_repulsion',
-                           'vina_hydrophobic',
-                           'vina_hydrogen',
-                           'vina_num_rotors']
+                protein, cutoff=cutoff, protein_types=protein_atomic_nums, ligand_types=ligand_atomic_nums
+            )
+            vina_scores = [
+                "vina_gauss1",
+                "vina_gauss2",
+                "vina_repulsion",
+                "vina_hydrophobic",
+                "vina_hydrogen",
+                "vina_num_rotors",
+            ]
             vina = oddt_vina_descriptor(protein, vina_scores=vina_scores)
             descriptors = ensemble_descriptor((vina, cc))
-        model = randomforest(n_estimators=500,
-                             oob_score=True,
-                             n_jobs=n_jobs,
-                             max_features=mtry,
-                             bootstrap=True,
-                             min_samples_split=6,
-                             **kwargs)
-        super(rfscore, self).__init__(model, descriptors,
-                                      score_title='rfscore_v%i' % self.version)
+        model = randomforest(
+            n_estimators=500,
+            oob_score=True,
+            n_jobs=n_jobs,
+            max_features=mtry,
+            bootstrap=True,
+            min_samples_split=6,
+            **kwargs,
+        )
+        super(rfscore, self).__init__(model, descriptors, score_title="rfscore_v%i" % self.version)
 
-    def gen_training_data(self,
-                          pdbbind_dir,
-                          pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
-                          home_dir=None,
-                          use_proteins=False):
+    def gen_training_data(
+        self, pdbbind_dir, pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016), home_dir=None, use_proteins=False
+    ):
         if home_dir is None:
-            home_dir = dirname(__file__) + '/RFScore'
-        filename = path_join(home_dir, 'rfscore_descs_v%i.csv' % self.version)
+            home_dir = dirname(__file__) + "/RFScore"
+        filename = path_join(home_dir, "rfscore_descs_v%i.csv" % self.version)
 
         super(rfscore, self)._gen_pdbbind_desc(
             pdbbind_dir=pdbbind_dir,
             pdbbind_versions=pdbbind_versions,
             desc_path=filename,
             use_proteins=use_proteins,
-            opt={'b': None},
+            opt={"b": None},
         )
 
     def train(self, home_dir=None, sf_pickle=None, pdbbind_version=2016):
         if not home_dir:
-            home_dir = dirname(__file__) + '/RFScore'
+            home_dir = dirname(__file__) + "/RFScore"
 
-        desc_path = path_join(home_dir, 'rfscore_descs_v%i.csv' % self.version)
+        desc_path = path_join(home_dir, "rfscore_descs_v%i.csv" % self.version)
 
-        super(rfscore, self)._load_pdbbind_desc(desc_path,
-                                                pdbbind_version=pdbbind_version)
+        super(rfscore, self)._load_pdbbind_desc(desc_path, pdbbind_version=pdbbind_version)
 
         # remove sparse dimentions
         if self.spr > 0:
@@ -159,55 +152,52 @@ class rfscore(scorer):
         random_seed(1)
         self.model.fit(self.train_descs, self.train_target)
 
-        print('Training RFScore v%i on PDBBind v%i'
-              % (self.version, pdbbind_version), file=sys.stderr)
+        print("Training RFScore v%i on PDBBind v%i" % (self.version, pdbbind_version), file=sys.stderr)
 
         sets = [
-            ('Test', self.model.predict(self.test_descs), self.test_target),
-            ('Train', self.model.predict(self.train_descs), self.train_target),
-            ('OOB', self.model.oob_prediction_, self.train_target)]
+            ("Test", self.model.predict(self.test_descs), self.test_target),
+            ("Train", self.model.predict(self.train_descs), self.train_target),
+            ("OOB", self.model.oob_prediction_, self.train_target),
+        ]
 
         for name, pred, target in sets:
             if len(target) < 3:
-                print('There are less than 3 values to predict, skipping.', file=sys.stderr)
+                print("There are less than 3 values to predict, skipping.", file=sys.stderr)
                 continue
-            print('%s set:' % name,
-                  'R2_score: %.4f' % r2_score(target, pred),
-                  'Rp: %.4f' % pearsonr(target, pred)[0],
-                  'RMSE: %.4f' % rmse(target, pred),
-                  'SD: %.4f' % standard_deviation_error(target, pred),
-                  sep='\t', file=sys.stderr)
+            print(
+                "%s set:" % name,
+                "R2_score: %.4f" % r2_score(target, pred),
+                "Rp: %.4f" % pearsonr(target, pred)[0],
+                "RMSE: %.4f" % rmse(target, pred),
+                "SD: %.4f" % standard_deviation_error(target, pred),
+                sep="\t",
+                file=sys.stderr,
+            )
 
         # compile trees
         if compiledtrees is not None:
             try:
-                print('Compiling Random Forest using sklearn-compiledtrees',
-                      file=sys.stderr)
-                self.model = compiledtrees.CompiledRegressionPredictor(
-                    self.model, n_jobs=self.n_jobs)
+                print("Compiling Random Forest using sklearn-compiledtrees", file=sys.stderr)
+                self.model = compiledtrees.CompiledRegressionPredictor(self.model, n_jobs=self.n_jobs)
             except Exception as e:
-                print('Failed to compile Random Forest with exception: %s' % e,
-                      file=sys.stderr)
-                print('Continuing without compiled RF.', file=sys.stderr)
+                print("Failed to compile Random Forest with exception: %s" % e, file=sys.stderr)
+                print("Continuing without compiled RF.", file=sys.stderr)
 
         if sf_pickle is None:
-            return self.save('RFScore_v%i_pdbbind%i.pickle'
-                             % (self.version, pdbbind_version))
+            return self.save("RFScore_v%i_pdbbind%i.pickle" % (self.version, pdbbind_version))
         else:
             return self.save(sf_pickle)
 
     @classmethod
     def load(self, filename=None, version=1, pdbbind_version=2016):
         if filename is None:
-            fname = 'RFScore_v%i_pdbbind%i.pickle' % (version, pdbbind_version)
+            fname = "RFScore_v%i_pdbbind%i.pickle" % (version, pdbbind_version)
             for f in [fname, path_join(dirname(__file__), fname)]:
                 if isfile(f):
                     filename = f
                     break
             else:
-                print('No pickle, training new scoring function.',
-                      file=sys.stderr)
+                print("No pickle, training new scoring function.", file=sys.stderr)
                 rf = rfscore(version=version)
-                filename = rf.train(sf_pickle=filename,
-                                    pdbbind_version=pdbbind_version)
+                filename = rf.train(sf_pickle=filename, pdbbind_version=pdbbind_version)
         return scorer.load(filename)

@@ -8,8 +8,7 @@ import numpy as np
 from scipy.stats import linregress
 from sklearn.metrics import roc_curve as roc, auc, mean_squared_error
 
-__all__ = ['roc', 'auc', 'roc_auc', 'roc_log_auc', 'enrichment_factor',
-           'random_roc_log_auc', 'rmse', 'rie', 'bedroc']
+__all__ = ["roc", "auc", "roc_auc", "roc_log_auc", "enrichment_factor", "random_roc_log_auc", "rmse", "rie", "bedroc"]
 
 
 def roc_auc(y_true, y_score, pos_label=None, ascending_score=True):
@@ -62,7 +61,7 @@ def rmse(y_true, y_pred):
     return np.sqrt(mean_squared_error(y_true, y_pred))
 
 
-def enrichment_factor(y_true, y_score, percentage=1, pos_label=None, kind='fold'):
+def enrichment_factor(y_true, y_score, percentage=1, pos_label=None, kind="fold"):
     """Computes enrichment factor for given percentage, i.e. EF_1% is
     enrichment factor for first percent of given samples. This function assumes
     that results are already sorted and samples with best predictions are first.
@@ -99,15 +98,14 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None, kind='fold'
     assert labels.sum() > 0, "There are no correct predicions. Double-check the pos_label"
     assert len(labels) > 0, "Sample size must be greater than 0"
     # calculate fraction of positve labels
-    n_perc = int(ceil(percentage / 100. * len(labels)))
+    n_perc = int(ceil(percentage / 100.0 * len(labels)))
     out = labels[:n_perc].sum() / n_perc
-    if kind == 'fold':
-        out /= (labels.sum() / len(labels))
+    if kind == "fold":
+        out /= labels.sum() / len(labels)
     return out
 
 
-def roc_log_auc(y_true, y_score, pos_label=None, ascending_score=True,
-                log_min=0.001, log_max=1.):
+def roc_log_auc(y_true, y_score, pos_label=None, ascending_score=True, log_min=0.001, log_max=1.0):
     """Computes area under semi-log ROC.
 
     Parameters
@@ -143,12 +141,12 @@ def roc_log_auc(y_true, y_score, pos_label=None, ascending_score=True,
         y_score = -y_score
     fpr, tpr, t = roc(y_true, y_score, pos_label=pos_label)
     fpr = fpr.clip(log_min)
-    idx = (fpr <= log_max)
+    idx = fpr <= log_max
     log_fpr = 1 - np.log10(fpr[idx]) / np.log10(log_min)
     return auc(log_fpr, tpr[idx])
 
 
-def random_roc_log_auc(log_min=0.001, log_max=1.):
+def random_roc_log_auc(log_min=0.001, log_max=1.0):
     """Computes area under semi-log ROC for random distribution.
 
     Parameters
@@ -233,13 +231,12 @@ def rie(y_true, y_score, alpha=20, pos_label=None):
     ra = labels.sum() / N
     ranks = np.argwhere(labels).astype(float) + 1  # need 1-based ranking
     observed = np.exp(-alpha * ranks / N).sum()
-    expected = (ra * (1 - np.exp(-alpha))
-                / (np.exp(alpha / N) - 1))
+    expected = ra * (1 - np.exp(-alpha)) / (np.exp(alpha / N) - 1)
     rie_score = observed / expected
     return rie_score
 
 
-def bedroc(y_true, y_score, alpha=20., pos_label=None):
+def bedroc(y_true, y_score, alpha=20.0, pos_label=None):
     """Computes Boltzmann-Enhanced Discrimination of Receiver Operating
     Characteristic [1]_.  This function assumes that results are already sorted
     and samples with best predictions are first.
@@ -278,7 +275,7 @@ def bedroc(y_true, y_score, alpha=20., pos_label=None):
     ra = labels.sum() / len(labels)
     ri = 1 - ra
     rie_score = rie(y_true, y_score, alpha=alpha, pos_label=pos_label)
-    bedroc_score = (rie_score * ra * np.sinh(alpha / 2) /
-                    (np.cosh(alpha / 2) - np.cosh(alpha / 2 - alpha * ra))
-                    + 1 / (1 - np.exp(alpha * ri)))
+    bedroc_score = rie_score * ra * np.sinh(alpha / 2) / (np.cosh(alpha / 2) - np.cosh(alpha / 2 - alpha * ra)) + 1 / (
+        1 - np.exp(alpha * ri)
+    )
     return bedroc_score

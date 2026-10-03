@@ -1,4 +1,5 @@
 """Common utils for testing purposes"""
+
 from random import shuffle
 
 import oddt

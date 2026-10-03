@@ -14,24 +14,25 @@ Currently following interacions are implemented:
 import numpy as np
 from oddt.spatial import angle, angle_2v, distance
 
-__all__ = ['close_contacts',
-           'hbond_acceptor_donor',
-           'hbonds',
-           'halogenbond_acceptor_halogen',
-           'halogenbonds',
-           'pi_stacking',
-           'salt_bridge_plus_minus',
-           'salt_bridges',
-           'hydrophobic_contacts',
-           'pi_cation',
-           'acceptor_metal',
-           'pi_metal']
+__all__ = [
+    "close_contacts",
+    "hbond_acceptor_donor",
+    "hbonds",
+    "halogenbond_acceptor_halogen",
+    "halogenbonds",
+    "pi_stacking",
+    "salt_bridge_plus_minus",
+    "salt_bridges",
+    "hydrophobic_contacts",
+    "pi_cation",
+    "acceptor_metal",
+    "pi_metal",
+]
 
 BASE_ANGLES = np.array((0, 180, 120, 109.5, 90), dtype=float)
 
 
-def close_contacts(x, y, cutoff, x_column='coords', y_column='coords',
-                   cutoff_low=0.):
+def close_contacts(x, y, cutoff, x_column="coords", y_column="coords", cutoff_low=0.0):
     """Returns pairs of atoms which are within close contac distance cutoff.
     The cutoff is semi-inclusive, i.e (cutoff_low, cutoff].
 
@@ -103,22 +104,17 @@ def hbond_acceptor_donor(mol1, mol2, cutoff=3.5, tolerance=30, donor_exact=False
         form 'strict' H-bond (pass all angular cutoffs). If false,
         only distance cutoff is met, therefore the bond is 'crude'.
     """
-    donor_mask = mol2.atom_dict['isdonor']
+    donor_mask = mol2.atom_dict["isdonor"]
     if donor_exact:
-        donor_mask = donor_mask & (mol2.atom_dict['numhs'] > 0)
-    a, d = close_contacts(mol1.atom_dict[mol1.atom_dict['isacceptor']],
-                          mol2.atom_dict[donor_mask],
-                          cutoff)
+        donor_mask = donor_mask & (mol2.atom_dict["numhs"] > 0)
+    a, d = close_contacts(mol1.atom_dict[mol1.atom_dict["isacceptor"]], mol2.atom_dict[donor_mask], cutoff)
     # skip empty values
     if len(a) > 0 and len(d) > 0:
-        angle1 = angle(d['coords'][:, np.newaxis, :],
-                       a['coords'][:, np.newaxis, :],
-                       a['neighbors'])
-        angle2 = angle(a['coords'][:, np.newaxis, :],
-                       d['coords'][:, np.newaxis, :],
-                       d['neighbors'])
-        strict = (_check_angles(angle1, a['hybridization'], tolerance) &
-                  _check_angles(angle2, d['hybridization'], tolerance))
+        angle1 = angle(d["coords"][:, np.newaxis, :], a["coords"][:, np.newaxis, :], a["neighbors"])
+        angle2 = angle(a["coords"][:, np.newaxis, :], d["coords"][:, np.newaxis, :], d["neighbors"])
+        strict = _check_angles(angle1, a["hybridization"], tolerance) & _check_angles(
+            angle2, d["hybridization"], tolerance
+        )
         return a, d, strict
     else:
         return a, d, np.array([], dtype=bool)
@@ -159,10 +155,7 @@ def hbonds(mol1, mol2, cutoff=3.5, tolerance=30, mol1_exact=False, mol2_exact=Fa
     return np.concatenate((a1, d2)), np.concatenate((d1, a2)), np.concatenate((s1, s2))
 
 
-def halogenbond_acceptor_halogen(mol1,
-                                 mol2,
-                                 tolerance=30,
-                                 cutoff=4):
+def halogenbond_acceptor_halogen(mol1, mol2, tolerance=30, cutoff=4):
     """Returns pairs of acceptor-halogen atoms, which meet halogen bond criteria
 
     Parameters
@@ -188,19 +181,16 @@ def halogenbond_acceptor_halogen(mol1,
         form 'strict' halogen bond (pass all angular cutoffs). If false,
         only distance cutoff is met, therefore the bond is 'crude'.
     """
-    a, h = close_contacts(mol1.atom_dict[mol1.atom_dict['isacceptor']],
-                          mol2.atom_dict[mol2.atom_dict['ishalogen']],
-                          cutoff)
+    a, h = close_contacts(
+        mol1.atom_dict[mol1.atom_dict["isacceptor"]], mol2.atom_dict[mol2.atom_dict["ishalogen"]], cutoff
+    )
     # skip empty values
     if len(a) > 0 and len(h) > 0:
-        angle1 = angle(h['coords'][:, np.newaxis, :],
-                       a['coords'][:, np.newaxis, :],
-                       a['neighbors'])
-        angle2 = angle(a['coords'][:, np.newaxis, :],
-                       h['coords'][:, np.newaxis, :],
-                       h['neighbors'])
-        strict = (_check_angles(angle1, a['hybridization'], tolerance) &
-                  _check_angles(angle2, np.ones_like(h['hybridization']), tolerance))
+        angle1 = angle(h["coords"][:, np.newaxis, :], a["coords"][:, np.newaxis, :], a["neighbors"])
+        angle2 = angle(a["coords"][:, np.newaxis, :], h["coords"][:, np.newaxis, :], h["neighbors"])
+        strict = _check_angles(angle1, a["hybridization"], tolerance) & _check_angles(
+            angle2, np.ones_like(h["hybridization"]), tolerance
+        )
         return a, h, strict
     else:
         return a, h, np.array([], dtype=bool)
@@ -266,30 +256,23 @@ def pi_stacking(mol1, mol2, cutoff=5, tolerance=30):
         form 'strict' perpendicular pi-stacking (T-shaped, T-face, etc.).
         If false, only distance cutoff is met, therefore the stacking is 'crude'.
     """
-    r1, r2 = close_contacts(mol1.ring_dict,
-                            mol2.ring_dict,
-                            cutoff,
-                            x_column='centroid',
-                            y_column='centroid')
+    r1, r2 = close_contacts(mol1.ring_dict, mol2.ring_dict, cutoff, x_column="centroid", y_column="centroid")
     if len(r1) > 0 and len(r2) > 0:
-        angle1 = angle_2v(r1['vector'], r2['vector'])
-        angle2 = angle(r1['vector'] + r1['centroid'],
-                       r1['centroid'],
-                       r2['centroid'])
-        angle3 = angle(r2['vector'] + r2['centroid'],
-                       r2['centroid'],
-                       r1['centroid'])
-        strict_parallel = (((angle1 > 180 - tolerance) | (angle1 < tolerance)) &
-                           ((angle2 > 180 - tolerance) | (angle2 < tolerance) |
-                            (angle3 > 180 - tolerance) | (angle3 < tolerance)))
+        angle1 = angle_2v(r1["vector"], r2["vector"])
+        angle2 = angle(r1["vector"] + r1["centroid"], r1["centroid"], r2["centroid"])
+        angle3 = angle(r2["vector"] + r2["centroid"], r2["centroid"], r1["centroid"])
+        strict_parallel = ((angle1 > 180 - tolerance) | (angle1 < tolerance)) & (
+            (angle2 > 180 - tolerance) | (angle2 < tolerance) | (angle3 > 180 - tolerance) | (angle3 < tolerance)
+        )
         strict_perpendicular = (
-                (angle1 > 90 - tolerance) & (angle1 < 90 + tolerance) &
-                (
-                    ((angle2 > 180 - tolerance) | (angle2 < tolerance)) &
-                    ((angle3 > 90 - tolerance) | (angle3 < 90 + tolerance)) |
-                    ((angle2 > 90 - tolerance) | (angle2 < 90 + tolerance)) &
-                    ((angle3 > 180 - tolerance) | (angle3 < tolerance))
-                )
+            (angle1 > 90 - tolerance)
+            & (angle1 < 90 + tolerance)
+            & (
+                ((angle2 > 180 - tolerance) | (angle2 < tolerance))
+                & ((angle3 > 90 - tolerance) | (angle3 < 90 + tolerance))
+                | ((angle2 > 90 - tolerance) | (angle2 < 90 + tolerance))
+                & ((angle3 > 180 - tolerance) | (angle3 < tolerance))
+            )
         )
         return r1, r2, strict_parallel, strict_perpendicular
     else:
@@ -316,15 +299,13 @@ def salt_bridge_plus_minus(mol1, mol2, cutoff=4, cation_exact=False, anion_exact
         Aligned arrays of atoms forming salt bridge, firstly plus, secondly minus
 
     """
-    cation_map = mol1.atom_dict['isplus']
+    cation_map = mol1.atom_dict["isplus"]
     if cation_exact:
-        cation_map = cation_map & (mol1.atom_dict['formalcharge'] > 0)
-    anion_map = mol2.atom_dict['isminus']
+        cation_map = cation_map & (mol1.atom_dict["formalcharge"] > 0)
+    anion_map = mol2.atom_dict["isminus"]
     if anion_exact:
-        anion_map = anion_map & (mol2.atom_dict['formalcharge'] < 0)
-    m1_plus, m2_minus = close_contacts(mol1.atom_dict[cation_map],
-                                       mol2.atom_dict[anion_map],
-                                       cutoff)
+        anion_map = anion_map & (mol2.atom_dict["formalcharge"] < 0)
+    m1_plus, m2_minus = close_contacts(mol1.atom_dict[cation_map], mol2.atom_dict[anion_map], cutoff)
     return m1_plus, m2_minus
 
 
@@ -347,10 +328,12 @@ def salt_bridges(mol1, mol2, cutoff=4, mol1_exact=False, mol2_exact=False):
     mol1_atoms, mol2_atoms : atom_dict-type numpy array
         Aligned arrays of atoms forming salt bridges
     """
-    m1_plus, m2_minus = salt_bridge_plus_minus(mol1, mol2, cutoff=cutoff,
-                                               cation_exact=mol1_exact, anion_exact=mol2_exact)
-    m2_plus, m1_minus = salt_bridge_plus_minus(mol2, mol1, cutoff=cutoff,
-                                               cation_exact=mol2_exact, anion_exact=mol1_exact)
+    m1_plus, m2_minus = salt_bridge_plus_minus(
+        mol1, mol2, cutoff=cutoff, cation_exact=mol1_exact, anion_exact=mol2_exact
+    )
+    m2_plus, m1_minus = salt_bridge_plus_minus(
+        mol2, mol1, cutoff=cutoff, cation_exact=mol2_exact, anion_exact=mol1_exact
+    )
     return np.concatenate((m1_plus, m1_minus)), np.concatenate((m2_minus, m2_plus))
 
 
@@ -371,9 +354,9 @@ def hydrophobic_contacts(mol1, mol2, cutoff=4):
         Aligned arrays of atoms forming hydrophobic contacts
 
     """
-    h1, h2 = close_contacts(mol1.atom_dict[mol1.atom_dict['ishydrophobe']],
-                            mol2.atom_dict[mol2.atom_dict['ishydrophobe']],
-                            cutoff)
+    h1, h2 = close_contacts(
+        mol1.atom_dict[mol1.atom_dict["ishydrophobe"]], mol2.atom_dict[mol2.atom_dict["ishydrophobe"]], cutoff
+    )
     return h1, h2
 
 
@@ -409,19 +392,15 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30, cation_exact=False):
         therefore the interaction is 'crude'.
 
     """
-    cation_map = mol2.atom_dict['isplus']
+    cation_map = mol2.atom_dict["isplus"]
     if cation_exact:
-        cation_map = cation_map & (mol2.atom_dict['formalcharge'] > 0)
-    r1, plus2 = close_contacts(mol1.ring_dict,
-                               mol2.atom_dict[cation_map],
-                               cutoff,
-                               x_column='centroid')
+        cation_map = cation_map & (mol2.atom_dict["formalcharge"] > 0)
+    r1, plus2 = close_contacts(mol1.ring_dict, mol2.atom_dict[cation_map], cutoff, x_column="centroid")
     if len(r1) > 0 and len(plus2) > 0:
-        angle1 = angle_2v(r1['vector'], plus2['coords'] - r1['centroid'])
+        angle1 = angle_2v(r1["vector"], plus2["coords"] - r1["centroid"])
         ideal_angle = 30  # angle to normal vector
-        strict = (
-            ((angle1 > ideal_angle - tolerance) & (angle1 < ideal_angle + tolerance)) |
-            ((angle1 > 180 - ideal_angle - tolerance) & (angle1 < 180 - ideal_angle + tolerance))
+        strict = ((angle1 > ideal_angle - tolerance) & (angle1 < ideal_angle + tolerance)) | (
+            (angle1 > 180 - ideal_angle - tolerance) & (angle1 < 180 - ideal_angle + tolerance)
         )
         return r1, plus2, strict
     else:
@@ -456,15 +435,13 @@ def acceptor_metal(mol1, mol2, tolerance=30, cutoff=4):
         If false, only distance cutoff is met, therefore the interaction
         is 'crude'.
     """
-    a, m = close_contacts(mol1.atom_dict[mol1.atom_dict['isacceptor']],
-                          mol2.atom_dict[mol2.atom_dict['ismetal']],
-                          cutoff)
+    a, m = close_contacts(
+        mol1.atom_dict[mol1.atom_dict["isacceptor"]], mol2.atom_dict[mol2.atom_dict["ismetal"]], cutoff
+    )
     # skip empty values
     if len(a) > 0 and len(m) > 0:
-        angle1 = angle(m['coords'][:, np.newaxis, :],
-                       a['coords'][:, np.newaxis, :],
-                       a['neighbors'])
-        strict = _check_angles(angle1, a['hybridization'], tolerance)
+        angle1 = angle(m["coords"][:, np.newaxis, :], a["coords"][:, np.newaxis, :], a["neighbors"])
+        strict = _check_angles(angle1, a["hybridization"], tolerance)
         return a, m, strict
     else:
         return a, m, np.array([], dtype=bool)
@@ -499,12 +476,9 @@ def pi_metal(mol1, mol2, cutoff=5, tolerance=30):
         therefore the interaction is 'crude'.
 
     """
-    r1, m = close_contacts(mol1.ring_dict,
-                           mol2.atom_dict[mol2.atom_dict['ismetal']],
-                           cutoff,
-                           x_column='centroid')
+    r1, m = close_contacts(mol1.ring_dict, mol2.atom_dict[mol2.atom_dict["ismetal"]], cutoff, x_column="centroid")
     if len(r1) > 0 and len(m) > 0:
-        angle1 = angle_2v(r1['vector'], m['coords'] - r1['centroid'])
+        angle1 = angle_2v(r1["vector"], m["coords"] - r1["centroid"])
         strict = (angle1 > 180 - tolerance) | (angle1 < tolerance)
         return r1, m, strict
     else:

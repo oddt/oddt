@@ -1,1 +1,1 @@
-__all__ = ['regressors', 'classifiers']
+__all__ = ["regressors", "classifiers"]

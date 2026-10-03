@@ -1,5 +1,4 @@
-"""This module generates and does computation with molecular surfaces.
-"""
+"""This module generates and does computation with molecular surfaces."""
 
 from __future__ import division
 from numbers import Number
@@ -15,18 +14,17 @@ import oddt.toolkits
 try:
     from skimage.morphology import ball, binary_closing
     from skimage import __version__ as skimage_version
-    if LooseVersion('0.19') > LooseVersion(skimage_version) >= LooseVersion('0.13'):
+
+    if LooseVersion("0.19") > LooseVersion(skimage_version) >= LooseVersion("0.13"):
         from skimage.measure import marching_cubes_lewiner as marching_cubes
     else:
         from skimage.measure import marching_cubes
 except ImportError as e:
-    warnings.warn('scikit-image could not be imported and is required for'
-                  'generating molecular surfaces.')
+    warnings.warn("scikit-image could not be imported and is required for" "generating molecular surfaces.")
     skimage = None
 
 
-def generate_surface_marching_cubes(molecule, remove_hoh=False, scaling=1.,
-                                    probe_radius=1.4):
+def generate_surface_marching_cubes(molecule, remove_hoh=False, scaling=1.0, probe_radius=1.4):
     """Generates a molecular surface mesh using the marching_cubes
     method from scikit-image. Ignores hydrogens present in the molecule.
 
@@ -60,28 +58,28 @@ def generate_surface_marching_cubes(molecule, remove_hoh=False, scaling=1.,
     """
     # Input validation
     if not isinstance(molecule, oddt.toolkit.Molecule):
-        raise TypeError('molecule needs to be of type oddt.toolkit.Molecule')
+        raise TypeError("molecule needs to be of type oddt.toolkit.Molecule")
     if not (isinstance(probe_radius, Number) and probe_radius >= 0):
-        raise ValueError('probe_radius needs to be a positive number')
+        raise ValueError("probe_radius needs to be a positive number")
 
     # Removing waters and hydrogens
     atom_dict = molecule.atom_dict
-    atom_dict = atom_dict[atom_dict['atomicnum'] != 1]
+    atom_dict = atom_dict[atom_dict["atomicnum"] != 1]
     if remove_hoh:
         if molecule.protein is not True:
-            raise ValueError('Residue names are needed for water removal, '
-                             'molecule.protein property must be set to True')
-        no_hoh = atom_dict['resname'] != 'HOH'
+            raise ValueError(
+                "Residue names are needed for water removal, " "molecule.protein property must be set to True"
+            )
+        no_hoh = atom_dict["resname"] != "HOH"
         atom_dict = atom_dict[no_hoh]
 
     # Take a molecule's coordinates and atom radii and scale if necessary
-    coords = atom_dict['coords'] * scaling
-    radii = atom_dict['radius'] * scaling
+    coords = atom_dict["coords"] * scaling
+    radii = atom_dict["radius"] * scaling
 
     # More input validation
     if radii.min() < 1:
-        raise ValueError('Scaling times the radius of the smallest atom must '
-                         'be larger than 1')
+        raise ValueError("Scaling times the radius of the smallest atom must " "be larger than 1")
     # Create a ball for each atom in the molecule
     ball_dict = {radius: ball(radius, dtype=bool) for radius in set(radii)}
     ball_radii = np.array([ball_dict[radius].shape[0] for radius in radii])
@@ -101,9 +99,7 @@ def generate_surface_marching_cubes(molecule, remove_hoh=False, scaling=1.,
 
     # Place balls in grid
     for radius, coord_min, coord_max in zip(radii, ball_coord_min, ball_coord_max):
-        grid[coord_min[0]:coord_max[0],
-             coord_min[1]:coord_max[1],
-             coord_min[2]:coord_max[2]] += ball_dict[radius]
+        grid[coord_min[0] : coord_max[0], coord_min[1] : coord_max[1], coord_min[2] : coord_max[2]] += ball_dict[radius]
     spacing = (1 / scaling,) * 3
 
     # Hole-filling with morphological closing
@@ -117,7 +113,7 @@ def generate_surface_marching_cubes(molecule, remove_hoh=False, scaling=1.,
     return verts - offset / scaling, faces
 
 
-def find_surface_residues(molecule, max_dist=None, scaling=1.):
+def find_surface_residues(molecule, max_dist=None, scaling=1.0):
     """Finds residues close to the molecular surface using
     generate_surface_marching_cubes. Ignores hydrogens and
     waters present in the molecule.
@@ -147,15 +143,15 @@ def find_surface_residues(molecule, max_dist=None, scaling=1.):
     """
     # Input validation
     if not isinstance(molecule, oddt.toolkit.Molecule):
-        raise TypeError('molecule needs to be of type oddt.toolkit.Molecule')
+        raise TypeError("molecule needs to be of type oddt.toolkit.Molecule")
 
     # Copy the atom_dict, remove waters
     atom_dict = molecule.atom_dict
-    mask = (atom_dict['resname'] != 'HOH') & (atom_dict['atomicnum'] != 1)
+    mask = (atom_dict["resname"] != "HOH") & (atom_dict["atomicnum"] != 1)
     atom_dict = atom_dict[mask]
-    coords = atom_dict['coords']
+    coords = atom_dict["coords"]
     if max_dist is None:
-        max_dist = atom_dict['radius']
+        max_dist = atom_dict["radius"]
 
     # More input validation
     elif isinstance(max_dist, Number):
@@ -163,17 +159,14 @@ def find_surface_residues(molecule, max_dist=None, scaling=1.):
     else:
         max_dist = np.array(max_dist)
     if not np.issubdtype(max_dist.dtype, np.number):
-        raise ValueError('max_dist has to be a number or an '
-                         'array_like object containing numbers')
+        raise ValueError("max_dist has to be a number or an " "array_like object containing numbers")
     if coords.shape[0] != len(max_dist):
-        raise ValueError('max_dist doesn\'t match coords\' length')
+        raise ValueError("max_dist doesn't match coords' length")
 
     # Marching cubes
-    verts, _ = generate_surface_marching_cubes(molecule, remove_hoh=True,
-                                               scaling=scaling, probe_radius=1.4)
+    verts, _ = generate_surface_marching_cubes(molecule, remove_hoh=True, scaling=scaling, probe_radius=1.4)
 
     # Calculate distances between atoms and the surface
     tree_verts = cKDTree(verts)
-    mask = [bool(tree_verts.query_ball_point(point, radius))
-            for point, radius in zip(coords, max_dist)]
+    mask = [bool(tree_verts.query_ball_point(point, radius)) for point, radius in zip(coords, max_dist)]
     return atom_dict[np.array(mask)]
