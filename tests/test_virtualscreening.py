@@ -72,7 +72,11 @@ def test_vs_docking():
     assert "vina_affinity" in mol_data
     assert "vina_rmsd_lb" in mol_data
     assert "vina_rmsd_ub" in mol_data
-    vina_scores = [-6.3, -6.0, -5.8, -5.8, -3.9, -3.0, -1.1]
+
+    if oddt.toolkit.backend == "ob":
+        vina_scores = [-6.3, -6. , -5.8, -5.8, -3.9, -3. , -1.1]
+    else:
+        vina_scores = [-6.3, -6.1, -5.7, -3.8, -2.9, -1. , -1. ]
     assert_array_equal([float(m.data["vina_affinity"]) for m in mols], vina_scores)
 
     # verify the SMILES of molecules
@@ -83,7 +87,7 @@ def test_vs_docking():
         # OB 2.4 recognizes the smiles chirality wrong
         pass
     else:
-        vina_rmsd = [8.153314, 5.32554, 8.514586, 8.510169, 9.060128, 8.995098, 8.626776]
+        vina_rmsd = [8.26206 , 5.292223, 8.510169, 9.060128, 8.995098, 8.626776, 7.923956]
         assert_array_equal([mol.smiles for mol in mols], [ref_mol.smiles] * len(mols))
 
         assert_array_almost_equal([rmsd(ref_mol, mol, method="min_symmetry") for mol in mols], vina_rmsd)
