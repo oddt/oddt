@@ -1,5 +1,6 @@
 import os
 from tempfile import mkdtemp, NamedTemporaryFile
+from distutils.spawn import find_executable
 
 import pytest
 from numpy.testing import assert_array_equal, assert_array_almost_equal
@@ -22,6 +23,7 @@ xiap_protein = os.path.join(dude_data_dir, 'receptor_rdkit.pdb')
 xiap_actives_docked = os.path.join(dude_data_dir, 'actives_docked.sdf')
 
 
+@pytest.mark.skipif(find_executable('vina') is None, reason="Autodock Vina binary missing")
 def test_vs_scoring_vina():
     """VS scoring (Vina) tests"""
     vs = virtualscreening(n_cpu=1)
@@ -44,6 +46,7 @@ def test_vs_scoring_vina():
     assert mol_data['vina_repulsion'] == '3.63178'
 
 
+@pytest.mark.skipif(find_executable('vina') is None, reason="Autodock Vina binary missing")
 def test_vs_docking():
     """VS docking (Vina) tests"""
     vs = virtualscreening(n_cpu=1)
@@ -93,6 +96,7 @@ def test_vs_empty():
         vs.fetch()
 
 
+@pytest.mark.skipif(find_executable('vina') is None, reason="Autodock Vina binary missing")
 def test_vs_docking_empty():
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands('smi', os.path.join(dude_data_dir, 'actives_rdkit.smi'))
@@ -110,6 +114,7 @@ def test_vs_docking_empty():
         next(vs.fetch())
 
 
+@pytest.mark.skipif(find_executable('vina') is None, reason="Autodock Vina binary missing")
 def test_vs_multithreading_fallback():
     vs = virtualscreening(n_cpu=8)
     vs.load_ligands('sdf', xiap_crystal_ligand)

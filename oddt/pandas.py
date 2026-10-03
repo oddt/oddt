@@ -1,4 +1,5 @@
-""" Pandas extension for chemical analysis """
+"""Pandas extension for chemical analysis"""
+
 from __future__ import absolute_import
 from collections import deque
 from six import BytesIO, StringIO, text_type
@@ -9,15 +10,17 @@ import oddt
 pd.set_option("display.max_colwidth", 999999)
 
 
-def _mol_reader(fmt='sdf',
-                filepath_or_buffer=None,
-                usecols=None,
-                molecule_column='mol',
-                molecule_name_column='mol_name',
-                smiles_column=None,
-                skip_bad_mols=False,
-                chunksize=None,
-                **kwargs):
+def _mol_reader(
+    fmt="sdf",
+    filepath_or_buffer=None,
+    usecols=None,
+    molecule_column="mol",
+    molecule_name_column="mol_name",
+    smiles_column=None,
+    skip_bad_mols=False,
+    chunksize=None,
+    **kwargs
+):
     """Universal reading function for private use.
 
     .. versionadded:: 0.3
@@ -60,24 +63,25 @@ def _mol_reader(fmt='sdf',
     """
     # capture options for reader
     reader_kwargs = {}
-    if 'opt' in kwargs:
-        reader_kwargs['opt'] = kwargs.pop('opt')
-    if 'sanitize' in kwargs:
-        reader_kwargs['sanitize'] = kwargs.pop('sanitize')
+    if "opt" in kwargs:
+        reader_kwargs["opt"] = kwargs.pop("opt")
+    if "sanitize" in kwargs:
+        reader_kwargs["sanitize"] = kwargs.pop("sanitize")
 
     # when you dont read molecules you can skip parsing them
     if molecule_column is None:
-        if oddt.toolkit.backend == 'ob' and fmt == 'sdf':
-            if 'opt' in reader_kwargs:
-                reader_kwargs['opt']['P'] = None
+        if oddt.toolkit.backend == "ob" and fmt == "sdf":
+            if "opt" in reader_kwargs:
+                reader_kwargs["opt"]["P"] = None
             else:
-                reader_kwargs['opt'] = {'P': None}
-        elif oddt.toolkit.backend == 'rdk':
-            reader_kwargs['sanitize'] = False
+                reader_kwargs["opt"] = {"P": None}
+        elif oddt.toolkit.backend == "rdk":
+            reader_kwargs["sanitize"] = False
 
     chunk = []
-    for n, mol in enumerate(oddt.toolkit.readfile(fmt, filepath_or_buffer,
-                                                  **reader_kwargs)):
+    for n, mol in enumerate(
+        oddt.toolkit.readfile(fmt, filepath_or_buffer, **reader_kwargs)
+    ):
         if skip_bad_mols and mol is None:
             continue  # add warning with number of skipped molecules
         if usecols is None:
@@ -103,12 +107,14 @@ def _mol_reader(fmt='sdf',
         yield chunk_frm
 
 
-def _mol_writer(data,
-                fmt='sdf',
-                filepath_or_buffer=None,
-                update_properties=True,
-                molecule_column=None,
-                columns=None):
+def _mol_writer(
+    data,
+    fmt="sdf",
+    filepath_or_buffer=None,
+    update_properties=True,
+    molecule_column=None,
+    columns=None,
+):
     """Universal writing function for private use.
 
     .. versionadded:: 0.3
@@ -135,7 +141,7 @@ def _mol_writer(data,
     """
     if filepath_or_buffer is None:
         out = StringIO()
-    elif hasattr(filepath_or_buffer, 'write'):
+    elif hasattr(filepath_or_buffer, "write"):
         out = filepath_or_buffer
     else:
         out = oddt.toolkit.Outputfile(fmt, filepath_or_buffer, overwrite=True)
@@ -151,41 +157,44 @@ def _mol_writer(data,
                 for k in mol.data.keys():
                     if k not in columns:
                         del mol.data[k]
-            if filepath_or_buffer is None or hasattr(filepath_or_buffer, 'write'):
+            if filepath_or_buffer is None or hasattr(filepath_or_buffer, "write"):
                 out.write(mol.write(fmt))
             else:
                 out.write(mol)
     elif isinstance(data, pd.Series):
         for mol in data:
-            if filepath_or_buffer is None or hasattr(filepath_or_buffer, 'write'):
+            if filepath_or_buffer is None or hasattr(filepath_or_buffer, "write"):
                 out.write(mol.write(fmt))
             else:
                 out.write(mol)
     if filepath_or_buffer is None:
         return out.getvalue()
-    elif not hasattr(filepath_or_buffer, 'write'):  # dont close foreign buffer
+    elif not hasattr(filepath_or_buffer, "write"):  # dont close foreign buffer
         out.close()
 
 
 def read_csv(*args, **kwargs):
-    """ TODO: Support Chunks """
-    smiles_to_molecule = kwargs.pop('smiles_to_molecule', None)
-    molecule_column = kwargs.pop('molecule_column', 'mol')
+    """TODO: Support Chunks"""
+    smiles_to_molecule = kwargs.pop("smiles_to_molecule", None)
+    molecule_column = kwargs.pop("molecule_column", "mol")
     data = pd.read_csv(*args, **kwargs)
     if smiles_to_molecule is not None:
         data[molecule_column] = data[smiles_to_molecule].map(
-            lambda x: oddt.toolkit.readstring('smi', x))
+            lambda x: oddt.toolkit.readstring("smi", x)
+        )
     return data
 
 
-def read_sdf(filepath_or_buffer=None,
-             usecols=None,
-             molecule_column='mol',
-             molecule_name_column='mol_name',
-             smiles_column=None,
-             skip_bad_mols=False,
-             chunksize=None,
-             **kwargs):
+def read_sdf(
+    filepath_or_buffer=None,
+    usecols=None,
+    molecule_column="mol",
+    molecule_name_column="mol_name",
+    smiles_column=None,
+    skip_bad_mols=False,
+    chunksize=None,
+    **kwargs
+):
     """Read SDF/MDL multi molecular file to ChemDataFrame
 
     .. versionadded:: 0.3
@@ -224,29 +233,33 @@ def read_sdf(filepath_or_buffer=None,
         or genrerator of `ChemDataFrame` with `chunksize` molecules.
 
     """
-    result = _mol_reader(fmt='sdf',
-                         filepath_or_buffer=filepath_or_buffer,
-                         usecols=usecols,
-                         molecule_column=molecule_column,
-                         molecule_name_column=molecule_name_column,
-                         smiles_column=smiles_column,
-                         skip_bad_mols=skip_bad_mols,
-                         chunksize=chunksize,
-                         **kwargs)
+    result = _mol_reader(
+        fmt="sdf",
+        filepath_or_buffer=filepath_or_buffer,
+        usecols=usecols,
+        molecule_column=molecule_column,
+        molecule_name_column=molecule_name_column,
+        smiles_column=smiles_column,
+        skip_bad_mols=skip_bad_mols,
+        chunksize=chunksize,
+        **kwargs
+    )
     if chunksize:
         return result
     else:
         return deque(result, maxlen=1).pop()
 
 
-def read_mol2(filepath_or_buffer=None,
-              usecols=None,
-              molecule_column='mol',
-              molecule_name_column='mol_name',
-              smiles_column=None,
-              skip_bad_mols=False,
-              chunksize=None,
-              **kwargs):
+def read_mol2(
+    filepath_or_buffer=None,
+    usecols=None,
+    molecule_column="mol",
+    molecule_name_column="mol_name",
+    smiles_column=None,
+    skip_bad_mols=False,
+    chunksize=None,
+    **kwargs
+):
     """Read Mol2 multi molecular file to ChemDataFrame. UCSF Dock 6 comments
     style is supported, i.e. `#### var_name: value` before molecular block.
 
@@ -286,15 +299,17 @@ def read_mol2(filepath_or_buffer=None,
         or genrerator of `ChemDataFrame` with `chunksize` molecules.
 
     """
-    result = _mol_reader(fmt='mol2',
-                         filepath_or_buffer=filepath_or_buffer,
-                         usecols=usecols,
-                         molecule_column=molecule_column,
-                         molecule_name_column=molecule_name_column,
-                         smiles_column=smiles_column,
-                         skip_bad_mols=skip_bad_mols,
-                         chunksize=chunksize,
-                         **kwargs)
+    result = _mol_reader(
+        fmt="mol2",
+        filepath_or_buffer=filepath_or_buffer,
+        usecols=usecols,
+        molecule_column=molecule_column,
+        molecule_name_column=molecule_name_column,
+        smiles_column=smiles_column,
+        skip_bad_mols=skip_bad_mols,
+        chunksize=chunksize,
+        **kwargs
+    )
     if chunksize:
         return result
     else:
@@ -307,57 +322,61 @@ class ChemSeries(pd.Series):
 
     .. versionadded:: 0.3
     """
+
     def __le__(self, other):
-        """ Substructure searching.
+        """Substructure searching.
         `chemseries < mol`: are molecules in series substructures of a `mol`
         """
-        if (isinstance(other, oddt.toolkit.Molecule) and
-           isinstance(self[0], oddt.toolkit.Molecule)):
+        if isinstance(other, oddt.toolkit.Molecule) and isinstance(
+            self[0], oddt.toolkit.Molecule
+        ):
             return self.map(lambda x: oddt.toolkit.Smarts(x.smiles).match(other))
         else:
             return super(ChemSeries, self).__le__(other)
 
     def __ge__(self, other):
-        """ Substructure searching.
+        """Substructure searching.
         `chemseries > mol`: is `mol` a substructure of molecules in series
         """
-        if (isinstance(other, oddt.toolkit.Molecule) and
-           isinstance(self[0], oddt.toolkit.Molecule)):
+        if isinstance(other, oddt.toolkit.Molecule) and isinstance(
+            self[0], oddt.toolkit.Molecule
+        ):
             smarts = oddt.toolkit.Smarts(other.smiles)
             return self.map(lambda x: smarts.match(x))
         else:
             return super(ChemSeries, self).__ge__(other)
 
     def __or__(self, other):
-        """ Tanimoto coefficient """
-        if (isinstance(self[0], oddt.toolkit.Fingerprint) and
-           isinstance(other, oddt.toolkit.Fingerprint)):
+        """Tanimoto coefficient"""
+        if isinstance(self[0], oddt.toolkit.Fingerprint) and isinstance(
+            other, oddt.toolkit.Fingerprint
+        ):
             return self.map(lambda x: x | other)
         else:
             return super(ChemSeries, self).__or__(other)
 
     def calcfp(self, *args, **kwargs):
         """Helper function to map FP calculation throuugh the series"""
-        assert(isinstance(self[0], oddt.toolkit.Molecule))
+        assert isinstance(self[0], oddt.toolkit.Molecule)
         return self.map(lambda x: x.calcfp(*args, **kwargs))
 
     def to_smiles(self, filepath_or_buffer=None):
-        return _mol_writer(self, fmt='smi', filepath_or_buffer=filepath_or_buffer)
+        return _mol_writer(self, fmt="smi", filepath_or_buffer=filepath_or_buffer)
 
     def to_sdf(self, filepath_or_buffer=None):
-        return _mol_writer(self, fmt='sdf', filepath_or_buffer=filepath_or_buffer)
+        return _mol_writer(self, fmt="sdf", filepath_or_buffer=filepath_or_buffer)
 
     def to_mol2(self, filepath_or_buffer=None):
-        return _mol_writer(self, fmt='mol2', filepath_or_buffer=filepath_or_buffer)
+        return _mol_writer(self, fmt="mol2", filepath_or_buffer=filepath_or_buffer)
 
     @property
     def _constructor(self):
-        """ Force new class to be usead as constructor """
+        """Force new class to be usead as constructor"""
         return ChemSeries
 
     @property
     def _constructor_expanddim(self):
-        """ Force new class to be usead as constructor when expandig dims """
+        """Force new class to be usead as constructor when expandig dims"""
         return ChemDataFrame
 
 
@@ -373,14 +392,17 @@ class ChemDataFrame(pd.DataFrame):
     -----
     Thanks to: http://blog.snapdragon.cc/2015/05/05/subclass-pandas-dataframe-to-save-custom-attributes/
     """
-    _metadata = ['_molecule_column']
+
+    _metadata = ["_molecule_column"]
     _molecule_column = None
 
-    def to_sdf(self,
-               filepath_or_buffer=None,
-               update_properties=True,
-               molecule_column=None,
-               columns=None):
+    def to_sdf(
+        self,
+        filepath_or_buffer=None,
+        update_properties=True,
+        molecule_column=None,
+        columns=None,
+    ):
         """Write DataFrame to SDF file.
 
         .. versionadded:: 0.3
@@ -402,18 +424,22 @@ class ChemDataFrame(pd.DataFrame):
             fields are written.
         """
         molecule_column = molecule_column or self._molecule_column
-        return _mol_writer(self,
-                           filepath_or_buffer=filepath_or_buffer,
-                           update_properties=update_properties,
-                           fmt='sdf',
-                           molecule_column=molecule_column,
-                           columns=columns)
+        return _mol_writer(
+            self,
+            filepath_or_buffer=filepath_or_buffer,
+            update_properties=update_properties,
+            fmt="sdf",
+            molecule_column=molecule_column,
+            columns=columns,
+        )
 
-    def to_mol2(self,
-                filepath_or_buffer=None,
-                update_properties=True,
-                molecule_column='mol',
-                columns=None):
+    def to_mol2(
+        self,
+        filepath_or_buffer=None,
+        update_properties=True,
+        molecule_column="mol",
+        columns=None,
+    ):
         """Write DataFrame to Mol2 file.
 
         .. versionadded:: 0.3
@@ -435,25 +461,29 @@ class ChemDataFrame(pd.DataFrame):
             fields are written.
         """
         molecule_column = molecule_column or self._molecule_column
-        return _mol_writer(self,
-                           fmt='mol2',
-                           filepath_or_buffer=filepath_or_buffer,
-                           update_properties=update_properties,
-                           molecule_column=molecule_column,
-                           columns=columns)
+        return _mol_writer(
+            self,
+            fmt="mol2",
+            filepath_or_buffer=filepath_or_buffer,
+            update_properties=update_properties,
+            molecule_column=molecule_column,
+            columns=columns,
+        )
 
     def to_html(self, *args, **kwargs):
         """Patched rendering in HTML - don't escape HTML inside the cells.
         Docs are copied from parent
         """
-        kwargs['escape'] = False
+        kwargs["escape"] = False
         return super(ChemDataFrame, self).to_html(*args, **kwargs)
 
     def to_csv(self, *args, **kwargs):
-        """ Docs are copied from parent """
-        if self._molecule_column and ('columns' not in kwargs or
-                                      kwargs['columns'] is None or
-                                      self._molecule_column in kwargs['columns']):
+        """Docs are copied from parent"""
+        if self._molecule_column and (
+            "columns" not in kwargs
+            or kwargs["columns"] is None
+            or self._molecule_column in kwargs["columns"]
+        ):
             frm_copy = self.copy(deep=True)
             smi = frm_copy[self._molecule_column].map(lambda x: x.smiles)
             frm_copy[self._molecule_column] = smi
@@ -462,26 +492,26 @@ class ChemDataFrame(pd.DataFrame):
             return super(ChemDataFrame, self).to_csv(*args, **kwargs)
 
     def to_excel(self, *args, **kwargs):
-        """ Docs are copied from parent """
+        """Docs are copied from parent"""
 
-        if 'columns' in kwargs:
-            columns = kwargs['columns']
+        if "columns" in kwargs:
+            columns = kwargs["columns"]
         else:
             columns = self.columns.tolist()
 
-        if 'molecule_column' in kwargs:
-            molecule_column = kwargs['molecule_column']
+        if "molecule_column" in kwargs:
+            molecule_column = kwargs["molecule_column"]
         else:
             molecule_column = self._molecule_column
 
         molecule_column_idx = columns.index(molecule_column)
-        if 'index' not in kwargs or ('index' in kwargs and kwargs['index']):
+        if "index" not in kwargs or ("index" in kwargs and kwargs["index"]):
             molecule_column_idx += 1
-        size = kwargs.pop('size') if 'size' in kwargs else (200, 200)
+        size = kwargs.pop("size") if "size" in kwargs else (200, 200)
         excel_writer = args[0]
         if isinstance(excel_writer, str):
-            excel_writer = pd.ExcelWriter(excel_writer, engine='xlsxwriter')
-        assert excel_writer.engine == 'xlsxwriter'
+            excel_writer = pd.ExcelWriter(excel_writer, engine="xlsxwriter")
+        assert excel_writer.engine == "xlsxwriter"
 
         frm_copy = self.copy(deep=True)
         smi = frm_copy[molecule_column].map(lambda x: x.smiles)
@@ -489,42 +519,42 @@ class ChemDataFrame(pd.DataFrame):
 
         super(ChemDataFrame, frm_copy).to_excel(excel_writer, *args[1:], **kwargs)
 
-        sheet = excel_writer.sheets['Sheet1']  # TODO: Get appropriate sheet name
-        sheet.set_column(molecule_column_idx, molecule_column_idx,
-                         width=size[1] / 6.)
+        sheet = excel_writer.sheets["Sheet1"]  # TODO: Get appropriate sheet name
+        sheet.set_column(molecule_column_idx, molecule_column_idx, width=size[1] / 6.0)
         for i, mol in enumerate(self[molecule_column]):
             if mol is None:
                 continue
             img = BytesIO()
-            png = mol.clone.write('png', size=size)
+            png = mol.clone.write("png", size=size)
             if isinstance(png, text_type):
-                png = png.encode('utf-8', errors='surrogateescape')
+                png = png.encode("utf-8", errors="surrogateescape")
             img.write(png)
             sheet.write_string(i + 1, molecule_column_idx, "")
-            sheet.insert_image(i + 1,
-                               molecule_column_idx,
-                               'dummy',
-                               {'image_data': img,
-                                'positioning': 2,
-                                'x_offset': 1,
-                                'y_offset': 1})
+            sheet.insert_image(
+                i + 1,
+                molecule_column_idx,
+                "dummy",
+                {"image_data": img, "positioning": 2, "x_offset": 1, "y_offset": 1},
+            )
             sheet.set_row(i + 1, height=size[0])
-        excel_writer.save()
+        excel_writer.close()
 
     @property
     def _constructor(self):
-        """ Force new class to be usead as constructor """
+        """Force new class to be usead as constructor"""
         return ChemDataFrame
 
     @property
     def _constructor_sliced(self):
-        """ Force new class to be usead as constructor when slicing """
+        """Force new class to be usead as constructor when slicing"""
         return ChemSeries
 
 
 # Copy some docscrings from upstream classes
-for method in ['to_html', 'to_csv', 'to_excel']:
+for method in ["to_html", "to_csv", "to_excel"]:
     try:
         getattr(ChemDataFrame, method).__doc__ = getattr(pd.DataFrame, method).__doc__
     except AttributeError:  # Python 2 compatible
-        getattr(ChemDataFrame, method).__func__.__doc__ = getattr(pd.DataFrame, method).__func__.__doc__
+        getattr(ChemDataFrame, method).__func__.__doc__ = getattr(
+            pd.DataFrame, method
+        ).__func__.__doc__

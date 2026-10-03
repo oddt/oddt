@@ -1,6 +1,7 @@
 import os
 from types import GeneratorType
 from tempfile import mkdtemp, NamedTemporaryFile
+from distutils.spawn import find_executable
 
 import numpy as np
 
@@ -10,34 +11,34 @@ from sklearn.metrics import r2_score
 
 import oddt
 from oddt.scoring import scorer, ensemble_descriptor, ensemble_model
-from oddt.scoring.descriptors import (autodock_vina_descriptor,
-                                      fingerprints,
-                                      oddt_vina_descriptor)
+from oddt.scoring.descriptors import (
+    autodock_vina_descriptor,
+    fingerprints,
+    oddt_vina_descriptor,
+)
 from oddt.scoring.models.classifiers import neuralnetwork
 from oddt.scoring.models import regressors
 from oddt.scoring.functions import rfscore, nnscore, PLECscore
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
-actives_sdf = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
-                           'actives_docked.sdf')
-receptor_pdb = os.path.join(test_data_dir, 'data', 'dude', 'xiap',
-                            'receptor_rdkit.pdb')
-results = os.path.join(test_data_dir, 'data', 'results', 'xiap')
+actives_sdf = os.path.join(test_data_dir, "data", "dude", "xiap", "actives_docked.sdf")
+receptor_pdb = os.path.join(test_data_dir, "data", "dude", "xiap", "receptor_rdkit.pdb")
+results = os.path.join(test_data_dir, "data", "results", "xiap")
 
 
-@pytest.mark.filterwarnings('ignore:Data with input dtype int64 was converted')
+@pytest.mark.filterwarnings("ignore:Data with input dtype int64 was converted")
 def test_scorer():
     np.random.seed(42)
     # toy example with made up values
-    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
+    mols = list(oddt.toolkit.readfile("sdf", actives_sdf))
 
-    values = [0]*5 + [1]*5
+    values = [0] * 5 + [1] * 5
     test_values = [0, 0, 1, 1, 0]
 
-    if oddt.toolkit.backend == 'ob':
-        fp = 'fp2'
+    if oddt.toolkit.backend == "ob":
+        fp = "fp2"
     else:
-        fp = 'rdkit'
+        fp = "rdkit"
 
     simple_scorer = scorer(neuralnetwork(), fingerprints(fp))
     simple_scorer.fit(mols[:10], values)
@@ -48,20 +49,20 @@ def test_scorer():
     assert_almost_equal(score, 0.6)
 
     scored_mols = [simple_scorer.predict_ligand(mol) for mol in mols[10:15]]
-    single_predictions = [float(mol.data['score']) for mol in scored_mols]
+    single_predictions = [float(mol.data["score"]) for mol in scored_mols]
     assert_array_almost_equal(predictions, single_predictions)
 
     scored_mols_gen = simple_scorer.predict_ligands(mols[10:15])
     assert isinstance(scored_mols_gen, GeneratorType)
-    gen_predictions = [float(mol.data['score']) for mol in scored_mols_gen]
+    gen_predictions = [float(mol.data["score"]) for mol in scored_mols_gen]
     assert_array_almost_equal(predictions, gen_predictions)
 
 
 def test_ensemble_descriptor():
-    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))[:10]
+    mols = list(oddt.toolkit.readfile("sdf", actives_sdf))[:10]
     list(map(lambda x: x.addh(), mols))
 
-    rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
+    rec = next(oddt.toolkit.readfile("pdb", receptor_pdb))
     rec.protein = True
     rec.addh()
 
@@ -83,13 +84,17 @@ def test_ensemble_descriptor():
 
 
 def test_ensemble_model():
-    X = np.vstack((np.arange(30, 10, -2, dtype='float64'),
-                   np.arange(100, 90, -1, dtype='float64'))).T
+    X = np.vstack(
+        (
+            np.arange(30, 10, -2, dtype="float64"),
+            np.arange(100, 90, -1, dtype="float64"),
+        )
+    ).T
 
-    Y = np.arange(10, dtype='float64')
+    Y = np.arange(10, dtype="float64")
 
     rf = regressors.randomforest(random_state=42)
-    nn = regressors.neuralnetwork(solver='lbfgs', random_state=42)
+    nn = regressors.neuralnetwork(solver="lbfgs", random_state=42)
     ensemble = ensemble_model((rf, nn))
 
     # we do not need to fit underlying models, they change when we fit enseble
@@ -101,30 +106,35 @@ def test_ensemble_model():
     assert_almost_equal(ensemble.score(X, Y), r2_score(Y, pred))
 
     # ensemble of a single model should behave exactly like this model
-    nn = neuralnetwork(solver='lbfgs', random_state=42)
+    nn = neuralnetwork(solver="lbfgs", random_state=42)
     ensemble = ensemble_model((nn,))
     ensemble.fit(X, Y)
     assert_array_almost_equal(ensemble.predict(X), nn.predict(X))
     assert_almost_equal(ensemble.score(X, Y), nn.score(X, Y))
 
 
+@pytest.mark.skipif(
+    find_executable("vina") is None, reason="Autodock Vina binary missing"
+)
 def test_original_vina():
     """Check orignal Vina partial scores descriptor"""
-    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
+    mols = list(oddt.toolkit.readfile("sdf", actives_sdf))
     list(map(lambda x: x.addh(), mols))
 
-    rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
+    rec = next(oddt.toolkit.readfile("pdb", receptor_pdb))
     rec.protein = True
     rec.addh()
 
     # Delete molecule which has differences in Acceptor-Donor def in RDK and OB
     del mols[65]
 
-    vina_scores = ['vina_gauss1',
-                   'vina_gauss2',
-                   'vina_repulsion',
-                   'vina_hydrophobic',
-                   'vina_hydrogen']
+    vina_scores = [
+        "vina_gauss1",
+        "vina_gauss2",
+        "vina_repulsion",
+        "vina_hydrophobic",
+        "vina_hydrogen",
+    ]
 
     # save correct results (for future use)
     # np.savetxt(os.path.join(results, 'autodock_vina_scores.csv'),
@@ -133,49 +143,54 @@ def test_original_vina():
     #            fmt='%.16g',
     #            delimiter=',')
     autodock_vina_results_correct = np.loadtxt(
-        os.path.join(results, 'autodock_vina_scores.csv'),
-        delimiter=',',
-        dtype=np.float64)
+        os.path.join(results, "autodock_vina_scores.csv"),
+        delimiter=",",
+        dtype=np.float64,
+    )
     autodock_vina_results = autodock_vina_descriptor(
-        protein=rec,
-        vina_scores=vina_scores).build(mols)
-    assert_array_almost_equal(autodock_vina_results,
-                              autodock_vina_results_correct,
-                              decimal=4)
+        protein=rec, vina_scores=vina_scores
+    ).build(mols)
+    assert_array_almost_equal(
+        autodock_vina_results, autodock_vina_results_correct, decimal=4
+    )
 
 
 def test_internal_vina():
     """Compare internal vs orignal Vina partial scores"""
-    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
+    mols = list(oddt.toolkit.readfile("sdf", actives_sdf))
     list(map(lambda x: x.addh(), mols))
 
-    rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
+    rec = next(oddt.toolkit.readfile("pdb", receptor_pdb))
     rec.protein = True
     rec.addh()
 
     # Delete molecule which has differences in Acceptor-Donor def in RDK and OB
     del mols[65]
 
-    vina_scores = ['vina_gauss1',
-                   'vina_gauss2',
-                   'vina_repulsion',
-                   'vina_hydrophobic',
-                   'vina_hydrogen']
+    vina_scores = [
+        "vina_gauss1",
+        "vina_gauss2",
+        "vina_repulsion",
+        "vina_hydrophobic",
+        "vina_hydrogen",
+    ]
     autodock_vina_results = np.loadtxt(
-        os.path.join(results, 'autodock_vina_scores.csv'),
-        delimiter=',',
-        dtype=np.float64)
+        os.path.join(results, "autodock_vina_scores.csv"),
+        delimiter=",",
+        dtype=np.float64,
+    )
     oddt_vina_results = oddt_vina_descriptor(
-        protein=rec, vina_scores=vina_scores).build(mols)
+        protein=rec, vina_scores=vina_scores
+    ).build(mols)
     assert_array_almost_equal(oddt_vina_results, autodock_vina_results, decimal=4)
 
 
 def test_rfscore_desc():
     """Test RFScore v1-3 descriptors generators"""
-    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
+    mols = list(oddt.toolkit.readfile("sdf", actives_sdf))
     list(map(lambda x: x.addh(), mols))
 
-    rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
+    rec = next(oddt.toolkit.readfile("pdb", receptor_pdb))
     rec.protein = True
     rec.addh()
 
@@ -190,8 +205,8 @@ def test_rfscore_desc():
         #            fmt='%.16g',
         #            delimiter=',')
         descs_correct = np.loadtxt(
-            os.path.join(results, 'rfscore_v%i_descs.csv' % v),
-            delimiter=',')
+            os.path.join(results, "rfscore_v%i_descs.csv" % v), delimiter=","
+        )
 
         # help debug errors
         for i in range(descs.shape[1]):
@@ -204,10 +219,10 @@ def test_rfscore_desc():
 
 def test_nnscore_desc():
     """Test NNScore descriptors generators"""
-    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))
+    mols = list(oddt.toolkit.readfile("sdf", actives_sdf))
     list(map(lambda x: x.addh(only_polar=True), mols))
 
-    rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
+    rec = next(oddt.toolkit.readfile("pdb", receptor_pdb))
     rec.protein = True
     rec.addh(only_polar=True)
 
@@ -221,12 +236,14 @@ def test_nnscore_desc():
     #            descs,
     #            fmt='%.16g',
     #            delimiter=',')
-    if oddt.toolkit.backend == 'ob':
-        descs_correct = np.loadtxt(os.path.join(results, 'nnscore_descs_ob.csv'),
-                                   delimiter=',')
+    if oddt.toolkit.backend == "ob":
+        descs_correct = np.loadtxt(
+            os.path.join(results, "nnscore_descs_ob.csv"), delimiter=","
+        )
     else:
-        descs_correct = np.loadtxt(os.path.join(results, 'nnscore_descs_rdk.csv'),
-                                   delimiter=',')
+        descs_correct = np.loadtxt(
+            os.path.join(results, "nnscore_descs_rdk.csv"), delimiter=","
+        )
 
     # help debug errors
     for i in range(descs.shape[1]):
@@ -238,42 +255,44 @@ def test_nnscore_desc():
     assert_array_almost_equal(descs, descs_correct, decimal=4)
 
 
-models = ([PLECscore(n_jobs=1, version=v, size=2048)
-           for v in ['linear', 'nn', 'rf']] +
-          [nnscore(n_jobs=1)] +
-          [rfscore(version=v, n_jobs=1) for v in [1, 2, 3]])
+models = (
+    [PLECscore(n_jobs=1, version=v, size=2048) for v in ["linear", "nn", "rf"]]
+    + [nnscore(n_jobs=1)]
+    + [rfscore(version=v, n_jobs=1) for v in [1, 2, 3]]
+)
 
 
-@pytest.mark.parametrize('model', models)
+@pytest.mark.parametrize("model", models)
 def test_model_train(model):
-    mols = list(oddt.toolkit.readfile('sdf', actives_sdf))[:10]
+    mols = list(oddt.toolkit.readfile("sdf", actives_sdf))[:10]
     list(map(lambda x: x.addh(), mols))
 
-    rec = next(oddt.toolkit.readfile('pdb', receptor_pdb))
+    rec = next(oddt.toolkit.readfile("pdb", receptor_pdb))
     rec.protein = True
     rec.addh()
 
-    data_dir = os.path.join(test_data_dir, 'data')
+    data_dir = os.path.join(test_data_dir, "data")
     home_dir = mkdtemp()
     pdbbind_versions = (2007, 2013, 2016)
 
-    pdbbind_dir = os.path.join(data_dir, 'pdbbind')
+    pdbbind_dir = os.path.join(data_dir, "pdbbind")
     for pdbbind_v in pdbbind_versions:
-        version_dir = os.path.join(data_dir, 'v%s' % pdbbind_v)
+        version_dir = os.path.join(data_dir, "v%s" % pdbbind_v)
         if not os.path.isdir(version_dir):
             os.symlink(pdbbind_dir, version_dir)
 
-    with NamedTemporaryFile(suffix='.pickle') as f:
-        model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions,
-                                home_dir=home_dir)
+    with NamedTemporaryFile(suffix=".pickle") as f:
+        model.gen_training_data(
+            data_dir, pdbbind_versions=pdbbind_versions, home_dir=home_dir
+        )
         model.train(home_dir=home_dir, sf_pickle=f.name)
         model.set_protein(rec)
         # check if protein setting was successful
         assert model.protein == rec
-        if hasattr(model.descriptor_generator, 'protein'):
+        if hasattr(model.descriptor_generator, "protein"):
             assert model.descriptor_generator.protein == rec
 
         preds = model.predict(mols)
         assert len(preds) == 10
-        assert preds.dtype == np.float
+        assert preds.dtype == np.float64
         assert model.score(mols, preds) == 1.0
