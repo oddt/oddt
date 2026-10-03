@@ -51,7 +51,6 @@ from rdkit.Chem import CanonicalRankAtoms
 from oddt.toolkits.common import detect_secondary_structure, canonize_ring_path
 from oddt.toolkits.extras.rdkit import _sybyl_atom_type, MolFromPDBBlock, MolToPDBQTBlock, MolFromPDBQTBlock
 
-
 _descDict = dict(Descriptors.descList)
 
 backend = "rdk"
@@ -450,7 +449,7 @@ class Molecule(object):
 
     @property
     def formula(self):
-        return Descriptors.MolecularFormula(self.Mol)
+        return Chem.rdMolDescriptors.CalcMolFormula(self.Mol)
 
     def _gettitle(self):
         # Note to self: maybe should implement the get() method for self.data

@@ -10,7 +10,6 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn.neural_network import MLPRegressor
 from sklearn.cross_decomposition import PLSRegression as pls
 
-
 __all__ = ["randomforest", "svm", "pls", "neuralnetwork", "mlr"]
 
 

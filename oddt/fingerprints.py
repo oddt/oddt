@@ -24,7 +24,6 @@ from oddt.interactions import (
     close_contacts,
 )
 
-
 __all__ = [
     "InteractionFingerprint",
     "SimpleInteractionFingerprint",

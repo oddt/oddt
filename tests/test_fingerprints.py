@@ -31,7 +31,6 @@ from oddt.fingerprints import (
 )
 from .utils import shuffle_mol
 
-
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
 protein = next(oddt.toolkit.readfile("pdb", os.path.join(test_data_dir, "data/pdbbind/10gs/10gs_pocket.pdb")))

@@ -33,7 +33,6 @@ except ImportError:
 from oddt.utils import check_molecule
 from oddt.toolkits.common import detect_secondary_structure, canonize_ring_path
 
-
 backend = "ob"
 image_backend = "png"  # png or svg
 image_size = (200, 200)
