@@ -24,7 +24,6 @@ from oddt.interactions import (
     close_contacts,
 )
 
-
 __all__ = [
     "InteractionFingerprint",
     "SimpleInteractionFingerprint",
@@ -176,43 +175,43 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
 
     # hydrophobic (Column = 0)
     hydrophobic = hydrophobic_contacts(protein, ligand)[0]["resname"]
-    hydrophobic[~np.in1d(hydrophobic, amino_acids)] = ""
+    hydrophobic[~np.isin(hydrophobic, amino_acids)] = ""
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(hydrophobic)[::-1]), 0), 1)
 
     # aromatic face to face (Column = 1), aromatic edge to face (Column = 2)
     rings, _, strict_parallel, strict_perpendicular = pi_stacking(protein, ligand)
-    rings[strict_parallel]["resname"][~np.in1d(rings[strict_parallel]["resname"], amino_acids)] = ""
+    rings[strict_parallel]["resname"][~np.isin(rings[strict_parallel]["resname"], amino_acids)] = ""
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(rings[strict_parallel]["resname"])[::-1]), 1), 1)
-    rings[strict_perpendicular]["resname"][~np.in1d(rings[strict_perpendicular]["resname"], amino_acids)] = ""
+    rings[strict_perpendicular]["resname"][~np.isin(rings[strict_perpendicular]["resname"], amino_acids)] = ""
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(rings[strict_perpendicular]["resname"])[::-1]), 2), 1)
 
     # hbonds donated by the protein (Column = 3)
     _, donors, strict0 = hbond_acceptor_donor(ligand, protein)
-    donors["resname"][~np.in1d(donors["resname"], amino_acids)] = ""
+    donors["resname"][~np.isin(donors["resname"], amino_acids)] = ""
     if strict is False:
         strict0 = None
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(donors[strict0]["resname"])[::-1]), 3), 1)
 
     # hbonds donated by the ligand (Column = 4)
     acceptors, _, strict1 = hbond_acceptor_donor(protein, ligand)
-    acceptors["resname"][~np.in1d(acceptors["resname"], amino_acids)] = ""
+    acceptors["resname"][~np.isin(acceptors["resname"], amino_acids)] = ""
     if strict is False:
         strict1 = None
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(acceptors[strict1]["resname"])[::-1]), 4), 1)
 
     # ionic bond with protein cation(Column = 5)
     plus, _ = salt_bridge_plus_minus(protein, ligand)
-    plus["resname"][~np.in1d(plus["resname"], amino_acids)] = ""
+    plus["resname"][~np.isin(plus["resname"], amino_acids)] = ""
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(plus["resname"])[::-1]), 5), 1)
 
     # ionic bond with protein anion(Column = 6)
     _, minus = salt_bridge_plus_minus(ligand, protein)
-    minus["resname"][~np.in1d(minus["resname"], amino_acids)] = ""
+    minus["resname"][~np.isin(minus["resname"], amino_acids)] = ""
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(minus["resname"])[::-1]), 6), 1)
 
     # ionic bond with metal ion (Column = 7)
     _, metal, strict2 = acceptor_metal(protein, ligand)
-    metal["resname"][~np.in1d(metal["resname"], amino_acids)] = ""
+    metal["resname"][~np.isin(metal["resname"], amino_acids)] = ""
     if strict is False:
         strict2 = None
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(metal[strict2]["resname"])[::-1]), 7), 1)
@@ -728,12 +727,12 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.0):
     # intersection of reference and query hashed atoms
     index = np.intersect1d(reference["hash"], query["hash"])
 
-    ref_intersection = reference[np.where(np.in1d(reference["hash"], index))]
+    ref_intersection = reference[np.where(np.isin(reference["hash"], index))]
     ref_group_intersection = np.split(
         ref_intersection, np.searchsorted(ref_intersection["hash"], index[1:])
     )  # reference
 
-    query_intersection = query[np.where(np.in1d(query["hash"], index))]
+    query_intersection = query[np.where(np.isin(query["hash"], index))]
     query_group_intersection = np.split(
         query_intersection, np.searchsorted(query_intersection["hash"], index[1:])
     )  # query
@@ -928,7 +927,7 @@ def dice(a, b, sparse=False):
         b_unique, b_counts = np.unique(b, return_counts=True)
         a_b_intersection = np.intersect1d(a_unique, b_unique, assume_unique=True)
         a_b = np.minimum(
-            a_counts[np.in1d(a_unique, a_b_intersection)], b_counts[np.in1d(b_unique, a_b_intersection)]
+            a_counts[np.isin(a_unique, a_b_intersection)], b_counts[np.isin(b_unique, a_b_intersection)]
         ).sum()
         denominator = len(a) + len(b)
         if denominator > 0:

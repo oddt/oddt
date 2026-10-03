@@ -1,7 +1,7 @@
 import os
 from types import GeneratorType
 from tempfile import mkdtemp, NamedTemporaryFile
-from distutils.spawn import find_executable
+from shutil import which as find_executable
 
 import numpy as np
 

@@ -31,7 +31,6 @@ from oddt.fingerprints import (
 )
 from .utils import shuffle_mol
 
-
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
 protein = next(oddt.toolkit.readfile("pdb", os.path.join(test_data_dir, "data/pdbbind/10gs/10gs_pocket.pdb")))
@@ -3325,7 +3324,17 @@ def test_molecular_shingles():
             "cnc1c(C)nnc1c",
         ]
 
+        target_shingles = sorted(
+            oddt.toolkit.Chem.MolToSmiles(oddt.toolkit.Chem.MolFromSmiles(shingle, sanitize=False))
+            for shingle in target_shingles
+        )
+
     for n in range(10):
         sildenafil = shuffle_mol(sildenafil)
         shingles = sorted(get_molecular_shingles(sildenafil))
+        if oddt.toolkit.backend == "rdk":
+            shingles = sorted(
+                oddt.toolkit.Chem.MolToSmiles(oddt.toolkit.Chem.MolFromSmiles(shingle, sanitize=False))
+                for shingle in shingles
+            )
         assert_array_equal(shingles, target_shingles)

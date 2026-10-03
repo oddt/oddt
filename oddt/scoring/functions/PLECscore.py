@@ -99,7 +99,9 @@ class PLECscore(scorer):
                 kwargs["n_iter"] = 100
             model = SGDRegressor(**kwargs)
         elif version == "nn":
-            model = MLPRegressor((200, 200, 200), batch_size=10, random_state=0, verbose=0, solver="lbfgs")
+            model = MLPRegressor(
+                hidden_layer_sizes=(200, 200, 200), batch_size=10, random_state=0, verbose=0, solver="lbfgs"
+            )
         elif version == "rf":
             model = RandomForestRegressor(n_estimators=100, n_jobs=n_jobs, verbose=0, random_state=0)
         else:

@@ -4,7 +4,7 @@ from __future__ import division
 from numbers import Number
 import warnings
 
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 import numpy as np
 from scipy.spatial import cKDTree
@@ -15,7 +15,7 @@ try:
     from skimage.morphology import ball, binary_closing
     from skimage import __version__ as skimage_version
 
-    if LooseVersion("0.19") > LooseVersion(skimage_version) >= LooseVersion("0.13"):
+    if Version("0.19") > Version(skimage_version) >= Version("0.13"):
         from skimage.measure import marching_cubes_lewiner as marching_cubes
     else:
         from skimage.measure import marching_cubes
@@ -74,8 +74,8 @@ def generate_surface_marching_cubes(molecule, remove_hoh=False, scaling=1.0, pro
         atom_dict = atom_dict[no_hoh]
 
     # Take a molecule's coordinates and atom radii and scale if necessary
-    coords = atom_dict["coords"] * scaling
-    radii = atom_dict["radius"] * scaling
+    coords = atom_dict["coords"].astype(np.float64) * scaling
+    radii = atom_dict["radius"].astype(np.float64) * scaling
 
     # More input validation
     if radii.min() < 1:

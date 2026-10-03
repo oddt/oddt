@@ -63,7 +63,11 @@ def get_version():
         except subprocess.CalledProcessError:  # catch errors, eg. no git installed
             pass
     if git_v:
-        v = git_v
+        version_parts = git_v.rsplit("-", 2)
+        if len(version_parts) == 3 and version_parts[1].isdigit():
+            v = "%s.post%s+%s" % tuple(version_parts)
+        else:
+            v = git_v
     return v
 
 

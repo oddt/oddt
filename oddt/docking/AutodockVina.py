@@ -4,8 +4,7 @@ import re
 import os
 import warnings
 from tempfile import mkdtemp
-from shutil import rmtree
-from distutils.spawn import find_executable
+from shutil import rmtree, which as find_executable
 from tempfile import gettempdir
 
 from six import string_types
@@ -355,6 +354,8 @@ def write_vina_pdbqt(mol, directory, flexible=True, name_id=None):
     mol_file = os.path.join(directory, mol_file)
 
     if is_openbabel_molecule(mol):
+        mol = mol.clone
+        mol.OBMol.DeleteData("COMPND")
         if flexible:
             # auto bonding (b), perserve atom indices (p) and Hs (h)
             kwargs = {"opt": {"b": None, "p": None, "h": None}}

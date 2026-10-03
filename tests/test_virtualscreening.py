@@ -1,6 +1,6 @@
 import os
 from tempfile import mkdtemp, NamedTemporaryFile
-from distutils.spawn import find_executable
+from shutil import which as find_executable
 
 import pytest
 from numpy.testing import assert_array_equal, assert_array_almost_equal
