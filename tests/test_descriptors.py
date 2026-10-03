@@ -56,9 +56,7 @@ def test_close_contacts_descriptor():
 
 def test_universal_descriptor_sparse():
     mol = oddt.toolkit.readstring("smi", "CCO")
-    descriptor = descriptors.universal_descriptor(
-        partial(ECFP, size=1024), shape=1024, sparse=True
-    )
+    descriptor = descriptors.universal_descriptor(partial(ECFP, size=1024), shape=1024, sparse=True)
     expected = sparse_to_dense(ECFP(mol, size=1024), size=1024)
 
     single = descriptor.build(mol)

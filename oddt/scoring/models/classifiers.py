@@ -6,26 +6,25 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.neural_network import MLPClassifier
 
-__all__ = ['randomforest', 'svm', 'neuralnetwork']
+__all__ = ["randomforest", "svm", "neuralnetwork"]
 
 
 class OddtClassifier(ClassifierMixin):
     _model = None
 
     def __init__(self, *args, **kwargs):
-        """ Assemble Neural network or SVM using sklearn pipeline """
+        """Assemble Neural network or SVM using sklearn pipeline"""
 
         # Cherrypick arguments for model. Exclude 'steps', which is pipeline argument
-        local_kwargs = {key: kwargs.pop(key) for key in list(kwargs.keys())
-                        if key != 'steps' and '__' not in key}
+        local_kwargs = {key: kwargs.pop(key) for key in list(kwargs.keys()) if key != "steps" and "__" not in key}
 
         if self._model is None:
-            raise ValueError('Model not specified!')
+            raise ValueError("Model not specified!")
         model = self._model(*args, **local_kwargs)
 
-        self.pipeline = Pipeline([('empty_dims_remover', VarianceThreshold()),
-                                  ('scaler', StandardScaler()),
-                                  ('model', model)]).set_params(**kwargs)
+        self.pipeline = Pipeline(
+            [("empty_dims_remover", VarianceThreshold()), ("scaler", StandardScaler()), ("model", model)]
+        ).set_params(**kwargs)
 
     def get_params(self, deep=True):
         return self.pipeline.get_params(deep=deep)

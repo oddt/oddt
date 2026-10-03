@@ -7,33 +7,33 @@ import sys
 # Module multiprocessing is organized differently in Python 3.4+
 try:
     # Python 3.4+
-    if sys.platform.startswith('win'):
+    if sys.platform.startswith("win"):
         import multiprocessing.popen_spawn_win32 as forking
     else:
         import multiprocessing.popen_fork as forking
 except ImportError:
     import multiprocessing.forking as forking
 
-if sys.platform.startswith('win'):
+if sys.platform.startswith("win"):
     # First define a modified version of Popen.
     class _Popen(forking.Popen):
         def __init__(self, *args, **kw):
-            if hasattr(sys, 'frozen'):
+            if hasattr(sys, "frozen"):
                 # We have to set original _MEIPASS2 value from sys._MEIPASS
                 # to get --onefile mode working.
-                os.putenv('_MEIPASS2', sys._MEIPASS)
+                os.putenv("_MEIPASS2", sys._MEIPASS)
             try:
                 super(_Popen, self).__init__(*args, **kw)
             finally:
-                if hasattr(sys, 'frozen'):
+                if hasattr(sys, "frozen"):
                     # On some platforms (e.g. AIX) 'os.unsetenv()' is not
                     # available. In those cases we cannot delete the variable
                     # but only set it to the empty string. The bootloader
                     # can handle this case.
-                    if hasattr(os, 'unsetenv'):
-                        os.unsetenv('_MEIPASS2')
+                    if hasattr(os, "unsetenv"):
+                        os.unsetenv("_MEIPASS2")
                     else:
-                        os.putenv('_MEIPASS2', '')
+                        os.putenv("_MEIPASS2", "")
 
     # Second override 'Popen' class with our modified version.
     forking.Popen = _Popen
@@ -50,149 +50,150 @@ from oddt.scoring import scorer
 
 def main():
     # arguments
-    parser = argparse.ArgumentParser(
-        description='Open Drug Discovery (ODDT) command line tools')
-    parser.add_argument('--toolkit',
-                        dest='toolkit',
-                        choices=['ob', 'rdk'],
-                        default='ob',
-                        help=('Choose which toolkit should be used for '
-                              'calculations, either "ob" (OpenBabel) or '
-                              '"rdkit" (RDKit) (default: ob)'))
-    parser.add_argument('-n', '--n_cpu',
-                        dest='n_cpu',
-                        type=int,
-                        help=('The number of parallel processes. '
-                              '-1 automatically assigns maximum number of CPUs.'
-                              ' (default=-1)'))
-    parser.add_argument('--version',
-                        action='version',
-                        version='%(prog)s ' + oddt.__version__)
+    parser = argparse.ArgumentParser(description="Open Drug Discovery (ODDT) command line tools")
+    parser.add_argument(
+        "--toolkit",
+        dest="toolkit",
+        choices=["ob", "rdk"],
+        default="ob",
+        help=(
+            "Choose which toolkit should be used for "
+            'calculations, either "ob" (OpenBabel) or '
+            '"rdkit" (RDKit) (default: ob)'
+        ),
+    )
+    parser.add_argument(
+        "-n",
+        "--n_cpu",
+        dest="n_cpu",
+        type=int,
+        help=("The number of parallel processes. " "-1 automatically assigns maximum number of CPUs." " (default=-1)"),
+    )
+    parser.add_argument("--version", action="version", version="%(prog)s " + oddt.__version__)
 
-    parser.add_argument('-c', '--chunksize',
-                        dest='chunksize',
-                        type=int,
-                        default=100,
-                        help=('The number of molecules to process in a chunk. '
-                              ' (default=100)'))
+    parser.add_argument(
+        "-c",
+        "--chunksize",
+        dest="chunksize",
+        type=int,
+        default=100,
+        help=("The number of molecules to process in a chunk. " " (default=100)"),
+    )
 
     # in/out files and formats
-    parser.add_argument('in_file', nargs='+',
-                        help='Input files of formats supported by toolkit.')
-    parser.add_argument('-i', dest='in_format', help='Input file(s) format')
-    parser.add_argument('-o', dest='out_format', help='Output file format')
-    parser.add_argument('-O', '--output', dest='out_file', help='Output file')
+    parser.add_argument("in_file", nargs="+", help="Input files of formats supported by toolkit.")
+    parser.add_argument("-i", dest="in_format", help="Input file(s) format")
+    parser.add_argument("-o", dest="out_format", help="Output file format")
+    parser.add_argument("-O", "--output", dest="out_file", help="Output file")
 
     # filter
-    group = parser.add_argument_group('Filtering')
-    group.add_argument('--filter',
-                       dest='filter',
-                       action='append',
-                       default=[],
-                       help=('Choose built-in filters to be used (eg. "ro5", '
-                             '"ro3", "pains")'))
+    group = parser.add_argument_group("Filtering")
+    group.add_argument(
+        "--filter",
+        dest="filter",
+        action="append",
+        default=[],
+        help=('Choose built-in filters to be used (eg. "ro5", ' '"ro3", "pains")'),
+    )
 
     # fingerprints
-    group = parser.add_argument_group('Similarity searching')
-    group.add_argument('--similarity',
-                       dest='similarity',
-                       action='append',
-                       default=[],
-                       choices=['ifp', 'sifp', 'usr', 'usr_cat', 'electroshape'],
-                       help='Choose similarity method to use (eg. "ifp", "sifp", '
-                       '"usr", "usr_cat", "electroshape")')
+    group = parser.add_argument_group("Similarity searching")
+    group.add_argument(
+        "--similarity",
+        dest="similarity",
+        action="append",
+        default=[],
+        choices=["ifp", "sifp", "usr", "usr_cat", "electroshape"],
+        help='Choose similarity method to use (eg. "ifp", "sifp", ' '"usr", "usr_cat", "electroshape")',
+    )
 
-    group.add_argument('--cutoff',
-                       dest='cutoff',
-                       type=float,
-                       default=0.9,
-                       help=('Similarity cufoff below which molecules will be'
-                             ' ignored.'))
+    group.add_argument(
+        "--cutoff",
+        dest="cutoff",
+        type=float,
+        default=0.9,
+        help=("Similarity cufoff below which molecules will be" " ignored."),
+    )
 
-    group.add_argument('--query',
-                       dest='query',
-                       action='append',
-                       help='Query molecule(s) for similarity searching')
+    group.add_argument("--query", dest="query", action="append", help="Query molecule(s) for similarity searching")
 
     # docking
-    group = parser.add_argument_group('Protein-Ligand docking')
-    group.add_argument('--dock',
-                       dest='dock',
-                       choices=['autodock_vina'],
-                       help='Choose docking software to be used')
-    group.add_argument('--receptor', help='Protein file')
-    group.add_argument('--auto_ligand',
-                       help='Docking Box is determined on that ligand')
-    group.add_argument('--center', type=literal_eval,
-                       help='Docking Box center (x,y,z)')
-    group.add_argument('--size', type=literal_eval,
-                       help='Docking Box dimentions  (x,y,z)')
-    group.add_argument('--exhaustiveness', default=8, type=int,
-                       help='Exhaustiveness of docking')
-    group.add_argument('--seed', help='Random Seed')
+    group = parser.add_argument_group("Protein-Ligand docking")
+    group.add_argument("--dock", dest="dock", choices=["autodock_vina"], help="Choose docking software to be used")
+    group.add_argument("--receptor", help="Protein file")
+    group.add_argument("--auto_ligand", help="Docking Box is determined on that ligand")
+    group.add_argument("--center", type=literal_eval, help="Docking Box center (x,y,z)")
+    group.add_argument("--size", type=literal_eval, help="Docking Box dimentions  (x,y,z)")
+    group.add_argument("--exhaustiveness", default=8, type=int, help="Exhaustiveness of docking")
+    group.add_argument("--seed", help="Random Seed")
 
     # scoring
 
     # generate scoring functions options
-    sf_choices = ['autodock_vina', 'rfscore', 'nnscore']
+    sf_choices = ["autodock_vina", "rfscore", "nnscore"]
     for v in [1, 2, 3]:
-        sf_choices.append('rfscore_v%i' % v)
-    for v in ['linear', 'nn', 'rf']:
-        sf_choices.append('plec%s' % v)
+        sf_choices.append("rfscore_v%i" % v)
+    for v in ["linear", "nn", "rf"]:
+        sf_choices.append("plec%s" % v)
 
     for pdbbind_version in [2007, 2012, 2013, 2014, 2015, 2016]:
         for v in [1, 2, 3]:
-            sf_choices.append('rfscore_v%i_pdbbind%i' % (v, pdbbind_version))
-        sf_choices.append('nnscore_pdbbind%i' % (pdbbind_version))
+            sf_choices.append("rfscore_v%i_pdbbind%i" % (v, pdbbind_version))
+        sf_choices.append("nnscore_pdbbind%i" % (pdbbind_version))
 
     # PLECscore is supported only for v2016+
     for pdbbind_version in [2016]:
-        for v in ['linear', 'nn', 'rf']:
-            sf_choices.append('plec%s_pdbbind%i' % (v, pdbbind_version))
+        for v in ["linear", "nn", "rf"]:
+            sf_choices.append("plec%s_pdbbind%i" % (v, pdbbind_version))
 
-    group = parser.add_argument_group('Rescoring')
-    group.add_argument('--score',
-                       dest='score',
-                       choices=sf_choices,
-                       action='append',
-                       default=[],
-                       help='Choose built-in scoring function to be used')
-    group.add_argument('--score_file',
-                       dest='score_file',
-                       action='append',
-                       default=[],
-                       help='Choose ODDT scoring function saved to file (pickle)')
+    group = parser.add_argument_group("Rescoring")
+    group.add_argument(
+        "--score",
+        dest="score",
+        choices=sf_choices,
+        action="append",
+        default=[],
+        help="Choose built-in scoring function to be used",
+    )
+    group.add_argument(
+        "--score_file",
+        dest="score_file",
+        action="append",
+        default=[],
+        help="Choose ODDT scoring function saved to file (pickle)",
+    )
 
-    parser.add_argument('--field',
-                        dest='save_fields',
-                        action='append',
-                        default=[],
-                        help=('Field to save (eg. in CSV). Each field should be'
-                              ' specified separately.'))
+    parser.add_argument(
+        "--field",
+        dest="save_fields",
+        action="append",
+        default=[],
+        help=("Field to save (eg. in CSV). Each field should be" " specified separately."),
+    )
 
     args = parser.parse_args()
 
     # Switch toolkits
-    if 'toolkit' in args:
-        if (args.toolkit == 'rdk' or ('ODDT_TOOLKIT' in os.environ and
-                                      os.environ['ODDT_TOOLKIT'] == 'rdk')):
+    if "toolkit" in args:
+        if args.toolkit == "rdk" or ("ODDT_TOOLKIT" in os.environ and os.environ["ODDT_TOOLKIT"] == "rdk"):
             from oddt.toolkits import rdk
+
             oddt.toolkit = rdk
         else:  # OB as fallback
             from oddt.toolkits import ob
+
             oddt.toolkit = ob
 
     from oddt.virtualscreening import virtualscreening as vs
 
     # Create pipeline for docking and rescoring
-    pipeline = vs(n_cpu=args.n_cpu if 'n_cpu' in args else -1,
-                  chunksize=args.chunksize)
+    pipeline = vs(n_cpu=args.n_cpu if "n_cpu" in args else -1, chunksize=args.chunksize)
     for f in args.in_file:
         if args.in_format:
             fmt = args.in_format
         else:  # autodiscover
-            tmp = f.split('.')
-            if tmp[-1] == 'gz':
+            tmp = f.split(".")
+            if tmp[-1] == "gz":
                 fmt = tmp[-2]
             else:
                 fmt = tmp[-1]
@@ -208,37 +209,36 @@ def main():
     receptor = None  # Not all similarity methods require receptor/protein
     # load protein once
     if args.receptor:
-        extension = args.receptor.split('.')[-1]
+        extension = args.receptor.split(".")[-1]
         receptor = six.next(oddt.toolkit.readfile(extension, args.receptor))
         receptor.protein = True
 
     if args.query:
-        query = [six.next(oddt.toolkit.readfile(q.split('.')[-1], q))
-                 for q in args.query]
+        query = [six.next(oddt.toolkit.readfile(q.split(".")[-1], q)) for q in args.query]
 
     for i, sim in enumerate(args.similarity):
         pipeline.similarity(sim, query, protein=receptor, cutoff=args.cutoff)
 
     # Docking
-    if args.dock == 'autodock_vina':
+    if args.dock == "autodock_vina":
         kwargs = {}
         if args.center:
-            kwargs['center'] = args.center
+            kwargs["center"] = args.center
         if args.size:
-            kwargs['size'] = args.size
+            kwargs["size"] = args.size
         if args.size:
-            kwargs['size'] = args.size
+            kwargs["size"] = args.size
         if args.auto_ligand:
-            kwargs['auto_ligand'] = args.auto_ligand
+            kwargs["auto_ligand"] = args.auto_ligand
         if args.exhaustiveness:
-            kwargs['exhaustiveness'] = args.exhaustiveness
+            kwargs["exhaustiveness"] = args.exhaustiveness
         if args.seed:
-            kwargs['seed'] = args.seed
-        pipeline.dock('autodock_vina', receptor, **kwargs)
+            kwargs["seed"] = args.seed
+        pipeline.dock("autodock_vina", receptor, **kwargs)
 
     # Rescoring
     for score in args.score:
-        for sf_name in ['nnscore', 'rfscore', 'plec', 'autodock_vina']:
+        for sf_name in ["nnscore", "rfscore", "plec", "autodock_vina"]:
             if score.startswith(sf_name):
                 pipeline.score(score, receptor)
 
@@ -247,36 +247,36 @@ def main():
             sf = scorer.load(score_file)
             pipeline.score(sf, receptor)
         else:
-            raise IOError('Could not read pickle file %s' % score_file)
+            raise IOError("Could not read pickle file %s" % score_file)
 
     # Write to file or STDOUT
     if args.out_file:
         if args.out_format:
             fmt = args.out_format
         else:  # autodiscover
-            tmp = args.out_file.split('.')
-            if tmp[-1] == 'gz':
+            tmp = args.out_file.split(".")
+            if tmp[-1] == "gz":
                 fmt = tmp[-2]
             else:
                 fmt = tmp[-1]
         if not fmt:
-            raise ValueError('No output format nor output file specified.')
-        if fmt == 'csv':
+            raise ValueError("No output format nor output file specified.")
+        if fmt == "csv":
             pipeline.write_csv(args.out_file, fields=args.save_fields)
         else:
             pipeline.write(fmt, args.out_file)
     else:
         fmt = args.out_format
         if not fmt:
-            raise ValueError('No output format nor output file specified.')
-        if fmt == 'csv':
+            raise ValueError("No output format nor output file specified.")
+        if fmt == "csv":
             pipeline.write_csv(sys.stdout, fields=args.save_fields)
         else:
             for lig in pipeline.fetch():
                 sys.stdout.write(lig.write(fmt))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # On Windows calling this function is necessary.
     # On Linux/OSX it does nothing.
     multiprocessing.freeze_support()

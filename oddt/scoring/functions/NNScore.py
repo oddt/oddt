@@ -48,33 +48,26 @@ class nnscore(scorer):
         self.n_jobs = n_jobs
         model = None
         decsriptors = binana_descriptor(protein)
-        super(nnscore, self).__init__(model, decsriptors,
-                                      score_title='nnscore')
+        super(nnscore, self).__init__(model, decsriptors, score_title="nnscore")
 
-    def gen_training_data(self,
-                          pdbbind_dir,
-                          pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016),
-                          home_dir=None,
-                          use_proteins=False):
+    def gen_training_data(
+        self, pdbbind_dir, pdbbind_versions=(2007, 2012, 2013, 2014, 2015, 2016), home_dir=None, use_proteins=False
+    ):
         if home_dir is None:
-            home_dir = dirname(__file__) + '/NNScore'
-        filename = path_join(home_dir, 'nnscore_descs.csv')
+            home_dir = dirname(__file__) + "/NNScore"
+        filename = path_join(home_dir, "nnscore_descs.csv")
 
         super(nnscore, self)._gen_pdbbind_desc(
-            pdbbind_dir=pdbbind_dir,
-            pdbbind_versions=pdbbind_versions,
-            desc_path=filename,
-            use_proteins=use_proteins
+            pdbbind_dir=pdbbind_dir, pdbbind_versions=pdbbind_versions, desc_path=filename, use_proteins=use_proteins
         )
 
     def train(self, home_dir=None, sf_pickle=None, pdbbind_version=2016):
         if not home_dir:
-            home_dir = dirname(__file__) + '/NNScore'
+            home_dir = dirname(__file__) + "/NNScore"
 
-        desc_path = path_join(home_dir, 'nnscore_descs.csv')
+        desc_path = path_join(home_dir, "nnscore_descs.csv")
 
-        super(nnscore, self)._load_pdbbind_desc(desc_path,
-                                                pdbbind_version=pdbbind_version)
+        super(nnscore, self)._load_pdbbind_desc(desc_path, pdbbind_version=pdbbind_version)
 
         # number of network to sample; original implementation did 1000, but
         # 100 give results good enough.
@@ -83,53 +76,53 @@ class nnscore(scorer):
         # make nets reproducible
         random_seed(1)
         seeds = np.random.randint(123456789, size=n)
-        trained_nets = (
-            Parallel(n_jobs=self.n_jobs, verbose=10, pre_dispatch='all')(
-                delayed(method_caller)(
-                    neuralnetwork((5,),
-                                  random_state=seeds[i],
-                                  activation='logistic',
-                                  solver='lbfgs',
-                                  max_iter=10000),
-                    'fit',
-                    self.train_descs,
-                    self.train_target)
-                for i in range(n)))
+        trained_nets = Parallel(n_jobs=self.n_jobs, verbose=10, pre_dispatch="all")(
+            delayed(method_caller)(
+                neuralnetwork((5,), random_state=seeds[i], activation="logistic", solver="lbfgs", max_iter=10000),
+                "fit",
+                self.train_descs,
+                self.train_target,
+            )
+            for i in range(n)
+        )
         # get 20 best
-        trained_nets.sort(key=lambda n: n.score(self.test_descs,
-                                                self.test_target.flatten()))
+        trained_nets.sort(key=lambda n: n.score(self.test_descs, self.test_target.flatten()))
         self.model = ensemble_model(trained_nets[-20:])
 
         sets = [
-            ('Test', self.model.predict(self.test_descs), self.test_target),
-            ('Train', self.model.predict(self.train_descs), self.train_target)]
+            ("Test", self.model.predict(self.test_descs), self.test_target),
+            ("Train", self.model.predict(self.train_descs), self.train_target),
+        ]
 
         for name, pred, target in sets:
             if len(target) < 3:
-                print('There are less than 3 values to predict, skipping.', file=sys.stderr)
+                print("There are less than 3 values to predict, skipping.", file=sys.stderr)
                 continue
-            print('%s set:' % name,
-                  'R2_score: %.4f' % r2_score(target, pred),
-                  'Rp: %.4f' % pearsonr(target, pred)[0],
-                  'RMSE: %.4f' % rmse(target, pred),
-                  'SD: %.4f' % standard_deviation_error(target, pred),
-                  sep='\t', file=sys.stderr)
+            print(
+                "%s set:" % name,
+                "R2_score: %.4f" % r2_score(target, pred),
+                "Rp: %.4f" % pearsonr(target, pred)[0],
+                "RMSE: %.4f" % rmse(target, pred),
+                "SD: %.4f" % standard_deviation_error(target, pred),
+                sep="\t",
+                file=sys.stderr,
+            )
 
         if sf_pickle is None:
-            return self.save('NNScore_pdbbind%i.pickle' % (pdbbind_version))
+            return self.save("NNScore_pdbbind%i.pickle" % (pdbbind_version))
         else:
             return self.save(sf_pickle)
 
     @classmethod
     def load(self, filename=None, pdbbind_version=2016):
         if filename is None:
-            fname = 'NNScore_pdbbind%i.pickle' % (pdbbind_version)
+            fname = "NNScore_pdbbind%i.pickle" % (pdbbind_version)
             for f in [fname, path_join(dirname(__file__), fname)]:
                 if isfile(f):
                     filename = f
                     break
             else:
-                print('No pickle, training new scoring function.', file=sys.stderr)
+                print("No pickle, training new scoring function.", file=sys.stderr)
                 nn = nnscore()
                 filename = nn.train(pdbbind_version=pdbbind_version)
         return scorer.load(filename)

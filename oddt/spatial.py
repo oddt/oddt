@@ -6,6 +6,7 @@ from math import sin, cos
 
 import numpy as np
 from scipy.spatial.distance import cdist
+
 # for Hungarian algorithm, in future use scipy.optimize.linear_sum_assignment (in scipy 0.17+)
 try:
     from scipy.optimize import linear_sum_assignment
@@ -16,15 +17,11 @@ except ImportError:
         out = linear_assignment(M)
         return out[:, 0], out[:, 1]
 
+
 import oddt
 from oddt.utils import is_openbabel_molecule
 
-__all__ = ['angle',
-           'angle_2v',
-           'dihedral',
-           'distance',
-           'rmsd',
-           'rotate']
+__all__ = ["angle", "angle_2v", "dihedral", "distance", "rmsd", "rotate"]
 
 
 def angle(p1, p2, p3):
@@ -62,7 +59,7 @@ def angle_2v(v1, v2):
     # better than np.dot(v1, v2), multiple vectors can be applied
     dot = (v1 * v2).sum(axis=-1)
     norm = np.linalg.norm(v1, axis=-1) * np.linalg.norm(v2, axis=-1)
-    return np.degrees(np.arccos(np.clip(dot/norm, -1, 1)))
+    return np.degrees(np.arccos(np.clip(dot / norm, -1, 1)))
 
 
 def dihedral(p1, p2, p3, p4):
@@ -80,9 +77,9 @@ def dihedral(p1, p2, p3, p4):
     angles : numpy array, shape = [n_points]
         Series of angles in degrees
     """
-    v12 = (p1 - p2)/np.linalg.norm(p1 - p2)
-    v23 = (p2 - p3)/np.linalg.norm(p2 - p3)
-    v34 = (p3 - p4)/np.linalg.norm(p3 - p4)
+    v12 = (p1 - p2) / np.linalg.norm(p1 - p2)
+    v23 = (p2 - p3) / np.linalg.norm(p2 - p3)
+    v34 = (p3 - p4) / np.linalg.norm(p3 - p4)
     c1 = np.cross(v12, v23)
     c2 = np.cross(v23, v34)
     out = angle_2v(c1, c2)
@@ -134,68 +131,66 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         RMSD between two molecules
     """
 
-    if method == 'canonize':
+    if method == "canonize":
         ref_atoms = ref.coords[ref.canonic_order]
         mol_atoms = mol.coords[mol.canonic_order]
-    elif method == 'hungarian':
+    elif method == "hungarian":
         mol_map = []
         ref_map = []
-        for a_type in np.unique(mol.atom_dict['atomtype']):
-            if a_type != 'H' or not ignore_h:
-                mol_idx = np.argwhere(mol.atom_dict['atomtype'] == a_type).flatten()
-                ref_idx = np.argwhere(ref.atom_dict['atomtype'] == a_type).flatten()
+        for a_type in np.unique(mol.atom_dict["atomtype"]):
+            if a_type != "H" or not ignore_h:
+                mol_idx = np.argwhere(mol.atom_dict["atomtype"] == a_type).flatten()
+                ref_idx = np.argwhere(ref.atom_dict["atomtype"] == a_type).flatten()
                 if len(mol_idx) != len(ref_idx):
-                    raise ValueError('Unequal number of atoms type: %s' % a_type)
+                    raise ValueError("Unequal number of atoms type: %s" % a_type)
                 if len(mol_idx) == 1:
                     mol_map.append(mol_idx)
                     ref_map.append(ref_idx)
                     continue
-                M = distance(mol.atom_dict['coords'][mol_idx],
-                             ref.atom_dict['coords'][ref_idx])
+                M = distance(mol.atom_dict["coords"][mol_idx], ref.atom_dict["coords"][ref_idx])
                 M = M - M.min(axis=0) - M.min(axis=1).reshape(-1, 1)
                 tmp_mol, tmp_ref = linear_sum_assignment(M)
                 mol_map.append(mol_idx[tmp_mol])
                 ref_map.append(ref_idx[tmp_ref])
-        mol_atoms = mol.atom_dict['coords'][np.hstack(mol_map)]
-        ref_atoms = ref.atom_dict['coords'][np.hstack(ref_map)]
-    elif method == 'min_symmetry':
+        mol_atoms = mol.atom_dict["coords"][np.hstack(mol_map)]
+        ref_atoms = ref.atom_dict["coords"][np.hstack(ref_map)]
+    elif method == "min_symmetry":
         min_rmsd = None
-        ref_atoms = ref.atom_dict[ref.atom_dict['atomicnum'] != 1]['coords']
-        mol_atoms = mol.atom_dict[mol.atom_dict['atomicnum'] != 1]['coords']
+        ref_atoms = ref.atom_dict[ref.atom_dict["atomicnum"] != 1]["coords"]
+        mol_atoms = mol.atom_dict[mol.atom_dict["atomicnum"] != 1]["coords"]
         # safety swith to check if number of heavy atoms match
         if ref_atoms.shape == mol_atoms.shape:
             # match mol to ref, generate all matches to find best RMSD
             matches = oddt.toolkit.Smarts(ref).findall(mol, unique=False)
             if not matches:
-                raise ValueError('Could not find any match between molecules.')
+                raise ValueError("Could not find any match between molecules.")
             # calculate RMSD between all matches and retain the smallest
             for match in matches:
                 match = np.array(match, dtype=int)
                 if is_openbabel_molecule(mol):
                     match -= 1  # OB has 1-based indices
                 tmp_dict = mol.atom_dict[match]
-                mol_atoms = tmp_dict[tmp_dict['atomicnum'] != 1]['coords']
+                mol_atoms = tmp_dict[tmp_dict["atomicnum"] != 1]["coords"]
                 # following should not happen, although safety check is left
                 if mol_atoms.shape != ref_atoms.shape:
-                    raise Exception('Molecular match got wrong number of atoms.')
-                rmsd = np.sqrt(((mol_atoms - ref_atoms)**2).sum(axis=-1).mean())
+                    raise Exception("Molecular match got wrong number of atoms.")
+                rmsd = np.sqrt(((mol_atoms - ref_atoms) ** 2).sum(axis=-1).mean())
                 if min_rmsd is None or rmsd < min_rmsd:
                     min_rmsd = rmsd
             return min_rmsd
     elif ignore_h:
-        mol_atoms = mol.coords[mol.atom_dict['atomicnum'] != 1]
-        ref_atoms = ref.coords[ref.atom_dict['atomicnum'] != 1]
+        mol_atoms = mol.coords[mol.atom_dict["atomicnum"] != 1]
+        ref_atoms = ref.coords[ref.atom_dict["atomicnum"] != 1]
     else:
         mol_atoms = mol.coords
         ref_atoms = ref.coords
     if mol_atoms.shape == ref_atoms.shape:
-        rmsd = np.sqrt(((mol_atoms - ref_atoms)**2).sum(axis=-1).mean())
+        rmsd = np.sqrt(((mol_atoms - ref_atoms) ** 2).sum(axis=-1).mean())
         if normalize:
             rmsd /= np.sqrt(mol.num_rotors)
         return rmsd
     # at this point raise an exception
-    raise ValueError('Unequal number of atoms in molecules (%i and %i)'
-                     % (len(mol_atoms), len(ref_atoms)))
+    raise ValueError("Unequal number of atoms in molecules (%i and %i)" % (len(mol_atoms), len(ref_atoms)))
 
 
 def distance(x, y):
@@ -218,7 +213,7 @@ def distance(x, y):
 
 
 def distance_complex(x, y):
-    """ Computes distance between points, similar to distance(cdist),
+    """Computes distance between points, similar to distance(cdist),
     with major difference - allows higher dimmentions of input (cdist supports 2).
     distance is purely float64 and can de slightly more precise.
 
@@ -265,14 +260,20 @@ def rotate(coords, alpha, beta, gamma):
     sin_gamma = sin(gamma)
     cos_gamma = cos(gamma)
 
-    rot_matrix = np.array([[cos_beta * cos_gamma,
-                            sin_alpha * sin_beta * cos_gamma - cos_alpha * sin_gamma,
-                            cos_alpha * sin_beta * cos_gamma + sin_alpha * sin_gamma],
-                           [cos_beta * sin_gamma,
-                            sin_alpha * sin_beta * sin_gamma + cos_alpha * cos_gamma,
-                            cos_alpha * sin_beta * sin_gamma - sin_alpha * cos_gamma],
-                           [-sin_beta,
-                            sin_alpha * cos_beta,
-                            cos_alpha * cos_beta]])
+    rot_matrix = np.array(
+        [
+            [
+                cos_beta * cos_gamma,
+                sin_alpha * sin_beta * cos_gamma - cos_alpha * sin_gamma,
+                cos_alpha * sin_beta * cos_gamma + sin_alpha * sin_gamma,
+            ],
+            [
+                cos_beta * sin_gamma,
+                sin_alpha * sin_beta * sin_gamma + cos_alpha * cos_gamma,
+                cos_alpha * sin_beta * sin_gamma - sin_alpha * cos_gamma,
+            ],
+            [-sin_beta, sin_alpha * cos_beta, cos_alpha * cos_beta],
+        ]
+    )
 
     return (coords[:, np.newaxis, :] * rot_matrix).sum(axis=2) + centroid

@@ -16,3 +16,4 @@ dependencies:
 - openbabel
 - pytest
 - pytest-xdist
+- black

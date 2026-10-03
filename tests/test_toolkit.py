@@ -14,9 +14,7 @@ from oddt.spatial import rmsd
 from oddt.toolkits.common import canonize_ring_path
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
-xiap_receptor = os.path.join(
-    test_data_dir, "data", "dude", "xiap", "receptor_rdkit.pdb"
-)
+xiap_receptor = os.path.join(test_data_dir, "data", "dude", "xiap", "receptor_rdkit.pdb")
 xiap_actives = os.path.join(test_data_dir, "data", "dude", "xiap", "actives_docked.sdf")
 inha_ligand = os.path.join(test_data_dir, "data", "dude", "inha", "crystal_ligand.mol2")
 
@@ -527,13 +525,9 @@ def test_pickle():
         mol.addh()
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
 
-    assert_array_equal(
-        list(map(lambda x: x.title, mols)), list(map(lambda x: x.title, pickled_mols))
-    )
+    assert_array_equal(list(map(lambda x: x.title, mols)), list(map(lambda x: x.title, pickled_mols)))
 
-    assert_array_equal(
-        list(map(lambda x: x.smiles, mols)), list(map(lambda x: x.smiles, pickled_mols))
-    )
+    assert_array_equal(list(map(lambda x: x.smiles, mols)), list(map(lambda x: x.smiles, pickled_mols)))
 
     for mol, pickled_mol in zip(mols, pickled_mols):
         assert dict(mol.data) == dict(pickled_mol.data)
@@ -542,35 +536,23 @@ def test_pickle():
     mols = list(oddt.toolkit.readfile("mol2", inha_ligand))
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
 
-    assert_array_equal(
-        list(map(lambda x: x.title, mols)), list(map(lambda x: x.title, pickled_mols))
-    )
+    assert_array_equal(list(map(lambda x: x.title, mols)), list(map(lambda x: x.title, pickled_mols)))
 
-    assert_array_equal(
-        list(map(lambda x: x.smiles, mols)), list(map(lambda x: x.smiles, pickled_mols))
-    )
+    assert_array_equal(list(map(lambda x: x.smiles, mols)), list(map(lambda x: x.smiles, pickled_mols)))
 
     for mol, pickled_mol in zip(mols, pickled_mols):
         assert dict(mol.data) == dict(pickled_mol.data)
 
     # Test pickling of atom_dicts
-    assert_array_equal(
-        list(map(lambda x: x._atom_dict is None, mols)), [True] * len(mols)
-    )
+    assert_array_equal(list(map(lambda x: x._atom_dict is None, mols)), [True] * len(mols))
     mols_atom_dict = np.hstack(list(map(lambda x: x.atom_dict, mols)))
-    assert_array_equal(
-        list(map(lambda x: x._atom_dict is not None, mols)), [True] * len(mols)
-    )
+    assert_array_equal(list(map(lambda x: x._atom_dict is not None, mols)), [True] * len(mols))
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
-    assert_array_equal(
-        list(map(lambda x: x._atom_dict is not None, pickled_mols)), [True] * len(mols)
-    )
+    assert_array_equal(list(map(lambda x: x._atom_dict is not None, pickled_mols)), [True] * len(mols))
     pickled_mols_atom_dict = np.hstack(list(map(lambda x: x._atom_dict, pickled_mols)))
     for name in mols[0].atom_dict.dtype.names:
         if issubclass(np.dtype(mols_atom_dict[name].dtype).type, np.number):
-            assert_array_almost_equal(
-                mols_atom_dict[name], pickled_mols_atom_dict[name]
-            )
+            assert_array_almost_equal(mols_atom_dict[name], pickled_mols_atom_dict[name])
         else:
             assert_array_equal(mols_atom_dict[name], pickled_mols_atom_dict[name])
 
@@ -578,17 +560,11 @@ def test_pickle():
     mols = list(oddt.toolkit.readfile("sdf", xiap_actives, lazy=True))
     pickled_mols = list(map(lambda x: loads(dumps(x)), mols))
 
-    assert_array_equal(
-        list(map(lambda x: x._source is not None, pickled_mols)), [True] * len(mols)
-    )
+    assert_array_equal(list(map(lambda x: x._source is not None, pickled_mols)), [True] * len(mols))
 
-    assert_array_equal(
-        list(map(lambda x: x.title, mols)), list(map(lambda x: x.title, pickled_mols))
-    )
+    assert_array_equal(list(map(lambda x: x.title, mols)), list(map(lambda x: x.title, pickled_mols)))
 
-    assert_array_equal(
-        list(map(lambda x: x.smiles, mols)), list(map(lambda x: x.smiles, pickled_mols))
-    )
+    assert_array_equal(list(map(lambda x: x.smiles, mols)), list(map(lambda x: x.smiles, pickled_mols)))
 
     for mol, pickled_mol in zip(mols, pickled_mols):
         assert dict(mol.data) == dict(pickled_mol.data)
@@ -598,9 +574,7 @@ def test_diverse_conformers():
     # FIXME: make toolkit a module so we can import from it
     diverse_conformers_generator = oddt.toolkit.diverse_conformers_generator
 
-    mol = oddt.toolkit.readstring(
-        "smi", "CN1CCN(S(=O)(C2=CC=C(OCC)C(C3=NC4=C(N(C)N=C4CCC)C(N3)=O)=C2)=O)CC1"
-    )
+    mol = oddt.toolkit.readstring("smi", "CN1CCN(S(=O)(C2=CC=C(OCC)C(C3=NC4=C(N(C)N=C4CCC)C(N3)=O)=C2)=O)CC1")
     mol.make3D()
     original_coords = mol.coords.copy()
 
@@ -621,16 +595,8 @@ def test_diverse_conformers():
     else:
         methods = ["dg", "etkdg", "kdg", "etdg"]
     for method in methods:
-        assert (
-            len(diverse_conformers_generator(mol, seed=123456, n_conf=5, method=method))
-            == 5
-        )
-        assert (
-            len(
-                diverse_conformers_generator(mol, seed=123456, n_conf=10, method=method)
-            )
-            == 10
-        )
+        assert len(diverse_conformers_generator(mol, seed=123456, n_conf=5, method=method)) == 5
+        assert len(diverse_conformers_generator(mol, seed=123456, n_conf=10, method=method)) == 10
 
 
 def test_indices():
@@ -691,11 +657,7 @@ def test_dicts():
         "numhs",
         "formalcharge",
     ]
-    all_cols = [
-        name
-        for name in mols[0].atom_dict.dtype.names
-        if name not in ["coords", "neighbors", "neighbors_id"]
-    ]
+    all_cols = [name for name in mols[0].atom_dict.dtype.names if name not in ["coords", "neighbors", "neighbors_id"]]
     common_cols = [name for name in all_cols if name not in skip_cols]
 
     # Small molecules
@@ -703,18 +665,14 @@ def test_dicts():
     all_dicts = all_dicts[all_dicts["atomicnum"] != 1]
 
     data = pd.DataFrame({name: all_dicts[name] for name in all_cols})
-    data["mol_idx"] = [
-        i for i, mol in enumerate(mols) for atom in mol if atom.atomicnum != 1
-    ]
+    data["mol_idx"] = [i for i, mol in enumerate(mols) for atom in mol if atom.atomicnum != 1]
 
     # Save correct results
     # data[common_cols].to_csv(
     #     os.path.join(test_data_dir, 'data/results/xiap/mols_atom_dict.csv'),
     #     index=False)
 
-    corr_data = pd.read_csv(
-        os.path.join(test_data_dir, "data", "results", "xiap", "mols_atom_dict.csv")
-    ).fillna("")
+    corr_data = pd.read_csv(os.path.join(test_data_dir, "data", "results", "xiap", "mols_atom_dict.csv")).fillna("")
 
     for name in common_cols:
         if issubclass(np.dtype(data[name].dtype).type, np.number):
@@ -772,9 +730,7 @@ def test_dicts():
     #     os.path.join(test_data_dir, 'data/results/xiap/prot_atom_dict.csv'),
     #     index=False)
 
-    corr_data = pd.read_csv(
-        os.path.join(test_data_dir, "data", "results", "xiap", "prot_atom_dict.csv")
-    ).fillna("")
+    corr_data = pd.read_csv(os.path.join(test_data_dir, "data", "results", "xiap", "prot_atom_dict.csv")).fillna("")
 
     for name in common_cols:
         if issubclass(np.dtype(data[name].dtype).type, np.number):
@@ -942,9 +898,7 @@ def test_ss():
     assert len(protein.res_dict) == 136
     assert protein.res_dict["isalpha"].sum() == 43
     assert protein.res_dict["isbeta"].sum() == 9
-    assert (
-        protein.res_dict["isalpha"] & protein.res_dict["isbeta"]
-    ).sum() == 0  # Must be zero!
+    assert (protein.res_dict["isalpha"] & protein.res_dict["isbeta"]).sum() == 0  # Must be zero!
     assert (~protein.res_dict["isalpha"] & ~protein.res_dict["isbeta"]).sum() == 84
 
 
@@ -980,9 +934,7 @@ def test_pdbqt():
         assert_array_equal(nodes_size(mol.write("pdbqt")), [6, 8, 2, 7])
     else:
         assert_array_equal(nodes_size(mol.write("pdbqt")), [8, 6, 7, 2])
-    ligand_file = os.path.join(
-        test_data_dir, "data", "dude", "xiap", "crystal_ligand.sdf"
-    )
+    ligand_file = os.path.join(test_data_dir, "data", "dude", "xiap", "crystal_ligand.sdf")
     mol = next(oddt.toolkit.readfile("sdf", ligand_file))
     assert_array_equal(nodes_size(mol.write("pdbqt")), [8, 3, 6, 6, 1, 6, 3, 2, 2])
 

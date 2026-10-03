@@ -1,17 +1,17 @@
 import os
 import oddt
-from oddt.fingerprints import (ECFP,
-                               _ECFP_atom_repr,
-                               _ECFP_atom_hash,
-                               PLEC)
+from oddt.fingerprints import ECFP, _ECFP_atom_repr, _ECFP_atom_hash, PLEC
 
-test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..')
+test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..")
+
 
 class BenchECFP(object):
     goal_time = 0.5
 
     def setup(self):
-        self.mols = list(oddt.toolkit.readfile('sdf', '%s/tests/data/dude/xiap/actives_docked.sdf' % test_data_dir))[:10]
+        self.mols = list(oddt.toolkit.readfile("sdf", "%s/tests/data/dude/xiap/actives_docked.sdf" % test_data_dir))[
+            :10
+        ]
         for mol in self.mols:
             mol.atom_dict
 
@@ -43,11 +43,13 @@ class BenchECFP(object):
 
 class BenchPLEC(object):
     def setup(self):
-        self.mols = list(oddt.toolkit.readfile('sdf', '%s/tests/data/dude/xiap/actives_docked.sdf' % test_data_dir))[:10]
+        self.mols = list(oddt.toolkit.readfile("sdf", "%s/tests/data/dude/xiap/actives_docked.sdf" % test_data_dir))[
+            :10
+        ]
         for mol in self.mols:
             mol.atom_dict
 
-        self.rec = list(oddt.toolkit.readfile('pdb', '%s/tests/data/dude/xiap/receptor_rdkit.pdb' % test_data_dir))[0]
+        self.rec = list(oddt.toolkit.readfile("pdb", "%s/tests/data/dude/xiap/receptor_rdkit.pdb" % test_data_dir))[0]
         self.rec.protein = True
         self.rec.atom_dict
 

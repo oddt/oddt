@@ -41,6 +41,7 @@ import rdkit.DataStructs
 import rdkit.Chem.MACCSkeys
 import rdkit.Chem.AtomPairs.Pairs
 import rdkit.Chem.AtomPairs.Torsions
+
 # ODDT #
 from rdkit.Chem.Lipinski import NumRotatableBonds
 from rdkit.Chem.AllChem import ComputeGasteigerCharges
@@ -48,17 +49,14 @@ from rdkit.Chem.Pharm2D import Gobbi_Pharm2D, Generate
 from rdkit.Chem import CanonicalRankAtoms
 
 from oddt.toolkits.common import detect_secondary_structure, canonize_ring_path
-from oddt.toolkits.extras.rdkit import (_sybyl_atom_type,
-                                        MolFromPDBBlock,
-                                        MolToPDBQTBlock,
-                                        MolFromPDBQTBlock)
+from oddt.toolkits.extras.rdkit import _sybyl_atom_type, MolFromPDBBlock, MolToPDBQTBlock, MolFromPDBQTBlock
 
 
 _descDict = dict(Descriptors.descList)
 
-backend = 'rdk'
+backend = "rdk"
 __version__ = rdkit.__version__
-image_backend = 'png'  # png or svg
+image_backend = "png"  # png or svg
 image_size = (200, 200)
 
 try:
@@ -72,138 +70,139 @@ except NameError:
 elementtable = Chem.GetPeriodicTable()
 
 SMARTS_DEF = {
-    'rot_bond': '[!$(*#*)&!D1&!$(C(F)(F)F)&'
-                '!$(C(Cl)(Cl)Cl)&'
-                '!$(C(Br)(Br)Br)&'
-                '!$(C([CH3])([CH3])[CH3])&'
-                '!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&'
-                '!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&'
-                '!$([CD3](=[N+])-!@[#7!D1])&'
-                '!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&'
-                '!D1&!$(C(F)(F)F)&'
-                '!$(C(Cl)(Cl)Cl)&'
-                '!$(C(Br)(Br)Br)&'
-                '!$(C([CH3])([CH3])[CH3])]'
+    "rot_bond": "[!$(*#*)&!D1&!$(C(F)(F)F)&"
+    "!$(C(Cl)(Cl)Cl)&"
+    "!$(C(Br)(Br)Br)&"
+    "!$(C([CH3])([CH3])[CH3])&"
+    "!$([CD3](=[N,O,S])-!@[#7,O,S!D1])&"
+    "!$([#7,O,S!D1]-!@[CD3]=[N,O,S])&"
+    "!$([CD3](=[N+])-!@[#7!D1])&"
+    "!$([#7!D1]-!@[CD3]=[N+])]-!@[!$(*#*)&"
+    "!D1&!$(C(F)(F)F)&"
+    "!$(C(Cl)(Cl)Cl)&"
+    "!$(C(Br)(Br)Br)&"
+    "!$(C([CH3])([CH3])[CH3])]"
 }
 
-fps = ['rdkit', 'layered', 'maccs', 'atompairs', 'torsions', 'morgan']
+fps = ["rdkit", "layered", "maccs", "atompairs", "torsions", "morgan"]
 """A list of supported fingerprint types"""
 descs = list(_descDict.keys())
 """A list of supported descriptors"""
 
-_formats = {'smi': "SMILES",
-            'can': "Canonical SMILES",
-            'mol': "MDL MOL file",
-            'mol2': "Tripos MOL2 file",
-            'sdf': "MDL SDF file",
-            'inchi': "InChI",
-            'inchikey': "InChIKey"}
-_notinformats = ['can', 'inchikey']
-_notoutformats = ['mol2']
+_formats = {
+    "smi": "SMILES",
+    "can": "Canonical SMILES",
+    "mol": "MDL MOL file",
+    "mol2": "Tripos MOL2 file",
+    "sdf": "MDL SDF file",
+    "inchi": "InChI",
+    "inchikey": "InChIKey",
+}
+_notinformats = ["can", "inchikey"]
+_notoutformats = ["mol2"]
 if not Chem.INCHI_AVAILABLE:
-    _notinformats += ['inchi']
-    _notoutformats += ['inchi', 'inchikey']
+    _notinformats += ["inchi"]
+    _notoutformats += ["inchi", "inchikey"]
 
 informats = dict([(_x, _formats[_x]) for _x in _formats if _x not in _notinformats])
 """A dictionary of supported input formats"""
 outformats = dict([(_x, _formats[_x]) for _x in _formats if _x not in _notoutformats])
 """A dictionary of supported output formats"""
 
-base_feature_factory = AllChem.BuildFeatureFactory(os.path.join(RDConfig.RDDataDir, 'BaseFeatures.fdef'))
+base_feature_factory = AllChem.BuildFeatureFactory(os.path.join(RDConfig.RDDataDir, "BaseFeatures.fdef"))
 """ Global feature factory based on BaseFeatures.fdef """
 
-_forcefields = {'uff': AllChem.UFFOptimizeMolecule,
-                'mmff94': AllChem.MMFFOptimizeMolecule}
+_forcefields = {"uff": AllChem.UFFOptimizeMolecule, "mmff94": AllChem.MMFFOptimizeMolecule}
 forcefields = list(_forcefields.keys())
 """A list of supported forcefields"""
 
 
 def _filereader_mol2(filename, lazy=False, **kwargs):
-    block = ''
-    data = ''
+    block = ""
+    data = ""
     n = 0
-    with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
+    with gzip.open(filename, "rb") if filename.split(".")[-1] == "gz" else open(filename, "rb") as f:
         for line in f:
-            line = line.decode('ascii')
-            if line[:1] == '#':
+            line = line.decode("ascii")
+            if line[:1] == "#":
                 data += line
-            elif line[:17] == '@<TRIPOS>MOLECULE':
+            elif line[:17] == "@<TRIPOS>MOLECULE":
                 if n > 0:  # skip `zero` molecule (any preciding comments and spaces)
                     if lazy:
-                        yield Molecule(source={'fmt': 'mol2', 'string': block, 'kwargs': kwargs})
+                        yield Molecule(source={"fmt": "mol2", "string": block, "kwargs": kwargs})
                     else:
-                        yield readstring('mol2', block, **kwargs)
+                        yield readstring("mol2", block, **kwargs)
                 n += 1
                 block = data
-                data = ''
+                data = ""
             block += line
         # open last molecule
         if block:
             if lazy:
-                yield Molecule(source={'fmt': 'mol2', 'string': block, 'kwargs': kwargs})
+                yield Molecule(source={"fmt": "mol2", "string": block, "kwargs": kwargs})
             else:
-                yield readstring('mol2', block, **kwargs)
+                yield readstring("mol2", block, **kwargs)
 
 
 def _filereader_sdf(filename, lazy=False, **kwargs):
-    block = ''
+    block = ""
     n = 0
-    with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
+    with gzip.open(filename, "rb") if filename.split(".")[-1] == "gz" else open(filename, "rb") as f:
         if lazy:
             for line in f:
-                line = line.decode('ascii')
+                line = line.decode("ascii")
                 block += line
-                if line[:4] == '$$$$':
-                    yield Molecule(source={'fmt': 'sdf', 'string': block, 'kwargs': kwargs})
+                if line[:4] == "$$$$":
+                    yield Molecule(source={"fmt": "sdf", "string": block, "kwargs": kwargs})
                     n += 1
-                    block = ''
+                    block = ""
             if block:  # open last molecule if any
-                yield Molecule(source={'fmt': 'sdf', 'string': block, 'kwargs': kwargs})
+                yield Molecule(source={"fmt": "sdf", "string": block, "kwargs": kwargs})
         else:
             for mol in Chem.ForwardSDMolSupplier(f, **kwargs):
                 yield Molecule(mol)
 
 
 def _filereader_pdb(filename, lazy=False, opt=None, **kwargs):
-    block = ''
+    block = ""
     n = 0
-    with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
+    with gzip.open(filename, "rb") if filename.split(".")[-1] == "gz" else open(filename, "rb") as f:
         for line in f:
-            line = line.decode('ascii')
+            line = line.decode("ascii")
             block += line
-            if line[:6] == 'ENDMDL':
+            if line[:6] == "ENDMDL":
                 if lazy:
-                    yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt, 'kwargs': kwargs})
+                    yield Molecule(source={"fmt": "pdb", "string": block, "opt": opt, "kwargs": kwargs})
                 else:
-                    yield readstring('pdb', block, **kwargs)
+                    yield readstring("pdb", block, **kwargs)
                 n += 1
-                block = ''
+                block = ""
         if block:  # open last molecule if any
             if lazy:
-                yield Molecule(source={'fmt': 'pdb', 'string': block, 'opt': opt, 'kwargs': kwargs})
+                yield Molecule(source={"fmt": "pdb", "string": block, "opt": opt, "kwargs": kwargs})
             else:
-                yield readstring('pdb', block, **kwargs)
+                yield readstring("pdb", block, **kwargs)
 
 
 def _filereader_pdbqt(filename, lazy=False, opt=None, **kwargs):
-    block = ''
+    block = ""
     n = 0
-    with gzip.open(filename, 'rb') if filename.split('.')[-1] == 'gz' else open(filename, 'rb') as f:
+    with gzip.open(filename, "rb") if filename.split(".")[-1] == "gz" else open(filename, "rb") as f:
         for line in f:
-            line = line.decode('ascii')
+            line = line.decode("ascii")
             block += line
-            if line[:6] == 'ENDMDL':
+            if line[:6] == "ENDMDL":
                 if lazy:
-                    yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt, 'kwargs': kwargs})
+                    yield Molecule(source={"fmt": "pdbqt", "string": block, "opt": opt, "kwargs": kwargs})
                 else:
-                    yield readstring('pdbqt', block, **kwargs)
+                    yield readstring("pdbqt", block, **kwargs)
                 n += 1
-                block = ''
+                block = ""
         if block:  # open last molecule if any
             if lazy:
-                yield Molecule(source={'fmt': 'pdbqt', 'string': block, 'opt': opt, 'kwargs': kwargs})
+                yield Molecule(source={"fmt": "pdbqt", "string": block, "opt": opt, "kwargs": kwargs})
             else:
-                yield readstring('pdbqt', block, **kwargs)
+                yield readstring("pdbqt", block, **kwargs)
 
 
 def readfile(format, filename, lazy=False, opt=None, **kwargs):
@@ -245,18 +244,20 @@ def readfile(format, filename, lazy=False, opt=None, **kwargs):
     elif format == "mol2":
         return _filereader_mol2(filename, lazy=lazy, **kwargs)
     elif format == "smi":
-        iterator = Chem.SmilesMolSupplier(filename, delimiter=" \t",
-                                          titleLine=False, **kwargs)
+        iterator = Chem.SmilesMolSupplier(filename, delimiter=" \t", titleLine=False, **kwargs)
 
         def smi_reader():
             for mol in iterator:
                 yield Molecule(mol)
+
         return smi_reader()
-    elif format == 'inchi' and Chem.INCHI_AVAILABLE:
+    elif format == "inchi" and Chem.INCHI_AVAILABLE:
+
         def inchi_reader():
             for line in open(filename):
                 mol = Chem.inchi.MolFromInchi(line.strip(), **kwargs)
                 yield Molecule(mol)
+
         return inchi_reader()
     else:
         raise ValueError("%s is not a recognised RDKit format" % format)
@@ -287,14 +288,14 @@ def readstring(format, string, **kwargs):
         mol = Chem.MolFromMol2Block(string, **kwargs)
     elif format == "pdb":
         mol = MolFromPDBBlock(string, **kwargs)
-    elif format == 'pdbqt':
+    elif format == "pdbqt":
         mol = MolFromPDBQTBlock(string, **kwargs)
     elif format == "smi":
-        s = string.strip().split('\n')[0].strip().split()
+        s = string.strip().split("\n")[0].strip().split()
         mol = Chem.MolFromSmiles(s[0], **kwargs)
         if mol:
-            mol.SetProp("_Name", ' '.join(s[1:]))
-    elif format == 'inchi' and Chem.INCHI_AVAILABLE:
+            mol.SetProp("_Name", " ".join(s[1:]))
+    elif format == "inchi" and Chem.INCHI_AVAILABLE:
         mol = Chem.inchi.MolFromInchi(string, **kwargs)
     else:
         raise ValueError("%s is not a recognised RDKit format" % format)
@@ -317,6 +318,7 @@ class Outputfile(object):
        write(molecule)
        close()
     """
+
     def __init__(self, format, filename, overwrite=False, **kwargs):
         self.format = format
         self.filename = filename
@@ -326,10 +328,10 @@ class Outputfile(object):
             self._writer = Chem.SDWriter(self.filename, **kwargs)
         elif format == "smi":
             self._writer = Chem.SmilesWriter(self.filename, isomericSmiles=True, includeHeader=False, **kwargs)
-        elif format in ('inchi', 'inchikey') and Chem.INCHI_AVAILABLE:
-            self._writer = open(filename, 'w')
-        elif format in ('mol2', 'pdbqt'):
-            self._writer = gzip.open(filename, 'w') if filename.split('.')[-1] == 'gz' else open(filename, 'w')
+        elif format in ("inchi", "inchikey") and Chem.INCHI_AVAILABLE:
+            self._writer = open(filename, "w")
+        elif format in ("mol2", "pdbqt"):
+            self._writer = gzip.open(filename, "w") if filename.split(".")[-1] == "gz" else open(filename, "w")
         elif format == "pdb":
             self._writer = Chem.PDBWriter(self.filename)
         else:
@@ -345,11 +347,12 @@ class Outputfile(object):
         """
         if not self.filename:
             raise IOError("Outputfile instance is closed.")
-        if self.format in ('inchi', 'inchikey', 'mol2'):
-            self._writer.write(molecule.write(self.format, **self.writer_kwargs) + '\n')
-        if self.format == 'pdbqt':
-            self._writer.write('MODEL %i\n' % (self.total + 1) +
-                               molecule.write(self.format, **self.writer_kwargs) + '\nENDMDL\n')
+        if self.format in ("inchi", "inchikey", "mol2"):
+            self._writer.write(molecule.write(self.format, **self.writer_kwargs) + "\n")
+        if self.format == "pdbqt":
+            self._writer.write(
+                "MODEL %i\n" % (self.total + 1) + molecule.write(self.format, **self.writer_kwargs) + "\nENDMDL\n"
+            )
         else:
             self._writer.write(molecule.Mol)
         self.total += 1
@@ -377,10 +380,11 @@ class Molecule(object):
     The underlying RDKit Mol can be accessed using the attribute:
        Mol
     """
+
     _cinfony = True
 
     def __new__(cls, Mol=-1, source=None, *args, **kwargs):
-        """ Trap RDKit molecules which are 'None' """
+        """Trap RDKit molecules which are 'None'"""
         if Mol is None and source is None:
             return None
         else:
@@ -388,7 +392,7 @@ class Molecule(object):
 
     def __init__(self, Mol=None, source=None, protein=False):
         if Mol and not isinstance(Mol, (Molecule, Chem.Mol)):
-            raise ValueError('Mol needs to be ODDT or RDKit molecule instance')
+            raise ValueError("Mol needs to be ODDT or RDKit molecule instance")
 
         if hasattr(Mol, "_cinfony"):
             a, b = Mol._exchange
@@ -418,8 +422,8 @@ class Molecule(object):
     @property
     def Mol(self):
         if not self._Mol and self._source:
-            kwargs = self._source.get('kwargs', {})
-            tmp_mol = readstring(self._source['fmt'], self._source['string'], **kwargs)
+            kwargs = self._source.get("kwargs", {})
+            tmp_mol = readstring(self._source["fmt"], self._source["string"], **kwargs)
             if tmp_mol is None:
                 self = None
                 return None
@@ -519,21 +523,20 @@ class Molecule(object):
                 if info is None:
                     res_idx.append(0)
                 else:
-                    res_idx.append('%s%05.i' % (info.GetChainId()
-                                                if info.GetChainId().split()
-                                                else '_',
-                                                info.GetResidueNumber()))
+                    res_idx.append(
+                        "%s%05.i" % (info.GetChainId() if info.GetChainId().split() else "_", info.GetResidueNumber())
+                    )
             res_idx = np.array(res_idx)
             # get unique residues
             res_idx_unique = np.unique(res_idx)
             # group atom indices by residue; residues are in alphabetical order
             if len(res_idx_unique) > 1:
-                idx_sorted = np.argsort(res_idx, kind='mergesort')
+                idx_sorted = np.argsort(res_idx, kind="mergesort")
                 self._residues = np.split(
-                    idx_sorted,   # use atom indices sorted by residue
+                    idx_sorted,  # use atom indices sorted by residue
                     # find indices where residue changes
-                    np.where(np.diff(np.searchsorted(res_idx_unique,
-                                     res_idx[idx_sorted])) > 0)[0] + 1)
+                    np.where(np.diff(np.searchsorted(res_idx_unique, res_idx[idx_sorted])) > 0)[0] + 1,
+                )
             else:
                 # if there is a single residue (or no residue information
                 # at all) there is only one group of atoms
@@ -568,7 +571,7 @@ class Molecule(object):
 
     @property
     def canonic_order(self):
-        """ Returns np.array with canonic order of heavy atoms in the molecule """
+        """Returns np.array with canonic order of heavy atoms in the molecule"""
         tmp = self.clone
         tmp.removeh()
         return np.array(CanonicalRankAtoms(tmp.Mol), dtype=int)
@@ -604,12 +607,14 @@ class Molecule(object):
         elif isinstance(image_size, (tuple, list)) and len(image_size) == 2:
             size = tuple(image_size)
         else:
-            raise ValueError('oddt.toolkit.image_size has bad value - '
-                             'it should be int or list/tuple of two ints. '
-                             'Got: %s ' % image_size)
-        if image_backend == 'svg':
-            svg = self.write('svg', size=size)
-            return svg.replace('svg:', '').replace('\n', '')
+            raise ValueError(
+                "oddt.toolkit.image_size has bad value - "
+                "it should be int or list/tuple of two ints. "
+                "Got: %s " % image_size
+            )
+        if image_backend == "svg":
+            svg = self.write("svg", size=size)
+            return svg.replace("svg:", "").replace("\n", "")
         else:
             return None
 
@@ -619,21 +624,24 @@ class Molecule(object):
         elif isinstance(image_size, (tuple, list)) and len(image_size) == 2:
             size = tuple(image_size)
         else:
-            raise ValueError('oddt.toolkit.image_size has bad value - '
-                             'it should be int or list/tuple of two ints. '
-                             'Got: %s ' % image_size)
-        if image_backend == 'png':
-            png = self.write('png', size=size)
+            raise ValueError(
+                "oddt.toolkit.image_size has bad value - "
+                "it should be int or list/tuple of two ints. "
+                "Got: %s " % image_size
+            )
+        if image_backend == "png":
+            png = self.write("png", size=size)
             return png
         else:
             return None
 
     def _repr_html_(self):
-        if image_backend == 'png':
+        if image_backend == "png":
             return '<img src="data:image/png;base64,%s" alt="%s">' % (
-                b64encode(self._repr_png_()).decode('ascii'),
-                self.title)
-        elif image_backend == 'svg':
+                b64encode(self._repr_png_()).decode("ascii"),
+                self.title,
+            )
+        elif image_backend == "svg":
             return self._repr_svg_()
         else:
             return None
@@ -656,199 +664,288 @@ class Molecule(object):
     def _dicts(self):
         max_neighbors = 6  # max of 6 neighbors should be enough
         # Atoms
-        atom_dtype = [('id', np.uint32),
-                      # atom info
-                      ('coords', np.float32, 3),
-                      ('radius', np.float32),
-                      ('charge', np.float32),
-                      ('atomicnum', np.int8),
-                      ('atomtype', 'U5' if PY3 else 'a5'),
-                      ('hybridization', np.int8),
-                      ('numhs', np.uint8),
-                      ('formalcharge', np.int8),
-                      ('neighbors_id', np.int16, max_neighbors),
-                      ('neighbors', np.float32, (max_neighbors, 3)),
-                      # residue info
-                      ('resid', np.int16),
-                      ('resnum', np.int16),
-                      ('resname', 'U3' if PY3 else 'a3'),
-                      ('isbackbone', bool),
-                      # atom properties
-                      ('isacceptor', bool),
-                      ('isdonor', bool),
-                      ('isdonorh', bool),
-                      ('ismetal', bool),
-                      ('ishydrophobe', bool),
-                      ('isaromatic', bool),
-                      ('isminus', bool),
-                      ('isplus', bool),
-                      ('ishalogen', bool),
-                      # secondary structure
-                      ('isalpha', bool),
-                      ('isbeta', bool),
-                      ]
+        atom_dtype = [
+            ("id", np.uint32),
+            # atom info
+            ("coords", np.float32, 3),
+            ("radius", np.float32),
+            ("charge", np.float32),
+            ("atomicnum", np.int8),
+            ("atomtype", "U5" if PY3 else "a5"),
+            ("hybridization", np.int8),
+            ("numhs", np.uint8),
+            ("formalcharge", np.int8),
+            ("neighbors_id", np.int16, max_neighbors),
+            ("neighbors", np.float32, (max_neighbors, 3)),
+            # residue info
+            ("resid", np.int16),
+            ("resnum", np.int16),
+            ("resname", "U3" if PY3 else "a3"),
+            ("isbackbone", bool),
+            # atom properties
+            ("isacceptor", bool),
+            ("isdonor", bool),
+            ("isdonorh", bool),
+            ("ismetal", bool),
+            ("ishydrophobe", bool),
+            ("isaromatic", bool),
+            ("isminus", bool),
+            ("isplus", bool),
+            ("ishalogen", bool),
+            # secondary structure
+            ("isalpha", bool),
+            ("isbeta", bool),
+        ]
 
         atom_dict = np.empty(self.Mol.GetNumAtoms(), dtype=atom_dtype)
-        metals = [3, 4, 11, 12, 13, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
-                  30, 31, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49,
-                  50, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68,
-                  69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83,
-                  87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100, 101,
-                  102, 103]
+        metals = [
+            3,
+            4,
+            11,
+            12,
+            13,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            30,
+            31,
+            37,
+            38,
+            39,
+            40,
+            41,
+            42,
+            43,
+            44,
+            45,
+            46,
+            47,
+            48,
+            49,
+            50,
+            55,
+            56,
+            57,
+            58,
+            59,
+            60,
+            61,
+            62,
+            63,
+            64,
+            65,
+            66,
+            67,
+            68,
+            69,
+            70,
+            71,
+            72,
+            73,
+            74,
+            75,
+            76,
+            77,
+            78,
+            79,
+            80,
+            81,
+            82,
+            83,
+            87,
+            88,
+            89,
+            90,
+            91,
+            92,
+            93,
+            94,
+            95,
+            96,
+            97,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103,
+        ]
         for i, atom in enumerate(self.atoms):
 
             atomicnum = atom.atomicnum
             partialcharge = atom.partialcharge
             coords = atom.coords
-            atomtype = (atom.Atom.GetProp("_TriposAtomType")
-                        if atom.Atom.HasProp("_TriposAtomType")
-                        else _sybyl_atom_type(atom.Atom))
+            atomtype = (
+                atom.Atom.GetProp("_TriposAtomType")
+                if atom.Atom.HasProp("_TriposAtomType")
+                else _sybyl_atom_type(atom.Atom)
+            )
             if self.protein:
                 residue = atom.Atom.GetMonomerInfo()
             else:
                 residue = False
 
             # get neighbors, but only for those atoms which realy need them
-            neighbors = np.zeros(max_neighbors, dtype=[('id', np.int16),
-                                                       ('coords', np.float32, 3),
-                                                       ('atomicnum', np.int8)])
-            neighbors['coords'].fill(np.nan)
+            neighbors = np.zeros(
+                max_neighbors, dtype=[("id", np.int16), ("coords", np.float32, 3), ("atomicnum", np.int8)]
+            )
+            neighbors["coords"].fill(np.nan)
             for n, nbr_atom in enumerate(atom.neighbors):
                 if n >= max_neighbors:
-                    warnings.warn('Error while parsing molecule "%s" '
-                                  'for `atom_dict`. Atom #%i (%s) has %i '
-                                  'neighbors (max_neighbors=%i). Additional '
-                                  'neighbors are ignored.' % (self.title,
-                                                              atom.idx0,
-                                                              atomtype,
-                                                              len(atom.neighbors),
-                                                              max_neighbors),
-                                  UserWarning)
+                    warnings.warn(
+                        'Error while parsing molecule "%s" '
+                        "for `atom_dict`. Atom #%i (%s) has %i "
+                        "neighbors (max_neighbors=%i). Additional "
+                        "neighbors are ignored."
+                        % (self.title, atom.idx0, atomtype, len(atom.neighbors), max_neighbors),
+                        UserWarning,
+                    )
                     break
                 if nbr_atom.atomicnum == 1:
                     continue
                 neighbors[n] = (nbr_atom.idx0, nbr_atom.coords, nbr_atom.atomicnum)
             assert i == atom.idx0
-            atom_dict[i] = (atom.idx0,
-                            coords,
-                            elementtable.GetRvdw(atomicnum),
-                            partialcharge if atomicnum > 1 else 0,
-                            atomicnum,
-                            atomtype,
-                            np.clip(atom.Atom.GetHybridization() - 1, 0, 3),
-                            atom.Atom.GetTotalNumHs(includeNeighbors=True),
-                            atom.Atom.GetFormalCharge(),
-                            neighbors['id'],
-                            neighbors['coords'],
-                            # residue info
-                            0,  # RDKit does not support residue indexing
-                            residue.GetResidueNumber() if residue else 0,
-                            residue.GetResidueName().strip() if residue else '',
-                            False,  # is backbone
-                            # atom properties
-                            False,  # IsHbondAcceptor
-                            False,  # IsHbondDonor,
-                            False,  # IsHbondDonorH,
-                            atomicnum in metals,
-                            atomicnum == 6 and np.in1d(neighbors['atomicnum'], [6, 1, 0]).all(),  # hydrophobe
-                            atom.Atom.GetIsAromatic(),
-                            atom.formalcharge < 0,  # is charged (minus)
-                            atom.formalcharge > 0,  # is charged (plus)
-                            atomicnum in [9, 17, 35, 53],  # is halogen?
-                            False,  # alpha
-                            False  # beta
-                            )
+            atom_dict[i] = (
+                atom.idx0,
+                coords,
+                elementtable.GetRvdw(atomicnum),
+                partialcharge if atomicnum > 1 else 0,
+                atomicnum,
+                atomtype,
+                np.clip(atom.Atom.GetHybridization() - 1, 0, 3),
+                atom.Atom.GetTotalNumHs(includeNeighbors=True),
+                atom.Atom.GetFormalCharge(),
+                neighbors["id"],
+                neighbors["coords"],
+                # residue info
+                0,  # RDKit does not support residue indexing
+                residue.GetResidueNumber() if residue else 0,
+                residue.GetResidueName().strip() if residue else "",
+                False,  # is backbone
+                # atom properties
+                False,  # IsHbondAcceptor
+                False,  # IsHbondDonor,
+                False,  # IsHbondDonorH,
+                atomicnum in metals,
+                atomicnum == 6 and np.in1d(neighbors["atomicnum"], [6, 1, 0]).all(),  # hydrophobe
+                atom.Atom.GetIsAromatic(),
+                atom.formalcharge < 0,  # is charged (minus)
+                atom.formalcharge > 0,  # is charged (plus)
+                atomicnum in [9, 17, 35, 53],  # is halogen?
+                False,  # alpha
+                False,  # beta
+            )
 
-        not_carbon = np.argwhere(~np.in1d(atom_dict['atomicnum'], [1, 6])).flatten()
+        not_carbon = np.argwhere(~np.in1d(atom_dict["atomicnum"], [1, 6])).flatten()
         # Acceptors
-        patt = Chem.MolFromSmarts('[$([O;H1;v2]),'
-                                  '$([O;H0;v2;!$(O=N-*),'
-                                  '$([O;-;!$(*-N=O)]),'
-                                  '$([o;+0])]),'
-                                  '$([n;+0;!X3;!$([n;H1](cc)cc),'
-                                  '$([$([N;H0]#[C&v4])]),'
-                                  '$([N&v3;H0;$(Nc)])]),'
-                                  '$([F;$(F-[#6]);!$(FC[F,Cl,Br,I])])]')
+        patt = Chem.MolFromSmarts(
+            "[$([O;H1;v2]),"
+            "$([O;H0;v2;!$(O=N-*),"
+            "$([O;-;!$(*-N=O)]),"
+            "$([o;+0])]),"
+            "$([n;+0;!X3;!$([n;H1](cc)cc),"
+            "$([$([N;H0]#[C&v4])]),"
+            "$([N&v3;H0;$(Nc)])]),"
+            "$([F;$(F-[#6]);!$(FC[F,Cl,Br,I])])]"
+        )
         matches = np.array(self.Mol.GetSubstructMatches(patt, maxMatches=5000)).flatten()
         if len(matches) > 0:
-            atom_dict['isacceptor'][np.intersect1d(matches, not_carbon)] = True
+            atom_dict["isacceptor"][np.intersect1d(matches, not_carbon)] = True
 
         # Donors
-        patt = Chem.MolFromSmarts('[$([N&!H0&v3,N&!H0&+1&v4,n&H1&+0,$([$([Nv3](-C)(-C)-C)]),'
-                                  '$([$(n[n;H1]),'
-                                  '$(nc[n;H1])])]),'
-                                  # Guanidine can be tautormeic - e.g. Arginine
-                                  '$([NX3,NX2]([!O,!S])!@C(!@[NX3,NX2]([!O,!S]))!@[NX3,NX2]([!O,!S])),'
-                                  '$([O,S;H1;+0])]')
+        patt = Chem.MolFromSmarts(
+            "[$([N&!H0&v3,N&!H0&+1&v4,n&H1&+0,$([$([Nv3](-C)(-C)-C)]),"
+            "$([$(n[n;H1]),"
+            "$(nc[n;H1])])]),"
+            # Guanidine can be tautormeic - e.g. Arginine
+            "$([NX3,NX2]([!O,!S])!@C(!@[NX3,NX2]([!O,!S]))!@[NX3,NX2]([!O,!S])),"
+            "$([O,S;H1;+0])]"
+        )
         matches = np.array(self.Mol.GetSubstructMatches(patt, maxMatches=5000)).flatten()
         if len(matches) > 0:
-            atom_dict['isdonor'][np.intersect1d(matches, not_carbon)] = True
-            atom_dict['isdonorh'][[n.GetIdx()
-                                   for idx in np.argwhere(atom_dict['isdonor']).flatten()
-                                   for n in self.Mol.GetAtomWithIdx(int(idx)).GetNeighbors()
-                                   if n.GetAtomicNum() == 1]] = True
+            atom_dict["isdonor"][np.intersect1d(matches, not_carbon)] = True
+            atom_dict["isdonorh"][
+                [
+                    n.GetIdx()
+                    for idx in np.argwhere(atom_dict["isdonor"]).flatten()
+                    for n in self.Mol.GetAtomWithIdx(int(idx)).GetNeighbors()
+                    if n.GetAtomicNum() == 1
+                ]
+            ] = True
 
         # Basic group
-        patt = Chem.MolFromSmarts('[$([N;H2&+0][$([C,a]);!$([C,a](=O))]),'
-                                  '$([N;H1&+0]([$([C,a]);!$([C,a](=O))])[$([C,a]);!$([C,a](=O))]),'
-                                  '$([N;H0&+0]([C;!$(C(=O))])([C;!$(C(=O))])[C;!$(C(=O))]),'
-                                  '$([N,n;X2;+0])]')
+        patt = Chem.MolFromSmarts(
+            "[$([N;H2&+0][$([C,a]);!$([C,a](=O))]),"
+            "$([N;H1&+0]([$([C,a]);!$([C,a](=O))])[$([C,a]);!$([C,a](=O))]),"
+            "$([N;H0&+0]([C;!$(C(=O))])([C;!$(C(=O))])[C;!$(C(=O))]),"
+            "$([N,n;X2;+0])]"
+        )
         matches = np.array(self.Mol.GetSubstructMatches(patt, maxMatches=5000)).flatten()
         if len(matches) > 0:
-            atom_dict['isplus'][np.intersect1d(matches, not_carbon)] = True
+            atom_dict["isplus"][np.intersect1d(matches, not_carbon)] = True
 
         # Acidic group
-        patt = Chem.MolFromSmarts('[CX3](=O)[OX1H0-,OX2H1]')
+        patt = Chem.MolFromSmarts("[CX3](=O)[OX1H0-,OX2H1]")
         matches = np.array(self.Mol.GetSubstructMatches(patt, maxMatches=5000)).flatten()
         if len(matches) > 0:
-            atom_dict['isminus'][np.intersect1d(matches, not_carbon)] = True
+            atom_dict["isminus"][np.intersect1d(matches, not_carbon)] = True
 
         # build residue dictionary
         if self.protein:
             # for protein finding features per residue is much faster
             res_dict = None
             # Protein Residues (alpha helix and beta sheet)
-            res_dtype = [('id', np.int16),
-                         ('resnum', np.int16),
-                         ('resname', 'U3' if PY3 else 'a3'),
-                         ('N', np.float32, 3),
-                         ('CA', np.float32, 3),
-                         ('C', np.float32, 3),
-                         ('O', np.float32, 3),
-                         ('isalpha', bool),
-                         ('isbeta', bool)
-                         ]  # N, CA, C, O
+            res_dtype = [
+                ("id", np.int16),
+                ("resnum", np.int16),
+                ("resname", "U3" if PY3 else "a3"),
+                ("N", np.float32, 3),
+                ("CA", np.float32, 3),
+                ("C", np.float32, 3),
+                ("O", np.float32, 3),
+                ("isalpha", bool),
+                ("isbeta", bool),
+            ]  # N, CA, C, O
             b = []
-            aa = Chem.MolFromSmarts('NCC(-,=O)')  # amino backbone SMARTS
+            aa = Chem.MolFromSmarts("NCC(-,=O)")  # amino backbone SMARTS
             conf = self.Mol.GetConformer()
             for residue in self.residues:
                 path = residue.Residue.GetSubstructMatch(aa)
                 if path:
                     backbone_map = np.array([residue.atommap[i] for i in path])
-                    atom_dict['isbackbone'][backbone_map] = True
-                    b.append((residue.idx0,
-                              residue.number,
-                              residue.name,
-                              conf.GetAtomPosition(residue.atommap[path[0]]),
-                              conf.GetAtomPosition(residue.atommap[path[1]]),
-                              conf.GetAtomPosition(residue.atommap[path[2]]),
-                              conf.GetAtomPosition(residue.atommap[path[3]]),
-                              False,
-                              False))
+                    atom_dict["isbackbone"][backbone_map] = True
+                    b.append(
+                        (
+                            residue.idx0,
+                            residue.number,
+                            residue.name,
+                            conf.GetAtomPosition(residue.atommap[path[0]]),
+                            conf.GetAtomPosition(residue.atommap[path[1]]),
+                            conf.GetAtomPosition(residue.atommap[path[2]]),
+                            conf.GetAtomPosition(residue.atommap[path[3]]),
+                            False,
+                            False,
+                        )
+                    )
                     # set resid for atoms in atom_dict
-                    atom_dict['resid'][list(residue.atommap.values())] = residue.idx0
+                    atom_dict["resid"][list(residue.atommap.values())] = residue.idx0
             res_dict = np.array(b, dtype=res_dtype)
             res_dict = detect_secondary_structure(res_dict)
-            alpha_mask = np.in1d(atom_dict['resid'],
-                                 res_dict[res_dict['isalpha']]['id'])
-            atom_dict['isalpha'][alpha_mask] = True
-            beta_mask = np.in1d(atom_dict['resid'],
-                                res_dict[res_dict['isbeta']]['id'])
-            atom_dict['isbeta'][beta_mask] = True
+            alpha_mask = np.in1d(atom_dict["resid"], res_dict[res_dict["isalpha"]]["id"])
+            atom_dict["isalpha"][alpha_mask] = True
+            beta_mask = np.in1d(atom_dict["resid"], res_dict[res_dict["isbeta"]]["id"])
+            atom_dict["isbeta"][beta_mask] = True
 
         # FIX: remove acidic carbons from isminus group (they are part of smarts)
-        atom_dict['isminus'][atom_dict['isminus'] &
-                             (atom_dict['atomicnum'] == 6)] = False
+        atom_dict["isminus"][atom_dict["isminus"] & (atom_dict["atomicnum"] == 6)] = False
 
         # Aromatic Rings
         r = []
@@ -857,25 +954,34 @@ class Molecule(object):
                 atoms = atom_dict[canonize_ring_path(path)]
                 if len(atoms):
                     atom = atoms[0]
-                    coords = atoms['coords']
+                    coords = atoms["coords"]
                     centroid = coords.mean(axis=0)
                     # get vector perpendicular to ring
                     ring_vectors = coords - centroid
                     vector = np.cross(ring_vectors, np.roll(ring_vectors, shift=-1, axis=0)).mean(axis=0)
-                    r.append((centroid,
-                              vector,
-                              atom['resid'],
-                              atom['resnum'],
-                              atom['resname'],
-                              atom['isalpha'],
-                              atom['isbeta']))
-        ring_dict = np.array(r, dtype=[('centroid', np.float32, 3),
-                                       ('vector', np.float32, 3),
-                                       ('resid', np.int16),
-                                       ('resnum', np.int16),
-                                       ('resname', 'U3' if PY3 else 'a3'),
-                                       ('isalpha', bool),
-                                       ('isbeta', bool)])
+                    r.append(
+                        (
+                            centroid,
+                            vector,
+                            atom["resid"],
+                            atom["resnum"],
+                            atom["resname"],
+                            atom["isalpha"],
+                            atom["isbeta"],
+                        )
+                    )
+        ring_dict = np.array(
+            r,
+            dtype=[
+                ("centroid", np.float32, 3),
+                ("vector", np.float32, 3),
+                ("resid", np.int16),
+                ("resnum", np.int16),
+                ("resname", "U3" if PY3 else "a3"),
+                ("isalpha", bool),
+                ("isbeta", bool),
+            ],
+        )
 
         self._atom_dict = atom_dict
         self._atom_dict.setflags(write=False)
@@ -888,9 +994,7 @@ class Molecule(object):
     def addh(self, only_polar=False, **kwargs):
         """Add hydrogens."""
         if only_polar:
-            polar_atoms = [atom.GetIdx()
-                           for atom in self.Mol.GetAtoms()
-                           if atom.GetAtomicNum() != 6]
+            polar_atoms = [atom.GetIdx() for atom in self.Mol.GetAtoms() if atom.GetAtomicNum() != 6]
         else:
             polar_atoms = None
 
@@ -901,15 +1005,12 @@ class Molecule(object):
         #                           addResidueInfo=self.protein,
         #                           **kwargs)
         # else:
-        self.Mol = Chem.AddHs(self.Mol,
-                              addCoords=True,
-                              onlyOnAtoms=polar_atoms,
-                              **kwargs)
+        self.Mol = Chem.AddHs(self.Mol, addCoords=True, onlyOnAtoms=polar_atoms, **kwargs)
         # merge Hs to residues
         if self.protein:
-            max_serial = max(atom.GetPDBResidueInfo().GetSerialNumber()
-                             for atom in self.Mol.GetAtoms()
-                             if atom.GetPDBResidueInfo())
+            max_serial = max(
+                atom.GetPDBResidueInfo().GetSerialNumber() for atom in self.Mol.GetAtoms() if atom.GetPDBResidueInfo()
+            )
             current_info = None
             h_serial = 0
             for n, atom in enumerate(self.Mol.GetAtoms()):
@@ -917,23 +1018,27 @@ class Molecule(object):
                     assert atom.GetDegree() == 1
                     res = atom.GetNeighbors()[0].GetPDBResidueInfo()
                     if current_info is None or not (
-                            current_info.GetResidueNumber() == res.GetResidueNumber() and
-                            current_info.GetChainId() == res.GetChainId() and
-                            current_info.GetResidueName() == res.GetResidueName()):
+                        current_info.GetResidueNumber() == res.GetResidueNumber()
+                        and current_info.GetChainId() == res.GetChainId()
+                        and current_info.GetResidueName() == res.GetResidueName()
+                    ):
                         current_info = res
                         h_serial = 0
                     if res is not None:
                         max_serial += 1
                         h_serial += 1
-                        label = 'H' + str(h_serial).ljust(3)
+                        label = "H" + str(h_serial).ljust(3)
                         atom.SetMonomerInfo(
-                            Chem.AtomPDBResidueInfo(atomName=label[-1:] + label[:-1],
-                                                    serialNumber=max_serial,
-                                                    residueName=res.GetResidueName(),
-                                                    residueNumber=res.GetResidueNumber(),
-                                                    chainId=res.GetChainId(),
-                                                    insertionCode="",
-                                                    isHeteroAtom=res.GetIsHeteroAtom()))
+                            Chem.AtomPDBResidueInfo(
+                                atomName=label[-1:] + label[:-1],
+                                serialNumber=max_serial,
+                                residueName=res.GetResidueName(),
+                                residueNumber=res.GetResidueNumber(),
+                                chainId=res.GetChainId(),
+                                insertionCode="",
+                                isHeteroAtom=res.GetIsHeteroAtom(),
+                            )
+                        )
 
         self._clear_cache()
 
@@ -960,13 +1065,13 @@ class Molecule(object):
         """
         format = format.lower()
         # Use lazy molecule if possible
-        if self._source and 'fmt' in self._source and self._source['fmt'] == format and self._source['string']:
-            return self._source['string']
+        if self._source and "fmt" in self._source and self._source["fmt"] == format and self._source["string"]:
+            return self._source["string"]
         if filename:
             if not overwrite and os.path.isfile(filename):
                 raise IOError("%s already exists. Use 'overwrite=True' to overwrite it." % filename)
         if format == "smi" or format == "can":
-            result = '%s\t%s\n' % (Chem.MolToSmiles(self.Mol, **kwargs), self.title)
+            result = "%s\t%s\n" % (Chem.MolToSmiles(self.Mol, **kwargs), self.title)
         elif format in ["mol", "sdf"]:
             result = Chem.MolToMolBlock(self.Mol, **kwargs)
         # elif format == "mol2":
@@ -975,29 +1080,29 @@ class Molecule(object):
             result = Chem.MolToPDBBlock(self.Mol, **kwargs)
         elif format == "pdbqt":
             result = MolToPDBQTBlock(self.Mol, **kwargs)
-        elif format in ('inchi', 'inchikey') and Chem.INCHI_AVAILABLE:
+        elif format in ("inchi", "inchikey") and Chem.INCHI_AVAILABLE:
             result = Chem.inchi.MolToInchi(self.Mol, **kwargs)
-            if format == 'inchikey':
+            if format == "inchikey":
                 result = Chem.inchi.InchiToInchiKey(result, **kwargs)
         elif format == "png":
             size = size or (200, 200)
             mc = Chem.Mol(self.Mol.ToBinary())
             AllChem.Compute2DCoords(mc)
-            if hasattr(rdMolDraw2D, 'MolDraw2DCairo'):
+            if hasattr(rdMolDraw2D, "MolDraw2DCairo"):
                 drawer = rdMolDraw2D.MolDraw2DCairo(*size)
                 drawer.DrawMolecule(mc)
                 drawer.FinishDrawing()
                 if filename:
-                    with open(filename, 'w+') as f:
+                    with open(filename, "w+") as f:
                         f.write(drawer.GetDrawingText())
                 else:
                     return drawer.GetDrawingText()
             else:
                 bio = BytesIO()
                 img = Draw.MolToImage(mc, size=size)
-                img.save(bio, format='PNG')
+                img.save(bio, format="PNG")
                 if filename:
-                    with open(filename, 'w+') as f:
+                    with open(filename, "w+") as f:
                         f.write(bio.getvalue())
                 else:
                     return bio.getvalue()
@@ -1010,7 +1115,7 @@ class Molecule(object):
             drawer.FinishDrawing()
             svg = drawer.GetDrawingText()
             if filename:
-                with open(filename, 'w+') as f:
+                with open(filename, "w+") as f:
                     f.write(svg)
             else:
                 return svg
@@ -1077,8 +1182,8 @@ class Molecule(object):
             # Going to leave as-is.
             fp = Chem.AtomPairs.Torsions.GetTopologicalTorsionFingerprintAsIntVect(self.Mol)
         elif fptype == "morgan":
-            info = opt.get('bitInfo', None)
-            radius = opt.get('radius', 4)
+            info = opt.get("bitInfo", None)
+            radius = opt.get("radius", 4)
             fp = Fingerprint(Chem.rdMolDescriptors.GetMorganFingerprintAsBitVect(self.Mol, radius, bitInfo=info))
         elif fptype == "pharm2d":
             fp = Fingerprint(Generate.Gen2DFingerprint(self.Mol, Gobbi_Pharm2D.factory))
@@ -1086,7 +1191,7 @@ class Molecule(object):
             raise ValueError("%s is not a recognised RDKit Fingerprint type" % fptype)
         return fp
 
-    def calccharges(self, model='gasteiger'):
+    def calccharges(self, model="gasteiger"):
         """Calculate partial charges for a molecule. By default the Gasteiger
         charge model is used.
 
@@ -1098,20 +1203,20 @@ class Molecule(object):
             * mmff94
         """
         self._clear_cache()
-        if model.lower() == 'gasteiger':
+        if model.lower() == "gasteiger":
             ComputeGasteigerCharges(self.Mol, nIter=50)
-        elif model.lower() == 'mmff94':
+        elif model.lower() == "mmff94":
             fps = AllChem.MMFFGetMoleculeProperties(self.Mol)
             if fps is None:
                 raise Exception('Could not charge molecule "%s"' % self.title)
             for i, atom in enumerate(self.Mol.GetAtoms()):
-                atom.SetDoubleProp('_MMFF94Charge', fps.GetMMFFPartialCharge(i))
+                atom.SetDoubleProp("_MMFF94Charge", fps.GetMMFFPartialCharge(i))
         else:
-            raise ValueError('The "%s" is not supported in RDKit backend' %
-                             model)
+            raise ValueError('The "%s" is not supported in RDKit backend' % model)
         if np.isnan(self.charges).any() or np.isinf(self.charges).any():
-            warnings.warn('Some partial charges for molecule "%s" are not '
-                          'finite (NaN, +/-Inf).' % self.title, UserWarning)
+            warnings.warn(
+                'Some partial charges for molecule "%s" are not ' "finite (NaN, +/-Inf)." % self.title, UserWarning
+            )
 
     def localopt(self, forcefield="uff", steps=500):
         """Locally optimize the coordinates.
@@ -1143,11 +1248,12 @@ class Molecule(object):
         to improve the coordinates further.
         """
         forcefield = forcefield.lower()
-        success = AllChem.EmbedMolecule(self.Mol,
-                                        useExpTorsionAnglePrefs=True,
-                                        useBasicKnowledge=True,
-                                        enforceChirality=True,
-                                        )
+        success = AllChem.EmbedMolecule(
+            self.Mol,
+            useExpTorsionAnglePrefs=True,
+            useBasicKnowledge=True,
+            enforceChirality=True,
+        )
         if success == -1:
             raise Exception("Embedding failed!")
 
@@ -1161,41 +1267,41 @@ class Molecule(object):
 
     def __getstate__(self):
         if self._source is None:
-            state = {'Mol': self.Mol,
-                     'source': None,
-                     'protein': self.protein,
-                     'data': dict([(k, self.Mol.GetProp(k))
-                                   for k in self.Mol.GetPropNames(includePrivate=True)]),
-                     'dicts': {'atom_dict': self._atom_dict,
-                               'ring_dict': self._ring_dict,
-                               'res_dict': self._res_dict,
-                               }
-                     }
+            state = {
+                "Mol": self.Mol,
+                "source": None,
+                "protein": self.protein,
+                "data": dict([(k, self.Mol.GetProp(k)) for k in self.Mol.GetPropNames(includePrivate=True)]),
+                "dicts": {
+                    "atom_dict": self._atom_dict,
+                    "ring_dict": self._ring_dict,
+                    "res_dict": self._res_dict,
+                },
+            }
         else:
-            state = {'Mol': None,
-                     'source': self._source,
-                     'data': {},
-                     'protein': self.protein,
-                     'dicts': {'atom_dict': None,
-                               'ring_dict': None,
-                               'res_dict': None,
-                               }
-                     }
+            state = {
+                "Mol": None,
+                "source": self._source,
+                "data": {},
+                "protein": self.protein,
+                "dicts": {
+                    "atom_dict": None,
+                    "ring_dict": None,
+                    "res_dict": None,
+                },
+            }
         return state
 
     def __setstate__(self, state):
-        Molecule.__init__(self, Mol=state['Mol'],
-                          source=state['source'],
-                          protein=state['protein'])
-        if state['data']:
-            self.data.update(state['data'])
-        self._atom_dict = state['dicts']['atom_dict']
-        self._ring_dict = state['dicts']['ring_dict']
-        self._res_dict = state['dicts']['res_dict']
+        Molecule.__init__(self, Mol=state["Mol"], source=state["source"], protein=state["protein"])
+        if state["data"]:
+            self.data.update(state["data"])
+        self._atom_dict = state["dicts"]["atom_dict"]
+        self._ring_dict = state["dicts"]["ring_dict"]
+        self._res_dict = state["dicts"]["res_dict"]
 
 
-def diverse_conformers_generator(mol, n_conf=10, method='etkdg', seed=None,
-                                 rmsd=0.5):
+def diverse_conformers_generator(mol, n_conf=10, method="etkdg", seed=None, rmsd=0.5):
     """Produce diverse conformers using current conformer as starting point.
     Each conformer is a copy of original molecule object.
 
@@ -1226,24 +1332,20 @@ def diverse_conformers_generator(mol, n_conf=10, method='etkdg', seed=None,
         Molecules with diverse conformers
     """
     mol_clone = mol.clone
-    if method == 'etkdg':
-        params = {'useExpTorsionAnglePrefs': True,
-                  'useBasicKnowledge': True}
-    elif method == 'etdg':
-        params = {'useExpTorsionAnglePrefs': True,
-                  'useBasicKnowledge': False}
-    elif method == 'kdg':
-        params = {'useExpTorsionAnglePrefs': False,
-                  'useBasicKnowledge': True}
-    elif method == 'dg':
+    if method == "etkdg":
+        params = {"useExpTorsionAnglePrefs": True, "useBasicKnowledge": True}
+    elif method == "etdg":
+        params = {"useExpTorsionAnglePrefs": True, "useBasicKnowledge": False}
+    elif method == "kdg":
+        params = {"useExpTorsionAnglePrefs": False, "useBasicKnowledge": True}
+    elif method == "dg":
         params = {}
     else:
-        raise ValueError('Method %s is not implemented' % method)
-    params['pruneRmsThresh'] = rmsd
+        raise ValueError("Method %s is not implemented" % method)
+    params["pruneRmsThresh"] = rmsd
     if seed is None:
         seed = -1
-    AllChem.EmbedMultipleConfs(mol_clone.Mol, numConfs=n_conf, randomSeed=seed,
-                               **params)
+    AllChem.EmbedMultipleConfs(mol_clone.Mol, numConfs=n_conf, randomSeed=seed, **params)
     AllChem.AlignMol(mol_clone.Mol, mol.Mol)
     AllChem.AlignMolConformers(mol_clone.Mol)
 
@@ -1310,8 +1412,9 @@ class Atom(object):
 
     # ODDT #
     @property
-    @deprecated('RDKit is 0-based and OpenBabel is 1-based. '
-                'State which convention you desire and use `idx0` or `idx1`.')
+    @deprecated(
+        "RDKit is 0-based and OpenBabel is 1-based. " "State which convention you desire and use `idx0` or `idx1`."
+    )
     def idx(self):
         """Note that this index is 1-based and RDKit's internal index in 0-based.
         Changed to be compatible with OpenBabel"""
@@ -1325,7 +1428,7 @@ class Atom(object):
 
     @property
     def idx0(self):
-        """ Note that this index is 0-based as RDKit's"""
+        """Note that this index is 0-based as RDKit's"""
         return self.Atom.GetIdx()
 
     @property
@@ -1338,18 +1441,15 @@ class Atom(object):
 
     @property
     def partialcharge(self):
-        fields = ['_MMFF94Charge', '_GasteigerCharge', '_TriposPartialCharge']
+        fields = ["_MMFF94Charge", "_GasteigerCharge", "_TriposPartialCharge"]
         for f in fields:
             if self.Atom.HasProp(f):
                 return self.Atom.GetDoubleProp(f)
-        return 0.
+        return 0.0
 
     def __str__(self):
         if hasattr(self, "coords"):
-            return "Atom: %d (%.2f %.2f %.2f)" % (self.atomicnum,
-                                                  self.coords[0],
-                                                  self.coords[1],
-                                                  self.coords[2])
+            return "Atom: %d (%.2f %.2f %.2f)" % (self.atomicnum, self.coords[0], self.coords[1], self.coords[2])
         else:
             return "Atom: %d (no coords)" % (self.atomicnum)
 
@@ -1389,7 +1489,7 @@ class Bond(object):
         Chem.GetSSSR(self.Bond.GetOwningMol())
         if self.Bond.IsInRing():
             return False
-        rot_mol = Chem.MolFromSmarts(SMARTS_DEF['rot_bond'])
+        rot_mol = Chem.MolFromSmarts(SMARTS_DEF["rot_bond"])
         Chem.GetSSSR(rot_mol)  # MolFromSmarts don't initialize ring info
         rot_bond = rot_mol.GetBondWithIdx(0)
         if self.Bond.Match(rot_bond):
@@ -1442,7 +1542,7 @@ class Residue(object):
             return AtomStack(self.Residue)
 
     @property
-    @deprecated('Use `idx0` instead.')
+    @deprecated("Use `idx0` instead.")
     def idx(self):
         """Internal index (0-based) of the Residue"""
         return self._idx
@@ -1460,12 +1560,12 @@ class Residue(object):
     @property
     def chain(self):
         """Resdiue chain ID"""
-        return self.MonomerInfo.GetChainId() if self.MonomerInfo else ''
+        return self.MonomerInfo.GetChainId() if self.MonomerInfo else ""
 
     @property
     def name(self):
         """Residue name"""
-        return self.MonomerInfo.GetResidueName() if self.MonomerInfo else 'UNL'
+        return self.MonomerInfo.GetResidueName() if self.MonomerInfo else "UNL"
 
     def __iter__(self):
         """Iterate over the Atoms of the Residue.
@@ -1515,6 +1615,7 @@ class Smarts(object):
     that match the SMARTS pattern. In this case, there are three matches
     for each of the three ethyl groups in the molecule.
     """
+
     def __init__(self, smartspattern):
         """Initialise with a SMARTS pattern."""
         if isinstance(smartspattern, Molecule):
@@ -1568,6 +1669,7 @@ class MoleculeData(object):
     >>> print(len(data), data.keys(), data.has_key("NSC"))
     1 ['Comment'] False
     """
+
     def __init__(self, Mol):
         self._mol = Mol
 
@@ -1640,6 +1742,7 @@ class Fingerprint(object):
        given two Fingerprints 'a', and 'b', the Tanimoto coefficient is given by:
           tanimoto = a | b
     """
+
     def __init__(self, fingerprint):
         self.fp = fingerprint
 
@@ -1682,4 +1785,5 @@ def _compressbits(bitvector, wordsize=32):
 
 if __name__ == "__main__":  # pragma: no cover
     import doctest
+
     doctest.testmod()

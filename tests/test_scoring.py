@@ -113,9 +113,7 @@ def test_ensemble_model():
     assert_almost_equal(ensemble.score(X, Y), nn.score(X, Y))
 
 
-@pytest.mark.skipif(
-    find_executable("vina") is None, reason="Autodock Vina binary missing"
-)
+@pytest.mark.skipif(find_executable("vina") is None, reason="Autodock Vina binary missing")
 def test_original_vina():
     """Check orignal Vina partial scores descriptor"""
     mols = list(oddt.toolkit.readfile("sdf", actives_sdf))
@@ -147,12 +145,8 @@ def test_original_vina():
         delimiter=",",
         dtype=np.float64,
     )
-    autodock_vina_results = autodock_vina_descriptor(
-        protein=rec, vina_scores=vina_scores
-    ).build(mols)
-    assert_array_almost_equal(
-        autodock_vina_results, autodock_vina_results_correct, decimal=4
-    )
+    autodock_vina_results = autodock_vina_descriptor(protein=rec, vina_scores=vina_scores).build(mols)
+    assert_array_almost_equal(autodock_vina_results, autodock_vina_results_correct, decimal=4)
 
 
 def test_internal_vina():
@@ -179,9 +173,7 @@ def test_internal_vina():
         delimiter=",",
         dtype=np.float64,
     )
-    oddt_vina_results = oddt_vina_descriptor(
-        protein=rec, vina_scores=vina_scores
-    ).build(mols)
+    oddt_vina_results = oddt_vina_descriptor(protein=rec, vina_scores=vina_scores).build(mols)
     assert_array_almost_equal(oddt_vina_results, autodock_vina_results, decimal=4)
 
 
@@ -204,9 +196,7 @@ def test_rfscore_desc():
         #            descs,
         #            fmt='%.16g',
         #            delimiter=',')
-        descs_correct = np.loadtxt(
-            os.path.join(results, "rfscore_v%i_descs.csv" % v), delimiter=","
-        )
+        descs_correct = np.loadtxt(os.path.join(results, "rfscore_v%i_descs.csv" % v), delimiter=",")
 
         # help debug errors
         for i in range(descs.shape[1]):
@@ -237,13 +227,9 @@ def test_nnscore_desc():
     #            fmt='%.16g',
     #            delimiter=',')
     if oddt.toolkit.backend == "ob":
-        descs_correct = np.loadtxt(
-            os.path.join(results, "nnscore_descs_ob.csv"), delimiter=","
-        )
+        descs_correct = np.loadtxt(os.path.join(results, "nnscore_descs_ob.csv"), delimiter=",")
     else:
-        descs_correct = np.loadtxt(
-            os.path.join(results, "nnscore_descs_rdk.csv"), delimiter=","
-        )
+        descs_correct = np.loadtxt(os.path.join(results, "nnscore_descs_rdk.csv"), delimiter=",")
 
     # help debug errors
     for i in range(descs.shape[1]):
@@ -282,9 +268,7 @@ def test_model_train(model):
             os.symlink(pdbbind_dir, version_dir)
 
     with NamedTemporaryFile(suffix=".pickle") as f:
-        model.gen_training_data(
-            data_dir, pdbbind_versions=pdbbind_versions, home_dir=home_dir
-        )
+        model.gen_training_data(data_dir, pdbbind_versions=pdbbind_versions, home_dir=home_dir)
         model.train(home_dir=home_dir, sf_pickle=f.name)
         model.set_protein(rec)
         # check if protein setting was successful

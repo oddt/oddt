@@ -1,19 +1,16 @@
 import os
 from rdkit import Chem
 
-from rdkit_fixer import (PreparePDBMol,
-                         ExtractPocketAndLigand,
-                         AtomListToSubMol)
+from rdkit_fixer import PreparePDBMol, ExtractPocketAndLigand, AtomListToSubMol
 
-test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                             '..', '..', 'test_data')
+test_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "test_data")
 
 
 class BenchRdkitFixer(object):
     """Spatial functions"""
 
     def setup(self):
-        self.mol = Chem.MolFromPDBFile('%s/5ar7.pdb' % test_data_dir)
+        self.mol = Chem.MolFromPDBFile("%s/5ar7.pdb" % test_data_dir)
 
     def time_prepare(self):
         PreparePDBMol(self.mol)

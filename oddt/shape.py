@@ -41,18 +41,20 @@ def common_usr(molecule, ctd=None, cst=None, fct=None, ftf=None, atoms_type=None
         Array describing shape of molecule
     """
     if atoms_type is None:
-        atoms = molecule.atom_dict['coords']
+        atoms = molecule.atom_dict["coords"]
     else:
-        if atoms_type == 'ishydrophobe':
-            mask = (molecule.atom_dict['ishalogen'] |
-                    molecule.atom_dict['ishydrophobe'] |
-                    (molecule.atom_dict['atomicnum'] == 16))
+        if atoms_type == "ishydrophobe":
+            mask = (
+                molecule.atom_dict["ishalogen"]
+                | molecule.atom_dict["ishydrophobe"]
+                | (molecule.atom_dict["atomicnum"] == 16)
+            )
         else:
             mask = molecule.atom_dict[atoms_type]
-        atoms = molecule.atom_dict[mask]['coords']
+        atoms = molecule.atom_dict[mask]["coords"]
 
     if len(atoms) == 0:
-        return np.zeros(12), ((0., 0., 0.),) * 4
+        return np.zeros(12), ((0.0, 0.0, 0.0),) * 4
 
     if ctd is None:
         ctd = atoms.mean(0)
@@ -121,14 +123,12 @@ def usr_cat(molecule):
     """
     all_atoms_shape, points = common_usr(molecule)
     ctd, cst, fct, ftf = points
-    hydrophobic_shape = common_usr(
-        molecule, ctd, cst, fct, ftf, 'ishydrophobe')[0]
-    aromatic_shape = common_usr(molecule, ctd, cst, fct, ftf, 'isaromatic')[0]
-    acceptor_shape = common_usr(molecule, ctd, cst, fct, ftf, 'isacceptor')[0]
-    donor_shape = common_usr(molecule, ctd, cst, fct, ftf, 'isdonor')[0]
+    hydrophobic_shape = common_usr(molecule, ctd, cst, fct, ftf, "ishydrophobe")[0]
+    aromatic_shape = common_usr(molecule, ctd, cst, fct, ftf, "isaromatic")[0]
+    acceptor_shape = common_usr(molecule, ctd, cst, fct, ftf, "isacceptor")[0]
+    donor_shape = common_usr(molecule, ctd, cst, fct, ftf, "isdonor")[0]
 
-    cat_shape = np.hstack((all_atoms_shape, hydrophobic_shape,
-                           aromatic_shape, acceptor_shape, donor_shape))
+    cat_shape = np.hstack((all_atoms_shape, hydrophobic_shape, aromatic_shape, acceptor_shape, donor_shape))
 
     return np.nan_to_num(cat_shape)
 
@@ -153,20 +153,20 @@ def electroshape(mol):
     shape_descriptor : numpy array, shape = (15)
                        Array describing shape of molecule
     """
-    if (mol.atom_dict['coords'] == 0).all():
-        raise Exception('Molecule needs 3D coordinates')
+    if (mol.atom_dict["coords"] == 0).all():
+        raise Exception("Molecule needs 3D coordinates")
 
-    if (mol.atom_dict['charge'] == 0).all():
-        logging.warning('All partial charges are zero. ElectroShape strongly relies on them.')
+    if (mol.atom_dict["charge"] == 0).all():
+        logging.warning("All partial charges are zero. ElectroShape strongly relies on them.")
 
-    if np.isnan(mol.atom_dict['charge']).any():
-        logging.warning('Nan values in charge values of molecule ' + mol.title)
+    if np.isnan(mol.atom_dict["charge"]).any():
+        logging.warning("Nan values in charge values of molecule " + mol.title)
 
-    charge = np.nan_to_num(mol.atom_dict['charge'])
+    charge = np.nan_to_num(mol.atom_dict["charge"])
 
     mi = 25  # scaling factor converting electron charges to Angstroms
 
-    four_dimensions = np.column_stack((mol.atom_dict['coords'], charge * mi))
+    four_dimensions = np.column_stack((mol.atom_dict["coords"], charge * mi))
 
     c1 = four_dimensions.mean(0)  # geometric centre of the molecule
     distances_c1 = norm(four_dimensions - c1, axis=1)
@@ -179,11 +179,9 @@ def electroshape(mol):
 
     vector_a = c2 - c1
     vector_b = c3 - c1
-    vector_as = vector_a[:3]    # spatial parts of these vectors -
-    vector_bs = vector_b[:3]    # the first three coordinates
-    vector_c = ((norm(vector_a) /
-                (2 * norm(np.cross(vector_as, vector_bs))))
-                * np.cross(vector_as, vector_bs))
+    vector_as = vector_a[:3]  # spatial parts of these vectors -
+    vector_bs = vector_b[:3]  # the first three coordinates
+    vector_c = (norm(vector_a) / (2 * norm(np.cross(vector_as, vector_bs)))) * np.cross(vector_as, vector_bs)
 
     vector_c1s = c1[:3]
 
@@ -196,8 +194,7 @@ def electroshape(mol):
     distances_c4 = norm(four_dimensions - c4, axis=1)
     distances_c5 = norm(four_dimensions - c5, axis=1)
 
-    distances_list = [distances_c1, distances_c2, distances_c3,
-                      distances_c4, distances_c5]
+    distances_list = [distances_c1, distances_c2, distances_c3, distances_c4, distances_c5]
 
     shape_descriptor = np.zeros(15)
 
@@ -212,7 +209,7 @@ def electroshape(mol):
     return shape_descriptor
 
 
-def usr_similarity(mol1_shape, mol2_shape, ow=1., hw=1., rw=1., aw=1., dw=1.):
+def usr_similarity(mol1_shape, mol2_shape, ow=1.0, hw=1.0, rw=1.0, aw=1.0, dw=1.0):
     """Computes similarity between molecules
 
     Parameters
@@ -250,18 +247,20 @@ def usr_similarity(mol1_shape, mol2_shape, ow=1., hw=1., rw=1., aw=1., dw=1.):
         1 indicates identical molecules
     """
     if mol1_shape.shape[0] == 12 and mol2_shape.shape[0] == 12:
-        sim = 1. / (1. + (1. / 12) * np.sum(np.fabs(mol1_shape - mol2_shape)))
+        sim = 1.0 / (1.0 + (1.0 / 12) * np.sum(np.fabs(mol1_shape - mol2_shape)))
     elif mol1_shape.shape[0] == 60 and mol2_shape.shape[0] == 60:
         w = np.array([ow, hw, rw, aw, dw])
         # Normalize weights
         w = w / w.sum()
         shape_diff = np.abs(mol1_shape - mol2_shape).reshape(-1, 12)
-        sim = 1. / (1 + (w * (1. / 12) * shape_diff.sum(axis=1)).sum())
+        sim = 1.0 / (1 + (w * (1.0 / 12) * shape_diff.sum(axis=1)).sum())
     elif mol1_shape.shape[0] == 15 and mol2_shape.shape[0] == 15:
-        sim = 1. / (1 + (1. / 15) * np.sum(np.fabs(mol1_shape - mol2_shape)))
+        sim = 1.0 / (1 + (1.0 / 15) * np.sum(np.fabs(mol1_shape - mol2_shape)))
     else:
-        raise Exception('Given vectors are not valid USR shape descriptors '
-                        'or come from different methods. Correct vector lengths'
-                        'are: 12 for USR, 60 for USRCAT, 15 for Electroshape')
+        raise Exception(
+            "Given vectors are not valid USR shape descriptors "
+            "or come from different methods. Correct vector lengths"
+            "are: 12 for USR, 60 for USRCAT, 15 for Electroshape"
+        )
 
     return sim

@@ -7,10 +7,8 @@ import pytest
 from oddt.scoring.models import classifiers, regressors
 
 
-@pytest.mark.filterwarnings('ignore:Stochastic Optimizer')
-@pytest.mark.parametrize('cls',
-                         [classifiers.svm(probability=True),
-                          classifiers.neuralnetwork(random_state=42)])
+@pytest.mark.filterwarnings("ignore:Stochastic Optimizer")
+@pytest.mark.parametrize("cls", [classifiers.svm(probability=True), classifiers.neuralnetwork(random_state=42)])
 def test_classifiers(cls):
     # toy data
     X = np.concatenate((np.zeros((5, 2)), np.ones((5, 2))))
@@ -34,18 +32,19 @@ def test_classifiers(cls):
     assert_array_almost_equal(prob, prob_reloaded)
 
 
-@pytest.mark.parametrize('reg',
-                         [regressors.svm(C=10),
-                          regressors.randomforest(random_state=42),
-                          regressors.neuralnetwork(solver='lbfgs',
-                                                   random_state=42,
-                                                   hidden_layer_sizes=(20, 20)),
-                          regressors.mlr()])
+@pytest.mark.parametrize(
+    "reg",
+    [
+        regressors.svm(C=10),
+        regressors.randomforest(random_state=42),
+        regressors.neuralnetwork(solver="lbfgs", random_state=42, hidden_layer_sizes=(20, 20)),
+        regressors.mlr(),
+    ],
+)
 def test_regressors(reg):
-    X = np.vstack((np.arange(30, 10, -2, dtype='float64'),
-                   np.arange(100, 90, -1, dtype='float64'))).T
+    X = np.vstack((np.arange(30, 10, -2, dtype="float64"), np.arange(100, 90, -1, dtype="float64"))).T
 
-    Y = np.arange(10, dtype='float64')
+    Y = np.arange(10, dtype="float64")
 
     np.random.seed(42)
 

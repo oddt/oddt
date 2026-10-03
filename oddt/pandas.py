@@ -19,7 +19,7 @@ def _mol_reader(
     smiles_column=None,
     skip_bad_mols=False,
     chunksize=None,
-    **kwargs
+    **kwargs,
 ):
     """Universal reading function for private use.
 
@@ -79,9 +79,7 @@ def _mol_reader(
             reader_kwargs["sanitize"] = False
 
     chunk = []
-    for n, mol in enumerate(
-        oddt.toolkit.readfile(fmt, filepath_or_buffer, **reader_kwargs)
-    ):
+    for n, mol in enumerate(oddt.toolkit.readfile(fmt, filepath_or_buffer, **reader_kwargs)):
         if skip_bad_mols and mol is None:
             continue  # add warning with number of skipped molecules
         if usecols is None:
@@ -179,9 +177,7 @@ def read_csv(*args, **kwargs):
     molecule_column = kwargs.pop("molecule_column", "mol")
     data = pd.read_csv(*args, **kwargs)
     if smiles_to_molecule is not None:
-        data[molecule_column] = data[smiles_to_molecule].map(
-            lambda x: oddt.toolkit.readstring("smi", x)
-        )
+        data[molecule_column] = data[smiles_to_molecule].map(lambda x: oddt.toolkit.readstring("smi", x))
     return data
 
 
@@ -193,7 +189,7 @@ def read_sdf(
     smiles_column=None,
     skip_bad_mols=False,
     chunksize=None,
-    **kwargs
+    **kwargs,
 ):
     """Read SDF/MDL multi molecular file to ChemDataFrame
 
@@ -242,7 +238,7 @@ def read_sdf(
         smiles_column=smiles_column,
         skip_bad_mols=skip_bad_mols,
         chunksize=chunksize,
-        **kwargs
+        **kwargs,
     )
     if chunksize:
         return result
@@ -258,7 +254,7 @@ def read_mol2(
     smiles_column=None,
     skip_bad_mols=False,
     chunksize=None,
-    **kwargs
+    **kwargs,
 ):
     """Read Mol2 multi molecular file to ChemDataFrame. UCSF Dock 6 comments
     style is supported, i.e. `#### var_name: value` before molecular block.
@@ -308,7 +304,7 @@ def read_mol2(
         smiles_column=smiles_column,
         skip_bad_mols=skip_bad_mols,
         chunksize=chunksize,
-        **kwargs
+        **kwargs,
     )
     if chunksize:
         return result
@@ -327,9 +323,7 @@ class ChemSeries(pd.Series):
         """Substructure searching.
         `chemseries < mol`: are molecules in series substructures of a `mol`
         """
-        if isinstance(other, oddt.toolkit.Molecule) and isinstance(
-            self[0], oddt.toolkit.Molecule
-        ):
+        if isinstance(other, oddt.toolkit.Molecule) and isinstance(self[0], oddt.toolkit.Molecule):
             return self.map(lambda x: oddt.toolkit.Smarts(x.smiles).match(other))
         else:
             return super(ChemSeries, self).__le__(other)
@@ -338,9 +332,7 @@ class ChemSeries(pd.Series):
         """Substructure searching.
         `chemseries > mol`: is `mol` a substructure of molecules in series
         """
-        if isinstance(other, oddt.toolkit.Molecule) and isinstance(
-            self[0], oddt.toolkit.Molecule
-        ):
+        if isinstance(other, oddt.toolkit.Molecule) and isinstance(self[0], oddt.toolkit.Molecule):
             smarts = oddt.toolkit.Smarts(other.smiles)
             return self.map(lambda x: smarts.match(x))
         else:
@@ -348,9 +340,7 @@ class ChemSeries(pd.Series):
 
     def __or__(self, other):
         """Tanimoto coefficient"""
-        if isinstance(self[0], oddt.toolkit.Fingerprint) and isinstance(
-            other, oddt.toolkit.Fingerprint
-        ):
+        if isinstance(self[0], oddt.toolkit.Fingerprint) and isinstance(other, oddt.toolkit.Fingerprint):
             return self.map(lambda x: x | other)
         else:
             return super(ChemSeries, self).__or__(other)
@@ -480,9 +470,7 @@ class ChemDataFrame(pd.DataFrame):
     def to_csv(self, *args, **kwargs):
         """Docs are copied from parent"""
         if self._molecule_column and (
-            "columns" not in kwargs
-            or kwargs["columns"] is None
-            or self._molecule_column in kwargs["columns"]
+            "columns" not in kwargs or kwargs["columns"] is None or self._molecule_column in kwargs["columns"]
         ):
             frm_copy = self.copy(deep=True)
             smi = frm_copy[self._molecule_column].map(lambda x: x.smiles)
@@ -555,6 +543,4 @@ for method in ["to_html", "to_csv", "to_excel"]:
     try:
         getattr(ChemDataFrame, method).__doc__ = getattr(pd.DataFrame, method).__doc__
     except AttributeError:  # Python 2 compatible
-        getattr(ChemDataFrame, method).__func__.__doc__ = getattr(
-            pd.DataFrame, method
-        ).__func__.__doc__
+        getattr(ChemDataFrame, method).__func__.__doc__ = getattr(pd.DataFrame, method).__func__.__doc__
