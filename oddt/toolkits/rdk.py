@@ -1043,7 +1043,13 @@ class Molecule(object):
         self._clear_cache()
 
     def removeh(self, **kwargs):
-        """Remove hydrogens."""
+        """Remove hydrogens, including query hydrogens."""
+        if hasattr(Chem, "RemoveHsParameters") and "params" not in kwargs:
+            params = Chem.RemoveHsParameters()
+            params.removeWithQuery = True
+            params.removeNonimplicit = not kwargs.pop("implicitOnly", False)
+            params.updateExplicitCount = kwargs.pop("updateExplicitCount", False)
+            kwargs["params"] = params
         self.Mol = Chem.RemoveHs(self.Mol, **kwargs)
         self._clear_cache()
 
