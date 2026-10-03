@@ -272,9 +272,8 @@ class universal_descriptor(object):
             else:
                 out.append(self.func(mol, protein=self.protein))
         if self.sparse:
-            # out = list(map(partial(sparse_to_csr_matrix, size=self.shape), out))
-            return sparse_vstack(map(partial(sparse_to_csr_matrix,
-                                             size=self.shape), out),
+            return sparse_vstack([sparse_to_csr_matrix(fp, size=self.shape)
+                                  for fp in out],
                                  format='csr')
         else:
             return np.vstack(out)
