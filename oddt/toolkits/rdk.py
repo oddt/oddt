@@ -835,7 +835,7 @@ class Molecule(object):
                 False,  # IsHbondDonor,
                 False,  # IsHbondDonorH,
                 atomicnum in metals,
-                atomicnum == 6 and np.in1d(neighbors["atomicnum"], [6, 1, 0]).all(),  # hydrophobe
+                atomicnum == 6 and np.isin(neighbors["atomicnum"], [6, 1, 0]).all(),  # hydrophobe
                 atom.Atom.GetIsAromatic(),
                 atom.formalcharge < 0,  # is charged (minus)
                 atom.formalcharge > 0,  # is charged (plus)
@@ -844,7 +844,7 @@ class Molecule(object):
                 False,  # beta
             )
 
-        not_carbon = np.argwhere(~np.in1d(atom_dict["atomicnum"], [1, 6])).flatten()
+        not_carbon = np.argwhere(~np.isin(atom_dict["atomicnum"], [1, 6])).flatten()
         # Acceptors
         patt = Chem.MolFromSmarts(
             "[$([O;H1;v2]),"
@@ -939,9 +939,9 @@ class Molecule(object):
                     atom_dict["resid"][list(residue.atommap.values())] = residue.idx0
             res_dict = np.array(b, dtype=res_dtype)
             res_dict = detect_secondary_structure(res_dict)
-            alpha_mask = np.in1d(atom_dict["resid"], res_dict[res_dict["isalpha"]]["id"])
+            alpha_mask = np.isin(atom_dict["resid"], res_dict[res_dict["isalpha"]]["id"])
             atom_dict["isalpha"][alpha_mask] = True
-            beta_mask = np.in1d(atom_dict["resid"], res_dict[res_dict["isbeta"]]["id"])
+            beta_mask = np.isin(atom_dict["resid"], res_dict[res_dict["isbeta"]]["id"])
             atom_dict["isbeta"][beta_mask] = True
 
         # FIX: remove acidic carbons from isminus group (they are part of smarts)

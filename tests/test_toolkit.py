@@ -716,7 +716,7 @@ def test_dicts():
     corr_data = pd.read_csv(os.path.join(test_data_dir, "data", "results", "xiap", "mols_atom_dict.csv")).fillna("")
 
     for name in common_cols:
-        if issubclass(np.dtype(data[name].dtype).type, np.number):
+        if pd.api.types.is_numeric_dtype(data[name].dtype) and not pd.api.types.is_bool_dtype(data[name].dtype):
             mask = data[name] - corr_data[name] > 1e-6
             for i in np.argwhere(mask.values):
                 print(
@@ -774,7 +774,7 @@ def test_dicts():
     corr_data = pd.read_csv(os.path.join(test_data_dir, "data", "results", "xiap", "prot_atom_dict.csv")).fillna("")
 
     for name in common_cols:
-        if issubclass(np.dtype(data[name].dtype).type, np.number):
+        if pd.api.types.is_numeric_dtype(data[name].dtype) and not pd.api.types.is_bool_dtype(data[name].dtype):
             mask = data[name] - corr_data[name] > 1e-6
             for i in np.argwhere(mask.values):
                 print(

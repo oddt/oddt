@@ -1,18 +1,18 @@
 channels:
 - conda-forge
 dependencies:
-- python==3.9
+- python=3.12
 - numpydoc
 - six
-- numpy>=1.8
+- numpy>=1.13
 - scipy>=0.14
 - scikit-image
 - scikit-learn>=0.18
 - joblib>=0.8
 - pandas>=0.17.1
 - xlsxwriter
-- rdkit
-- openbabel
+- rdkit>=2025.03.5
+- openbabel>=3.2.1
 - pytest
 - pytest-xdist
 - black
