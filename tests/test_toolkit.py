@@ -19,6 +19,47 @@ xiap_actives = os.path.join(test_data_dir, "data", "dude", "xiap", "actives_dock
 inha_ligand = os.path.join(test_data_dir, "data", "dude", "inha", "crystal_ligand.mol2")
 
 
+@pytest.mark.skipif(oddt.toolkit.backend != "rdk", reason="RDKit-specific hydrogen removal options")
+@pytest.mark.parametrize(
+    "options, expected_count",
+    [({}, 60), ({"sanitize": False}, 60), ({"updateExplicitCount": True}, 60), ({"implicitOnly": True}, 135)],
+)
+def test_remove_query_hydrogens(options, expected_count):
+    mol = next(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data", "pdbbind", "1imx", "1imx_ligand.sdf")))
+    original_coords = mol.coords.copy()
+    heavy_atoms = mol.atom_dict["atomicnum"] != 1
+    assert len(mol.atoms) == 135
+
+    mol.removeh(**options)
+
+    assert len(mol.atoms) == expected_count
+    assert mol._atom_dict is None
+    if options.get("sanitize", True):
+        assert len(mol.atom_dict) == expected_count
+    if expected_count == 60:
+        assert all(atom.atomicnum != 1 for atom in mol.atoms)
+        assert_array_equal(mol.coords, original_coords[heavy_atoms])
+    else:
+        assert_array_equal(mol.coords, original_coords)
+
+
+@pytest.mark.skipif(oddt.toolkit.backend != "rdk", reason="RDKit-specific hydrogen removal options")
+def test_remove_query_hydrogens_parameters():
+    if not hasattr(oddt.toolkit.Chem, "RemoveHsParameters"):
+        pytest.skip("RDKit does not expose RemoveHsParameters")
+    mol = next(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data", "pdbbind", "1imx", "1imx_ligand.sdf")))
+    params = oddt.toolkit.Chem.RemoveHsParameters()
+    params.removeWithQuery = False
+
+    mol.removeh(params=params)
+    assert len(mol.atoms) == 135
+    assert params.removeWithQuery is False
+
+    params.removeWithQuery = True
+    mol.removeh(params=params)
+    assert len(mol.atoms) == 60
+
+
 def test_mol():
     """Test common molecule operations"""
     # Hydrogen manipulation in small molecules
