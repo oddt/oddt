@@ -1,0 +1,57 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python 3.9 (${{ matrix.toolkit }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        toolkit: [rdk, ob]
+    env:
+      ODDT_TOOLKIT: ${{ matrix.toolkit }}
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.9 environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: testenv
+          environment-file: environment.yml
+          python-version: "3.9"
+          channels: conda-forge
+          channel-priority: strict
+          auto-activate-base: false
+
+      - name: Install package and test dependencies
+        run: |
+          conda install --yes --override-channels --channel conda-forge --channel bioconda \
+            pip setuptools wheel pytest-cov autodock-vina
+          python -m pip install --no-build-isolation --no-deps .
+
+      - name: Run pytest
+        run: python -m pytest --cov=oddt -n 2 -v --durations=10 tests/
+
+      - name: Run CLI tests
+        run: |
+          oddt_cli --help
+          oddt_cli tests/data/dude/xiap/crystal_ligand.sdf -osmi
+          oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity ifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
+          oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity sifp --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.9 --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
+          oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity usr --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
+          oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity usr_cat --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
+          oddt_cli tests/data/dude/xiap/actives_docked.sdf --similarity electroshape --query tests/data/dude/xiap/crystal_ligand.sdf --cutoff 0.3 -ocsv
+          oddt_cli tests/data/dude/xiap/actives_docked.sdf --score pleclinear --receptor tests/data/dude/xiap/receptor_rdkit.pdb -ocsv
