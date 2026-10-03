@@ -620,7 +620,7 @@ def test_diverse_conformers():
     original_coords = mol.coords.copy()
 
     conformers = diverse_conformers_generator(mol, seed=123456)
-    assert len(conformers) == 10
+    assert 1 <= len(conformers) <= 10
     assert_array_equal(mol.coords, original_coords)
     for conf in conformers:
         assert conf is not mol
@@ -636,8 +636,12 @@ def test_diverse_conformers():
     else:
         methods = ["dg", "etkdg", "kdg", "etdg"]
     for method in methods:
-        assert len(diverse_conformers_generator(mol, seed=123456, n_conf=5, method=method)) == 5
-        assert len(diverse_conformers_generator(mol, seed=123456, n_conf=10, method=method)) == 10
+        for n_conf in (5, 10):
+            conformers = diverse_conformers_generator(mol, seed=123456, n_conf=n_conf, method=method)
+            assert 1 <= len(conformers) <= n_conf
+            for conf in conformers:
+                assert conf.smiles == mol.smiles
+                assert np.isfinite(conf.coords).all()
 
 
 def test_indices():

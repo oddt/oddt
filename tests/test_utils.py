@@ -1,5 +1,6 @@
 import os
 import pytest
+from packaging.version import Version
 
 import oddt
 from oddt.utils import check_molecule, chunker, compose_iter
@@ -10,6 +11,22 @@ test_data_dir = os.path.dirname(os.path.abspath(__file__))
 dude_data_dir = os.path.join(test_data_dir, "data", "dude", "xiap")
 xiap_crystal_ligand = os.path.join(dude_data_dir, "crystal_ligand.sdf")
 xiap_protein = os.path.join(dude_data_dir, "receptor_rdkit.pdb")
+
+
+@pytest.mark.parametrize(
+    "git_version, expected",
+    [
+        (b"0.8", "0.8"),
+        (b"v0.8", "v0.8"),
+        (b"0.6-222-g1b4b242", "0.6.post222+g1b4b242"),
+        (b"0.8rc1-3-g1234567", "0.8rc1.post3+g1234567"),
+    ],
+)
+def test_get_version(monkeypatch, git_version, expected):
+    monkeypatch.setattr(oddt.os.path, "isdir", lambda directory: True)
+    monkeypatch.setattr(oddt.subprocess, "check_output", lambda *args, **kwargs: git_version)
+    assert oddt.get_version() == expected
+    assert str(Version(oddt.get_version())) == str(Version(expected))
 
 
 def test_check_molecule():

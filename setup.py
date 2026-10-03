@@ -23,5 +23,11 @@ setup(
     install_requires=open("requirements.txt", "r").readlines(),
     download_url="https://github.com/oddt/oddt/tarball/%s" % VERSION,
     keywords=["cheminformatics", "qsar", "virtual screening", "docking", "pipeline"],
+    python_requires=">=3.6",
+    classifiers=[
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Programming Language :: Python :: 3.12",
+    ],
     scripts=["bin/oddt_cli"],
 )
