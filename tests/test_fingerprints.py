@@ -3325,7 +3325,17 @@ def test_molecular_shingles():
             "cnc1c(C)nnc1c",
         ]
 
+        target_shingles = sorted(
+            oddt.toolkit.Chem.MolToSmiles(oddt.toolkit.Chem.MolFromSmiles(shingle, sanitize=False))
+            for shingle in target_shingles
+        )
+
     for n in range(10):
         sildenafil = shuffle_mol(sildenafil)
         shingles = sorted(get_molecular_shingles(sildenafil))
+        if oddt.toolkit.backend == "rdk":
+            shingles = sorted(
+                oddt.toolkit.Chem.MolToSmiles(oddt.toolkit.Chem.MolFromSmiles(shingle, sanitize=False))
+                for shingle in shingles
+            )
         assert_array_equal(shingles, target_shingles)

@@ -135,6 +135,7 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None, cutoff=5.0,
 
     # TODO: above certain threshold its making a submolis redundant
     submol = AtomListToSubMol(mol, amap, includeConformer=True)
+    submol.UpdatePropertyCache(strict=False)
     # initialize ring info
     Chem.GetSSSR(submol)
     ff = UFFGetMoleculeForceField(submol, vdwThresh=cutoff, ignoreInterfragInteractions=False)

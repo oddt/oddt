@@ -1050,7 +1050,11 @@ class Molecule(object):
             params.removeNonimplicit = not kwargs.pop("implicitOnly", False)
             params.updateExplicitCount = kwargs.pop("updateExplicitCount", False)
             kwargs["params"] = params
-        self.Mol = Chem.RemoveHs(self.Mol, **kwargs)
+        sanitize = kwargs.pop("sanitize", True)
+        mol = Chem.RemoveHs(self.Mol, sanitize=False, **kwargs)
+        if sanitize:
+            Chem.SanitizeMol(mol)
+        self.Mol = mol
         self._clear_cache()
 
     def write(self, format="smi", filename=None, overwrite=False, size=None, **kwargs):
