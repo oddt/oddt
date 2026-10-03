@@ -5,3 +5,4 @@ scipy>=0.19
 scikit-learn>=0.18
 joblib>=0.10
 pandas>=0.19.2
+packaging>=20

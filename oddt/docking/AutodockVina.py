@@ -4,8 +4,7 @@ import re
 import os
 import warnings
 from tempfile import mkdtemp
-from shutil import rmtree
-from distutils.spawn import find_executable
+from shutil import rmtree, which as find_executable
 from tempfile import gettempdir
 
 from six import string_types

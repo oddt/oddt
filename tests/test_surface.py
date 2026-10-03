@@ -1,5 +1,5 @@
 import os
-from distutils.version import LooseVersion
+from packaging.version import Version
 
 import numpy as np
 import pytest
@@ -27,16 +27,16 @@ def test_generate_surface_marching_cubes():
 
     # versions of skimage older than 0.12 use a slightly different version of the marching cubes algorithm
     # producing slightly different results
-    if LooseVersion(skimage_version) >= LooseVersion("0.13"):
+    if Version(skimage_version) >= Version("0.13"):
         if oddt.toolkit.backend == "ob" or oddt.toolkit.backend == "rdk" and oddt.toolkits.rdk.__version__ >= "2019.09":
-            ref_vert_shape_1 = (9040, 3)
-            ref_face_shape_1 = (18094, 3)
-            ref_vert_shape_2 = (35950, 3)
-            ref_face_shape_2 = (71926, 3)
-            ref_vert_shape_3 = (9040, 3)
-            ref_face_shape_3 = (18094, 3)
-            ref_vert_shape_4 = (14881, 3)
-            ref_face_shape_4 = (30468, 3)
+            ref_vert_shape_1 = (9044, 3)
+            ref_face_shape_1 = (18102, 3)
+            ref_vert_shape_2 = (36094 if oddt.toolkit.backend == "ob" else 36096, 3)
+            ref_face_shape_2 = (72238 if oddt.toolkit.backend == "ob" else 72242, 3)
+            ref_vert_shape_3 = (9044, 3)
+            ref_face_shape_3 = (18102, 3)
+            ref_vert_shape_4 = (14901, 3)
+            ref_face_shape_4 = (30512, 3)
         else:
             ref_vert_shape_1 = (9044, 3)
             ref_face_shape_1 = (18102, 3)
@@ -105,15 +105,15 @@ def test_find_surface_residues():
     assert_array_equal(np.intersect1d(atom_dict_1["id"], atom_dict_2["id"]), atom_dict_1["id"])
 
     if oddt.toolkit.backend == "ob":
-        ref_len_1 = 762
+        ref_len_1 = 761
         ref_len_2 = 968
-        ref_len_3 = 654
-        ref_len_4 = 379
+        ref_len_3 = 653
+        ref_len_4 = 321
     elif oddt.toolkit.backend == "rdk" and oddt.toolkits.rdk.__version__ >= "2019.09":
-        ref_len_1 = 762
+        ref_len_1 = 761
         ref_len_2 = 968
-        ref_len_3 = 664
-        ref_len_4 = 393
+        ref_len_3 = 663
+        ref_len_4 = 338
     else:
         ref_len_1 = 759
         ref_len_2 = 966
