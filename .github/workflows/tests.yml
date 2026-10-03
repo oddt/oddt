@@ -2,7 +2,7 @@ name: Tests
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
   pull_request:
   workflow_dispatch:
 
@@ -11,11 +11,12 @@ permissions:
 
 jobs:
   test:
-    name: Python 3.9 (${{ matrix.toolkit }})
+    name: Python ${{ matrix.python-version }} (${{ matrix.toolkit }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
+        python-version: ["3.9", "3.12"]
         toolkit: [rdk, ob]
     env:
       ODDT_TOOLKIT: ${{ matrix.toolkit }}
@@ -25,21 +26,27 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python 3.9 environment
+      - name: Set up Python ${{ matrix.python-version }} environment
         uses: conda-incubator/setup-miniconda@v3
         with:
           miniforge-version: latest
           activate-environment: testenv
-          environment-file: environment.yml
-          python-version: "3.9"
+          environment-file: ${{ matrix.python-version == '3.12' && 'environment.yml' || '' }}
+          python-version: ${{ matrix.python-version }}
           channels: conda-forge
           channel-priority: strict
           auto-activate-base: false
 
+      - name: Install Python 3.9 compatibility dependencies
+        if: matrix.python-version == '3.9'
+        run: |
+          conda install --yes --override-channels --channel conda-forge --file requirements.txt \
+            scikit-image xlsxwriter 'rdkit>=2025.03.5' openbabel=3.1.1 pytest pytest-xdist black
+
       - name: Install package and test dependencies
         run: |
           conda install --yes --override-channels --channel conda-forge --channel bioconda \
-            pip setuptools wheel pytest-cov autodock-vina
+            pip setuptools wheel pytest-cov autodock-vina=1.1.2
           python -m pip install --no-build-isolation --no-deps .
 
       - name: Run pytest
