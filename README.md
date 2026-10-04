@@ -26,7 +26,7 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   * Skimage (0.12.3+) (optional, only for surface generation)
 
 CI tests Python 3.9 and 3.12 with both chemistry backends. The Python 3.12
-development environment uses RDKit 2026.03.6+ and Open Babel 3.2.1+. Python 3.9
+development environment uses RDKit 2026.03.1+ and Open Babel 3.2.1+. Python 3.9
 uses RDKit 2025.03.5 and Open Babel 3.1.1, since newer Open Babel conda builds
 require Python 3.10 or later. Other Python versions retain the declared
 compatibility range but are not in the current CI matrix.
@@ -69,14 +69,26 @@ Create the Python 3.12 environment with both chemistry backends:
 ```sh
 conda env create -n oddt-dev -f environment.yml
 conda activate oddt-dev
-python -m pip install --no-deps -e .
+python -m pip install --no-build-isolation --no-deps -e .
 ODDT_TOOLKIT=rdk python -m pytest tests
 ODDT_TOOLKIT=ob python -m pytest tests
 ```
 
-Native docking and scoring tests additionally require the `vina` executable.
-The supported external scoring interface is AutoDock Vina 1.1.2, installed
-from Bioconda in CI. These tests are skipped when the executable is absent.
+The same environment includes conda-forge Vina 1.2.7+ and uses its Python API
+for docking and scoring. RDKit 2026.03.1 and Vina 1.2.7 share Boost 1.86, so
+there is no separate tool environment or additional library search path.
+
+Vina 1.1.2 remains supported through its command-line executable. If both the
+Python package and a legacy binary are available, pass the legacy binary's path
+as `executable` to select it explicitly. CI installs the selected Vina version
+in the ODDT environment: Python 3.12 tests both interfaces, while Python 3.9
+tests 1.1.2 because conda-forge's latest Python bindings require Python 3.10+.
+Native tests are skipped only when neither the Python package nor an executable
+is available.
+
+Vina 1.2 affinity comes from the Python API. Its unweighted interaction terms
+are reconstructed with ODDT's internal scorer because the API does not expose
+them separately. Vina 1.1.2 retains the original native scoring path.
 
 ### Documentation
 Automatic documentation for ODDT is available on [Readthedocs.org](https://oddt.readthedocs.org/). Additionally, it can be build locally:

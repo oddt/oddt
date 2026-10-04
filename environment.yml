@@ -12,8 +12,9 @@ dependencies:
 - pandas>=0.17.1
 - packaging>=20
 - xlsxwriter
-- rdkit>=2026.03.6
+- rdkit>=2026.03.1
 - openbabel>=3.2.1
+- vina>=1.2.7
 - pytest
 - pytest-xdist
 - black

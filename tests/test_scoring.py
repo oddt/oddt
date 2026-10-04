@@ -1,5 +1,5 @@
 import os
-from types import GeneratorType
+from types import GeneratorType, SimpleNamespace
 from tempfile import mkdtemp, NamedTemporaryFile
 from shutil import which as find_executable
 
@@ -10,6 +10,7 @@ import pytest
 from sklearn.metrics import r2_score
 
 import oddt
+from oddt.docking.AutodockVina import autodock_vina, parse_vina_scoring_output, parse_vina_docking_output, vina_python
 from oddt.scoring import scorer, ensemble_descriptor, ensemble_model
 from oddt.scoring.descriptors import (
     autodock_vina_descriptor,
@@ -24,6 +25,198 @@ test_data_dir = os.path.dirname(os.path.abspath(__file__))
 actives_sdf = os.path.join(test_data_dir, "data", "dude", "xiap", "actives_docked.sdf")
 receptor_pdb = os.path.join(test_data_dir, "data", "dude", "xiap", "receptor_rdkit.pdb")
 results = os.path.join(test_data_dir, "data", "results", "xiap")
+
+
+@pytest.mark.parametrize(
+    "output, expected",
+    [
+        (
+            b"Affinity: -3.57594 (kcal/mol)\n"
+            b"    gauss 1: 6.301213e1\n"
+            b"    gauss 2: 999.07625\n"
+            b"    repulsion: 3.63178\n"
+            b"    hydrophobic: 26.12648\n"
+            b"    hydrogen: 0\n",
+            {
+                "vina_affinity": -3.57594,
+                "vina_gauss1": 63.01213,
+                "vina_gauss2": 999.07625,
+                "vina_repulsion": 3.63178,
+                "vina_hydrophobic": 26.12648,
+                "vina_hydrogen": 0,
+            },
+        ),
+        (
+            b"Estimated Free Energy of Binding   : -3.576 (kcal/mol) [=(1)+(2)+(3)-(4)]\n"
+            b"(1) Final Intermolecular Energy    : -5.248 (kcal/mol)\n"
+            b"    Ligand - Receptor              : -5.248 (kcal/mol)\n",
+            {"vina_affinity": -3.576},
+        ),
+    ],
+)
+def test_vina_scoring_output(output, expected):
+    assert parse_vina_scoring_output(output) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize(
+    "output",
+    [
+        b"mode | affinity | dist from best mode\n   1 -6.3 0.0 0.0\n  10 -3.5 2.4 3.1\n",
+        b"MODEL 1\nREMARK VINA RESULT: -6.3 0.0 0.0\nENDMDL\n" b"MODEL 2\nREMARK VINA RESULT: -3.5 2.4 3.1\nENDMDL\n",
+    ],
+)
+def test_vina_docking_output(output):
+    assert parse_vina_docking_output(output) == [
+        {"vina_affinity": "-6.3", "vina_rmsd_lb": "0.0", "vina_rmsd_ub": "0.0"},
+        {"vina_affinity": "-3.5", "vina_rmsd_lb": "2.4", "vina_rmsd_ub": "3.1"},
+    ]
+
+
+@pytest.mark.parametrize("version", ["1.1.2", "1.2.7"])
+def test_vina_scoring_grid(monkeypatch, tmp_path, version):
+    commands = []
+    maps = []
+
+    class PythonVina:
+        def __init__(self, **kwargs):
+            assert kwargs == {"sf_name": "vina", "cpu": 1, "seed": 0, "verbosity": 0}
+            self.ligand_loaded = False
+
+        def set_receptor(self, filename):
+            assert os.path.isfile(filename)
+
+        def set_ligand_from_file(self, filename):
+            assert os.path.isfile(filename)
+            assert not self.ligand_loaded, "Ligands must not reuse an atom-type-specific map context"
+            self.ligand_loaded = True
+
+        def compute_vina_maps(self, center, box_size):
+            maps.append((center, box_size))
+
+        def score(self):
+            return np.array([-3.576, -5.248, 0, 0, 0, 0, 1.672, 0])
+
+    def check_output(command, **kwargs):
+        assert version == "1.1.2", "Vina 1.2 must not run a subprocess"
+        if "--version" in command:
+            banner_version = "v" + version if version == "1.2.7" else version
+            return ("AutoDock Vina %s\n" % banner_version).encode("ascii")
+        commands.append(command)
+        return (
+            b"Affinity: -3.57594 (kcal/mol)\n"
+            b"    gauss 1: 63.01213\n    gauss 2: 999.07625\n"
+            b"    repulsion: 3.63178\n    hydrophobic: 26.12648\n    hydrogen: 0\n"
+        )
+
+    monkeypatch.setattr("oddt.docking.AutodockVina.subprocess.check_output", check_output)
+    monkeypatch.setattr("oddt.docking.AutodockVina.vina_python", SimpleNamespace(__version__="1.2.7", Vina=PythonVina))
+    receptor = next(oddt.toolkit.readfile("pdb", receptor_pdb))
+    ligand = next(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data/dude/xiap/crystal_ligand.sdf")))
+    engine = autodock_vina(
+        receptor, size=(1, 1, 1), executable="vina" if version == "1.1.2" else None, prefix_dir=str(tmp_path)
+    )
+    docking_params = engine.params.copy()
+    assert engine.version == version
+    assert engine.score(ligand) == [ligand]
+    assert engine.params == docking_params
+    assert engine.center == (0, 0, 0)
+    if version == "1.1.2":
+        assert commands[0][6:] == docking_params
+    else:
+        assert not commands
+        assert float(ligand.data["vina_affinity"]) == -3.576
+        assert engine.score(ligand) == [ligand]
+        for center, size, lower, upper in zip(
+            maps[0][0], maps[0][1], ligand.coords.min(axis=0), ligand.coords.max(axis=0)
+        ):
+            assert center - size / 2 < lower
+            assert center + size / 2 > upper
+    engine.clean()
+
+
+def test_vina_python_docking(monkeypatch, tmp_path):
+    calls = {}
+
+    class PythonVina:
+        def __init__(self, **kwargs):
+            calls["init"] = kwargs
+
+        def set_receptor(self, filename):
+            calls["receptor"] = filename
+
+        def set_ligand_from_file(self, filename):
+            self.ligand_file = filename
+
+        def compute_vina_maps(self, **kwargs):
+            calls["maps"] = kwargs
+
+        def dock(self, **kwargs):
+            calls["dock"] = kwargs
+
+        def write_poses(self, filename, **kwargs):
+            calls["poses"] = kwargs
+            with open(self.ligand_file) as ligand_file:
+                pdbqt = ligand_file.read()
+            with open(filename, "w") as pose_file:
+                pose_file.write("MODEL 1\nREMARK VINA RESULT: -6.3 0.0 0.0\n" + pdbqt + "ENDMDL\n")
+
+    def no_subprocess(*args, **kwargs):
+        pytest.fail("Vina 1.2 must not run a subprocess")
+
+    monkeypatch.setattr("oddt.docking.AutodockVina.subprocess.check_output", no_subprocess)
+    monkeypatch.setattr("oddt.docking.AutodockVina.vina_python", SimpleNamespace(__version__="1.2.7", Vina=PythonVina))
+    receptor = next(oddt.toolkit.readfile("pdb", receptor_pdb))
+    ligand = next(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data/dude/xiap/crystal_ligand.sdf")))
+    original_coords = ligand.coords.copy()
+    engine = autodock_vina(
+        receptor,
+        center=(1, 2, 3),
+        size=(10, 12, 14),
+        exhaustiveness=3,
+        num_modes=2,
+        energy_range=6,
+        seed=42,
+        n_cpu=2,
+        prefix_dir=str(tmp_path),
+    )
+    poses = engine.dock(ligand)
+    assert len(poses) == 1
+    assert poses[0] is not ligand
+    assert float(poses[0].data["vina_affinity"]) == -6.3
+    assert float(poses[0].data["vina_rmsd_lb"]) == 0
+    assert float(poses[0].data["vina_rmsd_ub"]) == 0
+    assert poses[0].coords.shape == original_coords.shape
+    assert_array_almost_equal(ligand.coords, original_coords)
+    assert calls["init"] == {"sf_name": "vina", "cpu": 2, "seed": 42, "verbosity": 0}
+    assert calls["maps"] == {"center": [1, 2, 3], "box_size": [10, 12, 14]}
+    assert calls["dock"] == {"exhaustiveness": 3, "n_poses": 2}
+    assert calls["poses"] == {"n_poses": 2, "energy_range": 6, "overwrite": True}
+    engine.set_protein(ligand)
+    assert calls["receptor"] == engine.protein_file
+    assert calls["receptor"] != receptor_pdb
+    engine.clean()
+
+
+@pytest.mark.parametrize("operation", ["score", "dock"])
+@pytest.mark.parametrize("skip_bad_mols", [False, True])
+def test_vina_python_invalid_ligand(monkeypatch, tmp_path, operation, skip_bad_mols):
+    def reject_ligand(filename):
+        raise RuntimeError("Invalid ligand")
+
+    def make_vina(**kwargs):
+        return SimpleNamespace(set_receptor=lambda filename: None, set_ligand_from_file=reject_ligand)
+
+    monkeypatch.setattr("oddt.docking.AutodockVina.vina_python", SimpleNamespace(__version__="1.2.7", Vina=make_vina))
+    receptor = next(oddt.toolkit.readfile("pdb", receptor_pdb))
+    ligand = next(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data/dude/xiap/crystal_ligand.sdf")))
+    engine = autodock_vina(receptor, skip_bad_mols=skip_bad_mols, prefix_dir=str(tmp_path))
+    if skip_bad_mols:
+        with pytest.warns(UserWarning, match="Invalid ligand"):
+            assert getattr(engine, operation)(ligand) == []
+    else:
+        with pytest.raises(RuntimeError, match="Invalid ligand"):
+            getattr(engine, operation)(ligand)
+    engine.clean()
 
 
 @pytest.mark.filterwarnings("ignore:Data with input dtype int64 was converted")
@@ -113,7 +306,7 @@ def test_ensemble_model():
     assert_almost_equal(ensemble.score(X, Y), nn.score(X, Y))
 
 
-@pytest.mark.skipif(find_executable("vina") is None, reason="Autodock Vina binary missing")
+@pytest.mark.skipif(vina_python is None and find_executable("vina") is None, reason="Autodock Vina unavailable")
 def test_original_vina():
     """Check orignal Vina partial scores descriptor"""
     mols = list(oddt.toolkit.readfile("sdf", actives_sdf))
