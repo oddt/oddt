@@ -371,8 +371,10 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30, cation_exact=False):
         Distance cutoff for Pi-cation pairs
 
     tolerance : int, (default=30)
-        Maximum angular deviation from either direction of the ring normal
-        in which pi-cation interactions are considered as strict.
+        Range (+/- tolerance) around the ideal angle of 30 degrees to the
+        ring normal, or its mirrored angle of 150 degrees, in which
+        pi-cation interactions are considered as strict. Both bounds
+        are exclusive.
 
     cation_exact : bool
         Requires interacting atoms to have non-zero formal charge.
@@ -380,12 +382,12 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30, cation_exact=False):
     Returns
     -------
     r1 : ring_dict-type numpy array
-        Aligned rings forming pi-stacking
+        Aligned rings forming pi-cation
 
     plus2 : atom_dict-type numpy array
         Aligned cations forming pi-cation
 
-    strict_parallel : numpy array, dtype=bool
+    strict : numpy array, dtype=bool
         Boolean array align with ring-cation pairs, informing whether
         they form 'strict' pi-cation. If false, only distance cutoff is met,
         therefore the interaction is 'crude'.
@@ -397,7 +399,10 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30, cation_exact=False):
     r1, plus2 = close_contacts(mol1.ring_dict, mol2.atom_dict[cation_map], cutoff, x_column="centroid")
     if len(r1) > 0 and len(plus2) > 0:
         angle1 = angle_2v(r1["vector"], plus2["coords"] - r1["centroid"])
-        strict = (angle1 < tolerance) | (angle1 > 180 - tolerance)
+        ideal_angle = 30  # angle to normal vector
+        strict = ((angle1 > ideal_angle - tolerance) & (angle1 < ideal_angle + tolerance)) | (
+            (angle1 > 180 - ideal_angle - tolerance) & (angle1 < 180 - ideal_angle + tolerance)
+        )
         return r1, plus2, strict
     else:
         return r1, plus2, np.array([], dtype=bool)
