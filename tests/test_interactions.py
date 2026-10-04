@@ -1,10 +1,12 @@
 import os
+from types import SimpleNamespace
 
 import numpy as np
 from numpy.testing import assert_array_equal, assert_array_almost_equal
 
 import oddt
 from oddt.interactions import (
+    _check_angles,
     close_contacts,
     hbonds,
     distance,
@@ -24,6 +26,40 @@ list(map(lambda x: x.addh(only_polar=True), mols))
 rec = next(oddt.toolkit.readfile("pdb", os.path.join(test_data_dir, "data/dude/xiap/receptor_rdkit.pdb")))
 rec.protein = True
 rec.addh(only_polar=True)
+
+
+def test_close_contacts_empty(monkeypatch):
+    atoms = np.zeros(1, dtype=[("coords", np.float32, 3), ("centroid", np.float32, 3)])
+    empty = atoms[:0]
+
+    def unexpected_distance(*args, **kwargs):
+        raise AssertionError("Empty contact searches must not calculate distances")
+
+    monkeypatch.setattr("oddt.interactions.distance", unexpected_distance)
+    for first, second in [(empty, atoms), (atoms, empty), (empty, empty)]:
+        contacts_first, contacts_second = close_contacts(first, second, 4, x_column="centroid")
+        assert contacts_first.shape == contacts_second.shape == (0,)
+        assert contacts_first.dtype == contacts_second.dtype == atoms.dtype
+
+
+def test_check_angles_missing_neighbors():
+    angles = np.array(
+        [
+            [np.nan, np.nan, np.nan],
+            [10, np.nan, np.nan],
+            [90, np.nan, np.nan],
+            [np.nan, 180, np.nan],
+            [np.nan, np.nan, 120],
+            [-30, 30, np.nan],
+            [np.inf, -np.inf, np.nan],
+        ],
+        dtype=np.float32,
+    )
+    original_angles = angles.copy()
+    with np.errstate(invalid="raise"):
+        strict = _check_angles(angles, np.array([0, 0, 0, 1, 2, 0, 0]), 30)
+    assert_array_equal(strict, [False, True, False, True, True, False, False])
+    assert_array_equal(angles, original_angles)
 
 
 def test_close_contacts():
@@ -385,6 +421,54 @@ def test_pi_stacking_perpendicular_pdb():
     assert strict_parallel.sum() == 0
     assert strict_perpendicular.sum() == 1
     assert pi2["resname"].tolist() == ["HIS"]
+
+
+def test_pi_stacking_perpendicular_geometry():
+    ring_dtype = [("centroid", np.float32, 3), ("vector", np.float32, 3)]
+    first_ring = np.array([((0, 0, 0), (0, 0, 1))], dtype=ring_dtype)
+    displacement_angle = np.deg2rad(25)
+    normal_angle = np.deg2rad(70)
+    second_rings = np.array(
+        [
+            (
+                (4 * np.sin(displacement_angle), 0, 4 * np.cos(displacement_angle)),
+                (np.sin(normal_angle), 0, np.cos(normal_angle)),
+            ),
+            ((0, 0, 4), (1, 0, 0)),
+        ],
+        dtype=ring_dtype,
+    )
+    first = SimpleNamespace(ring_dict=first_ring)
+    second = SimpleNamespace(ring_dict=second_rings)
+    for mol1, mol2 in [(first, second), (second, first)]:
+        _, _, strict_parallel, strict_perpendicular = pi_stacking(mol1, mol2)
+        assert_array_equal(strict_parallel, [False, False])
+        assert_array_equal(strict_perpendicular, [False, True])
+
+
+def test_pi_cation_ring_normal():
+    rings = np.array(
+        [((0, 0, 0), (0, 0, 1))],
+        dtype=[("centroid", np.float32, 3), ("vector", np.float32, 3)],
+    )
+    angles = np.deg2rad([0, 25, 45, 135, 155, 180, 90])
+    cations = np.zeros(
+        len(angles),
+        dtype=[("coords", np.float32, 3), ("isplus", bool), ("formalcharge", np.int8)],
+    )
+    cations["coords"][:, 0] = 4 * np.sin(angles)
+    cations["coords"][:, 2] = 4 * np.cos(angles)
+    cations["isplus"] = True
+    cations["formalcharge"] = 1
+    ring_molecule = SimpleNamespace(ring_dict=rings)
+    cation_molecule = SimpleNamespace(atom_dict=cations)
+    for tolerance, expected in [
+        (30, [True, True, False, False, True, True, False]),
+        (10, [True, False, False, False, False, True, False]),
+        (90, [True, True, True, True, True, True, False]),
+    ]:
+        _, _, strict = pi_cation(ring_molecule, cation_molecule, tolerance=tolerance, cation_exact=True)
+        assert_array_equal(strict, expected)
 
 
 def test_pi_cation_pdb():
@@ -1033,79 +1117,67 @@ def test_pi_cation():
             1,
             1,
             1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            0,
+            1,
+            0,
+            1,
+            0,
             1,
             1,
             1,
             1,
             1,
             1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            1,
+            0,
+            0,
+            1,
+            0,
             1,
             1,
+            0,
+            0,
+            0,
+            0,
             1,
+            0,
+            0,
+            0,
+            0,
             1,
+            0,
+            0,
+            0,
+            0,
+            0,
             1,
+            0,
+            0,
+            0,
+            0,
             1,
-            1,
-            1,
-            1,
+            0,
+            0,
+            0,
             2,
-            1,
-            1,
-            1,
-            1,
+            0,
             0,
             0,
             1,
-            0,
-            0,
-            1,
-            0,
-            0,
-            1,
-            0,
-            2,
-            1,
-            0,
-            1,
-            0,
-            0,
-            1,
-            1,
-            1,
-            1,
-            0,
-            1,
-            1,
-            0,
-            1,
-            1,
-            0,
-            1,
-            0,
-            1,
-            1,
-            0,
-            1,
-            0,
-            0,
-            0,
-            2,
-            1,
-            0,
-            0,
-            1,
-            1,
-            1,
-            1,
-            0,
-            0,
-            1,
-            0,
-            0,
-            0,
-            0,
-            0,
-            0,
             1,
             0,
             0,
@@ -1116,10 +1188,22 @@ def test_pi_cation():
             0,
             0,
             0,
-            1,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
+            0,
             0,
             1,
-            1,
             0,
             1,
             0,
@@ -1129,7 +1213,7 @@ def test_pi_cation():
             0,
             0,
             0,
-            1,
+            0,
         ],
     )
 

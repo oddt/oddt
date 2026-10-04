@@ -8,7 +8,6 @@ import oddt
 from oddt.spatial import angle, dihedral, rmsd, distance, rotate
 from .utils import shuffle_mol
 
-
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
 ASPIRIN_SDF = """

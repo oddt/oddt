@@ -12,7 +12,6 @@ from oddt.metrics import (
     standard_deviation_error,
 )
 
-
 np.random.seed(42)
 
 # Generate test data for classification
