@@ -3,6 +3,7 @@ import os
 import pytest
 from numpy.testing import assert_almost_equal, assert_array_equal, assert_array_almost_equal
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 import oddt
 from oddt.spatial import angle, angle_2v, dihedral, rmsd, distance, rotate
@@ -178,6 +179,22 @@ def test_distance():
         [2.975007440512798],
     ]
     assert_array_almost_equal(d, ref_dist)
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.int64])
+@pytest.mark.parametrize("count", [1, 12])
+def test_rotate_einsum(dtype, count):
+    rng = np.random.default_rng(42)
+    coords = rng.uniform(-10, 10, (count, 6)).astype(dtype)[:, ::2]
+    original_coords = coords.copy()
+    angles = (0.37, -0.82, 1.13)
+    centroid = coords.mean(axis=0)
+    matrix = Rotation.from_euler("xyz", angles).as_matrix()
+    expected = ((coords - centroid)[:, np.newaxis, :] * matrix).sum(axis=-1) + centroid
+    actual = rotate(coords, *angles)
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+    assert_array_equal(coords, original_coords)
 
 
 def test_spatial():

@@ -282,4 +282,4 @@ def rotate(coords, alpha, beta, gamma):
         ]
     )
 
-    return (coords[:, np.newaxis, :] * rot_matrix).sum(axis=2) + centroid
+    return np.einsum("ij,kj->ik", coords, rot_matrix) + centroid
