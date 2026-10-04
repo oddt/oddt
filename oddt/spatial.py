@@ -48,17 +48,23 @@ def angle_2v(v1, v2):
 
     Parameters
     ----------
-    v1,v2 : numpy arrays, shape = [n_vectors, n_dimensions]
-        Pairs of vectors in n-dimensional space, aligned in rows.
+    v1,v2 : numpy arrays, shape = [..., n_dimensions]
+        Pairs of vectors in n-dimensional space. Leading dimensions are
+        broadcast together.
 
     Returns
     -------
-    angles : numpy array, shape = [n_vectors]
+    angles : numpy array, shape = [...]
         Series of angles in degrees
     """
-    # better than np.dot(v1, v2), multiple vectors can be applied
-    dot = (v1 * v2).sum(axis=-1)
-    norm = np.linalg.norm(v1, axis=-1) * np.linalg.norm(v2, axis=-1)
+    if v1.dtype.kind == v2.dtype.kind == "f" and v1.dtype.itemsize >= 4 and v2.dtype.itemsize >= 4:
+        dot = np.einsum("...i,...i->...", v1, v2)
+        norm1 = np.sqrt(np.einsum("...i,...i->...", v1, v1))
+        norm2 = np.sqrt(np.einsum("...i,...i->...", v2, v2))
+        norm = norm1 * norm2
+    else:
+        dot = (v1 * v2).sum(axis=-1)
+        norm = np.linalg.norm(v1, axis=-1) * np.linalg.norm(v2, axis=-1)
     return np.degrees(np.arccos(np.clip(dot / norm, -1, 1)))
 
 
