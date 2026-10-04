@@ -8,6 +8,7 @@ from numpy.testing import assert_array_equal, assert_array_almost_equal
 import pandas as pd
 
 import oddt
+from oddt.docking.AutodockVina import vina_python
 from oddt.utils import method_caller
 from oddt.spatial import rmsd
 from oddt.scoring import scorer
@@ -23,7 +24,7 @@ xiap_protein = os.path.join(dude_data_dir, "receptor_rdkit.pdb")
 xiap_actives_docked = os.path.join(dude_data_dir, "actives_docked.sdf")
 
 
-@pytest.mark.skipif(find_executable("vina") is None, reason="Autodock Vina binary missing")
+@pytest.mark.skipif(vina_python is None and find_executable("vina") is None, reason="Autodock Vina unavailable")
 def test_vs_scoring_vina():
     """VS scoring (Vina) tests"""
     vs = virtualscreening(n_cpu=1)
@@ -38,16 +39,16 @@ def test_vs_scoring_vina():
     assert "vina_hydrogen" in mol_data
     assert "vina_hydrophobic" in mol_data
     assert "vina_repulsion" in mol_data
-    assert mol_data["vina_affinity"] == "-3.57594"
-    assert mol_data["vina_gauss1"] == "63.01213"
-    assert mol_data["vina_gauss2"] == "999.07625"
-    assert mol_data["vina_hydrogen"] == "0.0"
-    assert mol_data["vina_hydrophobic"] == "26.12648"
-    assert mol_data["vina_repulsion"] == "3.63178"
+    assert_array_almost_equal(float(mol_data["vina_affinity"]), -3.57594, decimal=3)
+    assert_array_almost_equal(
+        [float(mol_data["vina_" + term]) for term in ("gauss1", "gauss2", "hydrogen", "hydrophobic", "repulsion")],
+        [63.01213, 999.07625, 0.0, 26.12648, 3.63178],
+        decimal=4,
+    )
 
 
 @pytest.mark.xfail(reason="flaky test due to varying docking results")
-@pytest.mark.skipif(find_executable("vina") is None, reason="Autodock Vina binary missing")
+@pytest.mark.skipif(vina_python is None and find_executable("vina") is None, reason="Autodock Vina unavailable")
 def test_vs_docking():
     """VS docking (Vina) tests"""
     vs = virtualscreening(n_cpu=1)
@@ -75,9 +76,9 @@ def test_vs_docking():
     assert "vina_rmsd_ub" in mol_data
 
     if oddt.toolkit.backend == "ob":
-        vina_scores = [-6.3, -6. , -5.8, -5.8, -3.9, -3. , -1.1]
+        vina_scores = [-6.3, -6.0, -5.8, -5.8, -3.9, -3.0, -1.1]
     else:
-        vina_scores = [-6.3, -6.1, -5.7, -3.8, -2.9, -1. , -1. ]
+        vina_scores = [-6.3, -6.1, -5.7, -3.8, -2.9, -1.0, -1.0]
     assert_array_equal([float(m.data["vina_affinity"]) for m in mols], vina_scores)
 
     # verify the SMILES of molecules
@@ -88,7 +89,7 @@ def test_vs_docking():
         # OB 2.4 recognizes the smiles chirality wrong
         pass
     else:
-        vina_rmsd = [8.26206 , 5.292223, 8.510169, 9.060128, 8.995098, 8.626776, 7.923956]
+        vina_rmsd = [8.26206, 5.292223, 8.510169, 9.060128, 8.995098, 8.626776, 7.923956]
         assert_array_equal([mol.smiles for mol in mols], [ref_mol.smiles] * len(mols))
 
         assert_array_almost_equal([rmsd(ref_mol, mol, method="min_symmetry") for mol in mols], vina_rmsd)
@@ -100,7 +101,7 @@ def test_vs_empty():
         vs.fetch()
 
 
-@pytest.mark.skipif(find_executable("vina") is None, reason="Autodock Vina binary missing")
+@pytest.mark.skipif(vina_python is None and find_executable("vina") is None, reason="Autodock Vina unavailable")
 def test_vs_docking_empty():
     vs = virtualscreening(n_cpu=1)
     vs.load_ligands("smi", os.path.join(dude_data_dir, "actives_rdkit.smi"))
@@ -120,7 +121,7 @@ def test_vs_docking_empty():
         next(vs.fetch())
 
 
-@pytest.mark.skipif(find_executable("vina") is None, reason="Autodock Vina binary missing")
+@pytest.mark.skipif(vina_python is None and find_executable("vina") is None, reason="Autodock Vina unavailable")
 def test_vs_multithreading_fallback():
     vs = virtualscreening(n_cpu=8)
     vs.load_ligands("sdf", xiap_crystal_ligand)

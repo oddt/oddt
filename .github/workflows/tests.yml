@@ -11,15 +11,20 @@ permissions:
 
 jobs:
   test:
-    name: Python ${{ matrix.python-version }} (${{ matrix.toolkit }})
+    name: Python ${{ matrix.python-version }} (${{ matrix.toolkit }}, Vina ${{ matrix.vina }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.9", "3.12"]
         toolkit: [rdk, ob]
+        vina: ["latest", "1.1.2"]
+        exclude:
+          - python-version: "3.9"
+            vina: "latest"
     env:
       ODDT_TOOLKIT: ${{ matrix.toolkit }}
+      VINA_VERSION: ${{ matrix.vina }}
     defaults:
       run:
         shell: bash -el {0}
@@ -45,9 +50,22 @@ jobs:
 
       - name: Install package and test dependencies
         run: |
-          conda install --yes --override-channels --channel conda-forge --channel bioconda \
-            pip setuptools wheel pytest-cov autodock-vina=1.1.2
+          conda install --yes --override-channels --channel conda-forge \
+            pip setuptools wheel pytest-cov
           python -m pip install --no-build-isolation --no-deps .
+
+      - name: Install Vina
+        run: |
+          if [[ "$VINA_VERSION" == "1.1.2" ]]; then
+            if [[ "${{ matrix.python-version }}" == "3.12" ]]; then
+              conda remove --yes vina
+            fi
+            conda install --yes --override-channels \
+              --channel conda-forge --channel bioconda autodock-vina=1.1.2
+            vina --version
+          else
+            python -c "import vina; print('Vina Python API', vina.__version__)"
+          fi
 
       - name: Run pytest
         run: python -m pytest --cov=oddt -n 2 -v --durations=10 tests/
