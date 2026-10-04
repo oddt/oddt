@@ -1,6 +1,5 @@
 """ODDT pipeline framework for virtual screening"""
 
-from __future__ import print_function
 import sys
 import csv
 from os.path import dirname, isfile, join
@@ -9,13 +8,10 @@ from itertools import chain
 from functools import partial
 import warnings
 
-import six
-from six.moves import filter
-
 # from joblib import Parallel, delayed
 
 import oddt
-from oddt.utils import is_molecule, compose_iter, chunker, method_caller
+from oddt.utils import is_molecule, compose_iter, chunker
 from oddt.scoring import scorer
 from oddt.fingerprints import InteractionFingerprint, SimpleInteractionFingerprint, dice
 from oddt.shape import usr, usr_cat, electroshape, usr_similarity
@@ -27,7 +23,7 @@ def _filter_smarts(mols, smarts, soft_fail=0):
     """
     out = []
     for mol in mols:
-        if isinstance(smarts, six.string_types):
+        if isinstance(smarts, str):
             compiled_smarts = oddt.toolkit.Smarts(smarts)
             if len(compiled_smarts.findall(mol)) == 0:
                 out.append(mol)
@@ -249,7 +245,7 @@ class virtualscreening:
             engine = autodock_vina(protein, *args, **kwargs)
         else:
             raise ValueError("Docking engine %s was not implemented in ODDT" % engine)
-        self._pipe.append(partial(method_caller, engine, "dock"))
+        self._pipe.append(engine.dock)
 
     def score(self, function, protein=None, *args, **kwargs):
         """Scoring procedure compatible with any scoring function implemented
@@ -268,7 +264,7 @@ class virtualscreening:
         -----
         Additional parameters are passed directly to the scoring function.
         """
-        if isinstance(protein, six.string_types):
+        if isinstance(protein, str):
             extension = protein.split(".")[-1]
             protein = next(oddt.toolkit.readfile(extension, protein))
             protein.protein = True
@@ -277,7 +273,7 @@ class virtualscreening:
         # trigger cache
         protein.atom_dict
 
-        if isinstance(function, six.string_types):
+        if isinstance(function, str):
             if isfile(function):
                 sf = scorer.load(function)
                 sf.set_protein(protein)
@@ -331,7 +327,7 @@ class virtualscreening:
                 sf.set_protein(protein)
             else:
                 raise ValueError('Supplied object "%s" is not an ODDT scoring ' "funtion" % function.__name__)
-        self._pipe.append(partial(method_caller, sf, "predict_ligands"))
+        self._pipe.append(sf.predict_ligands)
 
     def fetch(self):
         """A method to exhaust the pipeline. Itself it is lazy (a generator)"""

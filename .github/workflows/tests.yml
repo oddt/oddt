@@ -16,12 +16,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.9", "3.12"]
+        python-version: ["3.12", "3.14"]
         toolkit: [rdk, ob]
         vina: ["latest", "1.1.2"]
-        exclude:
-          - python-version: "3.9"
-            vina: "latest"
     env:
       ODDT_TOOLKIT: ${{ matrix.toolkit }}
       VINA_VERSION: ${{ matrix.vina }}
@@ -42,11 +39,12 @@ jobs:
           channel-priority: strict
           auto-activate-base: false
 
-      - name: Install Python 3.9 compatibility dependencies
-        if: matrix.python-version == '3.9'
+      - name: Install Python 3.14 dependencies
+        if: matrix.python-version == '3.14'
         run: |
-          conda install --yes --override-channels --channel conda-forge --file requirements.txt \
-            scikit-image xlsxwriter 'rdkit>=2025.03.5' openbabel=3.1.1 pytest pytest-xdist black
+          conda install --yes --override-channels --channel conda-forge \
+            scikit-image xlsxwriter 'rdkit>=2026.03.1' 'openbabel>=3.2.1' 'vina>=1.2.7' \
+            pytest pytest-xdist black --file requirements.txt
 
       - name: Install package and test dependencies
         run: |
@@ -57,9 +55,7 @@ jobs:
       - name: Install Vina
         run: |
           if [[ "$VINA_VERSION" == "1.1.2" ]]; then
-            if [[ "${{ matrix.python-version }}" == "3.12" ]]; then
-              conda remove --yes vina
-            fi
+            conda remove --yes vina
             conda install --yes --override-channels \
               --channel conda-forge --channel bioconda autodock-vina=1.1.2
             vina --version

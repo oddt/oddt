@@ -1,9 +1,7 @@
 """Datasets wrapped in convenient models"""
 
-from __future__ import print_function
 import sys
 import os
-import six
 import pandas as pd
 from os.path import isfile, isdir
 from os import listdir
@@ -108,7 +106,7 @@ class pdbbind(object):
             if os.path.isfile(csv_file):
                 data = pd.read_csv(
                     csv_file,
-                    sep="\s+",
+                    sep=r"\s+",
                     usecols=[0, 1, 2, 3],
                     names=["pdbid", "resolution", "release_year", "act"],
                     comment="#",
@@ -545,7 +543,7 @@ class _CASFTarget:
         """Load target protein from mol2 file as ob.Molecule object"""
         filepath = "%s/coreset/%s/%s_protein.mol2" % (self.home, self.pdbid, self.pdbid)
         if isfile(filepath):
-            protein = six.next(toolkit.readfile("mol2", filepath))
+            protein = next(toolkit.readfile("mol2", filepath))
             return protein
         return None
 
@@ -554,7 +552,7 @@ class _CASFTarget:
         """Load target ligand from mol2 file as ob.Molecule object"""
         filepath = "%s/coreset/%s/%s_ligand.mol2" % (self.home, self.pdbid, self.pdbid)
         if isfile(filepath):
-            ligand = six.next(toolkit.readfile("mol2", filepath))
+            ligand = next(toolkit.readfile("mol2", filepath))
             return ligand
         return None
 
@@ -576,6 +574,6 @@ class _CASFTarget:
         if isdir(dirpath):
             decoys = []
             for file in listdir(dirpath):
-                decoys.append(six.next(toolkit.readfile("mol2", dirpath + "/" + file)))
+                decoys.append(next(toolkit.readfile("mol2", dirpath + "/" + file)))
             return decoys
         return None

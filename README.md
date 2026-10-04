@@ -15,7 +15,7 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   * Issues: https://github.com/oddt/oddt/issues
 
 ## Requirements
-  * Python 3.6+
+  * Python 3.12+
   * OpenBabel (3.0+) or/and RDKit (2018.03+)
   * Numpy (1.13+)
   * Scipy (0.19+)
@@ -25,11 +25,9 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
   * packaging (20+)
   * Skimage (0.12.3+) (optional, only for surface generation)
 
-CI tests Python 3.9 and 3.12 with both chemistry backends. The Python 3.12
-development environment uses RDKit 2026.03.1+ and Open Babel 3.2.1+. Python 3.9
-uses RDKit 2025.03.5 and Open Babel 3.1.1, since newer Open Babel conda builds
-require Python 3.10 or later. Other Python versions retain the declared
-compatibility range but are not in the current CI matrix.
+CI tests Python 3.12 and 3.14 with both chemistry backends, using RDKit
+2026.03.1+ and Open Babel 3.2.1+. Python 3.14 is the latest supported version;
+Python 3.13 is supported but is not in the current CI matrix.
 
 ## Install
 
@@ -81,8 +79,7 @@ there is no separate tool environment or additional library search path.
 Vina 1.1.2 remains supported through its command-line executable. If both the
 Python package and a legacy binary are available, pass the legacy binary's path
 as `executable` to select it explicitly. CI installs the selected Vina version
-in the ODDT environment: Python 3.12 tests both interfaces, while Python 3.9
-tests 1.1.2 because conda-forge's latest Python bindings require Python 3.10+.
+in the ODDT environment: Python 3.12 and 3.14 test both interfaces.
 Native tests are skipped only when neither the Python package nor an executable
 is available.
 

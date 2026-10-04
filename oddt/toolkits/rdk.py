@@ -19,14 +19,13 @@ Global variables:
   forcefields - a list of supported forcefields
 """
 
-from __future__ import print_function
 import os
 import gzip
 from base64 import b64encode
+from io import BytesIO
 from itertools import combinations
 import warnings
 
-from six import BytesIO, PY3
 import numpy as np
 from sklearn.utils.deprecation import deprecated
 
@@ -670,7 +669,7 @@ class Molecule(object):
             ("radius", np.float32),
             ("charge", np.float32),
             ("atomicnum", np.int8),
-            ("atomtype", "U5" if PY3 else "a5"),
+            ("atomtype", "U5"),
             ("hybridization", np.int8),
             ("numhs", np.uint8),
             ("formalcharge", np.int8),
@@ -679,7 +678,7 @@ class Molecule(object):
             # residue info
             ("resid", np.int16),
             ("resnum", np.int16),
-            ("resname", "U3" if PY3 else "a3"),
+            ("resname", "U3"),
             ("isbackbone", bool),
             # atom properties
             ("isacceptor", bool),
@@ -905,7 +904,7 @@ class Molecule(object):
             res_dtype = [
                 ("id", np.int16),
                 ("resnum", np.int16),
-                ("resname", "U3" if PY3 else "a3"),
+                ("resname", "U3"),
                 ("N", np.float32, 3),
                 ("CA", np.float32, 3),
                 ("C", np.float32, 3),
@@ -976,7 +975,7 @@ class Molecule(object):
                 ("vector", np.float32, 3),
                 ("resid", np.int16),
                 ("resnum", np.int16),
-                ("resname", "U3" if PY3 else "a3"),
+                ("resname", "U3"),
                 ("isalpha", bool),
                 ("isbeta", bool),
             ],

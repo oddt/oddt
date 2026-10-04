@@ -1,4 +1,6 @@
 ### Development version (Git)
+* Require Python 3.12 or newer and test Python 3.14 in GitHub Actions
+* Remove legacy Python compatibility shims and the six dependency
 
 ### Version 0.8 (2021-12-05)
 * Multiple bugfixes in oddt.interactions module

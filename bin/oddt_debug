@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-from __future__ import print_function
 import sys
 import argparse
 import csv
 import gzip
-
-import six
 
 import oddt
 
@@ -60,7 +57,7 @@ if "toolkit" in args:
 # load protein once
 if args.receptor:
     extension = args.receptor.split(".")[-1]
-    receptor = six.next(oddt.toolkit.readfile(extension, args.receptor))
+    receptor = next(oddt.toolkit.readfile(extension, args.receptor))
     receptor.protein = True
 
 # Load descriptor genearator

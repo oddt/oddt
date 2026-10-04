@@ -52,8 +52,8 @@ def test_check_molecule():
     mol.make3D()
     check_molecule(mol, force_coords=True)
 
-    # with pytest.raises(ValueError, match='positional'):
-    #     check_molecule(mol, True)
+    with pytest.raises(TypeError):
+        check_molecule(mol, True)
 
     mol = oddt.toolkit.readstring(
         "sdf",

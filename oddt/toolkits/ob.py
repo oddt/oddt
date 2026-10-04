@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 # All functions using f2py need to be loaded before pybel/openbabel,
 # otherwise it will segfault.
 # See BUG report: https://github.com/numpy/numpy/issues/1746
@@ -13,7 +11,6 @@ import logging
 
 import gzip
 from base64 import b64encode
-from six import PY3, text_type
 
 import numpy as np
 from sklearn.utils.deprecation import deprecated
@@ -342,7 +339,7 @@ class Molecule(pybel.Molecule):
             )
         if image_backend == "png":
             string = self.clone.write("png", opt={"d": None, "t": None}, size=size)
-            if PY3 and isinstance(string, text_type):
+            if isinstance(string, str):
                 string = string.encode("utf-8", errors="surrogateescape")
             return string
         else:
@@ -405,7 +402,7 @@ class Molecule(pybel.Molecule):
             ("radius", np.float32),
             ("charge", np.float32),
             ("atomicnum", np.int8),
-            ("atomtype", "U5" if PY3 else "a5"),
+            ("atomtype", "U5"),
             ("hybridization", np.int8),
             ("numhs", np.uint8),
             ("formalcharge", np.int8),
@@ -414,7 +411,7 @@ class Molecule(pybel.Molecule):
             # residue info
             ("resid", np.int16),
             ("resnum", np.int16),
-            ("resname", "U3" if PY3 else "a3"),
+            ("resname", "U3"),
             ("isbackbone", bool),
             # atom properties
             ("isacceptor", bool),
@@ -637,7 +634,7 @@ class Molecule(pybel.Molecule):
             res_dtype = [
                 ("id", np.int16),
                 ("resnum", np.int16),
-                ("resname", "U3" if PY3 else "a3"),
+                ("resname", "U3"),
                 ("N", np.float32, 3),
                 ("CA", np.float32, 3),
                 ("C", np.float32, 3),
@@ -712,7 +709,7 @@ class Molecule(pybel.Molecule):
                 ("vector", np.float32, 3),
                 ("resid", np.int16),
                 ("resnum", np.int16),
-                ("resname", "U3" if PY3 else "a3"),
+                ("resname", "U3"),
                 ("isalpha", bool),
                 ("isbeta", bool),
             ],
