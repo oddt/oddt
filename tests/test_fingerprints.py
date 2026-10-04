@@ -1,5 +1,6 @@
 import os
 from itertools import combinations
+from types import SimpleNamespace
 
 import numpy as np
 from scipy.sparse import vstack as sparse_vstack
@@ -39,6 +40,26 @@ protein.addh(only_polar=True)
 
 ligand = next(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data/pdbbind/10gs/10gs_ligand.sdf")))
 ligand.addh(only_polar=True)
+
+
+@pytest.fixture
+def isolated_ifp_interactions(monkeypatch):
+    empty_atoms = protein.atom_dict[:0].copy()
+    empty_rings = protein.ring_dict[:0].copy()
+    empty_strict = np.zeros(0, dtype=bool)
+    monkeypatch.setattr("oddt.fingerprints.hydrophobic_contacts", lambda *_molecules: (empty_atoms, empty_atoms))
+    monkeypatch.setattr(
+        "oddt.fingerprints.pi_stacking",
+        lambda *_molecules: (empty_rings, empty_rings, empty_strict, empty_strict),
+    )
+    monkeypatch.setattr(
+        "oddt.fingerprints.hbond_acceptor_donor",
+        lambda *_molecules: (empty_atoms, empty_atoms, empty_strict),
+    )
+    monkeypatch.setattr("oddt.fingerprints.salt_bridge_plus_minus", lambda *_molecules: (empty_atoms, empty_atoms))
+    monkeypatch.setattr(
+        "oddt.fingerprints.acceptor_metal", lambda *_molecules: (empty_atoms, empty_atoms, empty_strict)
+    )
 
 
 def test_folding():
@@ -155,6 +176,112 @@ def test_sparse_densify():
     # test exceptions
     with pytest.raises(ValueError):
         csr_matrix_to_sparse(np.array([1, 2, 3]))
+
+
+@pytest.mark.parametrize("fingerprint", [InteractionFingerprint, SimpleInteractionFingerprint])
+@pytest.mark.parametrize("strict", [False, True])
+@pytest.mark.parametrize("contact_strict", [False, True])
+def test_ifp_protein_metal(fingerprint, strict, contact_strict, isolated_ifp_interactions, monkeypatch):
+    atom_dtype = [("resid", int), ("resname", "<U3")]
+    test_protein = SimpleNamespace(atom_dict=np.array([(17, "ASP"), (23, "ZN")], dtype=atom_dtype))
+    test_ligand = SimpleNamespace(atom_dict=np.array([(999, "UNK")], dtype=atom_dtype))
+
+    def metal_contacts(acceptors, metals):
+        assert acceptors is test_ligand
+        assert metals is test_protein
+        return test_ligand.atom_dict, test_protein.atom_dict[1:], np.array([contact_strict])
+
+    monkeypatch.setattr("oddt.fingerprints.acceptor_metal", metal_contacts)
+    result = fingerprint(test_ligand, test_protein, strict=strict).reshape(-1, 8)
+    metal_row = 1 if fingerprint is InteractionFingerprint else 0
+    expected_count = int(not strict or contact_strict)
+    assert result[metal_row, 7] == expected_count
+    assert result.sum() == expected_count
+
+
+@pytest.mark.parametrize("resname", ["FAD", "HEM", "ZZZ"])
+@pytest.mark.parametrize("column", [1, 2])
+def test_sifp_aromatic_cofactors(resname, column, isolated_ifp_interactions, monkeypatch):
+    rings = np.array([(resname,), ("PHE",), ("TRP",)], dtype=[("resname", "<U3")])
+    original_rings = rings.copy()
+    selected = np.array([True, True, False])
+    unselected = np.zeros(3, dtype=bool)
+    parallel, perpendicular = (selected, unselected) if column == 1 else (unselected, selected)
+    monkeypatch.setattr("oddt.fingerprints.pi_stacking", lambda *_molecules: (rings, rings, parallel, perpendicular))
+    result = SimpleInteractionFingerprint(ligand, protein).reshape(21, 8)
+    expected = np.zeros((21, 8), dtype=np.uint8)
+    expected[0, column] = 1
+    expected[14, column] = 1
+    assert_array_equal(result, expected)
+    assert_array_equal(rings, original_rings)
+
+
+@pytest.mark.parametrize("converter", [sparse_to_dense, sparse_to_csr_matrix])
+@pytest.mark.parametrize("count", [0, 1, 255, 256, 65535, 65536])
+@pytest.mark.parametrize("count_bits", [False, True])
+def test_fingerprint_conversion_count_capacity(converter, count, count_bits):
+    indices = np.repeat([0, 2], count)
+    converted = converter(indices, size=4, count_bits=count_bits)
+    if converter is sparse_to_csr_matrix:
+        result = converted.toarray()[0]
+        roundtrip = csr_matrix_to_sparse(converted)
+    else:
+        result = converted
+        roundtrip = dense_to_sparse(converted)
+    expected_count = count if count_bits else bool(count)
+    expected_dtype = np.min_scalar_type(count) if count_bits else np.dtype(bool)
+    assert converted.dtype == expected_dtype
+    assert_array_equal(result, [expected_count, 0, expected_count, 0])
+    assert_array_equal(roundtrip, indices if count_bits else np.unique(indices))
+
+
+@pytest.mark.parametrize("converter", [sparse_to_dense, sparse_to_csr_matrix])
+def test_fingerprint_conversion_requires_vector(converter):
+    with pytest.raises(ValueError, match="vector"):
+        converter([[0, 1]], size=4)
+
+
+@pytest.mark.parametrize("fingerprint", [InteractionFingerprint, SimpleInteractionFingerprint])
+@pytest.mark.parametrize("count", [255, 256])
+def test_ifp_count_capacity(fingerprint, count, isolated_ifp_interactions, monkeypatch):
+    atoms = np.array([(17, "ALA")] * count, dtype=[("resid", int), ("resname", "<U3")])
+    test_protein = SimpleNamespace(atom_dict=atoms[:1])
+    monkeypatch.setattr("oddt.fingerprints.hydrophobic_contacts", lambda *_molecules: (atoms, atoms))
+    result = fingerprint(ligand, test_protein).reshape(-1, 8)
+    residue_row = 0 if fingerprint is InteractionFingerprint else 1
+    assert result[residue_row, 0] == count
+    assert result.sum() == count
+    assert result.dtype == np.min_scalar_type(count)
+
+
+@pytest.mark.parametrize("fingerprint", [ECFP, PLEC])
+@pytest.mark.parametrize("count_bits", [False, True])
+def test_dense_fingerprint_count_bits(fingerprint, count_bits):
+    molecules = (ligand,) if fingerprint is ECFP else (ligand, protein)
+    sparse = fingerprint(*molecules, size=64, count_bits=count_bits)
+    dense = fingerprint(*molecules, size=64, count_bits=count_bits, sparse=False)
+    expected = sparse_to_dense(sparse, size=64, count_bits=count_bits)
+    assert_array_equal(dense, expected)
+    assert dense.dtype == expected.dtype
+    if not count_bits:
+        assert dense.dtype == bool
+
+
+def test_ecfp_large_counts():
+    molecule = oddt.toolkit.readstring("smi", "C" * 128)
+    sparse = ECFP(molecule, depth=1, size=2)
+    dense = ECFP(molecule, depth=1, size=2, sparse=False)
+    assert len(sparse) == 256
+    assert_array_equal(dense, [256, 0])
+    assert dice(sparse, sparse, sparse=True) == dice(dense, dense) == 1.0
+
+
+def test_plec_large_counts():
+    sparse = PLEC(ligand, protein, size=2)
+    dense = PLEC(ligand, protein, size=2, sparse=False)
+    assert len(sparse) > 255
+    assert_array_equal(dense, [len(sparse), 0])
+    assert_array_equal(dense_to_sparse(dense), sparse)
 
 
 def test_InteractionFingerprint():
@@ -2273,6 +2400,78 @@ def test_splif():
     assert_array_equal(reference, splif["hash"])
 
 
+@pytest.fixture
+def make_splif():
+    def make_fingerprint(hashes, num_points=7):
+        fingerprint = np.zeros(
+            len(hashes),
+            dtype=[("hash", np.int64), ("ligand_coords", np.float32, (7, 3)), ("protein_coords", np.float32, (7, 3))],
+        )
+        fingerprint["hash"] = hashes
+        fingerprint["ligand_coords"] = np.nan
+        fingerprint["protein_coords"] = np.nan
+        points = np.arange(num_points)[:, np.newaxis] * np.array([0, 1, 0])
+        offsets = np.arange(len(hashes))[:, np.newaxis, np.newaxis] * np.array([10, 0, 0])
+        fingerprint["ligand_coords"][:, :num_points] = offsets + points
+        fingerprint["protein_coords"][:, :num_points] = offsets + points + np.array([0, 0, 3])
+        return fingerprint
+
+    return make_fingerprint
+
+
+@pytest.mark.parametrize(
+    "reference_hashes, query_hashes, expected",
+    [
+        ([1], [1], 1.0),
+        ([1], [1, 2], 0.5),
+        ([1, 2], [1, 3], 1 / 3),
+        ([1], [2], 0.0),
+        ([], [1], 0.0),
+        ([1], [], 0.0),
+        ([], [], 0.0),
+    ],
+)
+def test_similarity_splif_unmatched_contacts(make_splif, reference_hashes, query_hashes, expected):
+    reference = make_splif(reference_hashes)
+    query = make_splif(query_hashes)
+    assert similarity_SPLIF(reference, query) == pytest.approx(expected)
+    assert similarity_SPLIF(query, reference) == pytest.approx(expected)
+
+
+@pytest.mark.parametrize("num_points", [1, 2, 3, 7])
+@pytest.mark.parametrize("displacement, expected", [(0.8, 1.0), (1.0, 0.0), (1.2, 0.0)])
+def test_similarity_splif_rmsd_cutoff(make_splif, num_points, displacement, expected):
+    reference = make_splif([1], num_points=num_points)
+    query = reference.copy()
+    query["ligand_coords"][:, :, 0] += displacement
+    query["protein_coords"][:, :, 0] += displacement
+    assert similarity_SPLIF(reference, query, rmsd_cutoff=1.0) == expected
+    assert similarity_SPLIF(query, reference, rmsd_cutoff=1.0) == expected
+
+
+@pytest.mark.parametrize("displacement, expected", [(2.0, 1.0), (3.0, 0.0)])
+def test_similarity_splif_partial_displacement(make_splif, displacement, expected):
+    reference = make_splif([1])
+    query = reference.copy()
+    query["ligand_coords"][:, 0, 0] += displacement
+    query["protein_coords"][:, 0, 0] += displacement
+    assert similarity_SPLIF(reference, query) == expected
+
+
+def test_similarity_splif_missing_coordinates(make_splif):
+    reference = make_splif([1], num_points=0)
+    with np.errstate(all="raise"):
+        assert similarity_SPLIF(reference, reference) == 0.0
+
+
+def test_similarity_splif_repeated_hashes(make_splif):
+    reference = make_splif([1, 1, 2])
+    query = reference[[0, 2]]
+    assert similarity_SPLIF(reference, reference) == 1.0
+    assert similarity_SPLIF(reference, query) == pytest.approx(2 / 3)
+    assert similarity_SPLIF(query, reference) == pytest.approx(2 / 3)
+
+
 def test_splif_similarity():
     """SPLIF similarity"""
     mols = list(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data/dude/xiap/actives_docked.sdf")))
@@ -2287,29 +2486,29 @@ def test_splif_similarity():
     target_outcome = np.array(
         [
             1.000,
-            0.779,
-            0.660,
-            0.805,
-            0.630,
-            0.802,
-            0.366,
-            0.817,
-            0.378,
-            0.553,
-            0.732,
-            0.705,
-            0.856,
-            0.797,
-            0.502,
-            0.418,
-            0.653,
-            0.436,
-            0.708,
-            0.688,
+            0.660429,
+            0.479214,
+            0.674088,
+            0.457190,
+            0.659799,
+            0.196533,
+            0.708051,
+            0.269563,
+            0.385044,
+            0.437718,
+            0.474030,
+            0.631301,
+            0.547010,
+            0.367659,
+            0.291770,
+            0.416479,
+            0.241315,
+            0.388609,
+            0.474555,
         ]
     )
 
-    assert_array_almost_equal(outcome, target_outcome, decimal=3)
+    assert_array_almost_equal(outcome, target_outcome, decimal=6)
 
     # check if similarity is symmetric
     for fp1, fp2 in combinations(splif_fps, 2):
@@ -3253,6 +3452,23 @@ def test_plec_similarity():
     outcome_dense = [dice(reference_dense, PLEC(mol, receptor, sparse=False), sparse=False) for mol in mols[1:]]
     assert_array_almost_equal(outcome_sparse, target_outcome, decimal=2)
     assert_array_almost_equal(outcome_dense, target_outcome, decimal=2)
+
+
+@pytest.mark.parametrize("atom_idxs", [[], [0], [0, 1], [2, 0]])
+@pytest.mark.parametrize("container", [list, tuple, np.array, iter])
+def test_molecular_shingle_selection(atom_idxs, container):
+    molecule = oddt.toolkit.readstring("smi", "CC(=O)O")
+    all_shingles = get_molecular_shingles(molecule, depth=1)
+    selected = get_molecular_shingles(molecule, depth=1, atom_idxs=container(atom_idxs))
+    assert selected == [all_shingles[atom_idx] for atom_idx in atom_idxs]
+
+
+def test_molecular_shingles_default_selection():
+    molecule = oddt.toolkit.readstring("smi", "CC(=O)O")
+    default = get_molecular_shingles(molecule, depth=1, atom_idxs=None)
+    explicit = get_molecular_shingles(molecule, depth=1, atom_idxs=range(len(molecule.atoms)))
+    assert default == explicit
+    assert len(default) == len(molecule.atoms)
 
 
 def test_molecular_shingles():
