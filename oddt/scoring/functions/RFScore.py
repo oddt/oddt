@@ -18,7 +18,6 @@ from oddt.scoring import scorer, ensemble_descriptor
 from oddt.scoring.models.regressors import randomforest
 from oddt.scoring.descriptors import close_contacts_descriptor, oddt_vina_descriptor
 
-
 # numpy after pickling gives Runtime Warnings
 warnings.simplefilter("ignore", RuntimeWarning)
 

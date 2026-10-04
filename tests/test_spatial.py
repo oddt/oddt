@@ -1,13 +1,14 @@
 import os
+from types import SimpleNamespace
 
 import pytest
 from numpy.testing import assert_almost_equal, assert_array_equal, assert_array_almost_equal
 import numpy as np
+from scipy.spatial.transform import Rotation
 
 import oddt
-from oddt.spatial import angle, dihedral, rmsd, distance, rotate
+from oddt.spatial import angle, angle_2v, dihedral, rmsd, distance, distance_complex, rotate
 from .utils import shuffle_mol
-
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
 
@@ -46,6 +47,83 @@ M  END
 """
 
 
+def _reference_angle_2v(first, second):
+    dot = (first * second).sum(axis=-1)
+    norm = np.linalg.norm(first, axis=-1) * np.linalg.norm(second, axis=-1)
+    return np.degrees(np.arccos(np.clip(dot / norm, -1, 1)))
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize(
+    "first_shape,second_shape",
+    [
+        ((3,), (3,)),
+        ((12, 3), (12, 3)),
+        ((12, 1, 3), (12, 6, 3)),
+        ((1, 6, 3), (12, 6, 3)),
+        ((0, 1, 3), (0, 6, 3)),
+        ((6,), (12, 1, 6)),
+    ],
+)
+def test_angle_2v_broadcasting(dtype, first_shape, second_shape):
+    rng = np.random.default_rng(42)
+    first = rng.normal(size=first_shape).astype(dtype)
+    second = rng.normal(size=second_shape).astype(dtype)
+    expected = _reference_angle_2v(first, second)
+    actual = angle_2v(first, second)
+    assert actual.shape == expected.shape
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-5)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_angle_2v_noncontiguous(dtype):
+    rng = np.random.default_rng(42)
+    vectors = np.zeros(12, dtype=[("vectors", dtype, (6, 3)), ("padding", np.uint8, 11)])
+    vectors["vectors"] = rng.normal(size=(12, 6, 3))
+    first = vectors["vectors"][:, :1, :]
+    second = vectors["vectors"][:, ::-1, :]
+    assert not first.flags.c_contiguous
+    assert not second.flags.c_contiguous
+    np.testing.assert_allclose(angle_2v(first, second), _reference_angle_2v(first, second), rtol=2e-6, atol=2e-5)
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_angle_2v_degenerate_vectors(dtype):
+    first = np.array([1, 0, 0], dtype=dtype)
+    second = np.array([[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, 0, 0], [np.nan, 0, 0]], dtype=dtype)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        actual = angle_2v(first, second)
+    np.testing.assert_allclose(actual, [0, 180, 90, np.nan, np.nan], equal_nan=True)
+
+
+@pytest.mark.parametrize(
+    "first_dtype,second_dtype",
+    [(np.float16, np.float16), (np.float16, np.float32), (np.float32, np.float16)],
+)
+def test_angle_2v_float16_inputs(first_dtype, second_dtype):
+    rng = np.random.default_rng(42)
+    first = rng.normal(size=(256, 1, 3)).astype(first_dtype)
+    second = rng.normal(size=(256, 6, 3)).astype(second_dtype)
+    expected = _reference_angle_2v(first, second)
+    actual = angle_2v(first, second)
+    assert actual.dtype == expected.dtype
+    assert_array_equal(actual, expected)
+
+
+@pytest.mark.parametrize(
+    "first_dtype,second_dtype",
+    [(np.int8, np.int8), (np.uint8, np.uint8), (np.int64, np.int64), (bool, bool), (np.int8, np.float32)],
+)
+def test_angle_2v_nonfloating_inputs(first_dtype, second_dtype):
+    first = np.array([[120, 120, 120], [1, 0, 0]], dtype=first_dtype)
+    second = np.array([[120, 120, 120], [0, 1, 0]], dtype=second_dtype)
+    expected = _reference_angle_2v(first, second)
+    actual = angle_2v(first, second)
+    assert actual.dtype == expected.dtype
+    assert_array_equal(actual, expected)
+
+
 def test_angles():
     """Test spatial computations - angles"""
 
@@ -77,6 +155,24 @@ def test_dihedral():
     assert abs(dihedral(*mol.coords[:4])) < 2.0
 
 
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.int32])
+@pytest.mark.parametrize("count", [1, 12])
+def test_dihedral_einsum(dtype, count):
+    rng = np.random.default_rng(42)
+    points = rng.uniform(-10, 10, (4, count, 3)).astype(dtype)[:, ::-1, :]
+    first = (points[0] - points[1]) / np.linalg.norm(points[0] - points[1])
+    second = (points[1] - points[2]) / np.linalg.norm(points[1] - points[2])
+    third = (points[2] - points[3]) / np.linalg.norm(points[2] - points[3])
+    normal_first = np.cross(first, second)
+    normal_second = np.cross(second, third)
+    expected = _reference_angle_2v(normal_first, normal_second)
+    signed = ((normal_first / np.linalg.norm(normal_first)) * third).sum(axis=-1) > 0
+    expected[signed] = -expected[signed]
+    actual = dihedral(*points)
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-5)
+
+
 def test_distance():
     mol1 = oddt.toolkit.readstring("sdf", ASPIRIN_SDF)
     d = distance(mol1.coords, mol1.coords)
@@ -104,6 +200,41 @@ def test_distance():
     assert_array_almost_equal(d, ref_dist)
 
 
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.int8, np.complex64])
+@pytest.mark.parametrize(
+    "first_shape,second_shape",
+    [((3,), (3,)), ((2, 12, 3), (2, 1, 6, 3)), ((0, 3), (6, 3))],
+)
+def test_distance_complex_einsum(dtype, first_shape, second_shape):
+    rng = np.random.default_rng(42)
+    first = rng.uniform(-10, 10, first_shape[:-1] + (6,)).astype(dtype)[..., ::2]
+    second = rng.uniform(-10, 10, second_shape[:-1] + (6,)).astype(dtype)[..., ::2]
+    if np.dtype(dtype).kind == "c":
+        first = first * (1 + 2j)
+        second = second * (1 - 3j)
+    expected = np.linalg.norm(first[..., np.newaxis, :] - second, axis=-1)
+    actual = distance_complex(first, second)
+    assert actual.shape == expected.shape
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-5)
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.int64])
+@pytest.mark.parametrize("count", [1, 12])
+def test_rotate_einsum(dtype, count):
+    rng = np.random.default_rng(42)
+    coords = rng.uniform(-10, 10, (count, 6)).astype(dtype)[:, ::2]
+    original_coords = coords.copy()
+    angles = (0.37, -0.82, 1.13)
+    centroid = coords.mean(axis=0)
+    matrix = Rotation.from_euler("xyz", angles).as_matrix()
+    expected = ((coords - centroid)[:, np.newaxis, :] * matrix).sum(axis=-1) + centroid
+    actual = rotate(coords, *angles)
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=1e-12, atol=1e-12)
+    assert_array_equal(coords, original_coords)
+
+
 def test_spatial():
     """Test spatial misc computations"""
     mol = oddt.toolkit.readstring("smi", "c1ccccc1")
@@ -121,6 +252,22 @@ def test_spatial():
     assert_almost_equal(rmsd(mol, mol2, method="hungarian"), 0, decimal=0)
     # Minimized by symetry must close to zero
     assert_almost_equal(rmsd(mol, mol2, method="min_symmetry"), 0, decimal=0)
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.int8])
+@pytest.mark.parametrize("normalize", [False, True])
+def test_rmsd_einsum(dtype, normalize):
+    rng = np.random.default_rng(42)
+    first = rng.uniform(-10, 10, (12, 6)).astype(dtype)[:, ::2]
+    second = rng.uniform(-10, 10, (12, 6)).astype(dtype)[:, ::2]
+    reference = SimpleNamespace(coords=first)
+    molecule = SimpleNamespace(coords=second, num_rotors=9)
+    expected = np.sqrt(((second - first) ** 2).sum(axis=-1).mean())
+    if normalize:
+        expected /= np.sqrt(molecule.num_rotors)
+    actual = rmsd(reference, molecule, ignore_h=False, normalize=normalize)
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-5)
 
 
 def test_rmsd():

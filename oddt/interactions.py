@@ -57,7 +57,7 @@ def close_contacts(x, y, cutoff, x_column="coords", y_column="coords", cutoff_lo
     x_, y_ : atom_dict-type numpy array
         Aligned pairs of atoms in close contact for further processing.
     """
-    if len(x[x_column]) > 0 and len(x[x_column]) > 0:
+    if len(x[x_column]) > 0 and len(y[y_column]) > 0:
         d = distance(x[x_column], y[y_column])
         index = np.argwhere((d > cutoff_low) & (d <= cutoff))
         return x[index[:, 0]], y[index[:, 1]]
@@ -67,7 +67,6 @@ def close_contacts(x, y, cutoff, x_column="coords", y_column="coords", cutoff_lo
 
 def _check_angles(angles, hybridizations, tolerance):
     """Helper function for checking if interactions are strict"""
-    angles = np.nan_to_num(angles)  # NaN's throw warning on comparisons
     ideal_angles = np.take(BASE_ANGLES, hybridizations)[:, np.newaxis]
     lower_bound = ideal_angles - tolerance
     upper_bound = ideal_angles + tolerance
@@ -269,8 +268,8 @@ def pi_stacking(mol1, mol2, cutoff=5, tolerance=30):
             & (angle1 < 90 + tolerance)
             & (
                 ((angle2 > 180 - tolerance) | (angle2 < tolerance))
-                & ((angle3 > 90 - tolerance) | (angle3 < 90 + tolerance))
-                | ((angle2 > 90 - tolerance) | (angle2 < 90 + tolerance))
+                & ((angle3 > 90 - tolerance) & (angle3 < 90 + tolerance))
+                | ((angle2 > 90 - tolerance) & (angle2 < 90 + tolerance))
                 & ((angle3 > 180 - tolerance) | (angle3 < tolerance))
             )
         )
@@ -372,8 +371,10 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30, cation_exact=False):
         Distance cutoff for Pi-cation pairs
 
     tolerance : int, (default=30)
-        Range (+/- tolerance) from perfect direction (perpendicular)
-        in which pi-cation are considered as strict.
+        Range (+/- tolerance) around the ideal angle of 30 degrees to the
+        ring normal, or its mirrored angle of 150 degrees, in which
+        pi-cation interactions are considered as strict. Both bounds
+        are exclusive.
 
     cation_exact : bool
         Requires interacting atoms to have non-zero formal charge.
@@ -381,12 +382,12 @@ def pi_cation(mol1, mol2, cutoff=5, tolerance=30, cation_exact=False):
     Returns
     -------
     r1 : ring_dict-type numpy array
-        Aligned rings forming pi-stacking
+        Aligned rings forming pi-cation
 
     plus2 : atom_dict-type numpy array
         Aligned cations forming pi-cation
 
-    strict_parallel : numpy array, dtype=bool
+    strict : numpy array, dtype=bool
         Boolean array align with ring-cation pairs, informing whether
         they form 'strict' pi-cation. If false, only distance cutoff is met,
         therefore the interaction is 'crude'.
