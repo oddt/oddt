@@ -91,13 +91,26 @@ def dihedral(p1, p2, p3, p4):
     out = angle_2v(c1, c2)
     # check clockwise and anticlockwise
     n1 = c1 / np.linalg.norm(c1)
-    mask = (n1 * v34).sum(axis=-1) > 0
+    if n1.dtype.kind == v34.dtype.kind == "f" and n1.dtype.itemsize >= 4 and v34.dtype.itemsize >= 4:
+        mask = np.einsum("...i,...i->...", n1, v34) > 0
+    else:
+        mask = (n1 * v34).sum(axis=-1) > 0
     if len(mask.shape) == 0:
         if mask:
             out = -out
     else:
         out[mask] = -out[mask]
     return out
+
+
+def _coordinate_rmsd(first, second):
+    """Compute RMSD between aligned coordinates without squared temporaries."""
+    difference = first - second
+    if difference.dtype.kind == "f" and difference.dtype.itemsize >= 4:
+        squared = np.einsum("...i,...i->...", difference, difference)
+    else:
+        squared = (difference**2).sum(axis=-1)
+    return np.sqrt(squared.mean())
 
 
 def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
@@ -180,7 +193,7 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
                 # following should not happen, although safety check is left
                 if mol_atoms.shape != ref_atoms.shape:
                     raise Exception("Molecular match got wrong number of atoms.")
-                rmsd = np.sqrt(((mol_atoms - ref_atoms) ** 2).sum(axis=-1).mean())
+                rmsd = _coordinate_rmsd(mol_atoms, ref_atoms)
                 if min_rmsd is None or rmsd < min_rmsd:
                     min_rmsd = rmsd
             return min_rmsd
@@ -191,7 +204,7 @@ def rmsd(ref, mol, ignore_h=True, method=None, normalize=False):
         mol_atoms = mol.coords
         ref_atoms = ref.coords
     if mol_atoms.shape == ref_atoms.shape:
-        rmsd = np.sqrt(((mol_atoms - ref_atoms) ** 2).sum(axis=-1).mean())
+        rmsd = _coordinate_rmsd(mol_atoms, ref_atoms)
         if normalize:
             rmsd /= np.sqrt(mol.num_rotors)
         return rmsd
@@ -236,7 +249,10 @@ def distance_complex(x, y):
     dist_matrix : numpy arrays
         Distance matrix
     """
-    return np.linalg.norm(x[..., np.newaxis, :] - y, axis=-1)
+    difference = x[..., np.newaxis, :] - y
+    if difference.dtype.kind == "f" and difference.dtype.itemsize >= 4:
+        return np.sqrt(np.einsum("...i,...i->...", difference, difference))
+    return np.linalg.norm(difference, axis=-1)
 
 
 def rotate(coords, alpha, beta, gamma):
@@ -282,4 +298,5 @@ def rotate(coords, alpha, beta, gamma):
         ]
     )
 
+    coords = coords.astype(np.result_type(coords, rot_matrix), copy=False)
     return np.einsum("ij,kj->ik", coords, rot_matrix) + centroid

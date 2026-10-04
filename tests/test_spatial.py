@@ -1,4 +1,5 @@
 import os
+from types import SimpleNamespace
 
 import pytest
 from numpy.testing import assert_almost_equal, assert_array_equal, assert_array_almost_equal
@@ -6,7 +7,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation
 
 import oddt
-from oddt.spatial import angle, angle_2v, dihedral, rmsd, distance, rotate
+from oddt.spatial import angle, angle_2v, dihedral, rmsd, distance, distance_complex, rotate
 from .utils import shuffle_mol
 
 test_data_dir = os.path.dirname(os.path.abspath(__file__))
@@ -154,6 +155,24 @@ def test_dihedral():
     assert abs(dihedral(*mol.coords[:4])) < 2.0
 
 
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.int32])
+@pytest.mark.parametrize("count", [1, 12])
+def test_dihedral_einsum(dtype, count):
+    rng = np.random.default_rng(42)
+    points = rng.uniform(-10, 10, (4, count, 3)).astype(dtype)[:, ::-1, :]
+    first = (points[0] - points[1]) / np.linalg.norm(points[0] - points[1])
+    second = (points[1] - points[2]) / np.linalg.norm(points[1] - points[2])
+    third = (points[2] - points[3]) / np.linalg.norm(points[2] - points[3])
+    normal_first = np.cross(first, second)
+    normal_second = np.cross(second, third)
+    expected = _reference_angle_2v(normal_first, normal_second)
+    signed = ((normal_first / np.linalg.norm(normal_first)) * third).sum(axis=-1) > 0
+    expected[signed] = -expected[signed]
+    actual = dihedral(*points)
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-5)
+
+
 def test_distance():
     mol1 = oddt.toolkit.readstring("sdf", ASPIRIN_SDF)
     d = distance(mol1.coords, mol1.coords)
@@ -179,6 +198,25 @@ def test_distance():
         [2.975007440512798],
     ]
     assert_array_almost_equal(d, ref_dist)
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.int8, np.complex64])
+@pytest.mark.parametrize(
+    "first_shape,second_shape",
+    [((3,), (3,)), ((2, 12, 3), (2, 1, 6, 3)), ((0, 3), (6, 3))],
+)
+def test_distance_complex_einsum(dtype, first_shape, second_shape):
+    rng = np.random.default_rng(42)
+    first = rng.uniform(-10, 10, first_shape[:-1] + (6,)).astype(dtype)[..., ::2]
+    second = rng.uniform(-10, 10, second_shape[:-1] + (6,)).astype(dtype)[..., ::2]
+    if np.dtype(dtype).kind == "c":
+        first = first * (1 + 2j)
+        second = second * (1 - 3j)
+    expected = np.linalg.norm(first[..., np.newaxis, :] - second, axis=-1)
+    actual = distance_complex(first, second)
+    assert actual.shape == expected.shape
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-5)
 
 
 @pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.int64])
@@ -214,6 +252,22 @@ def test_spatial():
     assert_almost_equal(rmsd(mol, mol2, method="hungarian"), 0, decimal=0)
     # Minimized by symetry must close to zero
     assert_almost_equal(rmsd(mol, mol2, method="min_symmetry"), 0, decimal=0)
+
+
+@pytest.mark.parametrize("dtype", [np.float16, np.float32, np.float64, np.int8])
+@pytest.mark.parametrize("normalize", [False, True])
+def test_rmsd_einsum(dtype, normalize):
+    rng = np.random.default_rng(42)
+    first = rng.uniform(-10, 10, (12, 6)).astype(dtype)[:, ::2]
+    second = rng.uniform(-10, 10, (12, 6)).astype(dtype)[:, ::2]
+    reference = SimpleNamespace(coords=first)
+    molecule = SimpleNamespace(coords=second, num_rotors=9)
+    expected = np.sqrt(((second - first) ** 2).sum(axis=-1).mean())
+    if normalize:
+        expected /= np.sqrt(molecule.num_rotors)
+    actual = rmsd(reference, molecule, ignore_h=False, normalize=normalize)
+    assert actual.dtype == expected.dtype
+    np.testing.assert_allclose(actual, expected, rtol=2e-6, atol=2e-5)
 
 
 def test_rmsd():
