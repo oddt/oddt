@@ -63,10 +63,11 @@ def InteractionFingerprint(ligand, protein, strict=True):
     -------
     InteractionFingerprint : numpy array
         Vector of calculated IFP (size = no residues * 8 type of interaction)
+        Uses the smallest unsigned integer dtype that holds all counts.
 
     """
     resids = np.unique(protein.atom_dict["resid"])
-    IFP = np.zeros((len(resids), 8), dtype=np.uint8)
+    IFP = np.zeros((len(resids), 8), dtype=np.uint64)
 
     # hydrophobic contacts (column = 0)
     hydrophobic = hydrophobic_contacts(protein, ligand)[0]["resid"]
@@ -98,12 +99,12 @@ def InteractionFingerprint(ligand, protein, strict=True):
     np.add.at(IFP, (np.searchsorted(resids, np.sort(minus["resid"])[::-1]), 6), 1)
 
     # salt bridges, ionic bond with metal ion (Column = 7)
-    _, metal, strict2 = acceptor_metal(protein, ligand)
+    _, metal, strict2 = acceptor_metal(ligand, protein)
     if strict is False:
         strict2 = None
     np.add.at(IFP, (np.searchsorted(resids, np.sort(metal[strict2]["resid"])[::-1]), 7), 1)
 
-    return IFP.flatten()
+    return IFP.astype(np.min_scalar_type(int(IFP.max()) if IFP.size else 0)).flatten()
 
 
 def SimpleInteractionFingerprint(ligand, protein, strict=True):
@@ -120,9 +121,9 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
     - (Column 6) salt bridges (protein negatively charged)
     - (Column 7) salt bridges (ionic bond with metal ion)
 
-    Returns matrix, which is sorted according to this pattern : 'ALA',
+    Returns matrix, which is sorted according to this pattern : '', 'ALA',
     'ARG', 'ASN', 'ASP', 'CYS', 'GLN', 'GLU', 'GLY', 'HIS', 'ILE', 'LEU',
-    'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL', ''.
+    'LYS', 'MET', 'PHE', 'PRO', 'SER', 'THR', 'TRP', 'TYR', 'VAL'.
     The '' means cofactor. Index of amino acid in pattern coresponds
     to row in returned matrix.
 
@@ -139,6 +140,7 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
     -------
     InteractionFingerprint : numpy array
         Vector of calculated IFP (size = 168)
+        Uses the smallest unsigned integer dtype that holds all counts.
 
     """
 
@@ -169,7 +171,7 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
         dtype="<U3",
     )
 
-    IFP = np.zeros((len(amino_acids), 8), dtype=np.uint8)
+    IFP = np.zeros((len(amino_acids), 8), dtype=np.uint64)
 
     # hydrophobic (Column = 0)
     hydrophobic = hydrophobic_contacts(protein, ligand)[0]["resname"]
@@ -178,10 +180,10 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
 
     # aromatic face to face (Column = 1), aromatic edge to face (Column = 2)
     rings, _, strict_parallel, strict_perpendicular = pi_stacking(protein, ligand)
-    rings[strict_parallel]["resname"][~np.isin(rings[strict_parallel]["resname"], amino_acids)] = ""
-    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(rings[strict_parallel]["resname"])[::-1]), 1), 1)
-    rings[strict_perpendicular]["resname"][~np.isin(rings[strict_perpendicular]["resname"], amino_acids)] = ""
-    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(rings[strict_perpendicular]["resname"])[::-1]), 2), 1)
+    ring_resnames = rings["resname"].copy()
+    ring_resnames[~np.isin(ring_resnames, amino_acids)] = ""
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(ring_resnames[strict_parallel])[::-1]), 1), 1)
+    np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(ring_resnames[strict_perpendicular])[::-1]), 2), 1)
 
     # hbonds donated by the protein (Column = 3)
     _, donors, strict0 = hbond_acceptor_donor(ligand, protein)
@@ -208,13 +210,13 @@ def SimpleInteractionFingerprint(ligand, protein, strict=True):
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(minus["resname"])[::-1]), 6), 1)
 
     # ionic bond with metal ion (Column = 7)
-    _, metal, strict2 = acceptor_metal(protein, ligand)
+    _, metal, strict2 = acceptor_metal(ligand, protein)
     metal["resname"][~np.isin(metal["resname"], amino_acids)] = ""
     if strict is False:
         strict2 = None
     np.add.at(IFP, (np.searchsorted(amino_acids, np.sort(metal[strict2]["resname"])[::-1]), 7), 1)
 
-    return IFP.flatten()
+    return IFP.astype(np.min_scalar_type(int(IFP.max()) if IFP.size else 0)).flatten()
 
 
 def fold(fp, size):
@@ -245,7 +247,8 @@ def sparse_to_dense(fp, size, count_bits=True):
 
     count_bits : bool (default=True)
         Should the output fingerprint be a count or boolean vector. If `True`
-        the dtype of output is `np.uint8`, otherwise it is bool.
+        the output uses the smallest unsigned integer dtype that holds all
+        counts (at least `np.uint8`), otherwise it is bool.
 
 
     Returns
@@ -256,8 +259,14 @@ def sparse_to_dense(fp, size, count_bits=True):
     fp = np.asarray(fp, dtype=np.uint64)
     if fp.ndim > 1:
         raise ValueError("Input fingerprint must be a vector (1D)")
-    sparsed_fp = np.zeros(size, dtype=np.uint8 if count_bits else bool)
-    np.add.at(sparsed_fp, fp, 1)
+    if count_bits:
+        indices, counts = np.unique(fp, return_counts=True)
+        dtype = np.min_scalar_type(int(counts.max()) if counts.size else 0)
+        sparsed_fp = np.zeros(size, dtype=dtype)
+        sparsed_fp[indices] = counts
+    else:
+        sparsed_fp = np.zeros(size, dtype=bool)
+        sparsed_fp[fp] = True
     return sparsed_fp
 
 
@@ -276,7 +285,8 @@ def sparse_to_csr_matrix(fp, size, count_bits=True):
 
     count_bits : bool (default=True)
         Should the output fingerprint be a count or boolean vector. If `True`
-        the dtype of output is `np.uint8`, otherwise it is bool.
+        the output uses the smallest unsigned integer dtype that holds all
+        counts (at least `np.uint8`), otherwise it is bool.
 
 
     Returns
@@ -289,14 +299,14 @@ def sparse_to_csr_matrix(fp, size, count_bits=True):
     if fp.ndim > 1:
         raise ValueError("Input fingerprint must be a vector (1D)")
     if count_bits:
-        # TODO numpy 1.9.0 has return_counts
-        cols, inv = np.unique(fp, return_inverse=True)
-        values = np.bincount(inv)
+        cols, values = np.unique(fp, return_counts=True)
+        dtype = np.min_scalar_type(int(values.max()) if values.size else 0)
     else:
         cols = np.unique(fp)
-        values = np.ones_like(cols)
+        values = np.ones_like(cols, dtype=bool)
+        dtype = bool
     rows = np.zeros_like(cols)
-    return csr_matrix((values, (rows, cols)), shape=(1, size), dtype=np.uint8 if count_bits else bool)
+    return csr_matrix((values, (rows, cols)), shape=(1, size), dtype=dtype)
 
 
 def dense_to_sparse(fp):
@@ -626,7 +636,7 @@ def ECFP(mol, depth=2, size=4096, count_bits=True, sparse=True, use_pharm_featur
 
     # dense or sparse FP
     if not sparse:
-        mol_hashed = sparse_to_dense(mol_hashed, size=size)
+        mol_hashed = sparse_to_dense(mol_hashed, size=size, count_bits=count_bits)
 
     return mol_hashed
 
@@ -714,7 +724,9 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.0):
     Returns
     -------
     SimilarityScore : float
-        Similarity between given fingerprints.
+        Similarity between given fingerprints, including unmatched contacts
+        in the normalization. RMSD is averaged over atoms with finite
+        coordinates in both environments.
 
     """
 
@@ -732,14 +744,24 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.0):
     )  # query
 
     numla = 0  # number of unique matching ligand atoms
-    nula = 0  # number of unique ligand atoms
+    nula = len(reference) + len(query) - len(ref_intersection) - len(query_intersection)
     numpa = 0  # number of unique matching protein atoms
-    nupa = 0  # number of unique protein atoms
+    nupa = nula
 
     def combinatorial_rmsd(reference, query):
         """Calculates root mean square deviation between groups of points. It
         takes two matrices of shapes e.g (2, 5, 3) and (4, 5, 3) -> (2, 4)."""
-        return np.sqrt(np.nansum(np.mean((reference[:, np.newaxis, ...] - query) ** 2, axis=-1), axis=-1))
+        squared_distances = np.sum((reference[:, np.newaxis, ...] - query) ** 2, axis=-1)
+        valid = np.isfinite(squared_distances)
+        atom_counts = valid.sum(axis=-1)
+        mean_squared_distances = np.full(atom_counts.shape, np.inf)
+        np.divide(
+            np.where(valid, squared_distances, 0).sum(axis=-1),
+            atom_counts,
+            out=mean_squared_distances,
+            where=atom_counts > 0,
+        )
+        return np.sqrt(mean_squared_distances)
 
     for pair in range(len(ref_group_intersection)):
         # reference protein-ligand pair
@@ -892,7 +914,7 @@ def PLEC(
 
     # sparse or dense FP
     if not sparse:
-        plec = sparse_to_dense(plec, size=size)
+        plec = sparse_to_dense(plec, size=size, count_bits=count_bits)
     return plec
 
 
@@ -996,9 +1018,10 @@ def get_molecular_shingles(mol, depth=2, atom_idxs=None):
         https://doi.org/10.1186/s13321-018-0321-8
     """
     shingles = []
-    atom_idxs = atom_idxs or range(len(mol.atoms))
+    if atom_idxs is None:
+        atom_idxs = range(len(mol.atoms))
     for atom_idx in atom_idxs:
-        env = list(chain.from_iterable(get_atom_environments(mol, root_atom_idx=atom_idx, depth=depth)))
+        env = list(chain.from_iterable(get_atom_environments(mol, root_atom_idx=int(atom_idx), depth=depth)))
         if is_openbabel_molecule(mol):
             atom_idx_string = " ".join(str(i + 1) for i in env)  # this is one-based
             # OB fragment smiles contains names and whitespaces
