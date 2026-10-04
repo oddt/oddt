@@ -14,7 +14,7 @@ Installation
 Requirements
 ````````````
 
-* Python 3.6+
+* Python 3.12+
 * OpenBabel (3.0+) or/and RDKit (2018.03+)
 * Numpy (1.12+)
 * Scipy (0.19+)

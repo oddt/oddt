@@ -9,7 +9,6 @@ from tempfile import gettempdir
 
 import numpy as np
 from packaging.version import Version
-from six import string_types
 
 try:
     import vina as vina_python
@@ -106,7 +105,7 @@ class autodock_vina(object):
         self.center = center
         # center automaticaly on ligand
         if auto_ligand:
-            if isinstance(auto_ligand, string_types):
+            if isinstance(auto_ligand, str):
                 extension = auto_ligand.split(".")[-1]
                 auto_ligand = next(oddt.toolkit.readfile(extension, auto_ligand))
             self.center = auto_ligand.coords.mean(axis=0).round(3)
@@ -199,7 +198,7 @@ class autodock_vina(object):
         self._tmp_dir = None
         if protein:
             self.protein_file = None
-            if isinstance(protein, string_types):
+            if isinstance(protein, str):
                 extension = protein.split(".")[-1]
                 if extension == "pdbqt":
                     self.protein_file = protein

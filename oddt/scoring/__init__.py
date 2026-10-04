@@ -3,8 +3,7 @@ import gzip
 from itertools import chain
 from functools import partial
 
-import six
-from six.moves import cPickle as pickle
+import pickle
 
 import numpy as np
 from scipy.sparse import vstack as sparse_vstack
@@ -16,7 +15,6 @@ from sklearn.base import is_classifier, is_regressor
 from sklearn.metrics import accuracy_score, r2_score
 
 import oddt
-from oddt.utils import method_caller
 from oddt.datasets import pdbbind
 from oddt.fingerprints import sparse_to_csr_matrix, csr_matrix_to_sparse, fold
 
@@ -139,9 +137,7 @@ class scorer(object):
         ]
 
         result = Parallel(n_jobs=n_jobs, verbose=1)(
-            delayed(method_caller)(
-                self.descriptor_generator,
-                "build",
+            delayed(self.descriptor_generator.build)(
                 [pdbbind_db[pid].ligand],
                 protein=getattr(pdbbind_db[pid], "protein" if use_proteins else "pocket"),
             )
@@ -199,7 +195,7 @@ class scorer(object):
             # convert to sparse csr_matrix
             df["sparse"] = df["sparse"].map(partial(sparse_to_csr_matrix, size=len(self.descriptor_generator)))
 
-        if isinstance(train_set, six.string_types):
+        if isinstance(train_set, str):
             train_idx = df["%i_%s" % (pdbbind_version, train_set)]
         else:
             train_idx = df[["%i_%s" % (pdbbind_version, s) for s in train_set]].any(axis=1)
@@ -330,7 +326,7 @@ class scorer(object):
         self.set_protein(None)
         # return joblib.dump(self, filename, compress=9)[0]
         with gzip.open(filename, "w+b", compresslevel=9) as f:
-            pickle.dump(self, f, protocol=2)
+            pickle.dump(self, f, protocol=pickle.HIGHEST_PROTOCOL)
         return filename
 
     @classmethod
@@ -348,9 +344,8 @@ class scorer(object):
             Scoring function object loaded from a pickle
         """
         # return joblib.load(filename)
-        kwargs = {"encoding": "latin1"} if six.PY3 else {}
         with gzip.open(filename, "rb") as f:
-            out = pickle.load(f, **kwargs)
+            out = pickle.load(f, encoding="latin1")
         return out
 
 

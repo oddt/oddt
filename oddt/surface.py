@@ -1,6 +1,5 @@
 """This module generates and does computation with molecular surfaces."""
 
-from __future__ import division
 from numbers import Number
 import warnings
 

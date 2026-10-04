@@ -2,7 +2,7 @@ import os
 from collections import OrderedDict, deque
 from itertools import combinations
 
-from six.moves.cPickle import loads, dumps
+from pickle import loads, dumps
 import numpy as np
 import pandas as pd
 

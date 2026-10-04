@@ -9,7 +9,6 @@ import pandas as pd
 
 import oddt
 from oddt.docking.AutodockVina import vina_python
-from oddt.utils import method_caller
 from oddt.spatial import rmsd
 from oddt.scoring import scorer
 from oddt.scoring.functions import rfscore, nnscore
@@ -129,7 +128,7 @@ def test_vs_multithreading_fallback():
     vs.score(function="autodock_vina", protein=xiap_protein)
 
     with pytest.warns(UserWarning, match="Falling back to sub-methods multithreading"):
-        method_caller(vs, "fetch")
+        vs.fetch()
 
 
 if oddt.toolkit.backend == "ob":  # RDKit rewrite needed

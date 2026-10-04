@@ -4,12 +4,10 @@ creates interacion fingerprints.
 
 """
 
-from __future__ import division
-from itertools import chain
+from itertools import chain, zip_longest
 from collections import OrderedDict, namedtuple
 import sys
 
-from six.moves import zip_longest
 import numpy as np
 from scipy.sparse import csr_matrix, isspmatrix_csr
 
@@ -355,34 +353,30 @@ def hash32(value):
     return hash_fnv1a_python(value) & 0xFFFFFFFF
 
 
-if sys.version_info < (3, 8):
-    hash_fnv1a_python = hash
-else:
+def hash_fnv1a_python(input_object):
+    """Hash nested tuples of ints with ODDT's stable modified FNV-1a algorithm.
 
-    def hash_fnv1a_python(input_object):
-        """Function hashing nested tuple of ints as implemented in Python 2.4-3.7.
-        It uses modified FNV-1a algorithm. Implementation ported from Python source:
-        https://github.com/python/cpython/blob/3.7/Objects/tupleobject.c#L348-L369
-        """
-        hash_value = 0x345678
-        multiplier = 1000003
-        input_length = len(input_object)
-        max_uint_mask = 2 * sys.maxsize + 1
-        for idx, item in enumerate(input_object, 1):
-            if isinstance(item, tuple):
-                y = hash_fnv1a_python(item)
-            elif isinstance(item, int):
-                y = item
-            else:
-                raise ValueError("Unsupported type %s" % type(input_object))
-            if y == -1:
-                return -1
-            hash_value = ((hash_value ^ y) * multiplier) & max_uint_mask
-            multiplier += 82520 + 2 * (input_length - idx)
-        hash_value += 97531
-        if hash_value == -1:
-            return -2
-        return hash_value & max_uint_mask
+    This preserves fingerprint values independently of Python's tuple hash.
+    """
+    hash_value = 0x345678
+    multiplier = 1000003
+    input_length = len(input_object)
+    max_uint_mask = 2 * sys.maxsize + 1
+    for idx, item in enumerate(input_object, 1):
+        if isinstance(item, tuple):
+            item_hash = hash_fnv1a_python(item)
+        elif isinstance(item, int):
+            item_hash = item
+        else:
+            raise ValueError("Unsupported type %s" % type(input_object))
+        if item_hash == -1:
+            return -1
+        hash_value = ((hash_value ^ item_hash) * multiplier) & max_uint_mask
+        multiplier += 82520 + 2 * (input_length - idx)
+    hash_value += 97531
+    if hash_value == -1:
+        return -2
+    return hash_value & max_uint_mask
 
 
 def get_atom_environments(mol, root_atom_idx, depth):

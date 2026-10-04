@@ -1,8 +1,7 @@
 """Pandas extension for chemical analysis"""
 
-from __future__ import absolute_import
 from collections import deque
-from six import BytesIO, StringIO, text_type
+from io import BytesIO, StringIO
 import pandas as pd
 
 import oddt
@@ -514,7 +513,7 @@ class ChemDataFrame(pd.DataFrame):
                 continue
             img = BytesIO()
             png = mol.clone.write("png", size=size)
-            if isinstance(png, text_type):
+            if isinstance(png, str):
                 png = png.encode("utf-8", errors="surrogateescape")
             img.write(png)
             sheet.write_string(i + 1, molecule_column_idx, "")
@@ -540,7 +539,4 @@ class ChemDataFrame(pd.DataFrame):
 
 # Copy some docscrings from upstream classes
 for method in ["to_html", "to_csv", "to_excel"]:
-    try:
-        getattr(ChemDataFrame, method).__doc__ = getattr(pd.DataFrame, method).__doc__
-    except AttributeError:  # Python 2 compatible
-        getattr(ChemDataFrame, method).__func__.__doc__ = getattr(pd.DataFrame, method).__func__.__doc__
+    getattr(ChemDataFrame, method).__doc__ = getattr(pd.DataFrame, method).__doc__

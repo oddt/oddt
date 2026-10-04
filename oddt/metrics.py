@@ -1,8 +1,6 @@
 """Metrics for estimating performance of drug discovery methods implemented in
 ODDT"""
 
-from __future__ import division
-
 from math import ceil
 import numpy as np
 from scipy.stats import linregress

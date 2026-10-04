@@ -1,4 +1,3 @@
-from __future__ import print_function
 import sys
 from os.path import dirname, isfile, join as path_join
 import numpy as np
@@ -9,7 +8,6 @@ from scipy.stats import pearsonr
 from sklearn.metrics import r2_score
 
 from oddt import random_seed
-from oddt.utils import method_caller
 from oddt.metrics import rmse, standard_deviation_error
 from oddt.scoring import scorer, ensemble_model
 from oddt.scoring.descriptors.binana import binana_descriptor
@@ -77,9 +75,9 @@ class nnscore(scorer):
         random_seed(1)
         seeds = np.random.randint(123456789, size=n)
         trained_nets = Parallel(n_jobs=self.n_jobs, verbose=10, pre_dispatch="all")(
-            delayed(method_caller)(
-                neuralnetwork((5,), random_state=seeds[i], activation="logistic", solver="lbfgs", max_iter=10000),
-                "fit",
+            delayed(
+                neuralnetwork((5,), random_state=seeds[i], activation="logistic", solver="lbfgs", max_iter=10000).fit
+            )(
                 self.train_descs,
                 self.train_target,
             )

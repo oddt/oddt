@@ -89,13 +89,11 @@ def canonize_ring_path(path):
     """
     if isinstance(path, deque):
         path_deque = path
-        path = list(path)
     elif isinstance(path, list):
         path_deque = deque(path)
     else:
         raise ValueError("Path must be a list or deque.")
-    # FIXME: Py2 deque does not have deque.index()
-    path_deque.rotate(-path.index(min(path)))
+    path_deque.rotate(-path_deque.index(min(path_deque)))
     if path_deque[1] - path_deque[0] > path_deque[-1] - path_deque[0]:
         path_deque.reverse()
         path_deque.rotate(1)

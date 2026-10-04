@@ -159,12 +159,16 @@ def test_chemseries_writers():
     # SMILES
     with NamedTemporaryFile(suffix=".ism", mode="w") as f:
         mols.to_smiles(f)
-        for mol in oddt.toolkit.readfile("smi", f.name):
+        f.flush()
+        written_mols = list(oddt.toolkit.readfile("smi", f.name))
+        assert len(written_mols) == len(mols)
+        for mol in written_mols:
             assert isinstance(mol, oddt.toolkit.Molecule)
 
     # SDF
     with NamedTemporaryFile(suffix=".sdf", mode="w") as f:
         mols.to_sdf(f)
+        f.flush()
         for mol in oddt.toolkit.readfile("sdf", f.name):
             assert isinstance(mol, oddt.toolkit.Molecule)
 
@@ -172,6 +176,7 @@ def test_chemseries_writers():
     if oddt.toolkit.backend == "ob":
         with NamedTemporaryFile(suffix=".mol2", mode="w") as f:
             mols.to_mol2(f)
+            f.flush()
             for mol in oddt.toolkit.readfile("mol2", f.name):
                 assert isinstance(mol, oddt.toolkit.Molecule)
 

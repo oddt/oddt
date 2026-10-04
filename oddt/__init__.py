@@ -10,12 +10,9 @@ toolkit : module,
     This setting is toolkit-wide, and sets given toolkit as default
 """
 
-from __future__ import absolute_import
 import os
 import subprocess
 import warnings
-
-import six
 
 try:
     from oddt.toolkits import ob
@@ -58,8 +55,7 @@ def get_version():
     if os.path.isdir(home + "/../.git"):
         try:
             git_v = subprocess.check_output(["git", "describe", "--tags"], cwd=home).strip()
-            if git_v and six.PY3:
-                git_v = git_v.decode("latin-1")
+            git_v = git_v.decode("latin-1")
         except subprocess.CalledProcessError:  # catch errors, eg. no git installed
             pass
     if git_v:

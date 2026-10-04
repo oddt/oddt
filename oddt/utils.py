@@ -31,7 +31,7 @@ def is_rdkit_molecule(obj):
     return hasattr(oddt.toolkits, "rdk") and isinstance(obj, oddt.toolkits.rdk.Molecule)
 
 
-def check_molecule(mol, force_protein=False, force_coords=False, non_zero_atoms=False):
+def check_molecule(mol, *, force_protein=False, force_coords=False, non_zero_atoms=False):
     """Universal validator of molecule objects. Usage of positional arguments is
     allowed only for molecule object, otherwise it is prohibitted (i.e. the
     order of arguments **will** change). Desired properties of molecule are
@@ -56,7 +56,6 @@ def check_molecule(mol, force_protein=False, force_coords=False, non_zero_atoms=
         Check if molecule has at least one atom.
 
     """
-    # TODO 2to3 force only one positional argument by adding * to args
     if not is_molecule(mol):
         raise ValueError("Molecule object was expected, insted got: %s" % str(mol))
 
@@ -98,10 +97,3 @@ def chunker(iterable, chunksize=100):
     while chunk:
         yield chunk
         chunk = list(islice(iterable, chunksize))
-
-
-# TODO 2to3 remove it when support for Python 2.7 is dropped
-def method_caller(obj, methodname, *args, **kwargs):
-    """Helper function to workaround Python 2 pickle limitations to parallelize
-    methods and generator objects"""
-    return getattr(obj, methodname)(*args, **kwargs)

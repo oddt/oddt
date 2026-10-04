@@ -1,10 +1,9 @@
-from __future__ import division, print_function, absolute_import
 import os
 from collections import OrderedDict
 from itertools import combinations, chain
 import sys
 
-from six.moves import urllib
+import urllib.request
 
 import numpy as np
 import pandas as pd

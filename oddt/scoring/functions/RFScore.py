@@ -1,4 +1,3 @@
-from __future__ import print_function
 import sys
 from os.path import dirname, isfile, join as path_join
 import numpy as np
