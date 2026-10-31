@@ -18,7 +18,7 @@ import os
 # If extensions (or modules to document with autodoc) are in another directory,
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
-sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # -- General configuration ------------------------------------------------
 
@@ -35,16 +35,18 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
+    "sphinx.ext.githubpages",
     "numpydoc",
 ]
 
 autosummary_generate = True
 
-autodoc_default_flags = ["members", "inherited-members", "imported-members"]
+autodoc_default_options = {"members": True}
 autoclass_content = "init"
+numpydoc_show_class_members = False
 
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ["_templates"]
+templates_path = []
 
 # The suffix of source filenames.
 source_suffix = ".rst"
@@ -113,7 +115,7 @@ pygments_style = "sphinx"
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = "default"
+html_theme = "classic"
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
@@ -142,7 +144,7 @@ html_theme = "default"
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ["_static"]
+html_static_path = []
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -344,37 +346,8 @@ epub_exclude_files = ["search.html"]
 
 
 # Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {}
-intersphinx_mapping["sklearn"] = ("http://scikit-learn.org/stable", None)
-intersphinx_mapping["numpy"] = ("http://docs.scipy.org/doc/numpy/", None)
-intersphinx_mapping["scipy"] = ("http://docs.scipy.org/doc/scipy/reference/", None)
-
-# Ignore some modules during documentation building on readthedocs.org
-if os.environ.get("READTHEDOCS", None) == "True":
-    # Invoke sphinx-apidoc
-    os.system("sphinx-apidoc -f -o rst/ ../oddt")
-
-    from unittest.mock import patch, MagicMock
-
-    pybel = MagicMock()
-    openbabel = MagicMock()
-    rdkit = MagicMock()
-    modules = {
-        # OpenBabel
-        "pybel": pybel,
-        "openbabel": openbabel,
-        # RDK
-        "rdkit": rdkit,
-        "rdkit.Chem": rdkit.Chem,
-        "rdkit.DataStructs": rdkit.DataStructs,
-        "rdkit.Chem.MACCSkeys": rdkit.Chem.MACCSkeys,
-        "rdkit.Chem.AtomPairs": rdkit.Chem.AtomPairs,
-        "rdkit.Chem.AtomPairs.Pairs": rdkit.Chem.AtomPairs.Pairs,
-        "rdkit.Chem.AtomPairs.Torsions": rdkit.Chem.AtomPairs.Torsions,
-        "rdkit.Chem.Lipinski": rdkit.Chem.Lipinski,
-        "rdkit.Chem.AllChem": rdkit.Chem.AllChem,
-        "rdkit.Chem.Pharm2D": rdkit.Chem.Pharm2D,
-    }
-
-    p = patch.dict("sys.modules", modules)
-    p.start()
+intersphinx_mapping = {
+    "sklearn": ("https://scikit-learn.org/stable/", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "scipy": ("https://docs.scipy.org/doc/scipy/reference/", None),
+}
