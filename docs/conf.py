@@ -41,7 +41,11 @@ extensions = [
 
 autosummary_generate = True
 
-autodoc_default_options = {"members": True}
+autodoc_default_options = {
+    "members": True,
+    "inherited-members": True,
+    "imported-members": True,
+}
 autoclass_content = "init"
 numpydoc_show_class_members = False
 
