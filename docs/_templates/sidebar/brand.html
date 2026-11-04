@@ -1,0 +1,9 @@
+{% extends "!sidebar/brand.html" %}
+
+{% block brand_content %}
+<div class="sidebar-logo-container">
+  <img class="sidebar-logo only-light" src="{{ pathto('_static/' + theme_light_logo, 1) }}" width="864" height="320" alt="Open Drug Discovery Toolkit">
+  <img class="sidebar-logo only-dark" src="{{ pathto('_static/' + theme_dark_logo, 1) }}" width="864" height="320" alt="Open Drug Discovery Toolkit">
+</div>
+<span class="oddt-version">{{ release }}</span>
+{% endblock %}

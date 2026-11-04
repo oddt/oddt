@@ -1,0 +1,9 @@
+{% set overview = "" if pagename == master_doc else pathto(master_doc) %}
+<nav class="oddt-quicklinks" aria-label="Documentation shortcuts">
+  <p class="caption" role="heading" aria-level="2">Get started</p>
+  <ul>
+    <li><a href="{{ pathto(master_doc) }}">Overview</a></li>
+    <li><a href="{{ overview }}#installation">Installation</a></li>
+    <li><a href="{{ overview }}#usage-instructions">User guide</a></li>
+  </ul>
+</nav>

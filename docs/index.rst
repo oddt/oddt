@@ -1,12 +1,51 @@
 .. _oddt:
 .. highlight:: python
 
-********************************
-Welcome to ODDT's documentation!
-********************************
+.. _welcome-to-oddt-s-documentation:
 
-.. contents::
-    :depth: 5
+***************************
+Open Drug Discovery Toolkit
+***************************
+
+.. container:: oddt-lead
+
+   A Python toolkit for cheminformatics, molecular modeling, and virtual screening.
+   Work with RDKit and Open Babel through one consistent interface.
+
+.. container:: oddt-meta
+
+   Python 3.12+ · RDKit & Open Babel · BSD licensed
+
+.. container:: oddt-grid
+
+   .. container:: oddt-card
+
+      **01 / Get started**
+
+      :ref:`Install ODDT <installation-guide>`
+
+      Set up your environment and choose a chemistry backend.
+
+   .. container:: oddt-card
+
+      **02 / Explore**
+
+      :ref:`User guide <usage-guide>`
+
+      Read molecules, analyze interactions, and build screening workflows.
+
+   .. container:: oddt-card
+
+      **03 / Build**
+
+      :doc:`API reference <rst/modules>`
+
+      Explore the modules, classes, and functions behind your workflow.
+
+`View on GitHub <https://github.com/oddt/oddt>`_ ·
+`Report an issue <https://github.com/oddt/oddt/issues>`_
+
+.. _installation-guide:
 
 Installation
 ============
@@ -49,6 +88,8 @@ Finally you can install ODDT straight from the source
 Common installation problems
 ----------------------------
 
+
+.. _usage-guide:
 
 Usage Instructions
 ==================
@@ -375,6 +416,8 @@ ODDT API documentation
 ======================
 
 .. toctree::
+   :caption: API reference
+   :maxdepth: 2
 
    rst/modules
 
