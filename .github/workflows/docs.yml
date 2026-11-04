@@ -42,7 +42,8 @@ jobs:
         run: python -m sphinx.ext.apidoc --force --output-dir docs/rst oddt
 
       - name: Build HTML documentation
-        run: python -m sphinx --builder html docs docs/_build/html
+        # These docs track the default branch, not the nearest release tag.
+        run: python -m sphinx --builder html -D version=latest -D release=latest docs docs/_build/html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

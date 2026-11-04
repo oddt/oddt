@@ -92,6 +92,7 @@ Documentation is hosted on [GitHub Pages](https://oddt.github.io/oddt/).
 The [documentation workflow](./.github/workflows/docs.yml) builds the Sphinx
 documentation and API reference on pull requests, and publishes updates from
 the repository's default branch (`master` or `main`).
+The published documentation uses the `latest` version label to reflect this.
 
 To enable publishing, open the repository's **Settings → Pages** and set
 **Build and deployment → Source** to **GitHub Actions**. Push the workflow to
@@ -105,7 +106,7 @@ conda env create -n oddt-docs -f environment.yml
 conda activate oddt-docs
 python -m pip install -r docs/requirements.txt
 python -m sphinx.ext.apidoc --force --output-dir docs/rst oddt
-python -m sphinx --builder html docs docs/_build/html
+python -m sphinx --builder html -D version=latest -D release=latest docs docs/_build/html
 ```
 
 Open `docs/_build/html/index.html` to browse the result. With the environment
