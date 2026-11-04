@@ -1,0 +1,688 @@
+{
+  "pdb_id": "4LB3",
+  "structure_url": "https://www.rcsb.org/structure/4LB3",
+  "coordinates_url": "https://files.rcsb.org/download/4LB3.pdb",
+  "coordinates_sha256": "c30ab63317fd64198514b10d2739008d3727e072883fb25297b28c6c7daba286",
+  "chemical_component_url": "https://files.rcsb.org/ligands/download/M15.cif",
+  "chemical_component_sha256": "6a1ce32598538f4970614e73282d8485cf3b916c5f268afde69fec3ef71defc0",
+  "protein": "human aldose reductase, chain A",
+  "ligand": "M15 A402",
+  "ligand_heavy_atoms": 24,
+  "preparation": "Protein ATOM records only, blank/A alternate conformations. M15 bond orders and formal charges from the Chemical Component Dictionary. Polar hydrogens added with RDKit via ODDT. Waters, NADP+, other hetero compounds, and crystallographic symmetry mates excluded.",
+  "analysis": {
+    "backend": "rdk",
+    "rdkit_version": "2026.03.1",
+    "hydrogen_bonds": {
+      "function": "oddt.interactions.hbonds",
+      "cutoff_angstrom": 3.5,
+      "angular_tolerance_degrees": 30,
+      "mol1_exact": true,
+      "mol2_exact": true,
+      "shown": "Strict contacts restricted to conventional N/O acceptors; the additional ODDT-classified N\u00b7\u00b7\u00b7F contact is recorded under excluded_contacts."
+    },
+    "halogen_bonds": {
+      "function": "oddt.interactions.halogenbonds",
+      "cutoff_angstrom": 4.0,
+      "angular_tolerance_degrees": 30,
+      "shown": "All strict halogen bonds."
+    },
+    "hydrophobic_contacts": {
+      "function": "oddt.interactions.hydrophobic_contacts",
+      "cutoff_angstrom": 4.0,
+      "shown": "One closest atom pair per protein residue, among pairs classified as hydrophobic by ODDT; these are representative atom contacts, not five separately counted bond energies."
+    }
+  },
+  "layout": {
+    "method": "RDKit Compute2DCoords chemical diagram, with manually arranged protein contact atoms around it for clarity. This is a schematic interaction map, not a 3D projection or molecular surface. All reported distances and interaction classifications come from the deposited 3D structure.",
+    "scale_svg_units_per_chemical_layout_unit": 14.0,
+    "svg_origin_xy": [
+      161.51601668805748,
+      167.56172193361542
+    ],
+    "svg_y_direction": "negative chemical-layout y"
+  },
+  "ligand_atoms": [
+    {
+      "atom": "F24",
+      "pdb_serial": 2616,
+      "xyz_angstrom": [
+        4.186,
+        -3.974,
+        11.372
+      ],
+      "diagram_xy": [
+        217.61597214060345,
+        212.52314287671243
+      ]
+    },
+    {
+      "atom": "C2",
+      "pdb_serial": 2617,
+      "xyz_angstrom": [
+        5.409,
+        -4.485,
+        11.543
+      ],
+      "diagram_xy": [
+        216.57481599111787,
+        191.54896842639403
+      ]
+    },
+    {
+      "atom": "C4",
+      "pdb_serial": 2618,
+      "xyz_angstrom": [
+        6.232,
+        -3.951,
+        12.525
+      ],
+      "diagram_xy": [
+        234.2184058137573,
+        180.16021352647394
+      ]
+    },
+    {
+      "atom": "C6",
+      "pdb_serial": 2619,
+      "xyz_angstrom": [
+        7.501,
+        -4.477,
+        12.67
+      ],
+      "diagram_xy": [
+        233.17724966427173,
+        159.18603907615554
+      ]
+    },
+    {
+      "atom": "I23",
+      "pdb_serial": 2620,
+      "xyz_angstrom": [
+        8.834,
+        -3.581,
+        13.978
+      ],
+      "diagram_xy": [
+        250.82083948691115,
+        147.79728417623545
+      ]
+    },
+    {
+      "atom": "C5",
+      "pdb_serial": 2621,
+      "xyz_angstrom": [
+        7.941,
+        -5.521,
+        11.873
+      ],
+      "diagram_xy": [
+        214.49250369214667,
+        149.60061952575725
+      ]
+    },
+    {
+      "atom": "C3",
+      "pdb_serial": 2622,
+      "xyz_angstrom": [
+        7.096,
+        -6.043,
+        10.9
+      ],
+      "diagram_xy": [
+        196.84891386950724,
+        160.98937442567734
+      ]
+    },
+    {
+      "atom": "C1",
+      "pdb_serial": 2623,
+      "xyz_angstrom": [
+        5.813,
+        -5.526,
+        10.729
+      ],
+      "diagram_xy": [
+        197.89007001899282,
+        181.96354887599574
+      ]
+    },
+    {
+      "atom": "C7",
+      "pdb_serial": 2624,
+      "xyz_angstrom": [
+        4.847,
+        -6.046,
+        9.662
+      ],
+      "diagram_xy": [
+        180.24648019635336,
+        193.35230377591583
+      ]
+    },
+    {
+      "atom": "N8",
+      "pdb_serial": 2625,
+      "xyz_angstrom": [
+        5.567,
+        -6.875,
+        8.721
+      ],
+      "diagram_xy": [
+        161.56173422422836,
+        183.76688422551754
+      ]
+    },
+    {
+      "atom": "C9",
+      "pdb_serial": 2626,
+      "xyz_angstrom": [
+        5.617,
+        -8.196,
+        8.83
+      ],
+      "diagram_xy": [
+        143.9181444015889,
+        195.15563912543763
+      ]
+    },
+    {
+      "atom": "O16",
+      "pdb_serial": 2627,
+      "xyz_angstrom": [
+        5.074,
+        -8.773,
+        9.764
+      ],
+      "diagram_xy": [
+        144.95930055107448,
+        216.12981357575603
+      ]
+    },
+    {
+      "atom": "C10",
+      "pdb_serial": 2628,
+      "xyz_angstrom": [
+        6.494,
+        -8.932,
+        7.861
+      ],
+      "diagram_xy": [
+        125.23339842946388,
+        185.57021957503935
+      ]
+    },
+    {
+      "atom": "C12",
+      "pdb_serial": 2629,
+      "xyz_angstrom": [
+        7.076,
+        -10.106,
+        8.317
+      ],
+      "diagram_xy": [
+        107.58980860682442,
+        196.95897447495946
+      ]
+    },
+    {
+      "atom": "C14",
+      "pdb_serial": 2630,
+      "xyz_angstrom": [
+        7.951,
+        -10.837,
+        7.539
+      ],
+      "diagram_xy": [
+        88.90506263469939,
+        187.37355492456115
+      ]
+    },
+    {
+      "atom": "C15",
+      "pdb_serial": 2631,
+      "xyz_angstrom": [
+        8.247,
+        -10.348,
+        6.285
+      ],
+      "diagram_xy": [
+        87.8639064852138,
+        166.39938047424278
+      ]
+    },
+    {
+      "atom": "CL2",
+      "pdb_serial": 2632,
+      "xyz_angstrom": [
+        9.361,
+        -11.236,
+        5.259
+      ],
+      "diagram_xy": [
+        69.17916051308879,
+        156.8139609238445
+      ]
+    },
+    {
+      "atom": "C13",
+      "pdb_serial": 2633,
+      "xyz_angstrom": [
+        7.703,
+        -9.173,
+        5.793
+      ],
+      "diagram_xy": [
+        105.50749630785324,
+        155.0106255743227
+      ]
+    },
+    {
+      "atom": "C11",
+      "pdb_serial": 2634,
+      "xyz_angstrom": [
+        6.818,
+        -8.459,
+        6.594
+      ],
+      "diagram_xy": [
+        124.19224227997827,
+        164.59604512472097
+      ]
+    },
+    {
+      "atom": "O17",
+      "pdb_serial": 2635,
+      "xyz_angstrom": [
+        6.214,
+        -7.322,
+        6.152
+      ],
+      "diagram_xy": [
+        141.8358321026177,
+        153.20729022480086
+      ]
+    },
+    {
+      "atom": "C18",
+      "pdb_serial": 2636,
+      "xyz_angstrom": [
+        6.752,
+        -6.603,
+        5.062
+      ],
+      "diagram_xy": [
+        140.79467595313213,
+        132.23311577448248
+      ]
+    },
+    {
+      "atom": "C19",
+      "pdb_serial": 2637,
+      "xyz_angstrom": [
+        7.992,
+        -5.841,
+        5.491
+      ],
+      "diagram_xy": [
+        158.43826577577155,
+        120.84436087456237
+      ]
+    },
+    {
+      "atom": "O20",
+      "pdb_serial": 2638,
+      "xyz_angstrom": [
+        8.704,
+        -5.398,
+        4.558
+      ],
+      "diagram_xy": [
+        177.12301174789658,
+        130.42978042496065
+      ]
+    },
+    {
+      "atom": "O21",
+      "pdb_serial": 2639,
+      "xyz_angstrom": [
+        8.209,
+        -5.688,
+        6.711
+      ],
+      "diagram_xy": [
+        157.39710962628595,
+        99.87018642424398
+      ]
+    }
+  ],
+  "contacts": [
+    {
+      "type": "hydrogen bond",
+      "strict": true,
+      "protein": {
+        "residue": "HIS",
+        "chain": "A",
+        "residue_number": 110,
+        "atom": "NE2",
+        "pdb_serial": 897,
+        "xyz_angstrom": [
+          11.050999641418457,
+          -4.474999904632568,
+          5.4670000076293945
+        ],
+        "diagram_xy": [
+          220,
+          59
+        ]
+      },
+      "ligand": {
+        "residue": "M15",
+        "chain": "A",
+        "residue_number": 402,
+        "atom": "O20",
+        "pdb_serial": 2638,
+        "xyz_angstrom": [
+          8.704000473022461,
+          -5.3979997634887695,
+          4.558000087738037
+        ],
+        "diagram_xy": [
+          177.12301174789658,
+          130.42978042496065
+        ]
+      },
+      "distance_angstrom": 2.680786371231079
+    },
+    {
+      "type": "hydrogen bond",
+      "strict": true,
+      "protein": {
+        "residue": "TRP",
+        "chain": "A",
+        "residue_number": 111,
+        "atom": "NE1",
+        "pdb_serial": 906,
+        "xyz_angstrom": [
+          9.277000427246094,
+          -3.818000078201294,
+          8.821999549865723
+        ],
+        "diagram_xy": [
+          134,
+          48
+        ]
+      },
+      "ligand": {
+        "residue": "M15",
+        "chain": "A",
+        "residue_number": 402,
+        "atom": "O21",
+        "pdb_serial": 2639,
+        "xyz_angstrom": [
+          8.208999633789062,
+          -5.688000202178955,
+          6.710999965667725
+        ],
+        "diagram_xy": [
+          157.39710962628595,
+          99.87018642424398
+        ]
+      },
+      "distance_angstrom": 3.0156004428863525
+    },
+    {
+      "type": "halogen bond",
+      "strict": true,
+      "protein": {
+        "residue": "THR",
+        "chain": "A",
+        "residue_number": 113,
+        "atom": "OG1",
+        "pdb_serial": 924,
+        "xyz_angstrom": [
+          11.42300033569336,
+          -2.634999990463257,
+          15.020000457763672
+        ],
+        "diagram_xy": [
+          292,
+          112
+        ]
+      },
+      "ligand": {
+        "residue": "M15",
+        "chain": "A",
+        "residue_number": 402,
+        "atom": "I23",
+        "pdb_serial": 2620,
+        "xyz_angstrom": [
+          8.833999633789062,
+          -3.5810000896453857,
+          13.977999687194824
+        ],
+        "diagram_xy": [
+          250.82083948691115,
+          147.79728417623545
+        ]
+      },
+      "distance_angstrom": 2.94679594039917
+    },
+    {
+      "type": "hydrophobic contact",
+      "strict": null,
+      "protein": {
+        "residue": "TRP",
+        "chain": "A",
+        "residue_number": 20,
+        "atom": "CZ2",
+        "pdb_serial": 154,
+        "xyz_angstrom": [
+          4.258999824523926,
+          -9.303999900817871,
+          4.1020002365112305
+        ],
+        "diagram_xy": [
+          35,
+          108
+        ]
+      },
+      "ligand": {
+        "residue": "M15",
+        "chain": "A",
+        "residue_number": 402,
+        "atom": "C13",
+        "pdb_serial": 2633,
+        "xyz_angstrom": [
+          7.703000068664551,
+          -9.17300033569336,
+          5.793000221252441
+        ],
+        "diagram_xy": [
+          105.50749630785324,
+          155.0106255743227
+        ]
+      },
+      "distance_angstrom": 3.8389813899993896
+    },
+    {
+      "type": "hydrophobic contact",
+      "strict": null,
+      "protein": {
+        "residue": "TRP",
+        "chain": "A",
+        "residue_number": 111,
+        "atom": "CZ2",
+        "pdb_serial": 909,
+        "xyz_angstrom": [
+          6.936999797821045,
+          -2.9519999027252197,
+          8.902000427246094
+        ],
+        "diagram_xy": [
+          250,
+          267
+        ]
+      },
+      "ligand": {
+        "residue": "M15",
+        "chain": "A",
+        "residue_number": 402,
+        "atom": "C1",
+        "pdb_serial": 2623,
+        "xyz_angstrom": [
+          5.813000202178955,
+          -5.526000022888184,
+          10.729000091552734
+        ],
+        "diagram_xy": [
+          197.89007001899282,
+          181.96354887599574
+        ]
+      },
+      "distance_angstrom": 3.3506386280059814
+    },
+    {
+      "type": "hydrophobic contact",
+      "strict": null,
+      "protein": {
+        "residue": "PHE",
+        "chain": "A",
+        "residue_number": 122,
+        "atom": "CZ",
+        "pdb_serial": 1000,
+        "xyz_angstrom": [
+          8.777999877929688,
+          -9.503999710083008,
+          11.604999542236328
+        ],
+        "diagram_xy": [
+          70,
+          260
+        ]
+      },
+      "ligand": {
+        "residue": "M15",
+        "chain": "A",
+        "residue_number": 402,
+        "atom": "C12",
+        "pdb_serial": 2629,
+        "xyz_angstrom": [
+          7.076000213623047,
+          -10.105999946594238,
+          8.317000389099121
+        ],
+        "diagram_xy": [
+          107.58980860682442,
+          196.95897447495946
+        ]
+      },
+      "distance_angstrom": 3.751019239425659
+    },
+    {
+      "type": "hydrophobic contact",
+      "strict": null,
+      "protein": {
+        "residue": "LEU",
+        "chain": "A",
+        "residue_number": 300,
+        "atom": "CB",
+        "pdb_serial": 2433,
+        "xyz_angstrom": [
+          3.5350000858306885,
+          -6.866000175476074,
+          13.447999954223633
+        ],
+        "diagram_xy": [
+          155,
+          282
+        ]
+      },
+      "ligand": {
+        "residue": "M15",
+        "chain": "A",
+        "residue_number": 402,
+        "atom": "C1",
+        "pdb_serial": 2623,
+        "xyz_angstrom": [
+          5.813000202178955,
+          -5.526000022888184,
+          10.729000091552734
+        ],
+        "diagram_xy": [
+          197.89007001899282,
+          181.96354887599574
+        ]
+      },
+      "distance_angstrom": 3.7918128967285156
+    },
+    {
+      "type": "hydrophobic contact",
+      "strict": null,
+      "protein": {
+        "residue": "TYR",
+        "chain": "A",
+        "residue_number": 309,
+        "atom": "CE1",
+        "pdb_serial": 2505,
+        "xyz_angstrom": [
+          4.484000205993652,
+          -2.3350000381469727,
+          15.564000129699707
+        ],
+        "diagram_xy": [
+          288,
+          236
+        ]
+      },
+      "ligand": {
+        "residue": "M15",
+        "chain": "A",
+        "residue_number": 402,
+        "atom": "C4",
+        "pdb_serial": 2618,
+        "xyz_angstrom": [
+          6.23199987411499,
+          -3.9509999752044678,
+          12.524999618530273
+        ],
+        "diagram_xy": [
+          234.2184058137573,
+          180.16021352647394
+        ]
+      },
+      "distance_angstrom": 3.8603734970092773
+    }
+  ],
+  "excluded_contacts": [
+    {
+      "type": "hydrogen bond",
+      "strict": true,
+      "protein": {
+        "residue": "LEU",
+        "chain": "A",
+        "residue_number": 300,
+        "atom": "N",
+        "pdb_serial": 2429,
+        "xyz_angstrom": [
+          1.8799999952316284,
+          -5.072000026702881,
+          13.361000061035156
+        ]
+      },
+      "ligand": {
+        "residue": "M15",
+        "chain": "A",
+        "residue_number": 402,
+        "atom": "F24",
+        "pdb_serial": 2616,
+        "xyz_angstrom": [
+          4.185999870300293,
+          -3.9739999771118164,
+          11.371999740600586
+        ]
+      },
+      "distance_angstrom": 3.2371842861175537
+    }
+  ],
+  "drawing_note": "Gold dashed lines: hydrogen bonds; violet dashed lines: halogen bond; teal dotted lines: hydrophobic contacts. Protein silhouette and contact-node placement are decorative. Lines are shortened to leave room for atom labels and marker circles."
+}

@@ -1,23 +1,11 @@
 /* Project branding and landing-page layout; Furo handles navigation and themes. */
-.oddt-wordmark {
-  color: var(--color-brand-primary);
-  font-size: 1.9rem;
-  font-weight: 750;
-  letter-spacing: -0.06em;
+.sidebar-brand .sidebar-logo-container {
+  width: 100%;
 }
 
-.oddt-wordmark-label {
-  color: var(--color-foreground-secondary);
-  font-size: 0.85rem;
-  font-weight: 500;
-  letter-spacing: 0;
-}
-
-.oddt-brand-description {
-  color: var(--color-foreground-secondary);
-  font-size: 0.85rem;
-  line-height: 1.5;
-  margin-top: 0.35rem;
+.sidebar-brand .sidebar-logo {
+  height: auto;
+  width: 100%;
 }
 
 .oddt-version {

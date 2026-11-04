@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/_static/oddt-logo-dark.svg">
+  <img src="./docs/_static/oddt-logo.svg" width="640" alt="ODDT: aldose reductase and inhibitor M15 (PDB 4LB3), with hydrogen bonds, a halogen bond, and hydrophobic contacts marked">
+</picture>
+
 # Open Drug Discovery Toolkit (ODDT)
 
 **Cheminformatics, molecular modeling, and virtual screening in Python.**

@@ -138,6 +138,9 @@ html_theme = "furo"
 # further.  For a list of options available for each theme, see the
 # documentation.
 html_theme_options = {
+    "light_logo": "oddt-logo.svg",
+    "dark_logo": "oddt-logo-dark.svg",
+    "sidebar_hide_name": True,
     "light_css_variables": {
         "color-brand-primary": "#0f766e",
         "color-brand-content": "#0f766e",
@@ -165,7 +168,7 @@ html_theme_options = {
 # The name of an image file (within the static path) to use as favicon of the
 # docs.  This file should be a Windows icon file (.ico) being 16x16 or 32x32
 # pixels large.
-# html_favicon = None
+html_favicon = "_static/oddt-icon.svg"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
