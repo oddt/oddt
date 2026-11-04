@@ -1,0 +1,12 @@
+{% if documentation_versions %}
+<nav class="oddt-versions" aria-label="Documentation versions">
+  <details>
+    <summary>Versions</summary>
+    <ul>
+      {% for item in documentation_versions %}
+      <li><a href="{{ pathto(item.path) }}"{% if item.name == release %} aria-current="true"{% endif %}>{{ item.name }}</a></li>
+      {% endfor %}
+    </ul>
+  </details>
+</nav>
+{% endif %}

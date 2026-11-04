@@ -46,13 +46,15 @@
   text-transform: uppercase;
 }
 
-.oddt-quicklinks ul {
+.oddt-quicklinks ul,
+.oddt-versions ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.oddt-quicklinks a {
+.oddt-quicklinks a,
+.oddt-versions a {
   color: var(--color-sidebar-link-text);
   display: block;
   font-size: 0.875rem;
@@ -60,7 +62,8 @@
   text-decoration: none;
 }
 
-.oddt-quicklinks a:hover {
+.oddt-quicklinks a:hover,
+.oddt-versions a:hover {
   background: var(--color-sidebar-item-background--hover);
   color: var(--color-brand-content);
 }
@@ -119,10 +122,28 @@
 }
 
 .oddt-quicklinks a:focus-visible,
+.oddt-versions a:focus-visible,
+.oddt-versions summary:focus-visible,
 .oddt-card a:focus-visible {
   border-radius: 0.15rem;
   outline: 2px solid var(--color-brand-primary);
   outline-offset: 3px;
+}
+
+.oddt-versions {
+  margin-bottom: 1rem;
+}
+
+.oddt-versions summary {
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: 0.5rem var(--sidebar-item-spacing-horizontal);
+}
+
+.oddt-versions a[aria-current] {
+  color: var(--color-brand-content);
+  font-weight: 700;
 }
 
 @media (max-width: 52rem) {

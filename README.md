@@ -91,8 +91,15 @@ them separately. Vina 1.1.2 retains the original native scoring path.
 Documentation is hosted on [GitHub Pages](https://oddt.github.io/oddt/).
 The [documentation workflow](./.github/workflows/docs.yml) builds the Sphinx
 documentation and API reference on pull requests, and publishes updates from
-the repository's default branch (`master` or `main`).
-The published documentation uses the `latest` version label to reflect this.
+the repository's default branch (`master` or `main`) and version tag pushes.
+The site root contains `latest` documentation from the default branch; every
+version tag from `0.7` onward gets its own directory, such as `/oddt/0.7/`.
+The sidebar's **Versions** menu switches between them. Tags are sorted by
+version, including tags with a `v` prefix, and older or non-version tags are ignored.
+Each release uses its own documentation and Python source with the shared current
+theme. Legacy inline contents lists are replaced by Furo's contents sidebar.
+Historical releases before 0.8 mock pandas during autodoc because their
+API includes `pandas.Panel`, which modern pandas no longer provides.
 The Furo theme provides responsive navigation, search, and light/dark modes.
 Theme settings are in [docs/conf.py](./docs/conf.py); project styling is in
 [docs/_static/custom.css](./docs/_static/custom.css).
@@ -102,14 +109,15 @@ To enable publishing, open the repository's **Settings → Pages** and set
 the default branch, or run **Documentation** from the **Actions** tab on that
 branch. For forks, the site URL is `https://<owner>.github.io/<repository>/`.
 
-Build the same HTML documentation locally from the repository root:
+Build the same versioned HTML documentation locally from the repository root
+(requires Python 3.12+ and a Git checkout with the release tags):
 
 ```sh
 conda env create -n oddt-docs -f environment.yml
 conda activate oddt-docs
 python -m pip install -r docs/requirements.txt
-python -m sphinx.ext.apidoc --force --output-dir docs/rst oddt
-python -m sphinx --builder html -D version=latest -D release=latest docs docs/_build/html
+git fetch --tags
+python docs/build_versions.py
 ```
 
 Open `docs/_build/html/index.html` to browse the result. With the environment
