@@ -93,6 +93,9 @@ The [documentation workflow](./.github/workflows/docs.yml) builds the Sphinx
 documentation and API reference on pull requests, and publishes updates from
 the repository's default branch (`master` or `main`).
 The published documentation uses the `latest` version label to reflect this.
+The Furo theme provides responsive navigation, search, and light/dark modes.
+Theme settings are in [docs/conf.py](./docs/conf.py); project styling is in
+[docs/_static/custom.css](./docs/_static/custom.css).
 
 To enable publishing, open the repository's **Settings → Pages** and set
 **Build and deployment → Source** to **GitHub Actions**. Push the workflow to
