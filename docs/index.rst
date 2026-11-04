@@ -1,4 +1,4 @@
-.. _oddt::
+.. _oddt:
 .. highlight:: python
 
 ********************************
@@ -12,7 +12,7 @@ Installation
 ============
 
 Requirements
-````````````
+------------
 
 * Python 3.12+
 * OpenBabel (3.0+) or/and RDKit (2018.03+)
@@ -47,7 +47,7 @@ Finally you can install ODDT straight from the source
     python setup.py install
 
 Common installation problems
-````````````````````````````
+----------------------------
 
 
 Usage Instructions
@@ -234,12 +234,16 @@ File with more than one molecule
   mols = list(oddt.toolkit.readfile('sdf', 'ligands.sdf'))
 
 When files are loaded, You can check interactions between molecules. Let's find out, which amino acids creates hydrogen bonds
-::
+
+.. code-block:: python
+
   protein_atoms, ligand_atoms, strict = hbonds(protein, ligand)
   print(protein_atoms['resname'])
 
 Or check hydrophobic contacts between molecules
-::
+
+.. code-block:: python
+
   protein_atoms, ligand_atoms = hydrophobic_contacts(protein, ligand)
   print(protein_atoms, ligand_atoms)
 
@@ -370,7 +374,9 @@ Otherwise you can run into bags which are hard to catch, when writing toolkit in
 ODDT API documentation
 ======================
 
-.. toctree:: rst/oddt.rst
+.. toctree::
+
+   rst/modules
 
 References
 ==========

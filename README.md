@@ -2,7 +2,7 @@
 
 Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use in cheminformatics, molecular modeling etc. ODDT is written in Python, and make extensive use of Numpy/Scipy
 
-[![Documentation Status](https://readthedocs.org/projects/oddt/badge/?version=latest)](http://oddt.readthedocs.org/en/latest/)
+[![Documentation Status](https://github.com/oddt/oddt/actions/workflows/docs.yml/badge.svg)](https://oddt.github.io/oddt/)
 [![Build Status](https://travis-ci.org/oddt/oddt.svg?branch=master)](https://travis-ci.org/oddt/oddt)
 [![Coverage Status](https://coveralls.io/repos/github/oddt/oddt/badge.svg?branch=master)](https://coveralls.io/github/oddt/oddt?branch=master)
 [![Code Health](https://landscape.io/github/oddt/oddt/master/landscape.svg?style=flat)](https://landscape.io/github/oddt/oddt/master)
@@ -10,7 +10,7 @@ Open Drug Discovery Toolkit (ODDT) is modular and comprehensive toolkit for use 
 [![Latest Version](https://img.shields.io/pypi/v/oddt.svg)](https://pypi.python.org/pypi/oddt/)
 
 ## Documentation, Discussion and Contribution:
-  * Documentation: http://oddt.readthedocs.org/en/latest
+  * Documentation: https://oddt.github.io/oddt/
   * Mailing list: oddt@googlegroups.com  http://groups.google.com/d/forum/oddt
   * Issues: https://github.com/oddt/oddt/issues
 
@@ -88,12 +88,29 @@ are reconstructed with ODDT's internal scorer because the API does not expose
 them separately. Vina 1.1.2 retains the original native scoring path.
 
 ### Documentation
-Automatic documentation for ODDT is available on [Readthedocs.org](https://oddt.readthedocs.org/). Additionally, it can be build locally:
-   > cd docs
+Documentation is hosted on [GitHub Pages](https://oddt.github.io/oddt/).
+The [documentation workflow](./.github/workflows/docs.yml) builds the Sphinx
+documentation and API reference on pull requests, and publishes updates from
+the repository's default branch (`master` or `main`).
 
-   > make html
+To enable publishing, open the repository's **Settings → Pages** and set
+**Build and deployment → Source** to **GitHub Actions**. Push the workflow to
+the default branch, or run **Documentation** from the **Actions** tab on that
+branch. For forks, the site URL is `https://<owner>.github.io/<repository>/`.
 
-   > make latexpdf
+Build the same HTML documentation locally from the repository root:
+
+```sh
+conda env create -n oddt-docs -f environment.yml
+conda activate oddt-docs
+python -m pip install -r docs/requirements.txt
+python -m sphinx.ext.apidoc --force --output-dir docs/rst oddt
+python -m sphinx --builder html docs docs/_build/html
+```
+
+Open `docs/_build/html/index.html` to browse the result. With the environment
+active, `make -C docs html` and `make -C docs latexpdf` are also available
+(PDF output requires LaTeX).
 
 ### License
 ODDT is released under permissive [3-clause BSD license](./LICENSE)

@@ -1,0 +1,69 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build documentation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash -el {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up documentation environment
+        uses: conda-incubator/setup-miniconda@v3
+        with:
+          miniforge-version: latest
+          activate-environment: docs
+          environment-file: environment.yml
+          channels: conda-forge
+          channel-priority: strict
+          auto-activate-base: false
+
+      - name: Install documentation dependencies
+        run: python -m pip install -r docs/requirements.txt
+
+      - name: Generate API documentation
+        run: python -m sphinx.ext.apidoc --force --output-dir docs/rst oddt
+
+      - name: Build HTML documentation
+        run: python -m sphinx --builder html docs docs/_build/html
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/_build/html
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name != 'pull_request' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Deploy documentation
+        id: deployment
+        uses: actions/deploy-pages@v4
