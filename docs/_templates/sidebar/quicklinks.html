@@ -3,7 +3,7 @@
   <p class="caption" role="heading" aria-level="2">Get started</p>
   <ul>
     <li><a href="{{ pathto(master_doc) }}">Overview</a></li>
-    <li><a href="{{ overview }}#installation">Installation</a></li>
-    <li><a href="{{ overview }}#usage-instructions">User guide</a></li>
+    <li><a href="{{ pathto('installation') if hasdoc('installation') else overview + '#installation' }}">Installation</a></li>
+    <li><a href="{{ pathto('user-guide/index') if hasdoc('user-guide/index') else overview + '#usage-instructions' }}">User guide</a></li>
   </ul>
 </nav>
