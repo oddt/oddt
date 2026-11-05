@@ -652,9 +652,9 @@ def SPLIF(ligand, protein, depth=1, size=4096, distance_cutoff=4.5):
     depth : int (deafult = 1)
         The depth of the fingerprint, i.e. the number of bonds in Morgan
         algorithm. Note: For ECFP2: depth = 1, ECFP4: depth = 2, etc.
-    size: int (default = 4096)
+    size : int (default = 4096)
         SPLIF is folded to given size.
-    distance_cutoff: float (default=4.5)
+    distance_cutoff : float (default=4.5)
         Cutoff distance for close contacts.
 
     Returns
@@ -716,7 +716,7 @@ def similarity_SPLIF(reference, query, rmsd_cutoff=1.0):
 
     Parameters
     ----------
-    reference, query: numpy.array
+    reference, query : numpy.array
         SPLIFs, which are compared in order to determine similarity.
     rmsd_cutoff : int (default = 1)
         Specific treshold for which, bits are considered as fully matching.
@@ -820,25 +820,25 @@ def PLEC(
         The depth of the fingerprint, i.e. the number of bonds in Morgan
         algorithm. Note: For ECFP2: depth = 1, ECFP4: depth = 2, etc.
 
-    size: int (default = 16384)
-        SPLIF is folded to given size.
-
-    distance_cutoff: float (default=4.5)
+    distance_cutoff : float (default=4.5)
         Cutoff distance for close contacts.
 
-    sparse: bool (default = True)
-        Should fingerprints be dense (contain all bits) or sparse (just the on
-        bits).
+    size : int (default = 16384)
+        PLEC is folded to given size.
 
-    count_bits: bool (default = True)
+    count_bits : bool (default = True)
         Should the bits be counted or unique. In dense representation it
         translates to integer array (count_bits=True) or boolean array if False.
 
-    ignore_hoh: bool (default = True)
+    sparse : bool (default = True)
+        Should fingerprints be dense (contain all bits) or sparse (just the on
+        bits).
+
+    ignore_hoh : bool (default = True)
         Should the water molecules be ignored. This is based on the name of the
         residue ('HOH').
 
-    bits_info: dict or None (default = None)
+    bits_info : dict or None (default = None)
         If dictionary is provided it is filled with information about bit contents.
         Root atom index and depth is provided for both ligand and protein.
         Dictionary is modified in-place.
@@ -999,13 +999,13 @@ def get_molecular_shingles(mol, depth=2, atom_idxs=None):
 
     Parameters
     ----------
-    mol: oddt.toolkit.Molecule instance
+    mol : oddt.toolkit.Molecule instance
         Query molecule object
 
-    detpth: int (default=2)
+    depth : int (default=2)
         Bond depth of environtment that is used for shingles generation
 
-    atom_idxs: iterable of ints or None (default=None)
+    atom_idxs : iterable of ints or None (default=None)
         Which atoms to use for shingles generation. By default use all atoms.
 
     Returns

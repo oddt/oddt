@@ -397,7 +397,7 @@ class CASF:
 
     Parameters
     ----------
-    home: string
+    home : string
         Path to CASF dataset main directory
     """
 
@@ -430,7 +430,7 @@ class CASF:
 
         Parameters
         ----------
-        scoring_function: string (default=None)
+        scoring_function : string (default=None)
             Name of the scoring function to get results
             If None, all results are returned.
         """
@@ -465,11 +465,11 @@ class CASF:
 
         Parameters
         ----------
-        scoring_function: string (default=None)
+        scoring_function : string (default=None)
             Name of the scoring function to get results
             If None, all results are returned
 
-        cluster_id: int (default=None)
+        cluster_id : int (default=None)
             Number of the protein cluster to get results
             If None, all results are returned
         """
@@ -528,9 +528,9 @@ class _CASFTarget:
 
     Parameters
     ----------
-    home: string
+    home : string
         Path to CASF dataset main directory
-    pdbid: string
+    pdbid : string
         ID of target protein
     """
 

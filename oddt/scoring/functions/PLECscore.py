@@ -39,23 +39,23 @@ class PLECscore(scorer):
         protein : oddt.toolkit.Molecule object
             Receptor for the scored ligands
 
-        n_jobs: int (default=-1)
+        n_jobs : int (default=-1)
             Number of cores to use for scoring and training. By default (-1)
             all cores are allocated.
 
-        version: str (default='linear')
+        version : str (default='linear')
             A version of scoring function ('linear', 'nn' or 'rf') - which
             model should be used for the scoring function.
 
-        depth_protein: int (default=5)
+        depth_protein : int (default=5)
             The depth of ECFP environments generated on the protein side of
             interaction. By default 6 (0 to 5) environments are generated.
 
-        depth_ligand: int (default=1)
+        depth_ligand : int (default=1)
             The depth of ECFP environments generated on the ligand side of
             interaction. By default 2 (0 to 1) environments are generated.
 
-        size: int (default=65536)
+        size : int (default=65536)
             The final size of a folded PLEC fingerprint. This setting is not
             used to limit the data encoded in PLEC fingerprint (for that
             tune the depths), but only the final lenght. Setting it to too

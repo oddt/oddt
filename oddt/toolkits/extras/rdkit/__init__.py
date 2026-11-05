@@ -100,17 +100,17 @@ def AtomListToSubMol(mol, amap, includeConformer=False):
     """
     Parameters
     ----------
-        mol: rdkit.Chem.rdchem.Mol
-            Molecule
-        amap: array-like
-            List of atom indices (zero-based)
-        includeConformer: bool (default=True)
-            Toogle to include atoms coordinates in submolecule.
+    mol : rdkit.Chem.rdchem.Mol
+        Molecule
+    amap : array-like
+        List of atom indices (zero-based)
+    includeConformer : bool (default=True)
+        Toogle to include atoms coordinates in submolecule.
 
     Returns
     -------
-        submol: rdkit.Chem.rdchem.RWMol
-            Submol determined by specified atom list
+    submol : rdkit.Chem.rdchem.RWMol
+        Submol determined by specified atom list
     """
     if not isinstance(amap, list):
         amap = list(amap)
@@ -305,17 +305,17 @@ def MolFromPDBQTBlock(block, sanitize=True, removeHs=True):
 
     Parameters
     ----------
-        block: string
-            Residue name which explicitly pint to a ligand(s).
-        sanitize: bool (default=True)
-            Should the sanitization be performed
-        removeHs: bool (default=True)
-            Should hydrogens be removed when reading molecule.
+    block : string
+        Residue name which explicitly pint to a ligand(s).
+    sanitize : bool (default=True)
+        Should the sanitization be performed
+    removeHs : bool (default=True)
+        Should hydrogens be removed when reading molecule.
 
     Returns
     -------
-        mol: rdkit.Chem.rdchem.Mol
-            Molecule read from PDBQT
+    mol : rdkit.Chem.rdchem.Mol
+        Molecule read from PDBQT
     """
     pdb_lines = []
     name = ""
@@ -420,23 +420,23 @@ def MolToPDBQTBlock(mol, flexible=True, addHs=False, computeCharges=False):
 
     Parameters
     ----------
-        mol: rdkit.Chem.rdchem.Mol
-            Molecule with a protein ligand complex
-        flexible: bool (default=True)
-            Should the molecule encode torsions. Ligands should be flexible,
-            proteins in turn can be rigid.
-        addHs: bool (default=False)
-            The PDBQT format requires at least polar Hs on donors. By default Hs
-            are added.
-        computeCharges: bool (default=False)
-            Should the partial charges be automatically computed. If the Hs are
-            added the charges must and will be recomputed. If there are no
-            partial charge information, they are set to 0.0.
+    mol : rdkit.Chem.rdchem.Mol
+        Molecule with a protein ligand complex
+    flexible : bool (default=True)
+        Should the molecule encode torsions. Ligands should be flexible,
+        proteins in turn can be rigid.
+    addHs : bool (default=False)
+        The PDBQT format requires at least polar Hs on donors. By default Hs
+        are added.
+    computeCharges : bool (default=False)
+        Should the partial charges be automatically computed. If the Hs are
+        added the charges must and will be recomputed. If there are no
+        partial charge information, they are set to 0.0.
 
     Returns
     -------
-        block: str
-            String wit PDBQT encoded molecule
+    block : str
+        String wit PDBQT encoded molecule
     """
     # make a copy of molecule
     mol = Chem.Mol(mol)

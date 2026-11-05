@@ -89,21 +89,21 @@ def UFFConstrainedOptimize(mol, moving_atoms=None, fixed_atoms=None, cutoff=5.0,
 
     Parameters
     ----------
-        mol: rdkit.Chem.rdchem.Mol
-            Molecule to be minimized.
-        moving_atoms: array-like (default=None)
-            Indices of freely moving atoms. If None, fixed atoms are assigned
-            based on `fixed_atoms`. These two arguments are mutually exclusive.
-        fixed_atoms: array-like (default=None)
-            Indices of fixed atoms. If None, fixed atoms are assigned based on
-            `moving_atoms`. These two arguments are mutually exclusive.
-        cutoff: float (default=10.)
-            Distance cutoff for the UFF minimization
+    mol : rdkit.Chem.rdchem.Mol
+        Molecule to be minimized.
+    moving_atoms : array-like (default=None)
+        Indices of freely moving atoms. If None, fixed atoms are assigned
+        based on `fixed_atoms`. These two arguments are mutually exclusive.
+    fixed_atoms : array-like (default=None)
+        Indices of fixed atoms. If None, fixed atoms are assigned based on
+        `moving_atoms`. These two arguments are mutually exclusive.
+    cutoff : float (default=10.)
+        Distance cutoff for the UFF minimization
 
     Returns
     -------
-        mol: rdkit.Chem.rdchem.Mol
-            Molecule with mimimized `moving_atoms`
+    mol : rdkit.Chem.rdchem.Mol
+        Molecule with mimimized `moving_atoms`
     """
     logger = RDLogger.logger()
 
@@ -169,26 +169,26 @@ def ExtractPocketAndLigand(
 
     Parameters
     ----------
-        mol: rdkit.Chem.rdchem.Mol
-            Molecule with a protein ligand complex
-        cutoff: float (default=12.)
-            Distance cutoff for the pocket atoms
-        expandResidues: bool (default=True)
-            Expand selection to whole residues within cutoff.
-        ligand_residue: string (default None)
-            Residue name which explicitly pint to a ligand(s).
-        ligand_residue_blacklist: array-like, optional (default None)
-            List of residues to ignore during ligand lookup.
-        append_residues: array-like, optional (default None)
-            List of residues to append to pocket, even if they are HETATM, such
-            as MSE, ATP, AMP, ADP, etc.
+    mol : rdkit.Chem.rdchem.Mol
+        Molecule with a protein ligand complex
+    cutoff : float (default=12.)
+        Distance cutoff for the pocket atoms
+    expandResidues : bool (default=True)
+        Expand selection to whole residues within cutoff.
+    ligand_residue : string (default None)
+        Residue name which explicitly pint to a ligand(s).
+    ligand_residue_blacklist : array-like, optional (default None)
+        List of residues to ignore during ligand lookup.
+    append_residues : array-like, optional (default None)
+        List of residues to append to pocket, even if they are HETATM, such
+        as MSE, ATP, AMP, ADP, etc.
 
     Returns
     -------
-        pocket: rdkit.Chem.rdchem.RWMol
-            Pocket constructed of protein residues/atoms around ligand
-        ligand: rdkit.Chem.rdchem.RWMol
-            Largest HETATM residue contained in input molecule
+    pocket : rdkit.Chem.rdchem.RWMol
+        Pocket constructed of protein residues/atoms around ligand
+    ligand : rdkit.Chem.rdchem.RWMol
+        Largest HETATM residue contained in input molecule
     """
     # Get heteroatom residues - connectivity still might be wrong, so GetFrags will fail
     # Use OrderDict, so that A chain is prefered first over B if ligands are equal
@@ -295,24 +295,25 @@ def PreparePDBResidue(protein, residue, amap, template):
     """
     Parameters
     ----------
-        protein: rdkit.Chem.rdchem.RWMol
-            Mol with whole protein. Note that it is modified in place.
-        residue:
-            Mol with residue only
-        amap: list
-            List mapping atom IDs in residue to atom IDs in whole protein
-            (amap[i] = j means that i'th atom in residue corresponds to j'th
-            atom in protein)
-        template:
-            Residue template
+    protein : rdkit.Chem.rdchem.RWMol
+        Mol with whole protein. Note that it is modified in place.
+    residue : rdkit.Chem.rdchem.Mol
+        Mol with residue only
+    amap : list
+        List mapping atom IDs in residue to atom IDs in whole protein
+        (amap[i] = j means that i'th atom in residue corresponds to j'th
+        atom in protein)
+    template : rdkit.Chem.rdchem.Mol
+        Residue template
+
     Returns
     -------
-        protein: rdkit.Chem.rdchem.RWMol
-            Modified protein
-        visited_bonds: list
-            Bonds that match the template
-        is_complete: bool
-            Indicates whether all atoms in template were found in residue
+    protein : rdkit.Chem.rdchem.RWMol
+        Modified protein
+    visited_bonds : list
+        Bonds that match the template
+    is_complete : bool
+        Indicates whether all atoms in template were found in residue
     """
 
     visited_bonds = []
@@ -443,24 +444,25 @@ def AddMissingAtoms(protein, residue, amap, template):
 
     Parameters
     ----------
-        protein: rdkit.Chem.rdchem.RWMol
-            Mol with whole protein. Note that it is modified in place.
-        residue:
-            Mol with residue only
-        amap: list
-            List mapping atom IDs in residue to atom IDs in whole protein
-            (amap[i] = j means that i'th atom in residue corresponds to j'th
-            atom in protein)
-        template:
-            Residue template
+    protein : rdkit.Chem.rdchem.RWMol
+        Mol with whole protein. Note that it is modified in place.
+    residue : rdkit.Chem.rdchem.Mol
+        Mol with residue only
+    amap : list
+        List mapping atom IDs in residue to atom IDs in whole protein
+        (amap[i] = j means that i'th atom in residue corresponds to j'th
+        atom in protein)
+    template : rdkit.Chem.rdchem.Mol
+        Residue template
+
     Returns
     -------
-        protein: rdkit.Chem.rdchem.RWMol
-            Modified protein
-        visited_bonds: list
-            Bonds that match the template
-        is_complete: bool
-            Indicates whether all atoms in template were found in residue
+    protein : rdkit.Chem.rdchem.RWMol
+        Modified protein
+    visited_bonds : list
+        Bonds that match the template
+    is_complete : bool
+        Indicates whether all atoms in template were found in residue
     """
     # TODO: try to better guess the types of atoms (if possible)
 
@@ -625,34 +627,34 @@ def PreparePDBMol(
 
     Parameters
     ----------
-        mol: rdkit.Chem.rdchem.Mol
-            Mol with whole protein.
-        removeHs: bool, optional (default True)
-            If True, hydrogens will be forcefully removed
-        removeHOHs: bool, optional (default True)
-            If True, remove waters using residue name
-        residue_whitelist: array-like, optional (default None)
-            List of residues to clean. If not specified, all residues
-            present in the structure will be used.
-        residue_blacklist: array-like, optional (default None)
-            List of residues to ignore during cleaning. If not specified,
-            all residues present in the structure will be cleaned.
-        remove_incomplete: bool, optional (default False)
-            If True, remove residues that do not fully match the template
-        add_missing_atoms: bool (default=False)
-            Switch to add missing atoms accordingly to template SMILES structure.
-        custom_templates: str or dict, optional (default None)
-            Custom templates for residues. Can be either path to SMILES file,
-            or dictionary mapping names to SMILES or Mol objects
-        replace_default_templates: bool, optional (default False)
-            Indicates whether default default templates should be replaced by
-            cusom ones. If False, default templates will be updated with custom
-            ones. This argument is ignored if custom_templates is None.
+    mol : rdkit.Chem.rdchem.Mol
+        Mol with whole protein.
+    removeHs : bool, optional (default True)
+        If True, hydrogens will be forcefully removed
+    removeHOHs : bool, optional (default True)
+        If True, remove waters using residue name
+    residue_whitelist : array-like, optional (default None)
+        List of residues to clean. If not specified, all residues
+        present in the structure will be used.
+    residue_blacklist : array-like, optional (default None)
+        List of residues to ignore during cleaning. If not specified,
+        all residues present in the structure will be cleaned.
+    remove_incomplete : bool, optional (default False)
+        If True, remove residues that do not fully match the template
+    add_missing_atoms : bool (default=False)
+        Switch to add missing atoms accordingly to template SMILES structure.
+    custom_templates : str or dict, optional (default None)
+        Custom templates for residues. Can be either path to SMILES file,
+        or dictionary mapping names to SMILES or Mol objects
+    replace_default_templates : bool, optional (default False)
+        Indicates whether default default templates should be replaced by
+        cusom ones. If False, default templates will be updated with custom
+        ones. This argument is ignored if custom_templates is None.
 
     Returns
     -------
-        new_mol: rdkit.Chem.rdchem.RWMol
-            Modified protein
+    new_mol : rdkit.Chem.rdchem.RWMol
+        Modified protein
     """
 
     new_mol = Chem.RWMol(mol)
@@ -850,19 +852,19 @@ def FetchAffinityTable(pdbids, affinity_types):
 
     Parameters
     ----------
-        pdbids: array-like
-            List of PDB IDs of structres with protein-ligand complexes.
-        affinity_types: array-like
-            List of types of affinity data to retrieve. Available types are:
-            Ki, Kd, EC50, IC50, deltaG, deltaH, deltaS, Ka.
+    pdbids : array-like
+        List of PDB IDs of structres with protein-ligand complexes.
+    affinity_types : array-like
+        List of types of affinity data to retrieve. Available types are:
+        Ki, Kd, EC50, IC50, deltaG, deltaH, deltaS, Ka.
 
     Returns
     -------
-        ligand_affinity: pd.DataFrame
-            Table with protein-ligand binding affinities. Table contains
-            following columns: structureId, ligandId, ligandFormula,
-            ligandMolecularWeight + columns named after affinity types
-            specified byt the user.
+    ligand_affinity : pd.DataFrame
+        Table with protein-ligand binding affinities. Table contains
+        following columns: structureId, ligandId, ligandFormula,
+        ligandMolecularWeight + columns named after affinity types
+        specified byt the user.
     """
 
     ids_string = ",".join(pdbids)
@@ -901,17 +903,17 @@ def FetchStructure(pdbid, sanitize=False, removeHs=True, cache_dir=None):
 
     Parameters
     ----------
-        pdbid: str
-            PDB IDs of the structre
-        sanitize: bool, optional (default False)
-            Toggles molecule sanitation
-        removeHs: bool, optional (default False)
-            Indicates wheter Hs should be removed during reading
+    pdbid : str
+        PDB IDs of the structre
+    sanitize : bool, optional (default False)
+        Toggles molecule sanitation
+    removeHs : bool, optional (default False)
+        Indicates wheter Hs should be removed during reading
 
     Returns
     -------
-        mol: Chem.rdchem.Mol
-            Retrieved molecule
+    mol : Chem.rdchem.Mol
+        Retrieved molecule
     """
     if cache_dir is not None:
         structure_dir = os.path.join(cache_dir, pdbid)
@@ -974,21 +976,21 @@ def PrepareComplexes(pdbids, pocket_dist_cutoff=12.0, affinity_types=None, cache
 
     Parameters
     ----------
-        pdbids: array-like
-            List of PDB IDs of structres with protein-ligand complexes.
-        pocket_dist_cutoff: float, optional (default 12.)
-            Distance cutoff for the pocket atoms
-        affinity_types: array-like, optional (default None)
-            List of types of affinity data to retrieve. Available types are:
-            Ki, Kd, EC50, IC50, deltaG, deltaH, deltaS, Ka. If not specified
-            Ki, Kd, EC50, and IC50 are used.
+    pdbids : array-like
+        List of PDB IDs of structres with protein-ligand complexes.
+    pocket_dist_cutoff : float, optional (default 12.)
+        Distance cutoff for the pocket atoms
+    affinity_types : array-like, optional (default None)
+        List of types of affinity data to retrieve. Available types are:
+        Ki, Kd, EC50, IC50, deltaG, deltaH, deltaS, Ka. If not specified
+        Ki, Kd, EC50, and IC50 are used.
 
     Returns
     -------
-        complexes: dict
-            Dictionary with pocket-ligand paris, structured as follows:
-            {'pdbid': {'ligid': (pocket_mol, ligand_mol)}. Ligands have
-            binding affinity data stored as properties.
+    complexes : dict
+        Dictionary with pocket-ligand paris, structured as follows:
+        {'pdbid': {'ligid': (pocket_mol, ligand_mol)}. Ligands have
+        binding affinity data stored as properties.
     """
 
     if affinity_types is None:

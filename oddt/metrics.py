@@ -51,10 +51,10 @@ def roc_auc(y_true, y_score, pos_label=None, ascending_score=True):
     y_score : array, shape=[n_samples]
         Scores for tested series of samples
 
-    pos_label: int
+    pos_label : int
         Positive label of samples (if other than 1)
 
-    ascending_score: bool (default=True)
+    ascending_score : bool (default=True)
         Indicates if your score is ascendig. Ascending score icreases with
         deacreasing activity. In other words it ascends on ranking list
         (where actives are on top).
@@ -105,10 +105,10 @@ def enrichment_factor(y_true, y_score, percentage=1, pos_label=None, kind="fold"
     percentage : int or float
         The percentage for which EF is being calculated, in (0, 100].
 
-    pos_label: int
+    pos_label : int
         Positive label of samples (if other than 1)
 
-    kind: 'fold' or 'percentage' (default='fold')
+    kind : 'fold' or 'percentage' (default='fold')
         Two kinds of enrichment factor: fold and percentage.
         Fold shows the increase over random distribution (1 is random, the
         higher EF the better enrichment). Percentage returns the fraction of
@@ -146,10 +146,10 @@ def roc_log_auc(y_true, y_score, pos_label=None, ascending_score=True, log_min=0
     y_score : array, shape=[n_samples]
         Scores for tested series of samples
 
-    pos_label: int
+    pos_label : int
         Positive label of samples (if other than 1)
 
-    ascending_score: bool (default=True)
+    ascending_score : bool (default=True)
         Indicates if your score is ascendig. Ascending score icreases with
         deacreasing activity. In other words it ascends on ranking list
         (where actives are on top).
@@ -246,11 +246,11 @@ def rie(y_true, y_score, alpha=20, pos_label=None):
     y_score : array, shape=[n_samples]
         Scores for tested series of samples
 
-    alpha: float
+    alpha : float
         Finite positive alpha. 1/Alpha should be proportional to the percentage
         in EF.
 
-    pos_label: int
+    pos_label : int
         Positive label of samples (if other than 1)
 
     Returns
@@ -295,11 +295,11 @@ def bedroc(y_true, y_score, alpha=20.0, pos_label=None):
     y_score : array, shape=[n_samples]
         Scores for tested series of samples
 
-    alpha: float
+    alpha : float
         Finite positive alpha. 1/Alpha should be proportional to the percentage
         in EF.
 
-    pos_label: int
+    pos_label : int
         Positive label of samples (if other than 1)
 
     Returns

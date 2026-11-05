@@ -1,5 +1,5 @@
-"""Open Drug Discovery Toolkit
-==============================
+"""Open Drug Discovery Toolkit.
+
 Universal and easy to use resource for various drug discovery tasks,
 ie docking, virutal screening, rescoring.
 
@@ -78,8 +78,8 @@ def random_seed(i):
 
     Parameters
     ----------
-        i: int
-            integer used as seed for random number generators
+    i : int
+        integer used as seed for random number generators
     """
     from numpy.random import seed as np_seed
     from random import seed as python_seed

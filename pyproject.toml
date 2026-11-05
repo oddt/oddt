@@ -1,3 +1,13 @@
 [tool.black]
 line-length = 120
 target-version = ["py312"]
+
+[tool.numpydoc_validation]
+# Enforce structure and the accuracy of documented parameters across the package.
+# Completeness (missing docstrings/parameters/returns) and prose style are not yet
+# enforced for the legacy API, including short docstrings and backend wrappers.
+checks = [
+    "GL06", "GL07", "GL09", "GL10",  # Section names, order, and directives.
+    "PR02", "PR03", "PR04", "PR07", "PR10",  # Parameter names, types, and descriptions.
+    "RT03",  # Descriptions for documented return values.
+]

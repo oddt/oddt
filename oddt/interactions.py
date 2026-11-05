@@ -44,7 +44,7 @@ def close_contacts(x, y, cutoff, x_column="coords", y_column="coords", cutoff_lo
     cutoff : float
         Cutoff distance for close contacts
 
-    x_column, ycolumn : string, (default='coords')
+    x_column, y_column : string, (default='coords')
         Column containing coordinates of atoms (or pseudo-atoms,
         i.e. ring centroids)
 
@@ -162,12 +162,12 @@ def halogenbond_acceptor_halogen(mol1, mol2, tolerance=30, cutoff=4):
     mol1, mol2 : oddt.toolkit.Molecule object
         Molecules to compute halogen bond acceptor and halogen pairs
 
-    cutoff : float, (default=4)
-        Distance cutoff for A-H pairs
-
     tolerance : int, (default=30)
         Range (+/- tolerance) from perfect direction defined by atoms hybridization
         in which halogen bonds are considered as strict.
+
+    cutoff : float, (default=4)
+        Distance cutoff for A-H pairs
 
     Returns
     -------
@@ -319,7 +319,7 @@ def salt_bridges(mol1, mol2, cutoff=4, mol1_exact=False, mol2_exact=False):
     cutoff : float, (default=4)
         Distance cutoff for plus-minus pairs
 
-    cation_exact, anion_exact : bool
+    mol1_exact, mol2_exact : bool
         Requires interacting atoms to have non-zero formal charge.
 
     Returns
@@ -417,12 +417,12 @@ def acceptor_metal(mol1, mol2, tolerance=30, cutoff=4):
     mol1, mol2 : oddt.toolkit.Molecule object
         Molecules to compute acceptor and metal pairs
 
-    cutoff : float, (default=4)
-        Distance cutoff for A-M pairs
-
     tolerance : int, (default=30)
         Range (+/- tolerance) from perfect direction defined by atoms hybridization
         in metal coordination are considered as strict.
+
+    cutoff : float, (default=4)
+        Distance cutoff for A-M pairs
 
     Returns
     -------

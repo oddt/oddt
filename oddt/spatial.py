@@ -30,7 +30,7 @@ def angle(p1, p2, p3):
 
     Parameters
     ----------
-    p1,p2,p3 : numpy arrays, shape = [n_points, n_dimensions]
+    p1, p2, p3 : numpy arrays, shape = [n_points, n_dimensions]
         Triplets of points in n-dimensional space, aligned in rows.
 
     Returns
@@ -48,7 +48,7 @@ def angle_2v(v1, v2):
 
     Parameters
     ----------
-    v1,v2 : numpy arrays, shape = [..., n_dimensions]
+    v1, v2 : numpy arrays, shape = [..., n_dimensions]
         Pairs of vectors in n-dimensional space. Leading dimensions are
         broadcast together.
 
@@ -263,7 +263,7 @@ def rotate(coords, alpha, beta, gamma):
     coords : numpy arrays, shape = [n_points, 3]
         Coordinates in 3-dimensional space.
 
-    alpha, beta, gamma: float
+    alpha, beta, gamma : float
         Angles to rotate the coordinates along X, Y and Z axis.
         Angles are specified in radians.
 

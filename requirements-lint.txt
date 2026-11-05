@@ -1,0 +1,2 @@
+# Keep local and CI docstring checks reproducible.
+numpydoc==1.11.0
