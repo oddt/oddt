@@ -20,7 +20,7 @@ pinch to zoom, and select a contact below the view to focus its atoms or
 rings. Rotation and zoom buttons also work with a keyboard.
 
 The ligand is shown as thick sticks (or a sphere for a single ion), the
-protein pocket as thin lines, and contacting residues as sticks. Colored
+protein pocket as thin bonds, and contacting residues as thicker sticks. Colored
 dashes mark ODDT-classified contacts. A dot marks a ring centroid;
 ring-contact distances are measured from that centroid. Enable **Pocket
 surface** to add a translucent van der Waals envelope of the displayed

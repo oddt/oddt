@@ -14,6 +14,7 @@
   let generation = 0;
   let activated = false;
   let ready = false;
+  let surfaceId;
 
   root.innerHTML = `
     <div class="oddt-atlas-picker">
@@ -63,9 +64,15 @@
     // Expand Furo's short hex values for the molecular renderer.
     const color = (name) => style.getPropertyValue(name).trim()
       .replace(/^#([\da-f])([\da-f])([\da-f])$/i, "#$1$1$2$2$3$3");
+    const background = color("--color-background-primary");
+    const rgb = [1, 3, 5].map((offset) => parseInt(background.slice(offset, offset + 2), 16));
+    const dark = 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2] < 128;
     return {
-      background: color("--color-background-primary"),
+      background,
       foreground: color("--color-foreground-primary"),
+      pocket: color("--color-foreground-primary"),
+      surface: dark ? "#ffffff" : "#000000",
+      surfaceOpacity: dark ? 0.45 : 0.32,
       border: color("--color-background-border"),
     };
   }
@@ -103,6 +110,14 @@
 
   const point = (xyz) => ({ x: xyz[0], y: xyz[1], z: xyz[2] });
   const selection = (end) => ({ model: end.role === "protein" ? 0 : 1, index: end.indices });
+  const residueSelection = (end) => ({
+    model: 0, chain: end.residue.chain, resi: end.residue.number,
+    ...(end.residue.insertion ? { icode: end.residue.insertion } : {}),
+  });
+  const surfaceStyle = () => {
+    const theme = themeColors();
+    return { opacity: theme.surfaceOpacity, color: theme.surface };
+  };
   function focusSelection(all = false) {
     const selected = all ? scene.contacts : [scene.contacts[active]];
     return { or: [{ model: 1 }, ...selected.map((contact) => selection(contact.start))] };
@@ -129,7 +144,9 @@
     viewer.setBackgroundColor(theme.background);
     viewer.removeAllShapes();
     viewer.removeAllLabels();
-    viewer.setStyle({ model: 0 }, { line: { color: "#9aaebc", opacity: 0.6 } });
+    // Thin bond cylinders stay visible on devices that limit WebGL lines to 1px.
+    viewer.setStyle({ model: 0 }, { stick: { radius: 0.05, color: theme.pocket } });
+    if (surfaceId !== undefined) viewer.setSurfaceMaterialStyle(surfaceId, surfaceStyle());
     viewer.setStyle({ model: 1 }, {
       stick: { radius: 0.18, colorscheme: "greenCarbon" },
       sphere: { scale: 0.24, colorscheme: "greenCarbon" },
@@ -140,10 +157,8 @@
     }
     for (const [index, contact] of scene.contacts.entries()) {
       const selected = index === active;
-      const residue = contact.start.residue;
-      viewer.addStyle({ model: 0, chain: residue.chain, resi: residue.number,
-        ...(residue.insertion ? { icode: residue.insertion } : {}) }, {
-        stick: { radius: selected ? 0.16 : 0.08, colorscheme: selected ? "cyanCarbon" : "grayCarbon" },
+      viewer.setStyle(residueSelection(contact.start), {
+        stick: { radius: 0.1, colorscheme: "grayCarbon" },
       });
       dashedContact(contact.start.position, contact.end.position, scene.color, selected ? 0.065 : 0.028);
       for (const end of [contact.start, contact.end]) {
@@ -169,6 +184,10 @@
         });
       }
     }
+    // Highlight last: another contact can involve the same residue or fused ring.
+    viewer.setStyle(residueSelection(scene.contacts[active].start), {
+      stick: { radius: 0.18, colorscheme: "cyanCarbon" },
+    });
     for (const [index, button] of [...contacts.querySelectorAll("button")].entries()) {
       button.setAttribute("aria-pressed", String(index === active));
     }
@@ -178,12 +197,20 @@
   async function drawSurface(token) {
     if (!ready) return;
     viewer.removeAllSurfaces();
+    surfaceId = undefined;
     if (surface.checked) {
       try {
-        await viewer.addSurface(window.$3Dmol.SurfaceType.VDW,
-          { opacity: 0.16, color: "#9bb7c9" }, { model: 0 }, { model: 0 });
+        const pending = viewer.addSurface(window.$3Dmol.SurfaceType.VDW,
+          surfaceStyle(), { model: 0 }, { model: 0 });
+        surfaceId = pending.surfid;
+        await pending;
         if (token !== generation) return;
-        if (!surface.checked) viewer.removeAllSurfaces();
+        if (!surface.checked) {
+          viewer.removeAllSurfaces();
+          surfaceId = undefined;
+        } else if (surfaceId !== undefined) {
+          viewer.setSurfaceMaterialStyle(surfaceId, surfaceStyle());
+        }
         viewer.render();
       } catch (error) {
         if (token === generation) status.textContent = "Surface unavailable; the molecular view remains interactive.";
@@ -237,6 +264,7 @@
   async function showExample() {
     const token = ++generation;
     ready = false;
+    surfaceId = undefined;
     root.dataset.state = "loading";
     root.setAttribute("aria-busy", "true");
     for (const button of root.querySelectorAll("[data-action]")) button.disabled = true;
