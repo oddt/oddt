@@ -2,7 +2,10 @@
 
 import numpy as np
 import math
-from oddt.spatial import distance, dihedral, rotate
+from scipy.optimize import minimize
+from scipy.spatial.transform import Rotation
+
+from oddt.spatial import distance, rotate
 
 
 def get_children(molecule, mother, restricted):
@@ -72,32 +75,70 @@ def num_rotors_pdbqt(lig):
     return i
 
 
-class vina_docking(object):
-    def __init__(self, rec, lig=None, box=None, box_size=1.0, weights=None):
-        self.box_size = box_size  # TODO: Unify box
-        if rec:
-            self.set_protein(rec)
-        if lig:
-            self.set_ligand(lig)
+def _is_search_rotor(bond):
+    """Keep conjugated carbonyl-heteroatom bonds rigid during pose search."""
+    if not bond.isrotor or bond.order != 1:
+        return False
+    first, second = bond.atoms
+    for carbon, heteroatom in ((first, second), (second, first)):
+        if carbon.atomicnum == 6 and heteroatom.atomicnum in (7, 8, 16):
+            for neighbor_bond in carbon.bonds:
+                if neighbor_bond.order == 2 and any(atom.atomicnum in (7, 8, 16) for atom in neighbor_bond.atoms):
+                    return False
+    return True
 
+
+class vina_docking(object):
+    """Vina-inspired scoring and genetic docking against a rigid receptor.
+
+    Parameters
+    ----------
+    rec : oddt.toolkit.Molecule or None
+        Receptor with coordinates and protein atom typing.
+    lig : oddt.toolkit.Molecule or None, optional
+        Ligand with an existing three-dimensional conformation. Ring geometry
+        and conjugated carbonyl-heteroatom bonds are retained; translation,
+        orientation and other rotatable bonds are searched.
+    box : array-like, shape (2, 3), optional
+        Lower and upper Cartesian corners of the search box, in Angstroms.
+        Required for docking and local optimization, but not for scoring.
+    box_size : float, optional
+        Angstroms per unit of the three translation genes.
+    weights : array-like, shape (6,), optional
+        Five Vina pair-potential weights and the rotatable-bond penalty.
+
+    Notes
+    -----
+    This is an independent search implementation, not AutoDock Vina. It uses
+    ODDT atom typing and direct pair scoring rather than Vina affinity grids.
+    """
+
+    def __init__(self, rec, lig=None, box=None, box_size=1.0, weights=None):
+        if not np.isfinite(box_size) or box_size <= 0:
+            raise ValueError("box_size must be positive and finite")
+        self.box_size = float(box_size)
+        self.rec_dict = None
+        self.lig_dict = None
+        self.set_protein(rec)
+        if lig is not None:
+            self.set_ligand(lig)
         self.set_box(box)
-        # constants
-        self.weights = weights or np.array((-0.0356, -0.00516, 0.840, -0.0351, -0.587, 0.0585))
+        self.weights = np.asarray(
+            (-0.0356, -0.00516, 0.840, -0.0351, -0.587, 0.0585) if weights is None else weights, dtype=float
+        )
+        if self.weights.shape != (6,) or not np.isfinite(self.weights).all() or self.weights[5] < 0:
+            raise ValueError("weights must contain six finite values with a nonnegative rotor penalty")
         self.mask_inter = {}
         self.mask_intra = {}
 
     def set_box(self, box):
         if box is not None:
-            self.box = np.array(box)
-            # delete unused atoms
-            r = self.rec_dict["coords"]
-            # X, Y, Z within box and cutoff
-            mask = (self.box[0][0] - 8 <= r[:, 0]) & (r[:, 0] <= self.box[1][0] + 8)
-            mask *= (self.box[0][1] - 8 <= r[:, 1]) & (r[:, 1] <= self.box[1][1] + 8)
-            mask *= (self.box[0][2] - 8 <= r[:, 2]) & (r[:, 2] <= self.box[1][2] + 8)
-            self.rec_dict = self.rec_dict  # [mask]
+            box = np.asarray(box, dtype=float)
+            if box.shape != (2, 3) or not np.isfinite(box).all() or np.any(box[0] >= box[1]):
+                raise ValueError("box must contain finite lower and upper corners with positive dimensions")
+            self.box = box.copy()
         else:
-            self.box = box
+            self.box = None
 
     def set_protein(self, rec):
         if rec is None:
@@ -110,6 +151,12 @@ class vina_docking(object):
 
     def set_ligand(self, lig):
         lig_hvy_mask = lig.atom_dict["atomicnum"] != 1
+        if not lig_hvy_mask.any() or not np.isfinite(lig.coords).all():
+            raise ValueError("ligand must contain heavy atoms with finite three-dimensional coordinates")
+        self._ligand = lig.clone
+        self._ligand.title = lig.title
+        self._ligand.data.update(dict(lig.data))
+        self._heavy_mask = lig_hvy_mask.copy()
         self.lig_dict = lig.atom_dict[lig_hvy_mask].copy()
         self.lig_dict = self.correct_radius(self.lig_dict)
         self.num_rotors = num_rotors_pdbqt(lig)
@@ -124,7 +171,7 @@ class vina_docking(object):
         # prepare rotors dictionary
         self.rotors = []
         for b in lig.bonds:
-            if b.isrotor:
+            if _is_search_rotor(b):
                 a2 = int(b.atoms[0].idx0)
                 a3 = int(b.atoms[1].idx0)
                 for n in b.atoms[0].neighbors:
@@ -135,29 +182,39 @@ class vina_docking(object):
                     if a2 != int(n.idx0) and n.atomicnum != 1:
                         a4 = int(n.idx0)
                         break
-                rot_mask = get_children(lig, a3, a2)[lig_hvy_mask]
+                full_atoms = (a1, a2, a3, a4)
+                full_mask = get_children(lig, a3, a2)
+                rot_mask = full_mask[lig_hvy_mask]
                 # translate atom indicies to lig_dict indicies (heavy only)
                 a1 = np.argwhere(self.lig_dict["id"] == a1).flatten()[0]
                 a2 = np.argwhere(self.lig_dict["id"] == a2).flatten()[0]
                 a3 = np.argwhere(self.lig_dict["id"] == a3).flatten()[0]
                 a4 = np.argwhere(self.lig_dict["id"] == a4).flatten()[0]
                 # rotate smaller part of the molecule
-                if rot_mask.sum() > len(rot_mask):
-                    rot_mask = -rot_mask
+                if rot_mask.sum() > len(rot_mask) / 2:
+                    rot_mask = ~rot_mask
+                    full_mask = ~full_mask
                     a4, a3, a2, a1 = a1, a2, a3, a4
-                self.rotors.append({"atoms": (a1, a2, a3, a4), "mask": rot_mask})
+                    full_atoms = full_atoms[::-1]
+                self.rotors.append(
+                    {"atoms": (a1, a2, a3, a4), "mask": rot_mask, "full_atoms": full_atoms, "full_mask": full_mask}
+                )
 
         # Setup cached ligand coords
         self.lig = vina_ligand(self.lig_dict["coords"].copy(), len(self.rotors), self, self.box_size)
 
     def set_coords(self, coords):
+        """Set the default heavy-atom scoring coordinates.
+
+        Use ``set_ligand`` to replace the reference conformation for searching.
+        """
+        coords = np.asarray(coords, dtype=float)
+        if coords.shape != self.lig_dict["coords"].shape or not np.isfinite(coords).all():
+            raise ValueError("coords must provide finite coordinates for every ligand heavy atom")
         self.lig_dict["coords"] = coords
 
     def score(self, coords=None):
         return (self.score_inter(coords) * self.weights[:5]).sum() / (1 + self.weights[5] * self.num_rotors)
-        # inter = (self.score_inter(coords) * self.weights[:5]).sum()
-        # total = (self.score_total(coords) * self.weights[:5]).sum()
-        # return total/(1+self.weights[5]*self.num_rotors)
 
     def weighted_total(self, coords=None):
         return (self.score_total(coords) * self.weights[:5]).sum()
@@ -172,86 +229,315 @@ class vina_docking(object):
         return (self.score_intra(coords) * self.weights[:5]).sum()
 
     def score_inter(self, coords=None):
-        if coords is None:
-            coords = self.lig_dict["coords"]
-
-        # Inter-molecular
-        r = distance(self.rec_dict["coords"], coords)
-        d = r - self.rec_dict["radius"][:, np.newaxis] - self.lig_dict["radius"][np.newaxis, :]
-        mask = r < 8
-
-        inter = []
-        # Gauss 1
-        inter.append(np.exp(-((d[mask] / 0.5) ** 2)).sum())
-        # Gauss 2
-        inter.append(np.exp(-(((d[mask] - 3.0) / 2.0) ** 2)).sum())
-        # Repiulsion
-        inter.append((d[(d < 0) & mask] ** 2).sum())
-
-        # Hydrophobic
-        if "hyd" not in self.mask_inter:
-            self.mask_inter["hyd"] = (self.rec_dict["ishydrophobe"] | self.rec_dict["ishalogen"])[:, np.newaxis] * (
-                self.lig_dict["ishydrophobe"] | self.lig_dict["ishalogen"]
-            )[np.newaxis, :]
-        mask_hyd = mask & self.mask_inter["hyd"]
-        d_hyd = d[mask_hyd]
-        inter.append((d_hyd <= 0.5).sum() + (1.5 - d_hyd[(0.5 < d_hyd) & (d_hyd < 1.5)]).sum())
-
-        # H-Bonding
-        if "da" not in self.mask_inter:
-            self.mask_inter["da"] = (self.rec_dict["isdonor"] | self.rec_dict["ismetal"])[
-                :, np.newaxis
-            ] * self.lig_dict["isacceptor"][np.newaxis, :]
-        if "ad" not in self.mask_inter:
-            self.mask_inter["ad"] = (
-                self.rec_dict["isacceptor"][:, np.newaxis]
-                * (self.lig_dict["isdonor"] | self.lig_dict["ismetal"])[np.newaxis, :]
-            )
-        d_h = d[mask & (self.mask_inter["da"] | self.mask_inter["ad"])]
-        inter.append((d_h <= -0.7).sum() + (d_h[(-0.7 < d_h) & (d_h < 0)] / -0.7).sum())
-
-        return np.array(inter)
+        return self._pair_score(coords)[0]
 
     def score_intra(self, coords=None):
+        return self._pair_score(coords, intra=True)[0]
+
+    def _pair_score(self, coords=None, intra=False, gradient=False):
+        """Evaluate the five pair terms and optionally their Cartesian gradient."""
         if coords is None:
             coords = self.lig_dict["coords"]
-        # Intra-molceular
-        r = distance(coords, coords)
-        d = r - self.lig_dict["radius"][:, np.newaxis] - self.lig_dict["radius"][np.newaxis, :]
-
-        mask = self.lig_distant_members & (r < 8)
-
-        intra = []
-        # Gauss 1
-        intra.append(np.exp(-((d[mask] / 0.5) ** 2)).sum())
-        # Gauss 2
-        intra.append(np.exp(-(((d[mask] - 3.0) / 2.0) ** 2)).sum())
-        # Repiulsion
-        intra.append((d[(d < 0) & mask] ** 2).sum())
-
-        # Hydrophobic
-        if "hyd" not in self.mask_intra:
-            self.mask_intra["hyd"] = (self.lig_dict["ishydrophobe"] | self.lig_dict["ishalogen"])[:, np.newaxis] * (
+        first = self.lig_dict if intra else self.rec_dict
+        if first is None:
+            raise ValueError("a receptor is required for intermolecular scoring")
+        first_coords = coords if intra else first["coords"]
+        r = distance(first_coords, coords)
+        mask = r < 8
+        if intra:
+            # Count each nonbonded pair once, excluding 1-2, 1-3 and 1-4 pairs.
+            mask &= np.triu(self.lig_distant_members, k=1)
+        rows, cols = np.nonzero(mask)
+        d = r[mask] - first["radius"][rows] - self.lig_dict["radius"][cols]
+        cache = self.mask_intra if intra else self.mask_inter
+        if "hyd" not in cache:
+            cache["hyd"] = (first["ishydrophobe"] | first["ishalogen"])[:, None] & (
                 self.lig_dict["ishydrophobe"] | self.lig_dict["ishalogen"]
-            )[np.newaxis, :]
-        mask_hyd = mask & self.mask_intra["hyd"]
-        d_hyd = d[mask_hyd]
-        intra.append((d_hyd <= 0.5).sum() + (1.5 - d_hyd[(0.5 < d_hyd) & (d_hyd < 1.5)]).sum())
-
-        # H-Bonding
-        if "da" not in self.mask_intra:
-            self.mask_intra["da"] = (self.lig_dict["isdonor"] | self.lig_dict["ismetal"])[
-                ..., np.newaxis
-            ] * self.lig_dict["isacceptor"][np.newaxis, ...]
-        if "ad" not in self.mask_intra:
-            self.mask_intra["ad"] = (
-                self.lig_dict["isacceptor"][..., np.newaxis]
-                * (self.lig_dict["isdonor"] | self.lig_dict["ismetal"])[np.newaxis, ...]
+            )[None, :]
+        if "hb" not in cache:
+            cache["hb"] = ((first["isdonor"] | first["ismetal"])[:, None] & self.lig_dict["isacceptor"][None, :]) | (
+                first["isacceptor"][:, None] & (self.lig_dict["isdonor"] | self.lig_dict["ismetal"])[None, :]
             )
-        d_h = d[mask & (self.mask_intra["da"] | self.mask_intra["ad"])]
-        intra.append((d_h <= -0.7).sum() + (d_h[(-0.7 < d_h) & (d_h < 0)] / -0.7).sum())
+        hyd = cache["hyd"][mask]
+        hb = cache["hb"][mask]
+        gauss1 = np.exp(-((d / 0.5) ** 2))
+        gauss2 = np.exp(-(((d - 3) / 2) ** 2))
+        terms = np.array(
+            [
+                gauss1.sum(),
+                gauss2.sum(),
+                (np.minimum(d, 0) ** 2).sum(),
+                np.clip(1.5 - d[hyd], 0, 1).sum(),
+                np.clip(d[hb] / -0.7, 0, 1).sum(),
+            ]
+        )
+        if not gradient:
+            return terms, None
+        slope = (
+            self.weights[0] * -8 * d * gauss1
+            + self.weights[1] * -0.5 * (d - 3) * gauss2
+            + self.weights[2] * 2 * np.minimum(d, 0)
+            - self.weights[3] * (hyd & (d > 0.5) & (d < 1.5))
+            - self.weights[4] / 0.7 * (hb & (d > -0.7) & (d < 0))
+        )
+        pair_gradient = (coords[cols] - first_coords[rows]) * (slope / np.maximum(r[mask], 1e-12))[:, None]
+        cartesian = np.zeros_like(coords, dtype=float)
+        np.add.at(cartesian, cols, pair_gradient)
+        if intra:
+            np.add.at(cartesian, rows, -pair_gradient)
+        return terms, cartesian
 
-        return np.array(intra)
+    def _search_bounds(self):
+        if self.rec_dict is None or not len(self.rec_dict):
+            raise ValueError("a receptor with heavy atoms is required for docking")
+        if self.lig_dict is None:
+            raise ValueError("a ligand is required for docking")
+        if self.box is None:
+            raise ValueError("a search box is required for docking")
+        if any(
+            np.linalg.norm(self.lig.c0[rotor["atoms"][1]] - self.lig.c0[rotor["atoms"][2]]) < 1e-8
+            for rotor in self.rotors
+        ):
+            raise ValueError("rotatable bonds must have nonzero length; supply a three-dimensional conformer")
+        return (self.box - self.lig.c0.mean(axis=0)) / self.box_size
+
+    def _objective(self, x):
+        """Total pair energy plus a box restraint, with a pose-space gradient."""
+        coords = self.lig.mutate(x)
+        inter, grad_inter = self._pair_score(coords, gradient=True)
+        intra, grad_intra = self._pair_score(coords, intra=True, gradient=True)
+        # A stiff wall confines all heavy atoms, not just the ligand centroid.
+        outside = coords - np.clip(coords, self.box[0], self.box[1])
+        energy = np.dot(inter + intra, self.weights[:5]) + 1e4 * (outside**2).sum()
+        cartesian = grad_inter + grad_intra + 2e4 * outside
+        gradient = np.empty_like(x)
+        gradient[:3] = cartesian.sum(axis=0) * self.box_size
+        # The XYZ Euler transform is Rz(gamma) Ry(beta) Rx(alpha). Project
+        # Cartesian torque onto each rotation axis in the final coordinate frame.
+        beta, gamma = x[4:6]
+        axes = np.array(
+            [
+                [math.cos(beta) * math.cos(gamma), math.cos(beta) * math.sin(gamma), -math.sin(beta)],
+                [-math.sin(gamma), math.cos(gamma), 0],
+                [0, 0, 1],
+            ]
+        )
+        torque = np.cross(coords - coords.mean(axis=0), cartesian).sum(axis=0)
+        gradient[3:6] = axes @ torque
+        # Each rotor moves a connected fragment around its bond. Removing the
+        # mean force accounts for recentering the ligand after torsion changes.
+        centered_gradient = cartesian - cartesian.mean(axis=0)
+        for i, rotor in enumerate(self.rotors, start=6):
+            _, a2, a3, _ = rotor["atoms"]
+            axis = coords[a2] - coords[a3]
+            axis /= np.linalg.norm(axis)
+            mask = rotor["mask"]
+            torque = np.cross(coords[mask] - coords[a3], centered_gradient[mask]).sum(axis=0)
+            gradient[i] = np.dot(axis, torque)
+        return float(energy), gradient
+
+    def optimize(self, x0=None, maxiter=100):
+        """Refine one pose using :func:`scipy.optimize.minimize` and L-BFGS-B.
+
+        Parameters
+        ----------
+        x0 : array-like, optional
+            Translation genes, XYZ Euler angles, and torsion offsets (radians),
+            in that order. The default is the input pose, with its centroid
+            clipped to the box. Translation units are ``box_size``.
+        maxiter : int, optional
+            Maximum number of L-BFGS-B iterations.
+
+        Returns
+        -------
+        result : scipy.optimize.OptimizeResult
+            Optimizer diagnostics, pose genes ``x``, heavy-atom ``coords``,
+            and torsion-corrected intermolecular ``affinity``. ``fun`` includes
+            intra-ligand energy and the box restraint. An iteration limit or
+            line-search failure can still leave a useful improved pose.
+        """
+        bounds = self._search_bounds()
+        if not isinstance(maxiter, (int, np.integer)) or maxiter < 1:
+            raise ValueError("maxiter must be a positive integer")
+        x0 = self.lig.x0.copy() if x0 is None else np.asarray(x0, dtype=float).copy()
+        if x0.shape != self.lig.x0.shape or not np.isfinite(x0).all():
+            raise ValueError("x0 must contain six rigid-body genes and one gene per rotatable bond")
+        x0[:3] = np.clip(x0[:3], bounds[0], bounds[1])
+        initial_energy, initial_gradient = self._objective(x0)
+        result = minimize(
+            self._objective,
+            x0,
+            method="L-BFGS-B",
+            jac=True,
+            bounds=list(zip(bounds[0], bounds[1])) + [(None, None)] * (len(x0) - 3),
+            options={"maxiter": int(maxiter), "ftol": 1e-9, "gtol": 1e-4, "maxls": 30},
+        )
+        if not np.isfinite(result.fun) or result.fun > initial_energy:
+            result.x = x0
+            result.fun = initial_energy
+            result.jac = initial_gradient
+            result.success = False
+            result.message = "Local search did not improve the starting pose; retained starting pose."
+        result.coords = self.lig.mutate(result.x)
+        result.affinity = float(self.score(result.coords))
+        return result
+
+    def dock(
+        self,
+        population_size=24,
+        generations=10,
+        num_modes=9,
+        seed=None,
+        maxiter=50,
+        mutation_rate=0.2,
+        min_rmsd=1.0,
+        energy_range=3.0,
+    ):
+        """Search poses with a genetic algorithm and Lamarckian local refinement.
+
+        Parameters
+        ----------
+        population_size : int, optional
+            Number of individuals, at least four. Every individual is refined
+            with L-BFGS-B, and its optimized genes are inherited by offspring.
+        generations : int, optional
+            Number of offspring generations after the random initial population.
+        num_modes : int, optional
+            Maximum number of distinct poses to return.
+        seed : int or None, optional
+            Seed for an isolated NumPy random generator.
+        maxiter : int, optional
+            Maximum L-BFGS-B iterations per individual.
+        mutation_rate : float, optional
+            Independent mutation probability per gene, between zero and one.
+            A positive rate also guarantees at least one mutated gene per child.
+        min_rmsd : float, optional
+            Minimum heavy-atom RMSD between returned poses, in Angstroms.
+            Atom order is used directly, without alignment or symmetry matching.
+        energy_range : float, optional
+            Maximum total pair-energy difference from the best feasible pose.
+
+        Returns
+        -------
+        poses : list of oddt.toolkit.Molecule
+            Independent ligand copies, ordered by total pair energy. Hydrogens
+            follow their parent fragments. Data fields are ``vina_affinity``
+            (torsion-corrected inter energy), ``vina_inter``, ``vina_intra`` and
+            ``vina_total``. Inputs are unchanged. Up to ``num_modes`` poses are
+            returned; all heavy atoms lie inside the box to within 0.0001 A.
+
+        Notes
+        -----
+        The initial positions, orientations and torsions are randomized; the
+        input pose is not inserted into the population. Tournament selection,
+        crossover, mutation, elitism and random immigrants explore the box.
+        ``results_`` contains the selected OptimizeResults, and ``history_``
+        records the best restrained objective in each generation.
+        """
+        bounds = self._search_bounds()
+        for name, value, minimum in (
+            ("population_size", population_size, 4),
+            ("generations", generations, 0),
+            ("num_modes", num_modes, 1),
+            ("maxiter", maxiter, 1),
+        ):
+            if not isinstance(value, (int, np.integer)) or value < minimum:
+                raise ValueError("%s must be an integer >= %d" % (name, minimum))
+        if not np.isfinite(mutation_rate) or not 0 <= mutation_rate <= 1:
+            raise ValueError("mutation_rate must be between zero and one")
+        if not np.isfinite(min_rmsd) or min_rmsd < 0 or not np.isfinite(energy_range) or energy_range < 0:
+            raise ValueError("min_rmsd and energy_range must be finite and nonnegative")
+        rng = np.random.default_rng(seed)
+        self.results_ = []
+        self.history_ = []
+        dimensions = len(self.lig.x0)
+
+        def random_genes():
+            x = rng.uniform(-np.pi, np.pi, dimensions)
+            x[:3] = rng.uniform(bounds[0], bounds[1])
+            x[3:6] = Rotation.random(random_state=rng).as_euler("xyz")
+            return x
+
+        def tournament():
+            indices = rng.integers(len(population), size=3)
+            return min((population[i] for i in indices), key=lambda result: result.fun).x
+
+        population = [self.optimize(random_genes(), maxiter=maxiter) for _ in range(population_size)]
+        archive = list(population)
+        self.history_ = [min(result.fun for result in population)]
+        elite_count = max(1, population_size // 8)
+        scales = np.r_[0.15 * (bounds[1] - bounds[0]), np.full(dimensions - 3, 0.6)]
+        for _ in range(generations):
+            offspring = sorted(population, key=lambda result: result.fun)[:elite_count]
+            while len(offspring) < population_size:
+                if rng.random() < 0.1:
+                    child = random_genes()
+                else:
+                    first, second = tournament(), tournament()
+                    difference = second - first
+                    difference[3:] = (difference[3:] + np.pi) % (2 * np.pi) - np.pi
+                    child = first + rng.random(dimensions) * difference
+                    mutated = rng.random(dimensions) < mutation_rate
+                    if mutation_rate > 0:
+                        mutated[rng.integers(dimensions)] = True
+                    child += mutated * rng.normal(size=dimensions) * scales
+                    child[:3] = np.clip(child[:3], bounds[0], bounds[1])
+                    child[3:] = (child[3:] + np.pi) % (2 * np.pi) - np.pi
+                result = self.optimize(child, maxiter=maxiter)
+                offspring.append(result)
+                archive.append(result)
+            population = offspring
+            self.history_.append(min(result.fun for result in population))
+
+        feasible = [
+            result
+            for result in archive
+            if np.isfinite(result.fun)
+            and np.all(result.coords >= self.box[0] - 1e-4)
+            and np.all(result.coords <= self.box[1] + 1e-4)
+        ]
+        if not feasible:
+            raise RuntimeError("No pose fits inside the search box; enlarge the box or increase the search budget")
+        # Rank by physical energy, excluding the numerical boundary restraint.
+        feasible.sort(key=lambda result: self.weighted_total(result.coords))
+        best_energy = self.weighted_total(feasible[0].coords)
+        self.results_ = []
+        poses = []
+        for result in feasible:
+            total = self.weighted_total(result.coords)
+            if total > best_energy + energy_range:
+                break
+            if any(
+                np.sqrt(np.mean(np.sum((result.coords - other.coords) ** 2, axis=1))) < min_rmsd
+                for other in self.results_
+            ):
+                continue
+            pose = self._ligand.clone
+            pose.title = self._ligand.title
+            # Recompute score descriptors rather than inheriting values attached
+            # to the input conformation by an earlier scoring operation.
+            for key in list(pose.data.keys()):
+                if key.startswith("vina_"):
+                    del pose.data[key]
+            pose.data.update({key: value for key, value in self._ligand.data.items() if not key.startswith("vina_")})
+            pose.coords = self.lig.mutate(result.x, all_atoms=True)
+            terms = ("gauss1", "gauss2", "repulsion", "hydrophobic", "hydrogen")
+            pose.data.update(dict(zip(("vina_" + term for term in terms), self.score_inter(result.coords))))
+            pose.data.update(dict(zip(("vina_intra_" + term for term in terms), self.score_intra(result.coords))))
+            pose.data.update(
+                {
+                    "vina_affinity": result.affinity,
+                    "vina_inter": float(self.weighted_inter(result.coords)),
+                    "vina_intra": float(self.weighted_intra(result.coords)),
+                    "vina_total": float(total),
+                    "vina_num_rotors": self.num_rotors,
+                }
+            )
+            poses.append(pose)
+            self.results_.append(result)
+            if len(poses) == num_modes:
+                break
+        return poses
 
     def correct_radius(self, atom_dict):
         vina_r = {
@@ -274,48 +560,35 @@ class vina_docking(object):
 
 class vina_ligand(object):
     def __init__(self, c0, num_rotors, engine, box_size=1):
-        self.c0 = c0.copy()
+        # Atom dictionaries store float32 coordinates. Optimization must retain
+        # sub-float32 perturbations when computing pose derivatives.
+        self.c0 = np.array(c0, dtype=float, copy=True)
         self.x0 = np.zeros(6 + num_rotors)
-        self.c1 = c0.copy()
+        self.c1 = self.c0.copy()
         self.x1 = np.zeros_like(self.x0)
         self.engine = engine
         self.box_size = box_size
 
-    def mutate(self, x2, force=False):
-        delta_x0 = x2 - self.x0
-        delta_x1 = x2 - self.x1
-        if not force and (delta_x1 != 0).sum() <= 3:
-            return self._inc_mutate(delta_x1, self.c1)
-        elif not force and (delta_x0 != 0).sum() <= 3:
-            return self._inc_mutate(delta_x0, self.c0)
-        else:
-            return self._full_mutate(x2)
+    def mutate(self, x2, force=False, all_atoms=False):
+        """Map absolute genes to coordinates, independent of evaluation order.
 
-    def _full_mutate(self, x):
-        c = self.c0.copy()
-        trans_vec = x[:3]
-        rot_vec = x[3:6]
-        rotors_vec = x[6:]
-        c = rotate(c, *rot_vec) + trans_vec * self.box_size
-        for i in range(len(rotors_vec)):
-            a = self.engine.rotors[i]["atoms"]
-            mask = self.engine.rotors[i]["mask"]
-            c = change_dihedral(c, a[0], a[1], a[2], a[3], rotors_vec[i], mask)
-        self.c1 = c.copy()
-        self.x1 = x.copy()
-        return c
+        ``force`` is retained for compatibility. Incremental Euler rotations
+        are not equivalent to evaluating the absolute orientation, so every
+        transform starts from the reference coordinates.
+        """
+        return self._full_mutate(np.asarray(x2, dtype=float), all_atoms=all_atoms)
 
-    def _inc_mutate(self, x, c):
-        c = c.copy()
-        trans_vec = x[:3]
-        rot_vec = x[3:6]
-        rotors_vec = x[6:]
-        if (rot_vec != 0).any():
-            c = rotate(c, *rot_vec)
-        if (trans_vec != 0).any():
-            c += trans_vec * self.box_size
-        for i in np.where(rotors_vec != 0)[0]:
-            a = self.engine.rotors[i]["atoms"]
-            mask = self.engine.rotors[i]["mask"]
-            c = change_dihedral(c, a[0], a[1], a[2], a[3], rotors_vec[i], mask)
+    def _full_mutate(self, x, all_atoms=False):
+        c = np.array(self.engine._ligand.coords, dtype=float) if all_atoms else self.c0.copy()
+        heavy = self.engine._heavy_mask if all_atoms else np.ones(len(c), dtype=bool)
+        for angle, rotor in zip(x[6:], self.engine.rotors):
+            atoms = rotor["full_atoms"] if all_atoms else rotor["atoms"]
+            mask = rotor["full_mask"] if all_atoms else rotor["mask"]
+            c = change_dihedral(c, *atoms, angle, mask)
+        c = rotate(c, *x[3:6])
+        # Torsion changes must not move the translation anchor.
+        c += self.c0.mean(axis=0) + x[:3] * self.box_size - c[heavy].mean(axis=0)
+        if not all_atoms:
+            self.c1 = c.copy()
+            self.x1 = x.copy()
         return c

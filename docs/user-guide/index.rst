@@ -14,6 +14,7 @@ corresponding API reference for the complete parameter list.
    interactions
    fingerprints
    shape
+   docking
    cli
 
 Choose a starting point
@@ -27,6 +28,8 @@ Choose a starting point
 * :doc:`fingerprints`: choose IFP, SIFP, ECFP, PLEC, or SPLIF; compare binding
   modes and build feature matrices.
 * :doc:`shape`: compare 3D conformers with USR, USRCAT, and Electroshape.
+* :doc:`docking`: search ligand poses with the internal genetic algorithm and
+  L-BFGS-B minimization, and validate against a crystal complex.
 * :doc:`cli`: convert files and assemble filtering, docking, and scoring
   workflows from the command line.
 
