@@ -14,7 +14,7 @@ class binana_descriptor(object):
 
         Parameters
         ----------
-        protein: oddt.toolkit.Molecule object (default=None)
+        protein : oddt.toolkit.Molecule object (default=None)
             Protein object to be used while generating descriptors.
         """
         self.protein = protein
@@ -405,7 +405,7 @@ class binana_descriptor(object):
 
         Parameters
         ----------
-        protein: oddt.toolkit.Molecule object
+        protein : oddt.toolkit.Molecule object
             Protein object to be used while generating descriptors.
             Protein becomes new global and default protein.
         """
@@ -419,10 +419,10 @@ class binana_descriptor(object):
 
         Parameters
         ----------
-        ligands: array-like
+        ligands : array-like
             An array of generator of oddt.toolkit.Molecule objects for which the descriptor is computed
 
-        protein: oddt.toolkit.Molecule object (default=None)
+        protein : oddt.toolkit.Molecule object (default=None)
             Protein object to be used while generating descriptors.
             If none, then the default protein (from constructor) is used.
             Otherwise, protein becomes new global and default protein.

@@ -44,7 +44,7 @@ def _mol_reader(
         Column name which will contain molecules' title/name. Column is
         skipped when set to None.
 
-    smiles_column  : string or None, optional (default=None)
+    smiles_column : string or None, optional (default=None)
         Column name containg molecules' SMILES, by default it is disabled.
 
     skip_bad_mols : bool, optional (default=False)
@@ -211,7 +211,7 @@ def read_sdf(
         Column name which will contain molecules' title/name. Column is
         skipped when set to None.
 
-    smiles_column  : string or None, optional (default=None)
+    smiles_column : string or None, optional (default=None)
         Column name containg molecules' SMILES, by default it is disabled.
 
     skip_bad_mols : bool, optional (default=False)
@@ -277,7 +277,7 @@ def read_mol2(
         Column name which will contain molecules' title/name. Column is
         skipped when set to None.
 
-    smiles_column  : string or None, optional (default=None)
+    smiles_column : string or None, optional (default=None)
         Column name containg molecules' SMILES, by default it is disabled.
 
     skip_bad_mols : bool, optional (default=False)

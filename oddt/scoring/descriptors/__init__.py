@@ -21,10 +21,10 @@ def atoms_by_type(atom_dict, types, mode="atomic_nums"):
 
     Parameters
     ----------
-    atom_dict: oddt.toolkit.Molecule.atom_dict
+    atom_dict : oddt.toolkit.Molecule.atom_dict
         Atom dictionary as implemeted in oddt.toolkit.Molecule class
 
-    types: array-like
+    types : array-like
         List of atom types/numbers wanted.
 
     Returns
@@ -103,24 +103,24 @@ class close_contacts_descriptor(object):
 
         Parameters
         ----------
-        protein: oddt.toolkit.Molecule or None (default=None)
+        protein : oddt.toolkit.Molecule or None (default=None)
             Default protein to use as reference
 
-        cutoff: int or list, shape=[n,] or shape=[n,2] (default=4)
+        cutoff : int or list, shape=[n,] or shape=[n,2] (default=4)
             Cutoff for atoms in Angstroms given as an integer or a list of
             ranges, eg. [0, 4, 8, 12] or [[0,4],[4,8],[8,12]].
             Upper bound is always inclusive, lower exclusive.
 
-        mode: string (default='atomic_nums')
+        mode : string (default='atomic_nums')
             Method of atoms selection, as used in `atoms_by_type`
 
-        ligand_types: array
+        ligand_types : array
             List of ligand atom types to use
 
-        protein_types: array
+        protein_types : array
             List of protein atom types to use
 
-        aligned_pairs: bool (default=False)
+        aligned_pairs : bool (default=False)
             Flag indicating should permutation of types should be done,
             otherwise the atoms are treated as aligned pairs.
         """
@@ -156,11 +156,11 @@ class close_contacts_descriptor(object):
 
         Parameters
         ----------
-        ligands: iterable of oddt.toolkit.Molecules or oddt.toolkit.Molecule
+        ligands : iterable of oddt.toolkit.Molecules or oddt.toolkit.Molecule
             A list or iterable of ligands to build the descriptor or a
             single molecule.
 
-        protein: oddt.toolkit.Molecule or None (default=None)
+        protein : oddt.toolkit.Molecule or None (default=None)
             Default protein to use as reference
 
         """
@@ -221,19 +221,19 @@ class universal_descriptor(object):
 
         Parameters
         ----------
-        func: object
+        func : object
             A function to be mapped accross all ligands. Can be any callable
             object, which takes ligand as first argument and optionally
             protein key word argument. Additional arguments should be set
             using `functools.partial`.
 
-        protein: oddt.toolkit.Molecule or None (default=None)
+        protein : oddt.toolkit.Molecule or None (default=None)
             Default protein to use as reference
 
-        shape: int or tuple (default=None)
+        shape : int or tuple (default=None)
             The final shape of output
 
-        sparse: bool (default=True)
+        sparse : bool (default=True)
             Flag to return sparse matrix
         """
         self.func = func
@@ -250,11 +250,11 @@ class universal_descriptor(object):
 
         Parameters
         ----------
-        ligands: iterable of oddt.toolkit.Molecules or oddt.toolkit.Molecule
+        ligands : iterable of oddt.toolkit.Molecules or oddt.toolkit.Molecule
             A list or iterable of ligands to build the descriptor or a
             single molecule.
 
-        protein: oddt.toolkit.Molecule or None (default=None)
+        protein : oddt.toolkit.Molecule or None (default=None)
             Default protein to use as reference
 
         """

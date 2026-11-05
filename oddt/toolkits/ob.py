@@ -750,7 +750,8 @@ class Molecule(pybel.Molecule):
 pybel.Molecule = Molecule
 
 
-def diverse_conformers_generator(mol, n_conf=10, method="confab", seed=None, **kwargs):
+# Algorithm-specific keyword options are documented under Other Parameters.
+def diverse_conformers_generator(mol, n_conf=10, method="confab", seed=None, **kwargs):  # numpydoc ignore=PR02
     """Produce diverse conformers using current conformer as starting point.
     Returns a generator. Each conformer is a copy of original molecule object.
 
@@ -772,6 +773,16 @@ def diverse_conformers_generator(mol, n_conf=10, method="confab", seed=None, **k
     seed : None or int (default=None)
         Random seed
 
+    **kwargs : dict
+        Additional options for the selected conformer generator, described below.
+
+    Returns
+    -------
+    mols : list of oddt.toolkit.Molecule objects
+        Molecules with diverse conformers
+
+    Other Parameters
+    ----------------
     mutability : int (default=5)
         The inverse of probability of mutation. By default 5, which translates
         to 1/5 (20%) chance of mutation. This setting only works with genetic
@@ -793,10 +804,6 @@ def diverse_conformers_generator(mol, n_conf=10, method="confab", seed=None, **k
         Energy gap from the lowest energy conformer to the highest possible.
         This setting only works with Confab method ("confab").
 
-    Returns
-    -------
-    mols : list of oddt.toolkit.Molecule objects
-        Molecules with diverse conformers
     """
     check_molecule(mol, force_coords=True)
     mol_clone = mol.clone

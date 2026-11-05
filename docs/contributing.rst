@@ -24,6 +24,33 @@ Run tests with the backend affected by your change:
 Use ``python -m pytest tests`` for the full suite. Tests that depend on an
 external docking backend need that backend installed.
 
+Lint docstrings
+---------------
+
+Write API docstrings in the
+`NumPy format <https://numpydoc.readthedocs.io/en/stable/format.html>`_.
+Run the same static check as the **NumPy docstrings** CI job:
+
+.. code-block:: bash
+
+   python -m pip install -r requirements-lint.txt
+   git ls-files -z -- 'oddt/*.py' | xargs -0 python -m numpydoc lint
+
+To check a single file, use ``python -m numpydoc lint oddt/interactions.py``.
+The linter reads source without importing ODDT, so it needs no molecular
+backend. It checks section structure and order, documented parameter names
+and order, parameter types and descriptions, and return-value descriptions.
+Declare parameters as ``name : type`` and list them in signature order.
+
+The enabled checks are configured under ``tool.numpydoc_validation`` in
+``pyproject.toml``. Missing docstrings, undocumented parameters and returns,
+and prose-style rules are deferred while the legacy API is brought into
+compliance. Use narrowly scoped ``# numpydoc ignore=CODE`` comments only for
+justified exceptions, such as backend-specific options forwarded via
+``**kwargs``. See the
+`numpydoc validation reference <https://numpydoc.readthedocs.io/en/stable/validation.html>`_
+for check codes.
+
 Work with molecular indices
 ---------------------------
 

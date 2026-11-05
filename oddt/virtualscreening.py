@@ -71,10 +71,10 @@ class virtualscreening:
 
         Parameters
         ----------
-        n_cpu: int (default=-1)
+        n_cpu : int (default=-1)
             The number of parallel procesors to use
 
-        verbose: bool (default=False)
+        verbose : bool (default=False)
             Verbosity flag for some methods
         """
         self._pipe = []
@@ -90,10 +90,10 @@ class virtualscreening:
 
         Parameters
         ----------
-        file_type: string
+        fmt : string
             Type of molecular file
 
-        ligands_file: string
+        ligands_file : string
             Path to a file, which is loaded to pipeline
 
         """
@@ -115,10 +115,10 @@ class virtualscreening:
 
         Parameters
         ----------
-        expression: string or list of strings
+        expression : string or list of strings
             Expresion(s) to be used while filtering.
 
-        soft_fail: int (default=0)
+        soft_fail : int (default=0)
             The number of faulures molecule can have to pass filter, aka.
             soft-fails.
         """
@@ -169,7 +169,7 @@ class virtualscreening:
 
         Parameters
         ----------
-        method: string
+        method : string
             Similarity method used to compare molecules. Avaiale methods:
             * `ifp` - interaction fingerprint (requires a receptor)
             * `sifp` - simple interaction fingerprint (requires a receptor)
@@ -178,14 +178,14 @@ class virtualscreening:
             * `electroshape` - Electroshape, USR with moments representing
             partial charge
 
-        query: oddt.toolkit.Molecule or list of oddt.toolkit.Molecule
+        query : oddt.toolkit.Molecule or list of oddt.toolkit.Molecule
             Query molecules to compare the pipeline to.
 
-        cutoff: float
+        cutoff : float
             Similarity cutoff for filtering molecules. Any similarity lower
             than it will be filtered out.
 
-        protein: oddt.toolkit.Molecule (default = None)
+        protein : oddt.toolkit.Molecule (default = None)
             Protein for underling method. By default it's empty, but
             sturctural fingerprints need one.
 
@@ -228,7 +228,7 @@ class virtualscreening:
 
         Parameters
         ----------
-        engine: string
+        engine : string
             Which docking engine to use.
 
         Notes
@@ -254,10 +254,10 @@ class virtualscreening:
 
         Parameters
         ----------
-        function: string
+        function : string
             Which scoring function to use.
 
-        protein: oddt.toolkit.Molecule
+        protein : oddt.toolkit.Molecule
             Default protein to use as reference
 
         Notes
@@ -385,13 +385,13 @@ class virtualscreening:
 
         Parameters
         ----------
-        file_type: string
+        fmt : string
             Type of molecular file
 
-        ligands_file: string
+        filename : string
             Path to a output file
 
-        csv_filename: string
+        csv_filename : string
             Optional path to a CSV file
         """
         if fmt == "mol2" and oddt.toolkit.backend == "ob":
@@ -435,13 +435,13 @@ class virtualscreening:
 
         Parameters
         ----------
-        csv_filename: string
+        csv_filename : string
             Optional path to a CSV file
 
-        fields: list (default None)
+        fields : list (default None)
             List of fields to save in CSV file
 
-        keep_pipe: bool (default=False)
+        keep_pipe : bool (default=False)
             If set to True, the ligand pipe is sustained.
         """
         if hasattr(csv_filename, "write"):

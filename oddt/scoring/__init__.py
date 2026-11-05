@@ -24,22 +24,22 @@ def cross_validate(model, cv_set, cv_target, n=10, shuffle=True, n_jobs=1):
 
     Parameters
     ----------
-    model: object
+    model : object
         Model to be tested
 
-    cv_set: array-like of shape = [n_samples, n_features]
+    cv_set : array-like of shape = [n_samples, n_features]
         Estimated target values.
 
-    cv_target: array-like of shape = [n_samples] or [n_samples, n_outputs]
+    cv_target : array-like of shape = [n_samples] or [n_samples, n_outputs]
         Estimated target values.
 
-    n: integer (default = 10)
+    n : integer (default = 10)
         How many folds to be created from dataset
 
-    shuffle: bool (default = True)
+    shuffle : bool (default = True)
         Should data be shuffled before folding.
 
-    n_jobs: integer (default = 1)
+    n_jobs : integer (default = 1)
         How many CPUs to use during cross validation
 
     Returns
@@ -61,14 +61,14 @@ class scorer(object):
 
         Parameters
         ----------
-        model_instance: model
+        model_instance : model
             Medel compatible with sklearn API (fit, predict and score
             methods)
 
-        descriptor_generator_instance: array of descriptors
+        descriptor_generator_instance : array of descriptors
             Descriptor generator object
 
-        score_title: string
+        score_title : string
             Title of score to be used.
         """
         self.model = model_instance
@@ -222,10 +222,10 @@ class scorer(object):
 
         Parameters
         ----------
-        ligands: array-like of ligands
+        ligands : array-like of ligands
             Molecules to featurize and feed into the model
 
-        target: array-like of shape = [n_samples] or [n_samples, n_outputs]
+        target : array-like of shape = [n_samples] or [n_samples, n_outputs]
             Ground truth (correct) target values.
         """
         self.train_descs = self.descriptor_generator.build(ligands)
@@ -236,7 +236,7 @@ class scorer(object):
 
         Parameters
         ----------
-        ligands: array-like of ligands
+        ligands : array-like of ligands
             Molecules to featurize and feed into the model
 
         Returns
@@ -253,10 +253,10 @@ class scorer(object):
 
         Parameters
         ----------
-        ligands: array-like of ligands
+        ligands : array-like of ligands
             Molecules to featurize and feed into the model
 
-        target: array-like of shape = [n_samples] or [n_samples, n_outputs]
+        target : array-like of shape = [n_samples] or [n_samples, n_outputs]
             Ground truth (correct) target values.
 
         Returns
@@ -272,7 +272,7 @@ class scorer(object):
 
         Parameters
         ----------
-        ligand: oddt.toolkit.Molecule object
+        ligand : oddt.toolkit.Molecule object
             Ligand to be scored
 
         Returns
@@ -289,7 +289,7 @@ class scorer(object):
 
         Parameters
         ----------
-        ligands: iterable of oddt.toolkit.Molecule objects
+        ligands : iterable of oddt.toolkit.Molecule objects
             Ligands to be scored
 
         Returns
@@ -304,7 +304,7 @@ class scorer(object):
 
         Parameters
         ----------
-        protein: oddt.toolkit.Molecule object
+        protein : oddt.toolkit.Molecule object
             New default protein
 
         """
@@ -319,7 +319,7 @@ class scorer(object):
 
         Parameters
         ----------
-        filename: string
+        filename : string
             Pickle filename
         """
         # FIXME: re-set protein after pickling
@@ -335,7 +335,7 @@ class scorer(object):
 
         Parameters
         ----------
-        filename: string
+        filename : string
             Pickle filename
 
         Returns
@@ -355,7 +355,7 @@ class ensemble_model(object):
 
         Parameters
         ----------
-        models: array
+        models : array
             An array of models
         """
         self._models = models if len(models) else None
@@ -390,8 +390,8 @@ class ensemble_descriptor(object):
 
         Parameters
         ----------
-        models: array
-            An array of models
+        descriptor_generators : array
+            An array of descriptor generators.
         """
         self._desc_gens = descriptor_generators if len(descriptor_generators) else None
         self.titles = list(chain(*(desc_gen.titles for desc_gen in self._desc_gens)))
