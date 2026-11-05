@@ -145,7 +145,9 @@
     viewer.removeAllShapes();
     viewer.removeAllLabels();
     // Thin bond cylinders stay visible on devices that limit WebGL lines to 1px.
-    viewer.setStyle({ model: 0 }, { stick: { radius: 0.05, color: theme.pocket } });
+    viewer.setStyle({ model: 0 }, { stick: { radius: 0.05 } });
+    // Recolor carbon only, preserving the usual element colors for heteroatoms.
+    viewer.setStyle({ model: 0, elem: "C" }, { stick: { radius: 0.05, color: theme.pocket } });
     if (surfaceId !== undefined) viewer.setSurfaceMaterialStyle(surfaceId, surfaceStyle());
     viewer.setStyle({ model: 1 }, {
       stick: { radius: 0.18, colorscheme: "greenCarbon" },
