@@ -209,7 +209,7 @@
 }
 
 .oddt-atlas-frame {
-  background: #f7fafc;
+  background: var(--color-background-primary);
   border: 1px solid var(--color-background-border);
   border-radius: 0.4rem;
   height: 26rem;
@@ -225,8 +225,8 @@
 
 .oddt-atlas-cover {
   align-items: center;
-  background: #f7fafc;
-  color: #334155;
+  background: var(--color-background-primary);
+  color: var(--color-foreground-secondary);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;

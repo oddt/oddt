@@ -58,6 +58,18 @@
   const surface = find('[data-option="surface"]');
   const contacts = find(".oddt-atlas-contacts");
 
+  function themeColors() {
+    const style = getComputedStyle(root);
+    // Expand Furo's short hex values for the molecular renderer.
+    const color = (name) => style.getPropertyValue(name).trim()
+      .replace(/^#([\da-f])([\da-f])([\da-f])$/i, "#$1$1$2$2$3$3");
+    return {
+      background: color("--color-background-primary"),
+      foreground: color("--color-foreground-primary"),
+      border: color("--color-background-border"),
+    };
+  }
+
   async function get(url, json = false) {
     const key = String(url);
     if (!cache.has(key)) {
@@ -113,6 +125,8 @@
 
   function annotations() {
     if (!ready) return;
+    const theme = themeColors();
+    viewer.setBackgroundColor(theme.background);
     viewer.removeAllShapes();
     viewer.removeAllLabels();
     viewer.setStyle({ model: 0 }, { line: { color: "#9aaebc", opacity: 0.6 } });
@@ -138,8 +152,8 @@
         }
       }
       if (selected && labels.checked) {
-        const style = { fontSize: 12, fontColor: "#102a43", backgroundColor: "#ffffff",
-          backgroundOpacity: 0.88, borderThickness: 0.3, borderColor: "#cbd5e1", inFront: true };
+        const style = { fontSize: 12, fontColor: theme.foreground, backgroundColor: theme.background,
+          backgroundOpacity: 0.88, borderThickness: 0.3, borderColor: theme.border, inFront: true };
         const shortLabel = (end) => {
           const atom = end.kind === "ring" ? `ring ${end.ring_number}` : end.atom_names[0];
           const residue = end.residue;
@@ -151,7 +165,7 @@
           screenOffset: { x: 5, y: -20 } });
         const midpoint = contact.start.position.map((value, i) => (value + contact.end.position[i]) / 2);
         viewer.addLabel(`${contact.distance.toFixed(2)} Å`, {
-          ...style, fontColor: scene.color, position: point(midpoint), screenOffset: { x: 0, y: 28 },
+          ...style, position: point(midpoint), screenOffset: { x: 0, y: 28 },
         });
       }
     }
@@ -257,7 +271,7 @@
         const context = probe.getContext("webgl") || probe.getContext("experimental-webgl");
         if (!context) throw new Error("WebGL is not available");
         context.getExtension("WEBGL_lose_context")?.loseContext();
-        viewer = api.createViewer(viewport, { backgroundColor: "#f7fafc", antialias: true });
+        viewer = api.createViewer(viewport, { backgroundColor: themeColors().background, antialias: true });
       }
       viewer.clear();
       viewer.addModel(protein, "pdb", { keepH: false });
@@ -305,6 +319,10 @@
     });
   }
   new ResizeObserver(() => { if (ready) { viewer.resize(); viewer.render(); } }).observe(viewport);
+  new MutationObserver(annotations).observe(document.documentElement, {
+    attributes: true, attributeFilter: ["data-theme"], subtree: true,
+  });
+  window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", annotations);
   get(new URL("manifest.json", base), true).then((entries) => {
     manifest = entries;
     for (const entry of manifest) {
