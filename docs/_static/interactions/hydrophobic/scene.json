@@ -1,0 +1,209 @@
+{
+  "id": "hydrophobic",
+  "title": "Hydrophobic contacts",
+  "pdb_id": "4BFQ",
+  "component": "083",
+  "chain": "A",
+  "number": 301,
+  "complex": "Acetylcholine-binding protein · ligand 083",
+  "color": "#0f766e",
+  "description": "Representative hydrophobic atom pairs around ligand 083. The closest pair per protein residue is shown, for up to eight residues; other copies of the ligand are omitted.",
+  "ligand_atom_names": [
+    "N2",
+    "C7",
+    "C6",
+    "N1",
+    "C4",
+    "C5",
+    "C3",
+    "N6",
+    "C2",
+    "C1",
+    "N3",
+    "C8",
+    "C21",
+    "C20",
+    "C19",
+    "C18",
+    "C17",
+    "C16",
+    "C15",
+    "C9",
+    "N4",
+    "C10",
+    "N5",
+    "C14",
+    "C13",
+    "C12",
+    "C11"
+  ],
+  "contacts": [
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          9
+        ],
+        "atom_names": [
+          "CE2"
+        ],
+        "residue": {
+          "name": "TYR",
+          "chain": "A",
+          "number": 91,
+          "insertion": ""
+        },
+        "label": "TYR A:91 CE2",
+        "position": [
+          22.499001,
+          11.38,
+          40.582001
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          6
+        ],
+        "atom_names": [
+          "C3"
+        ],
+        "residue": {
+          "name": "083",
+          "chain": "A",
+          "number": 301,
+          "insertion": ""
+        },
+        "label": "083 A:301 C3",
+        "position": [
+          23.962999,
+          11.288,
+          43.743999
+        ]
+      },
+      "distance": 3.485683
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          66
+        ],
+        "atom_names": [
+          "CD1"
+        ],
+        "residue": {
+          "name": "TYR",
+          "chain": "A",
+          "number": 193,
+          "insertion": ""
+        },
+        "label": "TYR A:193 CD1",
+        "position": [
+          29.214001,
+          13.743,
+          42.701
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          9
+        ],
+        "atom_names": [
+          "C1"
+        ],
+        "residue": {
+          "name": "083",
+          "chain": "A",
+          "number": 301,
+          "insertion": ""
+        },
+        "label": "083 A:301 C1",
+        "position": [
+          26.285999,
+          11.799,
+          42.875999
+        ]
+      },
+      "distance": 3.518943
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          42
+        ],
+        "atom_names": [
+          "CD1"
+        ],
+        "residue": {
+          "name": "TYR",
+          "chain": "A",
+          "number": 186,
+          "insertion": ""
+        },
+        "label": "TYR A:186 CD1",
+        "position": [
+          28.506001,
+          14.905,
+          48.716
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          13
+        ],
+        "atom_names": [
+          "C20"
+        ],
+        "residue": {
+          "name": "083",
+          "chain": "A",
+          "number": 301,
+          "insertion": ""
+        },
+        "label": "083 A:301 C20",
+        "position": [
+          29.502001,
+          11.552,
+          47.683998
+        ]
+      },
+      "distance": 3.646869
+    }
+  ],
+  "analysis": {
+    "function": "hydrophobic_contacts",
+    "cutoff": 4.0,
+    "selection": "Closest atom pair per protein residue, up to eight residues"
+  },
+  "candidates": 18,
+  "sources": [
+    {
+      "url": "https://files.rcsb.org/download/4BFQ.pdb",
+      "sha256": "2d96cef14fa7806beb4e12201fe9bc66dc8f1a867f5130e3e9e359ab4738dae4"
+    },
+    {
+      "url": "https://files.rcsb.org/ligands/download/083.cif",
+      "sha256": "79c892c018631f4dc3a54d896b1759de5745306e996fcedb5711aefe26eb65fe"
+    }
+  ],
+  "backend": "rdk",
+  "oddt_version": "0.6.post253+g4cc1cf4",
+  "rdkit_version": "2026.03.1",
+  "pocket_radius_angstrom": 6.0,
+  "protein_file": "protein.pdb",
+  "ligand_file": "ligand.sdf",
+  "assets_sha256": {
+    "protein.pdb": "d9fa2b589006772ebceba92064dbe75c5b9f52c592b8062dbe56a7c1ac1c2bb4",
+    "ligand.sdf": "4028ca168a882e65e2e358b5c20ab796caff4bc56c2b10e8710aa61541768d1c"
+  }
+}

@@ -1,0 +1,343 @@
+{
+  "id": "pi-stacking",
+  "title": "π stacking",
+  "pdb_id": "1ACJ",
+  "component": "THA",
+  "chain": "A",
+  "number": 999,
+  "complex": "Acetylcholinesterase · tacrine",
+  "color": "#2563eb",
+  "description": "Aromatic ring contacts passing ODDT's parallel or perpendicular stacking mask. Dashed lines join ring centroids, not atoms.",
+  "ligand_atom_names": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "N7",
+    "C8",
+    "C9",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "N15"
+  ],
+  "contacts": [
+    {
+      "start": {
+        "role": "protein",
+        "kind": "ring",
+        "indices": [
+          23,
+          24,
+          26,
+          27,
+          25
+        ],
+        "atom_names": [
+          "CG",
+          "CD1",
+          "NE1",
+          "CE2",
+          "CD2"
+        ],
+        "residue": {
+          "name": "TRP",
+          "chain": "A",
+          "number": 84,
+          "insertion": ""
+        },
+        "label": "TRP A:84 ring 1",
+        "position": [
+          3.398,
+          73.379402,
+          65.572403
+        ],
+        "ring_number": 1,
+        "ring_size": 5
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "ring",
+        "indices": [
+          6,
+          7,
+          8,
+          9,
+          3,
+          2
+        ],
+        "atom_names": [
+          "N7",
+          "C8",
+          "C9",
+          "C10",
+          "C4",
+          "C3"
+        ],
+        "residue": {
+          "name": "THA",
+          "chain": "A",
+          "number": 999,
+          "insertion": ""
+        },
+        "label": "THA A:999 ring 2",
+        "position": [
+          4.762333,
+          70.087166,
+          65.941826
+        ],
+        "ring_number": 2,
+        "ring_size": 6
+      },
+      "distance": 3.582833,
+      "geometry": "parallel"
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "ring",
+        "indices": [
+          102,
+          104,
+          106,
+          107,
+          105,
+          103
+        ],
+        "atom_names": [
+          "CG",
+          "CD2",
+          "CE2",
+          "CZ",
+          "CE1",
+          "CD1"
+        ],
+        "residue": {
+          "name": "PHE",
+          "chain": "A",
+          "number": 330,
+          "insertion": ""
+        },
+        "label": "PHE A:330 ring 1",
+        "position": [
+          6.025833,
+          67.191498,
+          68.901001
+        ],
+        "ring_number": 1,
+        "ring_size": 6
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "ring",
+        "indices": [
+          0,
+          5,
+          4,
+          3,
+          2,
+          1
+        ],
+        "atom_names": [
+          "C1",
+          "C6",
+          "C5",
+          "C4",
+          "C3",
+          "C2"
+        ],
+        "residue": {
+          "name": "THA",
+          "chain": "A",
+          "number": 999,
+          "insertion": ""
+        },
+        "label": "THA A:999 ring 1",
+        "position": [
+          5.373,
+          70.8255,
+          68.147835
+        ],
+        "ring_number": 1,
+        "ring_size": 6
+      },
+      "distance": 3.768212,
+      "geometry": "parallel"
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "ring",
+        "indices": [
+          28,
+          30,
+          31,
+          29,
+          27,
+          25
+        ],
+        "atom_names": [
+          "CE3",
+          "CZ3",
+          "CH2",
+          "CZ2",
+          "CE2",
+          "CD2"
+        ],
+        "residue": {
+          "name": "TRP",
+          "chain": "A",
+          "number": 84,
+          "insertion": ""
+        },
+        "label": "TRP A:84 ring 2",
+        "position": [
+          4.13,
+          73.319,
+          63.529663
+        ],
+        "ring_number": 2,
+        "ring_size": 6
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "ring",
+        "indices": [
+          6,
+          7,
+          8,
+          9,
+          3,
+          2
+        ],
+        "atom_names": [
+          "N7",
+          "C8",
+          "C9",
+          "C10",
+          "C4",
+          "C3"
+        ],
+        "residue": {
+          "name": "THA",
+          "chain": "A",
+          "number": 999,
+          "insertion": ""
+        },
+        "label": "THA A:999 ring 2",
+        "position": [
+          4.762333,
+          70.087166,
+          65.941826
+        ],
+        "ring_number": 2,
+        "ring_size": 6
+      },
+      "distance": 4.082049,
+      "geometry": "parallel"
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "ring",
+        "indices": [
+          102,
+          104,
+          106,
+          107,
+          105,
+          103
+        ],
+        "atom_names": [
+          "CG",
+          "CD2",
+          "CE2",
+          "CZ",
+          "CE1",
+          "CD1"
+        ],
+        "residue": {
+          "name": "PHE",
+          "chain": "A",
+          "number": 330,
+          "insertion": ""
+        },
+        "label": "PHE A:330 ring 1",
+        "position": [
+          6.025833,
+          67.191498,
+          68.901001
+        ],
+        "ring_number": 1,
+        "ring_size": 6
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "ring",
+        "indices": [
+          6,
+          7,
+          8,
+          9,
+          3,
+          2
+        ],
+        "atom_names": [
+          "N7",
+          "C8",
+          "C9",
+          "C10",
+          "C4",
+          "C3"
+        ],
+        "residue": {
+          "name": "THA",
+          "chain": "A",
+          "number": 999,
+          "insertion": ""
+        },
+        "label": "THA A:999 ring 2",
+        "position": [
+          4.762333,
+          70.087166,
+          65.941826
+        ],
+        "ring_number": 2,
+        "ring_size": 6
+      },
+      "distance": 4.328746,
+      "geometry": "parallel"
+    }
+  ],
+  "analysis": {
+    "function": "pi_stacking",
+    "cutoff": 5.0,
+    "tolerance": 30,
+    "selection": "Parallel or perpendicular mask"
+  },
+  "candidates": 5,
+  "sources": [
+    {
+      "url": "https://files.rcsb.org/download/1ACJ.pdb",
+      "sha256": "4e4bb40a48ec0fd4647e66a5007491d72aa44230f4ad943d81886a1ec52d36f8"
+    },
+    {
+      "url": "https://files.rcsb.org/ligands/download/THA.cif",
+      "sha256": "5fa53ab60b63ba2e401037d6331a6e09b4bd45a62306e18081e40fa673ef1915"
+    }
+  ],
+  "backend": "rdk",
+  "oddt_version": "0.6.post253+g4cc1cf4",
+  "rdkit_version": "2026.03.1",
+  "pocket_radius_angstrom": 6.0,
+  "protein_file": "protein.pdb",
+  "ligand_file": "ligand.sdf",
+  "assets_sha256": {
+    "protein.pdb": "1ce6b4d16aa772ed0a9ec8268b324e2185b7a65b3619740f0382f99f22ec1916",
+    "ligand.sdf": "2aa092a744f7abbd7ed8af63250cbabc40b405421cc742b8c57f9a5f2b234e76"
+  }
+}

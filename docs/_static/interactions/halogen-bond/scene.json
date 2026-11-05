@@ -1,0 +1,102 @@
+{
+  "id": "halogen-bond",
+  "title": "Halogen bonds",
+  "pdb_id": "1P5E",
+  "component": "TBS",
+  "chain": "A",
+  "number": 301,
+  "complex": "CDK2 · tetrabromobenzotriazole",
+  "color": "#7c3aed",
+  "description": "Bromine–acceptor contacts in the CDK2 pocket, filtered by ODDT's strict halogen-bond geometry.",
+  "ligand_atom_names": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "N5",
+    "C6",
+    "C7",
+    "N8",
+    "N9",
+    "BR10",
+    "BR11",
+    "BR12",
+    "BR13"
+  ],
+  "contacts": [
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          87
+        ],
+        "atom_names": [
+          "O"
+        ],
+        "residue": {
+          "name": "LEU",
+          "chain": "A",
+          "number": 83,
+          "insertion": ""
+        },
+        "label": "LEU A:83 O",
+        "position": [
+          9.087,
+          41.162998,
+          47.997002
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          10
+        ],
+        "atom_names": [
+          "BR11"
+        ],
+        "residue": {
+          "name": "TBS",
+          "chain": "A",
+          "number": 301,
+          "insertion": ""
+        },
+        "label": "TBS A:301 BR11",
+        "position": [
+          8.072,
+          43.544998,
+          49.311001
+        ]
+      },
+      "distance": 2.903574
+    }
+  ],
+  "analysis": {
+    "function": "halogenbonds",
+    "cutoff": 4.0,
+    "tolerance": 30,
+    "selection": "Strict contacts"
+  },
+  "candidates": 3,
+  "sources": [
+    {
+      "url": "https://files.rcsb.org/download/1P5E.pdb",
+      "sha256": "bae9021dd01fb0b2c14d61613044ea67d3c82c95900c653553c6be0fcb7fb874"
+    },
+    {
+      "url": "https://files.rcsb.org/ligands/download/TBS.cif",
+      "sha256": "505bd52e74b81373824104b27626037af628752ca9b87fcded7d182af9f4ebb3"
+    }
+  ],
+  "backend": "rdk",
+  "oddt_version": "0.6.post253+g4cc1cf4",
+  "rdkit_version": "2026.03.1",
+  "pocket_radius_angstrom": 6.0,
+  "protein_file": "protein.pdb",
+  "ligand_file": "ligand.sdf",
+  "assets_sha256": {
+    "protein.pdb": "62e969c37d7083577d326124b55658361ebda697197e2abce6d1a84bdffb009a",
+    "ligand.sdf": "d2e3266680ea9a6037e002241807573e6212cabd19932077908fd0a3ca825fd8"
+  }
+}

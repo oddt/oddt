@@ -1,0 +1,159 @@
+{
+  "id": "pi-metal",
+  "title": "π–metal contacts",
+  "pdb_id": "1LPI",
+  "component": "NA",
+  "chain": "A",
+  "number": 200,
+  "complex": "Lysozyme · sodium",
+  "color": "#6d28d9",
+  "description": "The sodium ion contacts a protein tryptophan π system. Here the protein supplies the ring and the ligand-side molecule is the metal ion.",
+  "ligand_atom_names": [
+    "NA"
+  ],
+  "contacts": [
+    {
+      "start": {
+        "role": "protein",
+        "kind": "ring",
+        "indices": [
+          15,
+          17,
+          18,
+          16,
+          14,
+          12
+        ],
+        "atom_names": [
+          "CE3",
+          "CZ3",
+          "CH2",
+          "CZ2",
+          "CE2",
+          "CD2"
+        ],
+        "residue": {
+          "name": "TRP",
+          "chain": "A",
+          "number": 123,
+          "insertion": ""
+        },
+        "label": "TRP A:123 ring 2",
+        "position": [
+          -1.8055,
+          27.666834,
+          7.527167
+        ],
+        "ring_number": 2,
+        "ring_size": 6
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          0
+        ],
+        "atom_names": [
+          "NA"
+        ],
+        "residue": {
+          "name": "NA",
+          "chain": "A",
+          "number": 200,
+          "insertion": ""
+        },
+        "label": "NA A:200 NA",
+        "position": [
+          -2.627,
+          29.993999,
+          4.225
+        ]
+      },
+      "distance": 4.122483
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "ring",
+        "indices": [
+          10,
+          11,
+          13,
+          14,
+          12
+        ],
+        "atom_names": [
+          "CG",
+          "CD1",
+          "NE1",
+          "CE2",
+          "CD2"
+        ],
+        "residue": {
+          "name": "TRP",
+          "chain": "A",
+          "number": 123,
+          "insertion": ""
+        },
+        "label": "TRP A:123 ring 1",
+        "position": [
+          -3.3098,
+          28.674999,
+          8.687
+        ],
+        "ring_number": 1,
+        "ring_size": 5
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          0
+        ],
+        "atom_names": [
+          "NA"
+        ],
+        "residue": {
+          "name": "NA",
+          "chain": "A",
+          "number": 200,
+          "insertion": ""
+        },
+        "label": "NA A:200 NA",
+        "position": [
+          -2.627,
+          29.993999,
+          4.225
+        ]
+      },
+      "distance": 4.702704
+    }
+  ],
+  "analysis": {
+    "function": "pi_metal",
+    "cutoff": 5.0,
+    "tolerance": 30,
+    "argument_order": "protein, metal ligand"
+  },
+  "candidates": 2,
+  "sources": [
+    {
+      "url": "https://files.rcsb.org/download/1LPI.pdb",
+      "sha256": "eb36bca5af55da1204ec6b5bc3cf54a5693bea2b5a534e9b96e75474e5c6a05a"
+    },
+    {
+      "url": "https://files.rcsb.org/ligands/download/NA.cif",
+      "sha256": "325116dae44c0d864aec19f5a44e1236ef309cc2b54e564d8189ee4c024a20ea"
+    }
+  ],
+  "backend": "rdk",
+  "oddt_version": "0.6.post253+g4cc1cf4",
+  "rdkit_version": "2026.03.1",
+  "pocket_radius_angstrom": 6.0,
+  "protein_file": "protein.pdb",
+  "ligand_file": "ligand.sdf",
+  "assets_sha256": {
+    "protein.pdb": "6506b499eb5cb28c9bdeacc907388fddeddedb9f26b153449f0db705cc4514d4",
+    "ligand.sdf": "5eade15491a5f539b4f727366c9a3f6289368d84c286420595f86e03a42773bb"
+  }
+}
