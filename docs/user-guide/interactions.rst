@@ -9,6 +9,95 @@ aggregate them by residue, or build your own report.
 For a compact vector representation of a binding mode, continue with
 :doc:`fingerprints`.
 
+.. _interaction-atlas:
+
+Explore interactions in 3D
+--------------------------
+
+Choose an interaction type, then select **Load interactive 3D**. Each type
+uses a **different experimental PDB structure**. Drag to rotate, scroll or
+pinch to zoom, and select a contact below the view to focus its atoms or
+rings. Rotation and zoom buttons also work with a keyboard.
+
+The ligand is shown as thick sticks (or a sphere for a single ion), the
+protein pocket as thin bonds, and contacting residues as thicker sticks. Colored
+dashes mark ODDT-classified contacts. A dot marks a ring centroid;
+ring-contact distances are measured from that centroid. Enable **Pocket
+surface** to add a translucent van der Waals envelope of the displayed
+protein atoms. The selected contact has atom/residue labels and a distance.
+
+.. raw:: html
+
+   <div class="oddt-interaction-atlas"
+        data-base-url="../_static/interactions/"
+        data-library-url="../_static/vendor/3Dmol-2.5.5.min.js">
+     <p>Enable JavaScript and WebGL to explore the structures interactively.
+        The examples and downloadable data are listed below.</p>
+   </div>
+   <script defer src="../_static/interaction-viewer.js"></script>
+
+.. list-table:: Eight types, eight structures
+   :header-rows: 1
+   :widths: 25 15 60
+
+   * - Interaction
+     - PDB entry
+     - Complex / downloadable contact data
+   * - Hydrogen bonds
+     - `1HSG <https://www.rcsb.org/structure/1HSG>`_
+     - HIV protease–indinavir
+       (:download:`contacts <../_static/interactions/hydrogen-bond/scene.json>`).
+   * - Hydrophobic contacts
+     - `4BFQ <https://www.rcsb.org/structure/4BFQ>`_
+     - Acetylcholine-binding protein–083
+       (:download:`contacts <../_static/interactions/hydrophobic/scene.json>`).
+   * - Halogen bonds
+     - `1P5E <https://www.rcsb.org/structure/1P5E>`_
+     - CDK2–tetrabromobenzotriazole
+       (:download:`contacts <../_static/interactions/halogen-bond/scene.json>`).
+   * - Salt bridges
+     - `3PTB <https://www.rcsb.org/structure/3PTB>`_
+     - Trypsin–benzamidine
+       (:download:`contacts <../_static/interactions/salt-bridge/scene.json>`).
+   * - π stacking
+     - `1ACJ <https://www.rcsb.org/structure/1ACJ>`_
+     - Acetylcholinesterase–tacrine
+       (:download:`contacts <../_static/interactions/pi-stacking/scene.json>`).
+   * - π–cation contacts
+     - `1ACL <https://www.rcsb.org/structure/1ACL>`_
+     - Acetylcholinesterase–decamethonium
+       (:download:`contacts <../_static/interactions/pi-cation/scene.json>`).
+   * - Acceptor–metal coordination
+     - `1HFC <https://www.rcsb.org/structure/1HFC>`_
+     - Fibroblast collagenase–hydroxamate inhibitor
+       (:download:`contacts <../_static/interactions/acceptor-metal/scene.json>`).
+   * - π–metal contacts
+     - `1LPI <https://www.rcsb.org/structure/1LPI>`_
+     - Lysozyme–sodium, with the protein supplying the aromatic ring
+       (:download:`contacts <../_static/interactions/pi-metal/scene.json>`).
+
+The examples retain deposited heavy-atom coordinates and complete protein
+residues within 6 Å of the selected ligand. They use the first model and
+blank/A alternate conformations. Ligand connectivity, hydrogen counts, and
+formal charges come from the PDB Chemical Component Dictionary; polar
+hydrogens are added with RDKit through ODDT. Other hetero compounds, waters,
+and crystallographic symmetry mates are omitted; the coordination example
+retains nearby zinc/calcium ions. No coordinates are minimized or docked.
+
+Displayed directional contacts pass their strict angular masks. Hydrogen
+bonds are restricted to N/O pairs; hydrophobic contacts are summarized by
+the closest pair per protein residue. Salt bridges use ionizable-group
+flags, while π–cation contacts require an explicit positive formal charge.
+Fused aromatic rings can contribute more than one centroid contact. These
+are numbered within each residue or ligand so they can be distinguished.
+Repeated atom pairs are displayed once. These are examples of ODDT's
+classifications, not measurements of bond energies.
+
+The viewer's downloads include the pocket PDB, bound ligand SDF, contacts,
+detector settings, source URLs/checksums, and software versions. Rendering
+and data are bundled with the docs; no live PDB or CDN connection is needed.
+The Python walkthrough below continues to use 4LB3 as one shared example.
+
 Prepare a bound complex
 -----------------------
 

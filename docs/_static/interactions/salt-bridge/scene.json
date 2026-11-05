@@ -1,0 +1,239 @@
+{
+  "id": "salt-bridge",
+  "title": "Salt bridges",
+  "pdb_id": "3PTB",
+  "component": "BEN",
+  "chain": "A",
+  "number": 1,
+  "complex": "Trypsin · benzamidine",
+  "color": "#be185d",
+  "description": "The benzamidine amidinium group contacts Asp189. ODDT's default ionizable-group flags are used; the exact-formal-charge filters are not enabled.",
+  "ligand_atom_names": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C",
+    "N1",
+    "N2"
+  ],
+  "contacts": [
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          29
+        ],
+        "atom_names": [
+          "OD2"
+        ],
+        "residue": {
+          "name": "ASP",
+          "chain": "A",
+          "number": 189,
+          "insertion": ""
+        },
+        "label": "ASP A:189 OD2",
+        "position": [
+          -3.203,
+          10.589,
+          13.598
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          8
+        ],
+        "atom_names": [
+          "N2"
+        ],
+        "residue": {
+          "name": "BEN",
+          "chain": "A",
+          "number": 1,
+          "insertion": ""
+        },
+        "label": "BEN A:1 N2",
+        "position": [
+          -1.762,
+          12.391,
+          15.309
+        ]
+      },
+      "distance": 2.872491
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          28
+        ],
+        "atom_names": [
+          "OD1"
+        ],
+        "residue": {
+          "name": "ASP",
+          "chain": "A",
+          "number": 189,
+          "insertion": ""
+        },
+        "label": "ASP A:189 OD1",
+        "position": [
+          -4.102,
+          12.34,
+          12.695
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          7
+        ],
+        "atom_names": [
+          "N1"
+        ],
+        "residue": {
+          "name": "BEN",
+          "chain": "A",
+          "number": 1,
+          "insertion": ""
+        },
+        "label": "BEN A:1 N1",
+        "position": [
+          -2.797,
+          14.235,
+          14.491
+        ]
+      },
+      "distance": 2.918847
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          28
+        ],
+        "atom_names": [
+          "OD1"
+        ],
+        "residue": {
+          "name": "ASP",
+          "chain": "A",
+          "number": 189,
+          "insertion": ""
+        },
+        "label": "ASP A:189 OD1",
+        "position": [
+          -4.102,
+          12.34,
+          12.695
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          8
+        ],
+        "atom_names": [
+          "N2"
+        ],
+        "residue": {
+          "name": "BEN",
+          "chain": "A",
+          "number": 1,
+          "insertion": ""
+        },
+        "label": "BEN A:1 N2",
+        "position": [
+          -1.762,
+          12.391,
+          15.309
+        ]
+      },
+      "distance": 3.508732
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          29
+        ],
+        "atom_names": [
+          "OD2"
+        ],
+        "residue": {
+          "name": "ASP",
+          "chain": "A",
+          "number": 189,
+          "insertion": ""
+        },
+        "label": "ASP A:189 OD2",
+        "position": [
+          -3.203,
+          10.589,
+          13.598
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          7
+        ],
+        "atom_names": [
+          "N1"
+        ],
+        "residue": {
+          "name": "BEN",
+          "chain": "A",
+          "number": 1,
+          "insertion": ""
+        },
+        "label": "BEN A:1 N1",
+        "position": [
+          -2.797,
+          14.235,
+          14.491
+        ]
+      },
+      "distance": 3.775659
+    }
+  ],
+  "analysis": {
+    "function": "salt_bridges",
+    "cutoff": 4.0,
+    "mol1_exact": false,
+    "mol2_exact": false
+  },
+  "candidates": 4,
+  "sources": [
+    {
+      "url": "https://files.rcsb.org/download/3PTB.pdb",
+      "sha256": "288f7954d4d013fa8eab3808e1037e2958e2dcd12c9eca65a3f1014404a9f9a2"
+    },
+    {
+      "url": "https://files.rcsb.org/ligands/download/BEN.cif",
+      "sha256": "a7ce813cbbac599168d4772f635ae23d7c6edb4d83a9891ebabcbe9e8bb66849"
+    }
+  ],
+  "backend": "rdk",
+  "oddt_version": "0.6.post253+g4cc1cf4",
+  "rdkit_version": "2026.03.1",
+  "pocket_radius_angstrom": 6.0,
+  "protein_file": "protein.pdb",
+  "ligand_file": "ligand.sdf",
+  "assets_sha256": {
+    "protein.pdb": "f279ae33970b55c48a9ae989f3258e0a1098d8855e0ae743dddd03833df458f2",
+    "ligand.sdf": "556992f32006b325441e40eba687315ce6f40c87e0f6317148d9816c91cadf5a"
+  }
+}

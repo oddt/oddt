@@ -1,0 +1,235 @@
+{
+  "id": "pi-cation",
+  "title": "π–cation contacts",
+  "pdb_id": "1ACL",
+  "component": "DME",
+  "chain": "A",
+  "number": 999,
+  "complex": "Acetylcholinesterase · decamethonium",
+  "color": "#c2410c",
+  "description": "Protein aromatic rings contact the explicitly charged quaternary ammonium groups of decamethonium. Lines join ring centroids to cation atoms.",
+  "ligand_atom_names": [
+    "N1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8",
+    "C9",
+    "C10",
+    "C11",
+    "N12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18"
+  ],
+  "contacts": [
+    {
+      "start": {
+        "role": "protein",
+        "kind": "ring",
+        "indices": [
+          30,
+          32,
+          33,
+          31,
+          29,
+          27
+        ],
+        "atom_names": [
+          "CE3",
+          "CZ3",
+          "CH2",
+          "CZ2",
+          "CE2",
+          "CD2"
+        ],
+        "residue": {
+          "name": "TRP",
+          "chain": "A",
+          "number": 84,
+          "insertion": ""
+        },
+        "label": "TRP A:84 ring 2",
+        "position": [
+          4.403167,
+          73.239166,
+          62.9855
+        ],
+        "ring_number": 2,
+        "ring_size": 6
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          11
+        ],
+        "atom_names": [
+          "N12"
+        ],
+        "residue": {
+          "name": "DME",
+          "chain": "A",
+          "number": 999,
+          "insertion": ""
+        },
+        "label": "DME A:999 N12",
+        "position": [
+          4.766,
+          68.963997,
+          63.115002
+        ]
+      },
+      "distance": 4.292492
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "ring",
+        "indices": [
+          95,
+          97,
+          98,
+          96,
+          94,
+          92
+        ],
+        "atom_names": [
+          "CE3",
+          "CZ3",
+          "CH2",
+          "CZ2",
+          "CE2",
+          "CD2"
+        ],
+        "residue": {
+          "name": "TRP",
+          "chain": "A",
+          "number": 279,
+          "insertion": ""
+        },
+        "label": "TRP A:279 ring 2",
+        "position": [
+          -1.7545,
+          59.34367,
+          69.126495
+        ],
+        "ring_number": 2,
+        "ring_size": 6
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          0
+        ],
+        "atom_names": [
+          "N1"
+        ],
+        "residue": {
+          "name": "DME",
+          "chain": "A",
+          "number": 999,
+          "insertion": ""
+        },
+        "label": "DME A:999 N1",
+        "position": [
+          0.354,
+          62.248001,
+          71.567001
+        ]
+      },
+      "distance": 4.340159
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "ring",
+        "indices": [
+          25,
+          26,
+          28,
+          29,
+          27
+        ],
+        "atom_names": [
+          "CG",
+          "CD1",
+          "NE1",
+          "CE2",
+          "CD2"
+        ],
+        "residue": {
+          "name": "TRP",
+          "chain": "A",
+          "number": 84,
+          "insertion": ""
+        },
+        "label": "TRP A:84 ring 1",
+        "position": [
+          3.5418,
+          72.979996,
+          64.944397
+        ],
+        "ring_number": 1,
+        "ring_size": 5
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          11
+        ],
+        "atom_names": [
+          "N12"
+        ],
+        "residue": {
+          "name": "DME",
+          "chain": "A",
+          "number": 999,
+          "insertion": ""
+        },
+        "label": "DME A:999 N12",
+        "position": [
+          4.766,
+          68.963997,
+          63.115002
+        ]
+      },
+      "distance": 4.579694
+    }
+  ],
+  "analysis": {
+    "function": "pi_cation",
+    "cutoff": 5.0,
+    "tolerance": 30,
+    "cation_exact": true
+  },
+  "candidates": 3,
+  "sources": [
+    {
+      "url": "https://files.rcsb.org/download/1ACL.pdb",
+      "sha256": "f9ee3e2554471c75e6d6c778fa40b85956acbc844cc2f118970b16064c7fe803"
+    },
+    {
+      "url": "https://files.rcsb.org/ligands/download/DME.cif",
+      "sha256": "2514eb0b184e2608d53348aff8c04435f7827047d875d2817dac1e54a68d0d0b"
+    }
+  ],
+  "backend": "rdk",
+  "oddt_version": "0.6.post253+g4cc1cf4",
+  "rdkit_version": "2026.03.1",
+  "pocket_radius_angstrom": 6.0,
+  "protein_file": "protein.pdb",
+  "ligand_file": "ligand.sdf",
+  "assets_sha256": {
+    "protein.pdb": "c4b46746e8e63b6efecc7f8c941baa4f67b1583d1b46179a190078164e9a6409",
+    "ligand.sdf": "cb4c9f785ed262a38d8fe2a5605c254826bc0d8033a0495535f8253b9bd4734d"
+  }
+}

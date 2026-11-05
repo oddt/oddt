@@ -139,3 +139,194 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* The interaction atlas uses one WebGL context for all eight examples. */
+.oddt-interaction-atlas {
+  --interaction-color: #0f766e;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.75rem;
+  margin: 1.5rem 0;
+  overflow: hidden;
+  padding: 1rem;
+}
+
+.oddt-atlas-picker {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.oddt-atlas-picker label {
+  color: var(--color-foreground-secondary);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.oddt-atlas-picker select,
+.oddt-interaction-atlas button {
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.35rem;
+  color: var(--color-foreground-primary);
+  cursor: pointer;
+  font: inherit;
+  padding: 0.5rem 0.65rem;
+}
+
+.oddt-atlas-picker select {
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.oddt-atlas-heading {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  justify-content: space-between;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.oddt-atlas-heading .oddt-atlas-title {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+.oddt-atlas-pdb {
+  flex-shrink: 0;
+  font-size: 0.85rem;
+  font-weight: 650;
+}
+
+.oddt-atlas-description,
+.oddt-atlas-help,
+.oddt-atlas-status,
+.oddt-atlas-downloads {
+  font-size: 0.85rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.oddt-atlas-frame {
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.4rem;
+  height: 26rem;
+  overflow: hidden;
+  position: relative;
+}
+
+.oddt-atlas-viewport {
+  height: 100%;
+  position: relative;
+  width: 100%;
+}
+
+.oddt-atlas-cover {
+  align-items: center;
+  background: var(--color-background-primary);
+  color: var(--color-foreground-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  inset: 0;
+  justify-content: center;
+  padding: 1.25rem;
+  position: absolute;
+  text-align: center;
+}
+
+.oddt-atlas-cover[hidden] {
+  display: none;
+}
+
+.oddt-atlas-cover .oddt-atlas-load {
+  background: #0f766e;
+  border-color: #0f766e;
+  color: #fff;
+  font-weight: 650;
+}
+
+.oddt-atlas-toolbar {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.oddt-atlas-toolbar button,
+.oddt-atlas-toolbar label {
+  font-size: 0.8rem;
+}
+
+.oddt-atlas-toolbar label {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.3rem;
+}
+
+.oddt-atlas-toolbar input {
+  accent-color: #0f766e;
+}
+
+.oddt-interaction-atlas button:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.oddt-interaction-atlas button:focus-visible,
+.oddt-interaction-atlas select:focus-visible,
+.oddt-interaction-atlas input:focus-visible {
+  outline: 2px solid var(--color-brand-content);
+  outline-offset: 3px;
+}
+
+.oddt-atlas-help,
+.oddt-atlas-status {
+  color: var(--color-foreground-secondary);
+  margin: 0.65rem 0;
+}
+
+.oddt-atlas-contacts {
+  display: grid;
+  gap: 0.5rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.oddt-atlas-contacts button {
+  border-left: 3px solid var(--interaction-color);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+
+.oddt-atlas-contacts button span,
+.oddt-atlas-contacts button strong {
+  display: block;
+}
+
+.oddt-atlas-contacts button[aria-pressed="true"] {
+  border-color: var(--color-brand-content);
+  box-shadow: inset 0 0 0 1px var(--color-brand-content);
+}
+
+.oddt-atlas-downloads {
+  margin-bottom: 0;
+}
+
+@media (max-width: 36rem) {
+  .oddt-interaction-atlas {
+    padding: 0.75rem;
+  }
+
+  .oddt-atlas-frame {
+    height: 22rem;
+  }
+
+  .oddt-atlas-contacts {
+    grid-template-columns: 1fr;
+  }
+}

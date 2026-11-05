@@ -1,0 +1,74 @@
+[
+  {
+    "id": "hydrogen-bond",
+    "title": "Hydrogen bonds",
+    "pdb_id": "1HSG",
+    "complex": "HIV protease · indinavir",
+    "color": "#b45309",
+    "scene": "hydrogen-bond/scene.json",
+    "contact_count": 6
+  },
+  {
+    "id": "hydrophobic",
+    "title": "Hydrophobic contacts",
+    "pdb_id": "4BFQ",
+    "complex": "Acetylcholine-binding protein · ligand 083",
+    "color": "#0f766e",
+    "scene": "hydrophobic/scene.json",
+    "contact_count": 3
+  },
+  {
+    "id": "halogen-bond",
+    "title": "Halogen bonds",
+    "pdb_id": "1P5E",
+    "complex": "CDK2 · tetrabromobenzotriazole",
+    "color": "#7c3aed",
+    "scene": "halogen-bond/scene.json",
+    "contact_count": 1
+  },
+  {
+    "id": "salt-bridge",
+    "title": "Salt bridges",
+    "pdb_id": "3PTB",
+    "complex": "Trypsin · benzamidine",
+    "color": "#be185d",
+    "scene": "salt-bridge/scene.json",
+    "contact_count": 4
+  },
+  {
+    "id": "pi-stacking",
+    "title": "π stacking",
+    "pdb_id": "1ACJ",
+    "complex": "Acetylcholinesterase · tacrine",
+    "color": "#2563eb",
+    "scene": "pi-stacking/scene.json",
+    "contact_count": 4
+  },
+  {
+    "id": "pi-cation",
+    "title": "π–cation contacts",
+    "pdb_id": "1ACL",
+    "complex": "Acetylcholinesterase · decamethonium",
+    "color": "#c2410c",
+    "scene": "pi-cation/scene.json",
+    "contact_count": 3
+  },
+  {
+    "id": "acceptor-metal",
+    "title": "Acceptor–metal coordination",
+    "pdb_id": "1HFC",
+    "complex": "Fibroblast collagenase · hydroxamate inhibitor",
+    "color": "#0369a1",
+    "scene": "acceptor-metal/scene.json",
+    "contact_count": 2
+  },
+  {
+    "id": "pi-metal",
+    "title": "π–metal contacts",
+    "pdb_id": "1LPI",
+    "complex": "Lysozyme · sodium",
+    "color": "#6d28d9",
+    "scene": "pi-metal/scene.json",
+    "contact_count": 2
+  }
+]

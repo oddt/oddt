@@ -1,0 +1,371 @@
+{
+  "id": "hydrogen-bond",
+  "title": "Hydrogen bonds",
+  "pdb_id": "1HSG",
+  "component": "MK1",
+  "chain": "B",
+  "number": 902,
+  "complex": "HIV protease · indinavir",
+  "color": "#b45309",
+  "description": "Conventional N/O hydrogen bonds between indinavir and the protease pocket. Only contacts passing ODDT's strict angular mask are shown.",
+  "ligand_atom_names": [
+    "N1",
+    "C1",
+    "C2",
+    "C3",
+    "O1",
+    "N2",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "N3",
+    "C8",
+    "C9",
+    "C10",
+    "C11",
+    "O2",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "C19",
+    "C20",
+    "C21",
+    "O3",
+    "N4",
+    "C22",
+    "C23",
+    "O4",
+    "C24",
+    "C25",
+    "C26",
+    "C27",
+    "C28",
+    "C29",
+    "C30",
+    "C31",
+    "C32",
+    "C33",
+    "N5",
+    "C34",
+    "C35",
+    "C36"
+  ],
+  "contacts": [
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          26
+        ],
+        "atom_names": [
+          "OD2"
+        ],
+        "residue": {
+          "name": "ASP",
+          "chain": "A",
+          "number": 25,
+          "insertion": ""
+        },
+        "label": "ASP A:25 OD2",
+        "position": [
+          15.762,
+          26.695999,
+          6.882
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          15
+        ],
+        "atom_names": [
+          "O2"
+        ],
+        "residue": {
+          "name": "MK1",
+          "chain": "B",
+          "number": 902,
+          "insertion": ""
+        },
+        "label": "MK1 B:902 O2",
+        "position": [
+          15.242,
+          24.884001,
+          4.634
+        ]
+      },
+      "distance": 2.93381
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          190
+        ],
+        "atom_names": [
+          "O"
+        ],
+        "residue": {
+          "name": "GLY",
+          "chain": "B",
+          "number": 27,
+          "insertion": ""
+        },
+        "label": "GLY B:27 O",
+        "position": [
+          18.66,
+          23.054001,
+          5.417
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          27
+        ],
+        "atom_names": [
+          "N4"
+        ],
+        "residue": {
+          "name": "MK1",
+          "chain": "B",
+          "number": 902,
+          "insertion": ""
+        },
+        "label": "MK1 B:902 N4",
+        "position": [
+          16.583,
+          20.913,
+          5.924
+        ]
+      },
+      "distance": 3.0257
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          203
+        ],
+        "atom_names": [
+          "OD2"
+        ],
+        "residue": {
+          "name": "ASP",
+          "chain": "B",
+          "number": 29,
+          "insertion": ""
+        },
+        "label": "ASP B:29 OD2",
+        "position": [
+          21.836,
+          18.646999,
+          5.778
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          30
+        ],
+        "atom_names": [
+          "O4"
+        ],
+        "residue": {
+          "name": "MK1",
+          "chain": "B",
+          "number": 902,
+          "insertion": ""
+        },
+        "label": "MK1 B:902 O4",
+        "position": [
+          19.061001,
+          19.938,
+          5.729
+        ]
+      },
+      "distance": 3.060997
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          190
+        ],
+        "atom_names": [
+          "O"
+        ],
+        "residue": {
+          "name": "GLY",
+          "chain": "B",
+          "number": 27,
+          "insertion": ""
+        },
+        "label": "GLY B:27 O",
+        "position": [
+          18.66,
+          23.054001,
+          5.417
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          30
+        ],
+        "atom_names": [
+          "O4"
+        ],
+        "residue": {
+          "name": "MK1",
+          "chain": "B",
+          "number": 902,
+          "insertion": ""
+        },
+        "label": "MK1 B:902 O4",
+        "position": [
+          19.061001,
+          19.938,
+          5.729
+        ]
+      },
+      "distance": 3.157152
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          196
+        ],
+        "atom_names": [
+          "N"
+        ],
+        "residue": {
+          "name": "ASP",
+          "chain": "B",
+          "number": 29,
+          "insertion": ""
+        },
+        "label": "ASP B:29 N",
+        "position": [
+          20.535999,
+          20.559,
+          2.918
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          30
+        ],
+        "atom_names": [
+          "O4"
+        ],
+        "residue": {
+          "name": "MK1",
+          "chain": "B",
+          "number": 902,
+          "insertion": ""
+        },
+        "label": "MK1 B:902 O4",
+        "position": [
+          19.061001,
+          19.938,
+          5.729
+        ]
+      },
+      "distance": 3.234653
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          163
+        ],
+        "atom_names": [
+          "NH2"
+        ],
+        "residue": {
+          "name": "ARG",
+          "chain": "B",
+          "number": 8,
+          "insertion": ""
+        },
+        "label": "ARG B:8 NH2",
+        "position": [
+          5.925,
+          28.688,
+          1.719
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          41
+        ],
+        "atom_names": [
+          "N5"
+        ],
+        "residue": {
+          "name": "MK1",
+          "chain": "B",
+          "number": 902,
+          "insertion": ""
+        },
+        "label": "MK1 B:902 N5",
+        "position": [
+          4.911,
+          25.43,
+          2.3
+        ]
+      },
+      "distance": 3.46126
+    }
+  ],
+  "analysis": {
+    "function": "hbonds",
+    "cutoff": 3.5,
+    "tolerance": 30,
+    "mol1_exact": true,
+    "mol2_exact": true,
+    "selection": "Unique strict N/O atom pairs only"
+  },
+  "candidates": 12,
+  "sources": [
+    {
+      "url": "https://files.rcsb.org/download/1HSG.pdb",
+      "sha256": "d430675c358060808ef614002cfdcfcfa824714d89f1240adf5749d2ba60fed2"
+    },
+    {
+      "url": "https://files.rcsb.org/ligands/download/MK1.cif",
+      "sha256": "c1d46b02c24a3f7e6c089762a365c094078d9a00aee824131d75768d2805141a"
+    }
+  ],
+  "backend": "rdk",
+  "oddt_version": "0.6.post253+g4cc1cf4",
+  "rdkit_version": "2026.03.1",
+  "pocket_radius_angstrom": 6.0,
+  "protein_file": "protein.pdb",
+  "ligand_file": "ligand.sdf",
+  "assets_sha256": {
+    "protein.pdb": "b5b56fba4ca92c72f1ed9ed0865815ced0f8e955d9624febf8afbd3d86a575ba",
+    "ligand.sdf": "d5cc496b548e98f03d432f97c620ff7ee1f8073fdfcfa4e90dc1f3c4b8894047"
+  }
+}

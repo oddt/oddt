@@ -1,0 +1,161 @@
+{
+  "id": "acceptor-metal",
+  "title": "Acceptor–metal coordination",
+  "pdb_id": "1HFC",
+  "component": "PLH",
+  "chain": "A",
+  "number": 280,
+  "complex": "Fibroblast collagenase · hydroxamate inhibitor",
+  "color": "#0369a1",
+  "description": "Ligand acceptor atoms coordinate a pocket zinc ion and pass ODDT's strict angular mask. Nearby deposited metal ions are retained in the receptor.",
+  "ligand_atom_names": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5",
+    "C6",
+    "C7",
+    "C8",
+    "C9",
+    "C10",
+    "C11",
+    "C12",
+    "C13",
+    "C14",
+    "C15",
+    "C16",
+    "C17",
+    "C18",
+    "N1",
+    "N2",
+    "N3",
+    "O1",
+    "O2",
+    "O3",
+    "O4"
+  ],
+  "contacts": [
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          165
+        ],
+        "atom_names": [
+          "ZN"
+        ],
+        "residue": {
+          "name": "ZN",
+          "chain": "A",
+          "number": 275,
+          "insertion": ""
+        },
+        "label": "ZN A:275 ZN",
+        "position": [
+          18.709,
+          22.099001,
+          26.605
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          22
+        ],
+        "atom_names": [
+          "O2"
+        ],
+        "residue": {
+          "name": "PLH",
+          "chain": "A",
+          "number": 280,
+          "insertion": ""
+        },
+        "label": "PLH A:280 O2",
+        "position": [
+          20.76,
+          22.141001,
+          26.735001
+        ]
+      },
+      "distance": 2.055545
+    },
+    {
+      "start": {
+        "role": "protein",
+        "kind": "atom",
+        "indices": [
+          165
+        ],
+        "atom_names": [
+          "ZN"
+        ],
+        "residue": {
+          "name": "ZN",
+          "chain": "A",
+          "number": 275,
+          "insertion": ""
+        },
+        "label": "ZN A:275 ZN",
+        "position": [
+          18.709,
+          22.099001,
+          26.605
+        ]
+      },
+      "end": {
+        "role": "ligand",
+        "kind": "atom",
+        "indices": [
+          21
+        ],
+        "atom_names": [
+          "O1"
+        ],
+        "residue": {
+          "name": "PLH",
+          "chain": "A",
+          "number": 280,
+          "insertion": ""
+        },
+        "label": "PLH A:280 O1",
+        "position": [
+          19.143,
+          24.165001,
+          27.202999
+        ]
+      },
+      "distance": 2.194155
+    }
+  ],
+  "analysis": {
+    "function": "acceptor_metal",
+    "cutoff": 4.0,
+    "tolerance": 30,
+    "argument_order": "ligand, protein"
+  },
+  "candidates": 2,
+  "sources": [
+    {
+      "url": "https://files.rcsb.org/download/1HFC.pdb",
+      "sha256": "dd34f0414a340db044eab41c012adf4a1c34b367ac7c5a2b1bd902b10e97234e"
+    },
+    {
+      "url": "https://files.rcsb.org/ligands/download/PLH.cif",
+      "sha256": "c8befa4c41672623d4b1ff60fe252ea2ca12889e5609d71b42ae20b2714f11d4"
+    }
+  ],
+  "backend": "rdk",
+  "oddt_version": "0.6.post253+g4cc1cf4",
+  "rdkit_version": "2026.03.1",
+  "pocket_radius_angstrom": 6.0,
+  "protein_file": "protein.pdb",
+  "ligand_file": "ligand.sdf",
+  "assets_sha256": {
+    "protein.pdb": "f333cd403ab8025b679b3fb63a9b947fdb0dff118840b29ff9d2fb6c335c138a",
+    "ligand.sdf": "79f9149499d9735d231482fe343f82320089dde04c04741692fee35469964f23"
+  }
+}
