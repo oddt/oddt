@@ -48,6 +48,8 @@ Open Drug Discovery Toolkit
 Analysis guides
 ===============
 
+* :ref:`NumPy dictionaries <numpy-dictionaries>`: work with typed molecular
+  arrays, vectorize calculations, and control memory use on large systems.
 * :doc:`user-guide/interactions`: inspect hydrogen bonds, halogen bonds,
   hydrophobic contacts, ionic interactions, and metal coordination.
 * :doc:`user-guide/fingerprints`: encode binding modes, choose a representation,

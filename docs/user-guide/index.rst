@@ -20,7 +20,8 @@ Choose a starting point
 -----------------------
 
 * :doc:`molecules`: read and write structures, choose atom indices, and use
-  NumPy molecular arrays.
+  NumPy molecular arrays for vectorized selections, contact calculations,
+  residue reductions, and memory-bounded analysis.
 * :doc:`interactions`: prepare a complex, detect contacts, apply geometry
   filters, and export a residue-level report.
 * :doc:`fingerprints`: choose IFP, SIFP, ECFP, PLEC, or SPLIF; compare binding

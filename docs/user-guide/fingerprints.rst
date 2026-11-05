@@ -321,6 +321,30 @@ against ``rmsd_cutoff``; it does not superpose the input complexes. Align
 complexes into a common frame before comparing independently oriented
 structures, applying each alignment transform to both protein and ligand.
 
+Search a library by interaction similarity
+------------------------------------------
+
+Reuse the receptor and reference fingerprint while evaluating candidate poses:
+
+.. code-block:: python
+
+   reference = SimpleInteractionFingerprint(ligand, protein)
+   threshold = 0.7
+   matches = []
+   for candidate in (ligand, query_pose):
+       candidate_fp = SimpleInteractionFingerprint(candidate, protein)
+       score = dice(reference, candidate_fp)
+       if score > threshold:
+           matches.append((candidate.title, score))
+   assert matches
+   assert all(score > threshold for _, score in matches)
+
+For a pose library, replace the two example poses with an iterator from
+``oddt.toolkit.readfile('sdf', 'poses.sdf')`` and apply the same preparation
+to every candidate before calculating its fingerprint. All poses must share
+the receptor's coordinate frame. The threshold controls this particular
+search; calibrate it to your data and representation.
+
 Build a sparse feature matrix
 -----------------------------
 

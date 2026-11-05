@@ -38,6 +38,16 @@ files and install the docking/scoring dependencies needed by the operation.
 Repeated ``--filter`` arguments add pipeline filters. Inspect the installed
 command's help for available presets and options.
 
+Filters, docking, and scoring can be combined in one command. For example,
+apply Lipinski's rule of five (RO5) and PAINS filters before docking, then
+rescore with RFScore v2:
+
+.. code-block:: bash
+
+   oddt_cli ligands.sdf --toolkit ob --filter ro5 --filter pains \
+       --dock autodock_vina --receptor protein.pdb \
+       --auto_ligand reference.sdf --score rfscore_v2 -O screened.sdf
+
 Search for similar binding modes
 --------------------------------
 

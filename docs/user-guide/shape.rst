@@ -54,6 +54,32 @@ translating only the ligand changes its interactions with a fixed protein.
 Compare descriptors produced by the same method and preparation settings;
 ``usr_similarity`` checks descriptor lengths.
 
+Search a conformer library
+--------------------------
+
+Compute the reference descriptor once and stream candidate conformers:
+
+.. code-block:: python
+
+   threshold = 0.7
+   matches = []
+   for candidate in oddt.toolkit.readfile(
+       'sdf', 'tests/data/pdb/4lb3_ligand.sdf'
+   ):
+       similarity = usr_similarity(query_shape, usr(candidate))
+       if similarity > threshold:
+           matches.append((candidate.title, similarity))
+   assert matches
+   assert all(score > threshold for _, score in matches)
+
+Replace the example SDF with your conformer library. Use ``usr_cat`` or
+``electroshape`` for both reference and candidates to search with another
+descriptor. A threshold is a screening choice, so select it for your dataset
+and method rather than treating 0.7 as a universal cutoff.
+
+Include electrostatics
+----------------------
+
 For Electroshape, calculate partial charges before generating the descriptor:
 
 .. code-block:: python

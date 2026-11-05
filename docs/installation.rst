@@ -27,6 +27,25 @@ The numerical and machine-learning dependencies include NumPy, SciPy,
 scikit-learn, joblib, pandas, and packaging. Molecular surface calculations
 also use scikit-image.
 
+The package declares NumPy >=1.13, SciPy >=0.19, scikit-learn >=0.18,
+joblib >=0.10, pandas >=0.19.2, and packaging >=20. The supplied conda
+environment selects builds compatible with its Python version and includes
+RDKit >=2026.03.1 and Open Babel >=3.2.1. Install at least one backend;
+the other scientific dependencies do not provide a chemistry backend.
+
+With the dependencies already installed, you can also install the development
+branch directly:
+
+.. code-block:: bash
+
+   python -m pip install --no-build-isolation --no-deps \
+       git+https://github.com/oddt/oddt.git@master
+
+A downloaded release source archive can be unpacked and installed with the
+same ``python -m pip install --no-build-isolation --no-deps .`` command from
+its source directory. This replaces the older ``python setup.py install``
+workflow.
+
 Install a published release
 ---------------------------
 
