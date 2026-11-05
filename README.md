@@ -175,8 +175,7 @@ For a single-version build, `make -C docs html` is also available.
 
 Report bugs and request features in [GitHub Issues](https://github.com/oddt/oddt/issues),
 or open a [pull request](https://github.com/oddt/oddt/pulls) with a focused change
-and tests for new behavior. The [mailing list](https://groups.google.com/g/oddt)
-is also available for discussion.
+and tests for new behavior.
 
 To work on ODDT, use the repository environment and install the checkout in
 editable mode, then test each chemistry backend:
