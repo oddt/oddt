@@ -400,9 +400,19 @@ def remove_inline_contents(app, doctree, docname):
 
     from docutils import nodes
 
+    removed_ids = set()
     for node in list(doctree.findall(nodes.topic)):
         if "contents" in node["classes"]:
+            removed_ids.update(
+                target
+                for element in node.findall(nodes.Element)
+                for target in element.get("ids", [])
+            )
             node.parent.remove(node)
+
+    for title in doctree.findall(nodes.title):
+        if title.get("refid") in removed_ids:
+            del title["refid"]
 
 
 def setup(app):

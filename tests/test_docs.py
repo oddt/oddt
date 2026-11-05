@@ -4,6 +4,8 @@ import importlib.util
 from pathlib import Path
 import posixpath
 import runpy
+import shutil
+import textwrap
 from types import SimpleNamespace
 
 import pytest
@@ -50,3 +52,50 @@ def test_legacy_inline_contents(output_format, theme, remove_contents, monkeypat
     assert bool(contents) == (not remove_contents)
     assert "Install the toolkit." in document.astext()
     assert "Keep this overview." in document.astext()
+    remaining_ids = {
+        target
+        for element in document.findall(nodes.Element)
+        for target in element.get("ids", [])
+    }
+    for title in document.findall(nodes.title):
+        assert not title.get("refid") or title["refid"] in remaining_ids
+
+
+@pytest.mark.parametrize(
+    "document",
+    [
+        "installation.rst",
+        "user-guide/molecules.rst",
+        "user-guide/interactions.rst",
+        "user-guide/fingerprints.rst",
+        "user-guide/shape.rst",
+    ],
+)
+def test_user_guide_python_examples(document, tmp_path, monkeypatch):
+    """Execute each page's Python examples in reading order with real fixtures."""
+    repository = Path(__file__).resolve().parents[1]
+    data = tmp_path / "tests/data/pdb"
+    data.mkdir(parents=True)
+    for name in ("4lb3_pocket.pdb", "4lb3_ligand.sdf"):
+        shutil.copyfile(repository / "tests/data/pdb" / name, data / name)
+    monkeypatch.chdir(tmp_path)
+    path = repository / "docs" / document
+    lines = path.read_text().splitlines(keepends=True)
+    namespace = {"__name__": "__main__"}
+    examples = 0
+    index = 0
+    while index < len(lines):
+        if lines[index].rstrip() != ".. code-block:: python":
+            index += 1
+            continue
+        start = index + 1
+        index = start
+        while index < len(lines) and (
+            not lines[index].strip() or lines[index].startswith("   ")
+        ):
+            index += 1
+        code = textwrap.dedent("".join(lines[start:index]))
+        # Preserve source line numbers in failures so the displayed guide is actionable.
+        exec(compile("\n" * start + code, str(path), "exec"), namespace)
+        examples += 1
+    assert examples, f"No Python examples found in {document}"
