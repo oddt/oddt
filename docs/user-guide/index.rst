@@ -15,6 +15,7 @@ corresponding API reference for the complete parameter list.
    fingerprints
    shape
    docking
+   docking-benchmarks
    cli
 
 Choose a starting point
@@ -28,8 +29,10 @@ Choose a starting point
 * :doc:`fingerprints`: choose IFP, SIFP, ECFP, PLEC, or SPLIF; compare binding
   modes and build feature matrices.
 * :doc:`shape`: compare 3D conformers with USR, USRCAT, and Electroshape.
-* :doc:`docking`: search ligand poses with the internal genetic algorithm and
+* :doc:`docking`: search ligand poses with the internal Monte Carlo algorithm and
   L-BFGS-B minimization, and validate against a crystal complex.
+* :doc:`docking-benchmarks`: compare the internal engine with Vina across the
+  six local PDBbind complexes using three seeds and measured pose recovery.
 * :doc:`cli`: convert files and assemble filtering, docking, and scoring
   workflows from the command line.
 

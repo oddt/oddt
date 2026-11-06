@@ -88,8 +88,17 @@ def _is_search_rotor(bond):
     return True
 
 
+def _metropolis_accept(old_energy, new_energy, temperature, rng):
+    """Accept downhill moves and thermally sample uphill local minima."""
+    if not np.isfinite(new_energy):
+        return False
+    if new_energy < old_energy:
+        return True
+    return rng.random() < math.exp((old_energy - new_energy) / temperature)
+
+
 class vina_docking(object):
-    """Vina-inspired scoring and genetic docking against a rigid receptor.
+    """Vina-inspired scoring and Monte Carlo docking against a rigid receptor.
 
     Parameters
     ----------
@@ -234,7 +243,7 @@ class vina_docking(object):
     def score_intra(self, coords=None):
         return self._pair_score(coords, intra=True)[0]
 
-    def _pair_score(self, coords=None, intra=False, gradient=False):
+    def _pair_score(self, coords=None, intra=False, gradient=False, energy_cap=None):
         """Evaluate the five pair terms and optionally their Cartesian gradient."""
         if coords is None:
             coords = self.lig_dict["coords"]
@@ -262,15 +271,24 @@ class vina_docking(object):
         hb = cache["hb"][mask]
         gauss1 = np.exp(-((d / 0.5) ** 2))
         gauss2 = np.exp(-(((d - 3) / 2) ** 2))
-        terms = np.array(
+        pair_terms = np.array(
             [
-                gauss1.sum(),
-                gauss2.sum(),
-                (np.minimum(d, 0) ** 2).sum(),
-                np.clip(1.5 - d[hyd], 0, 1).sum(),
-                np.clip(d[hb] / -0.7, 0, 1).sum(),
+                gauss1,
+                gauss2,
+                np.minimum(d, 0) ** 2,
+                np.clip(1.5 - d, 0, 1) * hyd,
+                np.clip(d / -0.7, 0, 1) * hb,
             ]
         )
+        factors = np.ones(len(d))
+        if energy_cap is not None:
+            energies = (pair_terms * self.weights[:5, None]).sum(axis=0)
+            if not intra:
+                # Vina softens the summed receptor energy of each ligand atom;
+                # intraligand interactions are softened individually per pair.
+                energies = np.bincount(cols, weights=energies, minlength=len(coords))[cols]
+            factors = energy_cap / (energy_cap + np.maximum(energies, 0))
+        terms = (pair_terms * factors).sum(axis=1)
         if not gradient:
             return terms, None
         slope = (
@@ -280,6 +298,7 @@ class vina_docking(object):
             - self.weights[3] * (hyd & (d > 0.5) & (d < 1.5))
             - self.weights[4] / 0.7 * (hb & (d > -0.7) & (d < 0))
         )
+        slope *= factors**2
         pair_gradient = (coords[cols] - first_coords[rows]) * (slope / np.maximum(r[mask], 1e-12))[:, None]
         cartesian = np.zeros_like(coords, dtype=float)
         np.add.at(cartesian, cols, pair_gradient)
@@ -301,11 +320,11 @@ class vina_docking(object):
             raise ValueError("rotatable bonds must have nonzero length; supply a three-dimensional conformer")
         return (self.box - self.lig.c0.mean(axis=0)) / self.box_size
 
-    def _objective(self, x):
+    def _objective(self, x, energy_cap=None):
         """Total pair energy plus a box restraint, with a pose-space gradient."""
         coords = self.lig.mutate(x)
-        inter, grad_inter = self._pair_score(coords, gradient=True)
-        intra, grad_intra = self._pair_score(coords, intra=True, gradient=True)
+        inter, grad_inter = self._pair_score(coords, gradient=True, energy_cap=energy_cap)
+        intra, grad_intra = self._pair_score(coords, intra=True, gradient=True, energy_cap=energy_cap)
         # A stiff wall confines all heavy atoms, not just the ligand centroid.
         outside = coords - np.clip(coords, self.box[0], self.box[1])
         energy = np.dot(inter + intra, self.weights[:5]) + 1e4 * (outside**2).sum()
@@ -336,7 +355,7 @@ class vina_docking(object):
             gradient[i] = np.dot(axis, torque)
         return float(energy), gradient
 
-    def optimize(self, x0=None, maxiter=100):
+    def optimize(self, x0=None, maxiter=100, energy_cap=None):
         """Refine one pose using :func:`scipy.optimize.minimize` and L-BFGS-B.
 
         Parameters
@@ -347,6 +366,10 @@ class vina_docking(object):
             clipped to the box. Translation units are ``box_size``.
         maxiter : int, optional
             Maximum number of L-BFGS-B iterations.
+        energy_cap : float or None, optional
+            Soften positive atom/pair energies using ``E * cap / (cap + E)``
+            during Monte Carlo hunting. The default leaves energies unchanged.
+            Box restraints are never softened.
 
         Returns
         -------
@@ -359,16 +382,19 @@ class vina_docking(object):
         bounds = self._search_bounds()
         if not isinstance(maxiter, (int, np.integer)) or maxiter < 1:
             raise ValueError("maxiter must be a positive integer")
+        if energy_cap is not None and (not np.isfinite(energy_cap) or energy_cap <= 0):
+            raise ValueError("energy_cap must be positive and finite, or None")
         x0 = self.lig.x0.copy() if x0 is None else np.asarray(x0, dtype=float).copy()
         if x0.shape != self.lig.x0.shape or not np.isfinite(x0).all():
             raise ValueError("x0 must contain six rigid-body genes and one gene per rotatable bond")
         x0[:3] = np.clip(x0[:3], bounds[0], bounds[1])
-        initial_energy, initial_gradient = self._objective(x0)
+        initial_energy, initial_gradient = self._objective(x0, energy_cap)
         result = minimize(
             self._objective,
             x0,
             method="L-BFGS-B",
             jac=True,
+            args=(energy_cap,),
             bounds=list(zip(bounds[0], bounds[1])) + [(None, None)] * (len(x0) - 3),
             options={"maxiter": int(maxiter), "ftol": 1e-9, "gtol": 1e-4, "maxls": 30},
         )
@@ -382,35 +408,85 @@ class vina_docking(object):
         result.affinity = float(self.score(result.coords))
         return result
 
+    def _random_conformation(self, bounds, rng):
+        x = rng.uniform(-np.pi, np.pi, len(self.lig.x0))
+        x[:3] = rng.uniform(bounds[0], bounds[1])
+        x[3:6] = Rotation.random(random_state=rng).as_euler("xyz")
+        return x
+
+    def _mutate_conf(self, x, rng, amplitude):
+        """Perturb one entity, following Vina's mutate_conf move distribution."""
+        candidate = x.copy()
+        entity = rng.integers(2 + len(self.rotors))
+        if entity < 2:
+            while True:
+                displacement = rng.uniform(-1.0, 1.0, 3)
+                if np.dot(displacement, displacement) < 1:
+                    break
+            if entity == 0:
+                candidate[:3] += amplitude * displacement / self.box_size
+            else:
+                coords = self.lig.mutate(x)
+                radius = np.sqrt(np.mean(np.sum((coords - coords.mean(axis=0)) ** 2, axis=1)))
+                if radius > 1e-12:
+                    increment = Rotation.from_rotvec(amplitude / radius * displacement)
+                    candidate[3:6] = (increment * Rotation.from_euler("xyz", x[3:6])).as_euler("xyz")
+        else:
+            candidate[entity + 4] = rng.uniform(-np.pi, np.pi)
+        return candidate
+
+    def _add_minimum(self, minima, result, min_rmsd, capacity):
+        """Keep a bounded set of distinct feasible, fully refined minima."""
+        if (
+            not np.isfinite(result.fun)
+            or not np.all(result.coords >= self.box[0] - 1e-4)
+            or not np.all(result.coords <= self.box[1] + 1e-4)
+        ):
+            return
+        if minima:
+            rmsds = [np.sqrt(np.mean(np.sum((result.coords - other.coords) ** 2, axis=1))) for other in minima]
+            nearest = int(np.argmin(rmsds))
+            if rmsds[nearest] < min_rmsd:
+                if result.fun >= minima[nearest].fun:
+                    return
+                minima.pop(nearest)
+        minima.append(result)
+        minima.sort(key=lambda item: item.fun)
+        del minima[capacity:]
+
     def dock(
         self,
-        population_size=24,
-        generations=10,
+        exhaustiveness=8,
+        steps=250,
         num_modes=9,
         seed=None,
         maxiter=50,
-        mutation_rate=0.2,
+        temperature=1.2,
+        mutation_amplitude=2.0,
         min_rmsd=1.0,
         energy_range=3.0,
     ):
-        """Search poses with a genetic algorithm and Lamarckian local refinement.
+        """Search poses with iterated local search and Metropolis acceptance.
 
         Parameters
         ----------
-        population_size : int, optional
-            Number of individuals, at least four. Every individual is refined
-            with L-BFGS-B, and its optimized genes are inherited by offspring.
-        generations : int, optional
-            Number of offspring generations after the random initial population.
+        exhaustiveness : int, optional
+            Number of independent randomized Monte Carlo trajectories, run
+            serially. This has the same meaning as Vina's independent runs.
+        steps : int, optional
+            Number of mutation/local-minimization proposals per trajectory.
+            This explicit budget replaces Vina's much larger step heuristic.
         num_modes : int, optional
             Maximum number of distinct poses to return.
         seed : int or None, optional
             Seed for an isolated NumPy random generator.
         maxiter : int, optional
-            Maximum L-BFGS-B iterations per individual.
-        mutation_rate : float, optional
-            Independent mutation probability per gene, between zero and one.
-            A positive rate also guarantees at least one mutated gene per child.
+            Maximum L-BFGS-B iterations per local minimization.
+        temperature : float, optional
+            Positive Metropolis energy scale; Vina's default is 1.2.
+        mutation_amplitude : float, optional
+            Positive displacement scale in Angstroms; Vina's default is 2.
+            Angular displacement is scaled by the ligand's gyration radius.
         min_rmsd : float, optional
             Minimum heavy-atom RMSD between returned poses, in Angstroms.
             Atom order is used directly, without alignment or symmetry matching.
@@ -428,66 +504,70 @@ class vina_docking(object):
 
         Notes
         -----
-        The initial positions, orientations and torsions are randomized; the
-        input pose is not inserted into the population. Tournament selection,
-        crossover, mutation, elitism and random immigrants explore the box.
-        ``results_`` contains the selected OptimizeResults, and ``history_``
-        records the best restrained objective in each generation.
+        Each trajectory starts with random position, uniform orientation and
+        random torsions. Each step mutates exactly one entity: translation,
+        orientation, or a single torsion. Proposals undergo L-BFGS-B with Vina's
+        positive-energy soft cap of 10, followed by Metropolis acceptance.
+        Accepted promising minima receive uncapped refinement before saving.
+        As in Vina, the refined coordinates and energy continue the trajectory.
+        Subsequent proposals use the hunt cap again; saved/output poses use
+        uncapped energies rather than Vina's finite high refinement cap.
+        ``results_`` contains selected OptimizeResults; ``history_`` records the
+        best uncapped restrained energy after every proposal. ``search_stats_``
+        reports accepted moves, uphill moves and refinements per trajectory.
+        Scoring, box restraints and SciPy's L-BFGS-B remain independent of Vina.
         """
         bounds = self._search_bounds()
         for name, value, minimum in (
-            ("population_size", population_size, 4),
-            ("generations", generations, 0),
+            ("exhaustiveness", exhaustiveness, 1),
+            ("steps", steps, 1),
             ("num_modes", num_modes, 1),
             ("maxiter", maxiter, 1),
         ):
             if not isinstance(value, (int, np.integer)) or value < minimum:
                 raise ValueError("%s must be an integer >= %d" % (name, minimum))
-        if not np.isfinite(mutation_rate) or not 0 <= mutation_rate <= 1:
-            raise ValueError("mutation_rate must be between zero and one")
+        if not np.isfinite(temperature) or temperature <= 0:
+            raise ValueError("temperature must be positive and finite")
+        if not np.isfinite(mutation_amplitude) or mutation_amplitude <= 0:
+            raise ValueError("mutation_amplitude must be positive and finite")
         if not np.isfinite(min_rmsd) or min_rmsd < 0 or not np.isfinite(energy_range) or energy_range < 0:
             raise ValueError("min_rmsd and energy_range must be finite and nonnegative")
-        rng = np.random.default_rng(seed)
         self.results_ = []
         self.history_ = []
-        dimensions = len(self.lig.x0)
-
-        def random_genes():
-            x = rng.uniform(-np.pi, np.pi, dimensions)
-            x[:3] = rng.uniform(bounds[0], bounds[1])
-            x[3:6] = Rotation.random(random_state=rng).as_euler("xyz")
-            return x
-
-        def tournament():
-            indices = rng.integers(len(population), size=3)
-            return min((population[i] for i in indices), key=lambda result: result.fun).x
-
-        population = [self.optimize(random_genes(), maxiter=maxiter) for _ in range(population_size)]
-        archive = list(population)
-        self.history_ = [min(result.fun for result in population)]
-        elite_count = max(1, population_size // 8)
-        scales = np.r_[0.15 * (bounds[1] - bounds[0]), np.full(dimensions - 3, 0.6)]
-        for _ in range(generations):
-            offspring = sorted(population, key=lambda result: result.fun)[:elite_count]
-            while len(offspring) < population_size:
-                if rng.random() < 0.1:
-                    child = random_genes()
-                else:
-                    first, second = tournament(), tournament()
-                    difference = second - first
-                    difference[3:] = (difference[3:] + np.pi) % (2 * np.pi) - np.pi
-                    child = first + rng.random(dimensions) * difference
-                    mutated = rng.random(dimensions) < mutation_rate
-                    if mutation_rate > 0:
-                        mutated[rng.integers(dimensions)] = True
-                    child += mutated * rng.normal(size=dimensions) * scales
-                    child[:3] = np.clip(child[:3], bounds[0], bounds[1])
-                    child[3:] = (child[3:] + np.pi) % (2 * np.pi) - np.pi
-                result = self.optimize(child, maxiter=maxiter)
-                offspring.append(result)
-                archive.append(result)
-            population = offspring
-            self.history_.append(min(result.fun for result in population))
+        self.search_stats_ = []
+        archive = []
+        best_energy = np.inf
+        # Independent streams keep a trajectory reproducible when increasing
+        # exhaustiveness, without modifying NumPy's process-global RNG.
+        for stream in np.random.SeedSequence(seed).spawn(exhaustiveness):
+            rng = np.random.default_rng(stream)
+            current = self._random_conformation(bounds, rng)
+            current_energy = np.inf
+            minima = []
+            chain_best = np.inf
+            stats = {"proposals": steps, "accepted": 0, "uphill_accepted": 0, "refinements": 0}
+            for step in range(steps):
+                proposal = self._mutate_conf(current, rng, mutation_amplitude)
+                candidate = self.optimize(proposal, maxiter=maxiter, energy_cap=10.0)
+                if _metropolis_accept(current_energy, candidate.fun, temperature, rng):
+                    stats["accepted"] += 1
+                    stats["uphill_accepted"] += int(step > 0 and candidate.fun > current_energy)
+                    current = candidate.x.copy()
+                    current_energy = candidate.fun
+                    # As in Vina, refine accepted promising states and save a
+                    # bounded set of distinct minima, not rejected proposals.
+                    if current_energy < chain_best or len(minima) < num_modes:
+                        refined = self.optimize(current, maxiter=maxiter)
+                        stats["refinements"] += 1
+                        current = refined.x.copy()
+                        current_energy = refined.fun
+                        chain_best = min(chain_best, refined.fun)
+                        best_energy = min(best_energy, refined.fun)
+                        self._add_minimum(minima, refined, min_rmsd, num_modes)
+                self.history_.append(best_energy)
+            stats["best_energy"] = chain_best
+            self.search_stats_.append(stats)
+            archive.extend(minima)
 
         feasible = [
             result
