@@ -6,6 +6,16 @@ from scipy.optimize import minimize
 from scipy.spatial.transform import Rotation
 
 from oddt.spatial import distance, rotate
+from .search import GeneticAlgorithmMixin, MonteCarloMixin
+
+
+def _cross_rows(first, second):
+    """Cross products of Nx3 arrays without NumPy's general axis dispatch."""
+    result = np.empty_like(first)
+    result[:, 0] = first[:, 1] * second[:, 2] - first[:, 2] * second[:, 1]
+    result[:, 1] = first[:, 2] * second[:, 0] - first[:, 0] * second[:, 2]
+    result[:, 2] = first[:, 0] * second[:, 1] - first[:, 1] * second[:, 0]
+    return result
 
 
 def get_children(molecule, mother, restricted):
@@ -88,17 +98,8 @@ def _is_search_rotor(bond):
     return True
 
 
-def _metropolis_accept(old_energy, new_energy, temperature, rng):
-    """Accept downhill moves and thermally sample uphill local minima."""
-    if not np.isfinite(new_energy):
-        return False
-    if new_energy < old_energy:
-        return True
-    return rng.random() < math.exp((old_energy - new_energy) / temperature)
-
-
-class vina_docking(object):
-    """Vina-inspired scoring and Monte Carlo docking against a rigid receptor.
+class vina_scoring(object):
+    """Vina scoring, pose geometry and L-BFGS-B refinement against a rigid receptor.
 
     Parameters
     ----------
@@ -255,7 +256,9 @@ class vina_docking(object):
         mask = r < 8
         if intra:
             # Count each nonbonded pair once, excluding 1-2, 1-3 and 1-4 pairs.
-            mask &= np.triu(self.lig_distant_members, k=1)
+            if "distant" not in self.mask_intra:
+                self.mask_intra["distant"] = np.triu(self.lig_distant_members, k=1)
+            mask &= self.mask_intra["distant"]
         rows, cols = np.nonzero(mask)
         d = r[mask] - first["radius"][rows] - self.lig_dict["radius"][cols]
         cache = self.mask_intra if intra else self.mask_inter
@@ -271,24 +274,36 @@ class vina_docking(object):
         hb = cache["hb"][mask]
         gauss1 = np.exp(-((d / 0.5) ** 2))
         gauss2 = np.exp(-(((d - 3) / 2) ** 2))
-        pair_terms = np.array(
-            [
-                gauss1,
-                gauss2,
-                np.minimum(d, 0) ** 2,
-                np.clip(1.5 - d, 0, 1) * hyd,
-                np.clip(d / -0.7, 0, 1) * hb,
-            ]
-        )
-        factors = np.ones(len(d))
-        if energy_cap is not None:
+        if energy_cap is None:
+            # Retain the original scorer's reduction order. Summing masked
+            # contacts with inserted zeros changes floating-point roundoff and
+            # can send otherwise identical stochastic searches to other minima.
+            terms = np.array(
+                [
+                    gauss1.sum(),
+                    gauss2.sum(),
+                    (np.minimum(d, 0) ** 2).sum(),
+                    np.clip(1.5 - d[hyd], 0, 1).sum(),
+                    np.clip(d[hb] / -0.7, 0, 1).sum(),
+                ]
+            )
+        else:
+            pair_terms = np.array(
+                [
+                    gauss1,
+                    gauss2,
+                    np.minimum(d, 0) ** 2,
+                    np.clip(1.5 - d, 0, 1) * hyd,
+                    np.clip(d / -0.7, 0, 1) * hb,
+                ]
+            )
             energies = (pair_terms * self.weights[:5, None]).sum(axis=0)
             if not intra:
                 # Vina softens the summed receptor energy of each ligand atom;
                 # intraligand interactions are softened individually per pair.
                 energies = np.bincount(cols, weights=energies, minlength=len(coords))[cols]
             factors = energy_cap / (energy_cap + np.maximum(energies, 0))
-        terms = (pair_terms * factors).sum(axis=1)
+            terms = (pair_terms * factors).sum(axis=1)
         if not gradient:
             return terms, None
         slope = (
@@ -298,10 +313,14 @@ class vina_docking(object):
             - self.weights[3] * (hyd & (d > 0.5) & (d < 1.5))
             - self.weights[4] / 0.7 * (hb & (d > -0.7) & (d < 0))
         )
-        slope *= factors**2
+        if energy_cap is not None:
+            slope *= factors**2
         pair_gradient = (coords[cols] - first_coords[rows]) * (slope / np.maximum(r[mask], 1e-12))[:, None]
         cartesian = np.zeros_like(coords, dtype=float)
-        np.add.at(cartesian, cols, pair_gradient)
+        # Each column is a ligand atom. bincount accumulates the same ordered
+        # additions in compiled code without indexed ufunc dispatch per pair.
+        for axis in range(3):
+            cartesian[:, axis] = np.bincount(cols, weights=pair_gradient[:, axis], minlength=len(coords))
         if intra:
             np.add.at(cartesian, rows, -pair_gradient)
         return terms, cartesian
@@ -341,7 +360,7 @@ class vina_docking(object):
                 [0, 0, 1],
             ]
         )
-        torque = np.cross(coords - coords.mean(axis=0), cartesian).sum(axis=0)
+        torque = _cross_rows(coords - coords.mean(axis=0), cartesian).sum(axis=0)
         gradient[3:6] = axes @ torque
         # Each rotor moves a connected fragment around its bond. Removing the
         # mean force accounts for recentering the ligand after torsion changes.
@@ -351,7 +370,7 @@ class vina_docking(object):
             axis = coords[a2] - coords[a3]
             axis /= np.linalg.norm(axis)
             mask = rotor["mask"]
-            torque = np.cross(coords[mask] - coords[a3], centered_gradient[mask]).sum(axis=0)
+            torque = _cross_rows(coords[mask] - coords[a3], centered_gradient[mask]).sum(axis=0)
             gradient[i] = np.dot(axis, torque)
         return float(energy), gradient
 
@@ -389,12 +408,19 @@ class vina_docking(object):
             raise ValueError("x0 must contain six rigid-body genes and one gene per rotatable bond")
         x0[:3] = np.clip(x0[:3], bounds[0], bounds[1])
         initial_energy, initial_gradient = self._objective(x0, energy_cap)
+
+        def objective(x):
+            # SciPy starts at x0 too; retain its first value for the fallback
+            # without evaluating that pose twice for every local search.
+            if np.array_equal(x, x0):
+                return initial_energy, initial_gradient
+            return self._objective(x, energy_cap)
+
         result = minimize(
-            self._objective,
+            objective,
             x0,
             method="L-BFGS-B",
             jac=True,
-            args=(energy_cap,),
             bounds=list(zip(bounds[0], bounds[1])) + [(None, None)] * (len(x0) - 3),
             options={"maxiter": int(maxiter), "ftol": 1e-9, "gtol": 1e-4, "maxls": 30},
         )
@@ -413,27 +439,6 @@ class vina_docking(object):
         x[:3] = rng.uniform(bounds[0], bounds[1])
         x[3:6] = Rotation.random(random_state=rng).as_euler("xyz")
         return x
-
-    def _mutate_conf(self, x, rng, amplitude):
-        """Perturb one entity, following Vina's mutate_conf move distribution."""
-        candidate = x.copy()
-        entity = rng.integers(2 + len(self.rotors))
-        if entity < 2:
-            while True:
-                displacement = rng.uniform(-1.0, 1.0, 3)
-                if np.dot(displacement, displacement) < 1:
-                    break
-            if entity == 0:
-                candidate[:3] += amplitude * displacement / self.box_size
-            else:
-                coords = self.lig.mutate(x)
-                radius = np.sqrt(np.mean(np.sum((coords - coords.mean(axis=0)) ** 2, axis=1)))
-                if radius > 1e-12:
-                    increment = Rotation.from_rotvec(amplitude / radius * displacement)
-                    candidate[3:6] = (increment * Rotation.from_euler("xyz", x[3:6])).as_euler("xyz")
-        else:
-            candidate[entity + 4] = rng.uniform(-np.pi, np.pi)
-        return candidate
 
     def _add_minimum(self, minima, result, min_rmsd, capacity):
         """Keep a bounded set of distinct feasible, fully refined minima."""
@@ -454,121 +459,8 @@ class vina_docking(object):
         minima.sort(key=lambda item: item.fun)
         del minima[capacity:]
 
-    def dock(
-        self,
-        exhaustiveness=8,
-        steps=250,
-        num_modes=9,
-        seed=None,
-        maxiter=50,
-        temperature=1.2,
-        mutation_amplitude=2.0,
-        min_rmsd=1.0,
-        energy_range=3.0,
-    ):
-        """Search poses with iterated local search and Metropolis acceptance.
-
-        Parameters
-        ----------
-        exhaustiveness : int, optional
-            Number of independent randomized Monte Carlo trajectories, run
-            serially. This has the same meaning as Vina's independent runs.
-        steps : int, optional
-            Number of mutation/local-minimization proposals per trajectory.
-            This explicit budget replaces Vina's much larger step heuristic.
-        num_modes : int, optional
-            Maximum number of distinct poses to return.
-        seed : int or None, optional
-            Seed for an isolated NumPy random generator.
-        maxiter : int, optional
-            Maximum L-BFGS-B iterations per local minimization.
-        temperature : float, optional
-            Positive Metropolis energy scale; Vina's default is 1.2.
-        mutation_amplitude : float, optional
-            Positive displacement scale in Angstroms; Vina's default is 2.
-            Angular displacement is scaled by the ligand's gyration radius.
-        min_rmsd : float, optional
-            Minimum heavy-atom RMSD between returned poses, in Angstroms.
-            Atom order is used directly, without alignment or symmetry matching.
-        energy_range : float, optional
-            Maximum total pair-energy difference from the best feasible pose.
-
-        Returns
-        -------
-        poses : list of oddt.toolkit.Molecule
-            Independent ligand copies, ordered by total pair energy. Hydrogens
-            follow their parent fragments. Data fields are ``vina_affinity``
-            (torsion-corrected inter energy), ``vina_inter``, ``vina_intra`` and
-            ``vina_total``. Inputs are unchanged. Up to ``num_modes`` poses are
-            returned; all heavy atoms lie inside the box to within 0.0001 A.
-
-        Notes
-        -----
-        Each trajectory starts with random position, uniform orientation and
-        random torsions. Each step mutates exactly one entity: translation,
-        orientation, or a single torsion. Proposals undergo L-BFGS-B with Vina's
-        positive-energy soft cap of 10, followed by Metropolis acceptance.
-        Accepted promising minima receive uncapped refinement before saving.
-        As in Vina, the refined coordinates and energy continue the trajectory.
-        Subsequent proposals use the hunt cap again; saved/output poses use
-        uncapped energies rather than Vina's finite high refinement cap.
-        ``results_`` contains selected OptimizeResults; ``history_`` records the
-        best uncapped restrained energy after every proposal. ``search_stats_``
-        reports accepted moves, uphill moves and refinements per trajectory.
-        Scoring, box restraints and SciPy's L-BFGS-B remain independent of Vina.
-        """
-        bounds = self._search_bounds()
-        for name, value, minimum in (
-            ("exhaustiveness", exhaustiveness, 1),
-            ("steps", steps, 1),
-            ("num_modes", num_modes, 1),
-            ("maxiter", maxiter, 1),
-        ):
-            if not isinstance(value, (int, np.integer)) or value < minimum:
-                raise ValueError("%s must be an integer >= %d" % (name, minimum))
-        if not np.isfinite(temperature) or temperature <= 0:
-            raise ValueError("temperature must be positive and finite")
-        if not np.isfinite(mutation_amplitude) or mutation_amplitude <= 0:
-            raise ValueError("mutation_amplitude must be positive and finite")
-        if not np.isfinite(min_rmsd) or min_rmsd < 0 or not np.isfinite(energy_range) or energy_range < 0:
-            raise ValueError("min_rmsd and energy_range must be finite and nonnegative")
-        self.results_ = []
-        self.history_ = []
-        self.search_stats_ = []
-        archive = []
-        best_energy = np.inf
-        # Independent streams keep a trajectory reproducible when increasing
-        # exhaustiveness, without modifying NumPy's process-global RNG.
-        for stream in np.random.SeedSequence(seed).spawn(exhaustiveness):
-            rng = np.random.default_rng(stream)
-            current = self._random_conformation(bounds, rng)
-            current_energy = np.inf
-            minima = []
-            chain_best = np.inf
-            stats = {"proposals": steps, "accepted": 0, "uphill_accepted": 0, "refinements": 0}
-            for step in range(steps):
-                proposal = self._mutate_conf(current, rng, mutation_amplitude)
-                candidate = self.optimize(proposal, maxiter=maxiter, energy_cap=10.0)
-                if _metropolis_accept(current_energy, candidate.fun, temperature, rng):
-                    stats["accepted"] += 1
-                    stats["uphill_accepted"] += int(step > 0 and candidate.fun > current_energy)
-                    current = candidate.x.copy()
-                    current_energy = candidate.fun
-                    # As in Vina, refine accepted promising states and save a
-                    # bounded set of distinct minima, not rejected proposals.
-                    if current_energy < chain_best or len(minima) < num_modes:
-                        refined = self.optimize(current, maxiter=maxiter)
-                        stats["refinements"] += 1
-                        current = refined.x.copy()
-                        current_energy = refined.fun
-                        chain_best = min(chain_best, refined.fun)
-                        best_energy = min(best_energy, refined.fun)
-                        self._add_minimum(minima, refined, min_rmsd, num_modes)
-                self.history_.append(best_energy)
-            stats["best_energy"] = chain_best
-            self.search_stats_.append(stats)
-            archive.extend(minima)
-
+    def _finish_docking(self, archive, num_modes, min_rmsd, energy_range):
+        """Rank, cluster and materialize poses using the shared scoring model."""
         feasible = [
             result
             for result in archive
@@ -636,6 +528,18 @@ class vina_docking(object):
         # metals - 1.2 A
         atom_dict["radius"][atom_dict["ismetal"]] = 1.2
         return atom_dict
+
+
+class vina_ga(GeneticAlgorithmMixin, vina_scoring):
+    """Vina scoring with a genetic algorithm and L-BFGS-B local refinement."""
+
+
+class vina_mc(MonteCarloMixin, vina_scoring):
+    """Vina scoring with Monte Carlo basin hopping and L-BFGS-B refinement."""
+
+
+# Preserve the existing Monte Carlo API and scoring-descriptor imports.
+vina_docking = vina_mc
 
 
 class vina_ligand(object):

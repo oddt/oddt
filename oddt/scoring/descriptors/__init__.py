@@ -6,7 +6,7 @@ from scipy.sparse import vstack as sparse_vstack
 
 from oddt.utils import is_molecule
 from oddt.docking import autodock_vina
-from oddt.docking.internal import vina_docking
+from oddt.docking.internal import vina_scoring
 from oddt.fingerprints import sparse_to_csr_matrix
 
 __all__ = ["close_contacts_descriptor", "fingerprints", "autodock_vina_descriptor", "oddt_vina_descriptor"]
@@ -362,7 +362,7 @@ class autodock_vina_descriptor(object):
 class oddt_vina_descriptor(object):
     def __init__(self, protein=None, vina_scores=None):
         self.protein = protein
-        self.vina = vina_docking(protein)
+        self.vina = vina_scoring(protein)
         self.all_vina_scores = [
             "vina_affinity",
             # inter-molecular interactions

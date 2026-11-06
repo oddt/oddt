@@ -29,9 +29,9 @@ Choose a starting point
 * :doc:`fingerprints`: choose IFP, SIFP, ECFP, PLEC, or SPLIF; compare binding
   modes and build feature matrices.
 * :doc:`shape`: compare 3D conformers with USR, USRCAT, and Electroshape.
-* :doc:`docking`: search ligand poses with the internal Monte Carlo algorithm and
+* :doc:`docking`: search ligand poses with genetic or Monte Carlo algorithms and
   L-BFGS-B minimization, and validate against a crystal complex.
-* :doc:`docking-benchmarks`: compare the internal engine with Vina across the
+* :doc:`docking-benchmarks`: compare both internal engines with Vina across the
   six local PDBbind complexes using three seeds and measured pose recovery.
 * :doc:`cli`: convert files and assemble filtering, docking, and scoring
   workflows from the command line.

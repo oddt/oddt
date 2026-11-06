@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -56,15 +57,17 @@ def number(value, precision=2):
     return "--" if value is None else ("%.*f" % (precision, value))
 
 
-def render(report, page, figure):
+def render(report, page, figure, source=None):
     summary = summarize(report)
-    if report["protocol"].get("internal", {}).get("algorithm") != "monte_carlo":
-        raise ValueError("The Monte Carlo report cannot label results from another search algorithm")
-    if set(report["protocol"]["engines"]) != {"internal", "vina"}:
-        raise ValueError("The comparison report requires both internal and Vina runs")
+    engines = report["protocol"]["engines"]
+    if not {"ga", "mc"}.issubset(engines) or set(engines) - {"ga", "mc", "vina"}:
+        raise ValueError("The comparison report requires GA and MC runs, optionally Vina")
+    for engine, algorithm in (("ga", "genetic"), ("mc", "monte_carlo")):
+        if report["protocol"].get(engine, {}).get("algorithm") != algorithm:
+            raise ValueError("Engine %s cannot label results from another search algorithm" % engine)
     targets = report["protocol"]["targets"]
     seed_count = len(report["protocol"]["seeds"])
-    names = {"internal": "Internal MC", "vina": "Vina " + report["versions"]["vina"]}
+    names = {"ga": "Internal GA", "mc": "Internal MC", "vina": "Vina " + report["versions"].get("vina", "")}
     overall = []
     for engine in report["protocol"]["engines"]:
         stats = summary["all", engine]
@@ -81,36 +84,59 @@ def render(report, page, figure):
     accuracy = []
     timing = []
     recovery = []
+    work = []
     for target in targets:
         runs = [row for row in report["results"] if row["target"] == target]
         details = runs[0]
         vina_torsions = next((row["vina_torsions"] for row in runs if "vina_torsions" in row), "--")
-        internal, vina = (summary[target, name] for name in ("internal", "vina"))
         accuracy.append(
             [
                 target.upper(),
                 details.get("ligand_heavy_atoms", "--"),
                 details.get("searched_torsions", "--"),
                 vina_torsions,
-                number(internal["median_rmsd"]),
-                number(vina["median_rmsd"]),
             ]
+            + [number(summary[target, engine]["median_rmsd"]) for engine in engines]
         )
         recovery.append(
             [target.upper()]
             + [
                 "%d/%d" % (summary[target, engine][metric], summary[target, engine]["attempts"])
-                for engine, metric in (
-                    ("internal", "top_recovered"),
-                    ("vina", "top_recovered"),
-                    ("internal", "best_recovered"),
-                    ("vina", "best_recovered"),
-                )
+                for metric in ("top_recovered", "best_recovered")
+                for engine in engines
             ]
         )
-        timing.append([target.upper(), number(internal["median_seconds"], 1), number(vina["median_seconds"], 1)])
+        timing.append([target.upper()] + [number(summary[target, engine]["median_seconds"], 1) for engine in engines])
+        for engine in engines:
+            successful = [row for row in runs if row["engine"] == engine and row["status"] == "ok"]
+            counts = []
+            for metric in ("local_minimizations", "objective_evaluations"):
+                values = [row[metric] for row in successful if metric in row]
+                counts.append(number(float(np.median(values)), 0) if values else "--")
+            work.append([target.upper(), names[engine], *counts])
+    figure_link = os.path.relpath(figure, page.parent).replace(os.sep, "/")
+    source = figure.with_suffix(".json") if source is None else source
+    download_stem = str(Path(os.path.relpath(source, page.parent)).with_suffix("")).replace(os.sep, "/")
+    ga, mc = (report["protocol"][name] for name in ("ga", "mc"))
     parts = [
         "Results\n-------\n",
+        "This report uses seeds %s and engines %s. GA: population %s, generations %s, maxiter %s. "
+        "MC: %s trajectories, %s proposals each, maxiter %s. These budgets are not matched energy-evaluation counts.\n"
+        % (
+            ", ".join(map(str, report["protocol"]["seeds"])),
+            ", ".join(names[e] for e in engines),
+            ga.get("population_size", "--"),
+            ga.get("generations", "--"),
+            ga.get("maxiter", "--"),
+            mc.get("exhaustiveness", "--"),
+            mc.get("steps", "--"),
+            mc.get("maxiter", "--"),
+        ),
+        (
+            "A single-seed report is a validation probe and cannot establish search robustness across seeds.\n"
+            if seed_count == 1
+            else ""
+        ),
         "RMSDs below are symmetry-aware, in Angstroms. Times are seconds. Per-target values are medians over %d seeds.\n"
         % seed_count,
         table(
@@ -120,17 +146,24 @@ def render(report, page, figure):
         ),
         table(
             "Pose recovery by complex",
-            ["Complex", "Heavy atoms", "MC torsions", "Vina torsions", "MC RMSD", "Vina RMSD"],
+            ["Complex", "Heavy atoms", "Internal torsions", "Vina torsions"] + [names[e] + " RMSD" for e in engines],
             accuracy,
         ),
         table(
             "Recovered runs by complex (RMSD <2 A)",
-            ["Complex", "MC top", "Vina top", "MC any returned", "Vina any returned"],
+            ["Complex"] + [names[e] + " " + metric for metric in ("top", "any returned") for e in engines],
             recovery,
         ),
-        table("Median runtime by complex", ["Complex", "Internal MC (s)", "Vina (s)"], timing),
-        ".. figure:: ../_static/benchmarks/pdbbind_docking.svg\n   :alt: Per-run accuracy and runtime for both engines across the selected PDBbind complexes.\n\n   Dots show individual seeds; larger markers show medians. The dashed line marks 2 Angstrom RMSD. Runtime uses a logarithmic scale.\n",
-        "Download the :download:`per-run CSV <../_static/benchmarks/pdbbind_docking.csv>` or the :download:`full JSON report <../_static/benchmarks/pdbbind_docking.json>`. The JSON records the protocol, source/input checksums, per-pose RMSDs and Monte Carlo acceptance statistics.\n",
+        table("Median runtime by complex", ["Complex"] + [names[e] + " (s)" for e in engines], timing),
+        table(
+            "Median search work (Vina does not expose these counters)",
+            ["Complex", "Engine", "Local minimizations", "Objective evaluations"],
+            work,
+        ),
+        ".. figure:: %s\n   :alt: Per-run accuracy and runtime across search engines.\n\n   Dots show individual seeds; larger markers show medians. The dashed line marks 2 Angstrom RMSD. Runtime uses a logarithmic scale.\n"
+        % figure_link,
+        "Download the :download:`per-run CSV <%s.csv>` or :download:`full JSON report <%s.json>`. The JSON records the protocol, source/input checksums, per-pose RMSDs and search statistics.\n"
+        % (download_stem, download_stem),
     ]
     text = page.read_text()
     start = text.index(".. benchmark-results-start")
@@ -142,7 +175,9 @@ def render(report, page, figure):
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.3), constrained_layout=True)
-    for engine, offset, color, marker in (("internal", -0.13, "#087f8c", "o"), ("vina", 0.13, "#bd4f00", "s")):
+    styles = {"ga": ("#5746a3", "^"), "mc": ("#087f8c", "o"), "vina": ("#bd4f00", "s")}
+    for engine, offset in zip(engines, np.linspace(-0.22, 0.22, len(engines))):
+        color, marker = styles[engine]
         for column, (metric, aggregate, label) in enumerate(
             (
                 ("top_symmetry_rmsd", "median_rmsd", "Top-pose symmetry RMSD (Å)"),
@@ -183,7 +218,7 @@ def main():
     parser.add_argument("--page", type=Path, default=ROOT / "docs/user-guide/docking-benchmarks.rst")
     parser.add_argument("--figure", type=Path, default=ROOT / "docs/_static/benchmarks/pdbbind_docking.svg")
     args = parser.parse_args()
-    render(json.loads(args.input.read_text()), args.page, args.figure)
+    render(json.loads(args.input.read_text()), args.page, args.figure, source=args.input)
 
 
 if __name__ == "__main__":

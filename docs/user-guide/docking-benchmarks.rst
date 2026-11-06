@@ -1,7 +1,7 @@
 PDBbind docking comparison
 ==========================
 
-This experiment compares ODDT's internal Monte Carlo docking engine with installed
+This experiment compares ODDT's internal genetic and Monte Carlo engines with installed
 AutoDock Vina 1.2.7 on all six PDBbind complexes distributed with the tests:
 10GS, 1IMX, 1K9Q, 1NLO, 1NLP and 4YEF. The earlier :doc:`docking` example
 was developed on 4LB3; these six complexes provide a separate check.
@@ -42,10 +42,14 @@ The names above follow the linked PDB entries; calculations use the bundled
 PDBbind coordinates. Thus, the six complexes cover five receptor identities
 and include peptide analogues, a detergent and a carbohydrate.
 
-Protocol
---------
+Default protocol
+----------------
 
-Both engines use the same RDKit-loaded ligand and receptor pocket. Pocket
+The settings in this section are the runner defaults. Generated results state
+the actual seeds, engines and search budgets used, which may be smaller for
+a validation probe.
+
+All engines use the same RDKit-loaded ligand and receptor pocket. Pocket
 files are used consistently because a full protein is unavailable for 10GS.
 Hydrogens are added without optimizing the heavy-atom coordinates or changing
 the supplied formal charges. Waters and other atoms in the supplied pockets
@@ -55,7 +59,7 @@ The reference heavy-atom centroid defines the box center. Each box dimension
 is the larger of 16 Angstroms and twice the largest absolute displacement from
 the center along that axis, plus 8 Angstroms. This gives the reference ligand
 at least 4 Angstroms of padding on each side, including the larger ligands.
-Both engines receive the same box for a given target.
+All engines receive the same box for a given target.
 
 The input ligand is rotated by XYZ Euler angles (1.2, -0.7, 2.1) radians and
 translated by (12, -7, 8) Angstroms. Each search randomizes ligand position,
@@ -63,22 +67,28 @@ orientation and permitted torsions. Ring and conjugated-bond geometry comes
 from the supplied conformation. The experiment therefore tests redocking
 within those constraints rather than generating new ring conformations.
 
-Each target is run with seeds 1, 7 and 42. The internal engine uses eight
+By default each target is run with seeds 1, 7 and 42. GA uses population 24, eight
+generations, mutation rate 0.2 and at most 60 L-BFGS-B iterations per local
+minimization. With three elites retained per generation this is 192 local
+minimizations. MC uses eight
 independent Monte Carlo trajectories, 250 proposals per trajectory, and at
 most 60 L-BFGS-B iterations per local minimization. Its temperature is 1.2,
 mutation amplitude is 2 Angstroms, and hunt energy cap is 10. Accepted
 promising minima receive uncapped local refinement.
 Vina uses exhaustiveness 8 and one CPU. These parameters specify
 different search budgets; they are not a matched number of energy evaluations.
-Both engines return at most five poses with an energy-range setting of 3,
+All engines return at most five poses with an energy-range setting of 3,
 interpreted using each engine's own energy convention.
 The saved ``searched_torsions`` field counts internal-engine heavy-atom search
-genes on both kinds of row; Vina uses its own PDBQT torsion definitions.
+genes on all kinds of row; Vina uses its own PDBQT torsion definitions.
 The table reports these counts separately. Vina can include torsions that
 move only polar hydrogens, while the internal engine searches heavy-atom
 torsions. The two engines also use different atom typing and scoring
-implementations. The comparison measures their complete docking workflows;
-it does not isolate the effect of the search algorithm.
+implementations. GA and MC share the scoring base, local minimizer and output
+selection, so their comparison changes only the global search and its budget.
+Each internal run records actual local minimizations and objective evaluations;
+compare these counters alongside time. The comparison with external Vina
+measures complete docking workflows, including its separate scoring implementation.
 
 Runtime includes engine construction and docking, including Vina's PDBQT
 writing and interaction-grid generation. Shared input loading, hydrogen
@@ -108,13 +118,19 @@ up to five returned poses is below the threshold; this can reveal cases where
 a native-like pose was found but ranked below another pose. Failed runs count
 as misses in recovery rates. Timing and RMSD medians use completed runs only.
 
+The earlier interrupted search measurements are archived separately in
+:download:`GA partial JSON <../_static/benchmarks/pdbbind_docking_ga_partial.json>`
+and :download:`GA partial CSV <../_static/benchmarks/pdbbind_docking_ga_partial.csv>`,
+and :download:`MC partial JSON <../_static/benchmarks/pdbbind_docking_mc_partial.json>`
+and :download:`MC partial CSV <../_static/benchmarks/pdbbind_docking_mc_partial.csv>`.
+The MC archive contains 21 completed runs. These are historical partial
+experiments, not the new three-engine comparison.
+
 .. benchmark-results-start
 
-The Monte Carlo comparison has not yet completed. The interrupted genetic
-search measurements are archived separately in
-:download:`GA partial JSON <../_static/benchmarks/pdbbind_docking_ga_partial.json>`
-and :download:`GA partial CSV <../_static/benchmarks/pdbbind_docking_ga_partial.csv>`;
-they are not results for the current Monte Carlo implementation.
+The revised runner supports GA, MC and external Vina. Results for the
+six-complex GA/MC validation probe are being generated with one seed and
+20 MC proposals per trajectory.
 
 .. benchmark-results-end
 
@@ -143,6 +159,17 @@ After all runs finish, regenerate the summary tables and figure with:
 
    python -m asv_bench.docking_pdbbind_report
 
+The default engine list is ``ga mc vina``. Use ``--engines ga mc`` to compare
+only the two searches on shared scoring. Search budgets can be varied with
+``--ga-population``, ``--ga-generations``, ``--mc-exhaustiveness``,
+``--mc-steps`` and ``--maxiter``; the exact values are saved in the protocol.
+For example, a shorter six-complex comparison with one seed is:
+
+.. code-block:: bash
+
+   python -m asv_bench.docking_pdbbind --engines ga mc --seeds 42 --mc-steps 20 --output docs/_static/benchmarks/pdbbind_ga_mc_probe.json
+
+This reduces MC's search budget and is not equivalent to the default experiment.
 Use ``--targets``, ``--seeds`` or ``--engines`` for a smaller experiment and
 ``--output`` for a separate report. Timings depend on the machine and numerical
 environment. A different seed or broader search can change the resulting poses.

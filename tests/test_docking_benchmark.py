@@ -111,19 +111,39 @@ def test_vina_preparation_retains_polar_hydrogens_only(benzene, monkeypatch):
 @pytest.fixture
 def small_report():
     return {
-        "protocol": {"targets": ["example"], "seeds": [1, 7], "engines": ["internal", "vina"]},
+        "protocol": {
+            "targets": ["example"],
+            "seeds": [1, 7],
+            "engines": ["ga", "mc", "vina"],
+            "ga": {"algorithm": "genetic"},
+            "mc": {"algorithm": "monte_carlo"},
+        },
+        "versions": {"vina": "1.2.7"},
         "results": [
             {
                 "target": "example",
                 "seed": 1,
-                "engine": "internal",
+                "engine": "mc",
                 "status": "ok",
                 "top_symmetry_rmsd": 0.8,
                 "elapsed_seconds": 10,
                 "top_recovered_2A": True,
                 "best_recovered_2A": True,
             },
-            {"target": "example", "seed": 7, "engine": "internal", "status": "error"},
+            {"target": "example", "seed": 7, "engine": "mc", "status": "error"},
+            {
+                "target": "example",
+                "seed": 1,
+                "engine": "ga",
+                "status": "ok",
+                "top_symmetry_rmsd": 1.0,
+                "elapsed_seconds": 5,
+                "top_recovered_2A": True,
+                "best_recovered_2A": True,
+                "local_minimizations": 192,
+                "objective_evaluations": 500,
+            },
+            {"target": "example", "seed": 7, "engine": "ga", "status": "error"},
             {
                 "target": "example",
                 "seed": 1,
@@ -150,10 +170,11 @@ def small_report():
 
 def test_report_counts_failed_runs_as_misses(small_report):
     stats = summarize(small_report)
-    assert stats["all", "internal"]["attempts"] == 2
-    assert stats["all", "internal"]["completed"] == 1
-    assert stats["all", "internal"]["top_recovered"] == 1
-    assert stats["all", "internal"]["median_seconds"] == 10
+    assert stats["all", "mc"]["attempts"] == 2
+    assert stats["all", "mc"]["completed"] == 1
+    assert stats["all", "mc"]["top_recovered"] == 1
+    assert stats["all", "mc"]["median_seconds"] == 10
+    assert stats["all", "ga"]["median_seconds"] == 5
     assert stats["all", "vina"]["top_recovered"] == 1
     assert stats["all", "vina"]["best_recovered"] == 2
     assert stats["all", "vina"]["median_rmsd"] == pytest.approx(1.55)
@@ -171,12 +192,13 @@ def test_report_rejects_partial_or_duplicate_runs(small_report, duplicate):
 
 
 def test_report_does_not_relabel_genetic_results_as_monte_carlo(small_report, tmp_path):
-    small_report["protocol"]["internal"] = {"algorithm": "genetic"}
+    small_report["protocol"]["mc"] = {"algorithm": "genetic"}
     with pytest.raises(ValueError, match="cannot label results from another search algorithm"):
         render(small_report, tmp_path / "report.rst", tmp_path / "figure.svg")
 
 
-def test_benchmark_runs_monte_carlo_with_the_recorded_budget(benzene, monkeypatch, tmp_path):
+@pytest.mark.parametrize("name", ["ga", "mc"])
+def test_benchmark_runs_both_searches_with_the_recorded_budget(benzene, monkeypatch, tmp_path, name):
     from asv_bench import docking_pdbbind as benchmark
     from oddt import docking
 
@@ -187,19 +209,34 @@ def test_benchmark_runs_monte_carlo_with_the_recorded_budget(benzene, monkeypatc
         benchmark, "prepare", lambda directory, target: (benzene, benzene, benzene, center, size, details)
     )
 
-    class MonteCarloEngine:
+    class Engine:
         def __init__(self, protein, ligand, box):
             np.testing.assert_allclose(box, [center - size / 2, center + size / 2])
-            self.search_stats_ = [{"proposals": 250, "accepted": 50}]
+            self.search_stats_ = [{"local_minimizations": 200, "objective_evaluations": 1000}]
 
         def dock(self, **kwargs):
-            assert kwargs == {"exhaustiveness": 8, "steps": 250, "maxiter": 60, "seed": 7, "num_modes": 5}
+            expected = dict(benchmark.search_settings()[name])
+            expected.pop("algorithm")
+            assert kwargs == dict(expected, seed=7, num_modes=5, energy_range=3.0)
             pose = benzene.clone
             pose.data.update({"vina_affinity": -1})
             return [pose]
 
-    monkeypatch.setattr(docking, "vina_docking", MonteCarloEngine)
-    row = benchmark.run_one(tmp_path, "example", 7, "internal")
+    monkeypatch.setattr(docking, "vina_" + name, Engine)
+    row = benchmark.run_one(tmp_path, "example", 7, name)
     assert row["status"] == "ok", row.get("error")
     assert row["top_recovered_2A"]
-    assert row["search_stats"] == [{"proposals": 250, "accepted": 50}]
+    assert row["local_minimizations"] == 200
+    assert row["objective_evaluations"] == 1000
+
+
+def test_report_renders_both_searches_and_vina(small_report, tmp_path):
+    page = tmp_path / "report.rst"
+    page.write_text("Results\n=======\n\n.. benchmark-results-start\n\n.. benchmark-results-end\n")
+    figure = tmp_path / "figure.svg"
+    render(small_report, page, figure)
+    text = page.read_text()
+    for label in ("Internal GA", "Internal MC", "Vina 1.2.7", "Local minimizations", "Objective evaluations"):
+        assert label in text
+    assert figure.stat().st_size > 1000
+    assert figure.with_suffix(".png").stat().st_size > 1000

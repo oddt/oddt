@@ -1,10 +1,12 @@
-Internal Monte Carlo docking
-============================
+Internal docking engines
+========================
 
-:class:`oddt.docking.vina_docking` searches ligand translation, orientation and
-rotatable bonds against a rigid receptor. It combines Vina-inspired Monte Carlo
-basin hopping with SciPy's L-BFGS-B local minimizer. It requires NumPy, SciPy and an ODDT molecular
+:class:`oddt.docking.vina_ga` and :class:`oddt.docking.vina_mc` search ligand
+translation, orientation and rotatable bonds against a rigid receptor. They
+share Vina-inspired scoring and SciPy's L-BFGS-B local minimizer, with genetic
+and Monte Carlo global search respectively. They require NumPy, SciPy and an ODDT molecular
 backend; no AutoDock Vina installation is needed.
+The existing ``vina_docking`` name remains an alias for ``vina_mc``.
 
 Prepare a receptor with appropriate protonation and set ``protein = True``
 before computing atom properties. Supply a ligand with a three-dimensional
@@ -24,7 +26,7 @@ recovery; all search positions, orientations and torsions are randomized.
 
    import numpy as np
    import oddt
-   from oddt.docking import vina_docking
+   from oddt.docking import vina_ga, vina_mc
    from oddt.spatial import rmsd, rotate
 
    protein = next(oddt.toolkit.readfile("pdb", "tests/data/pdb/4lb3_pocket.pdb"))
@@ -36,8 +38,9 @@ recovery; all search positions, orientations and torsions are randomized.
 
    ligand = reference.clone
    ligand.coords = rotate(ligand.coords, 1.2, -0.7, 2.1) + [12, -7, 8]
-   engine = vina_docking(protein, ligand, box=np.array([center - 8, center + 8]))
-   poses = engine.dock(exhaustiveness=8, steps=250, maxiter=60, seed=42, num_modes=5)
+   box = np.array([center - 8, center + 8])
+   engine = vina_ga(protein, ligand, box=box)
+   poses = engine.dock(population_size=24, generations=8, maxiter=60, seed=42, num_modes=5)
    print("RMSD:", rmsd(reference, poses[0]))
    print("Affinity:", poses[0].data["vina_affinity"])
    poses[0].write("sdf", "docked.sdf", overwrite=True)
@@ -47,9 +50,50 @@ All ligand heavy atoms must fit inside it. Returned poses are independent
 molecule copies; the input receptor and ligand are preserved, including
 explicit hydrogens, which move with their fragments.
 
-Increase ``exhaustiveness``, ``steps`` or ``maxiter`` for more extensive
-searching. A fixed ``seed`` makes runs reproducible within the same numerical
+Use the same inputs and scoring with Monte Carlo:
+
+.. code-block:: python
+
+   engine = vina_mc(protein, ligand, box=box)
+   poses = engine.dock(exhaustiveness=8, steps=250, maxiter=60, seed=42, num_modes=5)
+
+Increase ``population_size``/``generations`` for GA, or
+``exhaustiveness``/``steps`` for MC, for more extensive searching. ``maxiter``
+controls each local minimization. A fixed ``seed`` makes runs reproducible within the same numerical
 environment. Multiple seeds help assess search variability.
+
+Scoring base and search mixins
+------------------------------
+
+``vina_scoring`` supplies pair terms, analytic pose gradients, geometry,
+L-BFGS-B refinement and final pose selection. ``GeneticAlgorithmMixin`` and
+``MonteCarloMixin`` supply only their global search. The two public engines
+are compositions of these classes; they use identical atom typing, search
+torsions, restraints, energy ranking and clustering.
+
+.. code-block:: python
+
+   from oddt.docking import vina_scoring, GeneticAlgorithmMixin
+
+   class MyEngine(GeneticAlgorithmMixin, vina_scoring):
+       pass
+
+   scorer = vina_scoring(protein, ligand)  # No box needed for scoring.
+   print(scorer.score())
+
+A custom scoring base must provide the pose/optimizer interface documented in
+``oddt.docking.search``. A box is required for ``optimize()`` and ``dock()``.
+
+Genetic search
+--------------
+
+The initial population randomizes position, uniform orientation and permitted
+torsions. Each generation retains the best eighth of the population, then
+uses three-way tournament selection, per-gene crossover along the shortest
+angular arc, Gaussian mutations and 10% random immigrants. Every new pose is
+locally minimized. ``mutation_rate`` defaults to 0.2; positive rates mutate
+at least one gene. The benchmark's population of 24 and eight generations
+perform 192 local minimizations, including the initial population.
 
 Monte Carlo search
 ------------------
@@ -95,21 +139,48 @@ rotatable-bond penalty. The ``energy_range`` filter uses total energy;
 ``min_rmsd`` removes poses close to an already selected pose using direct
 heavy-atom matching without alignment or symmetry correction.
 
-``engine.history_`` records the best uncapped restrained objective after each
-proposal. ``engine.search_stats_`` reports accepted moves, accepted uphill
+``engine.history_`` records the best restrained objective after each MC
+proposal, or initially and after each GA generation. Both engines report
+``local_minimizations`` and SciPy ``objective_evaluations`` in
+``engine.search_stats_``. MC also reports accepted moves, accepted uphill
 moves and uncapped refinements separately for each trajectory.
 ``engine.results_`` holds SciPy optimizer results for the returned poses,
 including iteration counts, termination status and pose genes. A local search
 that reaches its iteration limit may still produce an improved candidate.
 Use ``engine.optimize(maxiter=100)`` to refine only the supplied pose.
 
+MC performance
+--------------
+
+Profiling a 10GS trajectory (one chain, 30 proposals, seed 42, up to 60 local
+iterations) identified pose-gradient torque calculations and pair-gradient
+accumulation as hot paths. The shared base now uses specialized three-vector
+cross products, compiled ``bincount`` accumulation, a cached intraligand pair
+mask and reuse of the initial objective in each L-BFGS-B call.
+
+Three alternating, unprofiled before/after pairs on the same machine reduced
+median ``dock()`` time from 4.62 to 3.89 seconds: 1.19 times faster, or 15.8%
+less runtime. The selected genes, coordinates, energies and entire search
+history were identical. The :download:`measurement JSON
+<../_static/benchmarks/mc_performance.json>` records every timing and settings.
+Both sides use the original uncapped scoring reduction order, also retained
+by the shared base to preserve GA's earlier reproducibility.
+This short probe measures implementation cost, not docking accuracy; it does
+not recover 10GS's native pose. The same optimizations also benefit GA.
+
+At the benchmark defaults MC makes 2,000 proposals plus accepted-pose
+refinements, whereas GA performs 192 local minimizations. The implementation
+speedup does not remove this budget difference. Compare measured objective
+evaluations as well as accuracy and elapsed time when choosing a search.
+
 4LB3 validation
 ---------------
 
-The regression starts from a displaced and rotated ligand, randomizes all
-permitted search coordinates, and uses a 16 Angstrom cubic box, seed 42,
-eight trajectories, 250 proposals per trajectory, at most 60 L-BFGS-B
-iterations per minimization, and up to five returned modes. It checks direct heavy-atom RMSD without alignment,
+Both algorithms start from a displaced and rotated ligand, randomize all
+permitted search coordinates, and use a 16 Angstrom cubic box, seed 42,
+at most 60 L-BFGS-B iterations per minimization, and up to five returned modes.
+GA uses population 24 and eight generations; MC uses eight trajectories and
+250 proposals per trajectory. The regression checks direct heavy-atom RMSD without alignment,
 input preservation, box containment, pose clustering and fresh score metadata.
 
 .. mc-validation-start

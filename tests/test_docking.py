@@ -1,4 +1,4 @@
-"""Internal Monte Carlo docking, using crystallographic test complexes."""
+"""Internal scoring and docking, using crystallographic test complexes."""
 
 from pathlib import Path
 import time
@@ -8,8 +8,8 @@ from numpy.testing import assert_allclose, assert_array_equal
 import pytest
 
 import oddt
-from oddt.docking import vina_docking
-from oddt.docking.internal import _metropolis_accept
+from oddt.docking import vina_docking, vina_ga, vina_mc, vina_scoring, GeneticAlgorithmMixin, MonteCarloMixin
+from oddt.docking.search import _metropolis_accept
 from oddt.spatial import distance, rmsd, rotate
 
 DATA = Path(__file__).parent / "data" / "pdb"
@@ -114,7 +114,14 @@ def test_conjugated_amide_stays_rigid():
         assert_allclose(distance(coords[atoms], coords[atoms]), original, atol=1e-6)
 
 
-def test_monte_carlo_redocking_4lb3(record_property):
+@pytest.mark.parametrize(
+    "engine_class,kwargs",
+    [
+        (vina_mc, {"exhaustiveness": 8, "steps": 250}),
+        (vina_ga, {"population_size": 24, "generations": 8}),
+    ],
+)
+def test_redocking_4lb3(record_property, engine_class, kwargs):
     protein = next(oddt.toolkit.readfile("pdb", str(DATA / "4lb3_pocket.pdb")))
     protein.protein = True
     reference = next(oddt.toolkit.readfile("sdf", str(DATA / "4lb3_ligand.sdf")))
@@ -128,17 +135,22 @@ def test_monte_carlo_redocking_4lb3(record_property):
     original = ligand.coords.copy()
     receptor_coords = protein.coords.copy()
     assert rmsd(reference, ligand) > 10
-    engine = vina_docking(protein, ligand, box=box)
+    engine = engine_class(protein, ligand, box=box)
     start = time.perf_counter()
-    poses = engine.dock(exhaustiveness=8, steps=250, maxiter=60, seed=42, num_modes=5)
+    poses = engine.dock(**kwargs, maxiter=60, seed=42, num_modes=5)
     record_property("docking_seconds", time.perf_counter() - start)
     record_property("top_rmsd", float(rmsd(reference, poses[0])))
     assert 1 <= len(poses) <= 5
     assert rmsd(reference, poses[0]) < 1
-    assert len(engine.history_) == 2000
+    assert len(engine.history_) == (2000 if engine_class is vina_mc else 9)
     assert np.all(np.diff(engine.history_) <= 0)
-    assert len(engine.search_stats_) == 8
-    assert all(0 < chain["accepted"] <= 250 for chain in engine.search_stats_)
+    if engine_class is vina_mc:
+        assert len(engine.search_stats_) == 8
+        assert all(0 < chain["accepted"] <= 250 for chain in engine.search_stats_)
+        assert all(chain["local_minimizations"] == 250 + chain["refinements"] for chain in engine.search_stats_)
+    else:
+        assert engine.search_stats_[0]["local_minimizations"] == 24 + 8 * 21
+    assert all(stats["objective_evaluations"] >= stats["local_minimizations"] for stats in engine.search_stats_)
     assert_array_equal(ligand.coords, original)
     assert_array_equal(protein.coords, receptor_coords)
     totals = [float(pose.data["vina_total"]) for pose in poses]
@@ -159,17 +171,21 @@ def test_monte_carlo_redocking_4lb3(record_property):
         assert all(rmsd(pose, other) >= 1 for other in poses[:i])
 
 
-def test_rigid_docking_is_reproducible_without_changing_global_rng():
+@pytest.mark.parametrize(
+    "engine_class,kwargs",
+    [(vina_mc, {"exhaustiveness": 2, "steps": 4}), (vina_ga, {"population_size": 4, "generations": 1})],
+)
+def test_rigid_docking_is_reproducible_without_changing_global_rng(engine_class, kwargs):
     protein = next(oddt.toolkit.readfile("pdb", str(DATA / "4ljh_pocket.pdb")))
     protein.protein = True
     ligand = next(oddt.toolkit.readfile("sdf", str(DATA / "4ljh_ligand.sdf")))
     ligand.data.update({"vina_rmsd_lb": -999})
     center = ligand.coords.mean(axis=0)
-    engine = vina_docking(protein, ligand, box=[center - 10, center + 10])
+    engine = engine_class(protein, ligand, box=[center - 10, center + 10])
     assert not engine.rotors
     state = np.random.get_state()
-    poses = engine.dock(exhaustiveness=2, steps=4, maxiter=5, seed=7)
-    again = engine.dock(exhaustiveness=2, steps=4, maxiter=5, seed=7)
+    poses = engine.dock(**kwargs, maxiter=5, seed=7)
+    again = engine.dock(**kwargs, maxiter=5, seed=7)
     for first, second in zip(poses, again):
         assert_array_equal(first.coords, second.coords)
         assert "vina_rmsd_lb" not in first.data
@@ -276,7 +292,7 @@ def test_monte_carlo_mutates_one_entity(docking_pair, entity):
 
 def test_rejected_monte_carlo_proposals_do_not_become_parents(docking_pair, monkeypatch):
     from scipy.optimize import OptimizeResult
-    from oddt.docking import internal
+    from oddt.docking import search
 
     protein, ligand, box = docking_pair
     engine = vina_docking(protein, ligand, box=box)
@@ -300,17 +316,59 @@ def test_rejected_monte_carlo_proposals_do_not_become_parents(docking_pair, monk
         else:
             energy = -10 * x[0]
         coords = engine.lig.mutate(x)
-        return OptimizeResult(x=x, fun=energy, coords=coords, affinity=engine.score(coords))
+        return OptimizeResult(x=x, fun=energy, coords=coords, affinity=engine.score(coords), nfev=1)
 
     monkeypatch.setattr(engine, "_mutate_conf", mutate)
     monkeypatch.setattr(engine, "optimize", optimize)
-    monkeypatch.setattr(internal, "_metropolis_accept", accept)
+    monkeypatch.setattr(search, "_metropolis_accept", accept)
     engine.dock(exhaustiveness=1, steps=3, num_modes=1, seed=7)
     assert [x[0] for x in parents] == [0, 1, 1]
     assert acceptance_energies == [np.inf, -10, -10]
     assert engine.history_ == [-10, -10, -20]
     assert engine.search_stats_ == [
-        {"proposals": 3, "accepted": 2, "uphill_accepted": 0, "refinements": 2, "best_energy": -20}
+        {
+            "proposals": 3,
+            "accepted": 2,
+            "uphill_accepted": 0,
+            "refinements": 2,
+            "best_energy": -20,
+            "local_minimizations": 5,
+            "objective_evaluations": 5,
+        }
     ]
     assert len(engine.results_) == 1
     assert engine.results_[0].x[0] == 2
+
+
+@pytest.mark.parametrize("mixin", [GeneticAlgorithmMixin, MonteCarloMixin])
+def test_search_mixins_compose_with_the_scoring_base(docking_pair, mixin):
+    class Engine(mixin, vina_scoring):
+        pass
+
+    protein, ligand, box = docking_pair
+    engine = Engine(protein, ligand, box=box)
+    scorer = vina_scoring(protein, ligand, box=box)
+    assert_allclose(engine.score_total(), scorer.score_total(), atol=0)
+    assert_allclose(engine.optimize(maxiter=2).x, scorer.optimize(maxiter=2).x, atol=0)
+    assert vina_docking is vina_mc
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"population_size": 3},
+        {"generations": -1},
+        {"generations": 1.5},
+        {"mutation_rate": -1},
+        {"mutation_rate": np.nan},
+        {"mutation_rate": 1.1},
+        {"maxiter": 0},
+        {"num_modes": 0},
+        {"energy_range": -1},
+        {"min_rmsd": -1},
+    ],
+)
+def test_invalid_genetic_parameters(docking_pair, kwargs):
+    protein, ligand, box = docking_pair
+    with pytest.raises(ValueError):
+        vina_ga(protein, ligand, box=box).dock(**kwargs)

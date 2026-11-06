@@ -1,4 +1,4 @@
-"""Compare Monte Carlo docking and Vina on the local PDBbind test complexes.
+"""Compare genetic search, Monte Carlo and Vina on local PDBbind complexes.
 
 Run from the repository root with ``python -m asv_bench.docking_pdbbind``.
 This is a standalone accuracy/runtime experiment, not an ASV timing benchmark.
@@ -23,6 +23,27 @@ import numpy as np
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def search_settings(ga_population=24, ga_generations=8, mc_exhaustiveness=8, mc_steps=250, maxiter=60):
+    """Single source of settings for both execution and report provenance."""
+    return {
+        "ga": {
+            "algorithm": "genetic",
+            "population_size": ga_population,
+            "generations": ga_generations,
+            "maxiter": maxiter,
+            "mutation_rate": 0.2,
+        },
+        "mc": {
+            "algorithm": "monte_carlo",
+            "exhaustiveness": mc_exhaustiveness,
+            "steps": mc_steps,
+            "maxiter": maxiter,
+            "temperature": 1.2,
+            "mutation_amplitude": 2.0,
+        },
+    }
+
+
 def discover_targets(directory):
     return sorted(
         folder.name
@@ -33,7 +54,7 @@ def discover_targets(directory):
 
 def prepare(directory, target):
     import oddt
-    from oddt.docking import vina_docking
+    from oddt.docking import vina_scoring
     from oddt.spatial import rotate
 
     protein = next(oddt.toolkit.readfile("pdb", str(directory / target / (target + "_pocket.pdb"))))
@@ -45,11 +66,11 @@ def prepare(directory, target):
     coords = reference.coords[heavy]
     center = coords.mean(axis=0)
     # Keep at least 4 A between every reference heavy atom and the box wall,
-    # using the same >=16 A rule for every target and both engines.
+    # using the same >=16 A rule for every target and all engines.
     size = np.maximum(16.0, 2 * np.max(np.abs(coords - center), axis=0) + 8.0)
     ligand = reference.clone
     ligand.coords = rotate(ligand.coords, 1.2, -0.7, 2.1) + [12, -7, 8]
-    probe = vina_docking(protein, ligand)
+    probe = vina_scoring(protein, ligand)
     details = {
         "receptor_heavy_atoms": int(len(probe.rec_dict)),
         "ligand_heavy_atoms": int(len(coords)),
@@ -143,8 +164,8 @@ def dock_vina(protein, ligand, center, size, seed):
         return read_vina_poses(prepared_ligand, engine.poses(n_poses=5, energy_range=3)), torsions
 
 
-def run_one(directory, target, seed, engine_name):
-    from oddt.docking import vina_docking
+def run_one(directory, target, seed, engine_name, settings=None):
+    from oddt.docking import vina_ga, vina_mc
     from oddt.spatial import rmsd
 
     row = {
@@ -160,12 +181,19 @@ def run_one(directory, target, seed, engine_name):
         row["input_rmsd"] = float(rmsd(reference, ligand))
         start = time.perf_counter()
         try:
-            if engine_name == "internal":
-                engine = vina_docking(protein, ligand, box=np.array([center - size / 2, center + size / 2]))
-                poses = engine.dock(exhaustiveness=8, steps=250, maxiter=60, seed=seed, num_modes=5)
+            if engine_name in ("ga", "mc"):
+                configuration = dict((settings or search_settings())[engine_name])
+                configuration.pop("algorithm")
+                engine_class = {"ga": vina_ga, "mc": vina_mc}[engine_name]
+                engine = engine_class(protein, ligand, box=np.array([center - size / 2, center + size / 2]))
+                poses = engine.dock(**configuration, seed=seed, num_modes=5, energy_range=3.0)
                 row["search_stats"] = engine.search_stats_
-            else:
+                for metric in ("local_minimizations", "objective_evaluations"):
+                    row[metric] = sum(stats[metric] for stats in engine.search_stats_)
+            elif engine_name == "vina":
                 poses, row["vina_torsions"] = dock_vina(protein, ligand, center, size, seed)
+            else:
+                raise ValueError("Unknown engine: " + engine_name)
         finally:
             row["elapsed_seconds"] = time.perf_counter() - start
         if not poses:
@@ -189,6 +217,8 @@ def save(report, output):
         "engine",
         "status",
         "elapsed_seconds",
+        "local_minimizations",
+        "objective_evaluations",
         "ligand_heavy_atoms",
         "searched_torsions",
         "vina_torsions",
@@ -213,7 +243,12 @@ def main():
     parser.add_argument("--data", type=Path, default=ROOT / "tests/data/pdbbind")
     parser.add_argument("--targets", nargs="+")
     parser.add_argument("--seeds", nargs="+", type=int, default=[1, 7, 42])
-    parser.add_argument("--engines", nargs="+", choices=["internal", "vina"], default=["internal", "vina"])
+    parser.add_argument("--engines", nargs="+", choices=["ga", "mc", "vina"], default=["ga", "mc", "vina"])
+    parser.add_argument("--ga-population", type=int, default=24)
+    parser.add_argument("--ga-generations", type=int, default=8)
+    parser.add_argument("--mc-exhaustiveness", type=int, default=8)
+    parser.add_argument("--mc-steps", type=int, default=250)
+    parser.add_argument("--maxiter", type=int, default=60)
     parser.add_argument("--output", type=Path, default=ROOT / "docs/_static/benchmarks/pdbbind_docking.json")
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args()
@@ -223,6 +258,21 @@ def main():
     targets = args.targets or discover_targets(args.data)
     if not targets or set(targets) - set(discover_targets(args.data)):
         parser.error("Every target must contain a ligand SDF and pocket PDB")
+    if (
+        len(set(args.targets or targets)) != len(targets)
+        or len(set(args.seeds)) != len(args.seeds)
+        or len(set(args.engines)) != len(args.engines)
+    ):
+        parser.error("Targets, seeds and engines must be unique")
+    if (
+        args.ga_population < 4
+        or args.ga_generations < 0
+        or min(args.mc_exhaustiveness, args.mc_steps, args.maxiter) < 1
+    ):
+        parser.error("Invalid search budget")
+    settings = search_settings(
+        args.ga_population, args.ga_generations, args.mc_exhaustiveness, args.mc_steps, args.maxiter
+    )
     protocol = {
         "targets": targets,
         "seeds": args.seeds,
@@ -232,30 +282,26 @@ def main():
         "preparation": "Add hydrogens without minimizing; preserve input formal charges, ring and conjugated-bond geometry",
         "box": "Reference heavy-atom centroid; each axis max(16 A, twice maximal absolute centered extent + 8 A)",
         "input_pose": "XYZ Euler rotation (1.2, -0.7, 2.1) radians, then displacement (12, -7, 8) A",
-        "internal": {
-            "algorithm": "monte_carlo",
-            "exhaustiveness": 8,
-            "steps": 250,
-            "maxiter": 60,
-            "temperature": 1.2,
-            "mutation_amplitude": 2.0,
-            "hunt_energy_cap": 10.0,
-        },
+        "ga": settings["ga"],
+        "mc": dict(settings["mc"], hunt_energy_cap=10.0),
         "vina": {
             "exhaustiveness": 8,
             "n_cpu": 1,
             "adapter": "Python API; heavy coordinates mapped by PDBQT serial",
             "preparation": "Remove explicit hydrogens, then PDBQT addHs=True for polar donor hydrogens only",
         },
-        "both": {"num_modes": 5, "energy_range": 3},
+        "all": {"num_modes": 5, "energy_range": 3},
         "timing": "Engine construction and dock(), including Vina grids and I/O; excludes shared preparation and evaluation",
         "primary_metric": "Heavy-atom graph-symmetry RMSD without alignment, chirality preserved; recovery < 2 A",
         "limits": "Small local fixture set; truncated pockets and supplied ring/conjugated geometry; not a PDBbind-wide benchmark",
     }
-    versions = {name: importlib.metadata.version(name) for name in ("numpy", "scipy", "rdkit", "vina")}
+    packages = ["numpy", "scipy", "rdkit"] + (["vina"] if "vina" in args.engines else [])
+    versions = {name: importlib.metadata.version(name) for name in packages}
     source_files = [
         Path(__file__),
         Path(oddt.__file__).parent / "docking/internal.py",
+        Path(oddt.__file__).parent / "docking/search.py",
+        Path(oddt.__file__).parent / "docking/__init__.py",
         Path(oddt.__file__).parent / "docking/AutodockVina.py",
     ]
     source_files.extend(
@@ -288,7 +334,7 @@ def main():
                 if (target, seed, name) in completed:
                     continue
                 print("START %s seed=%d %s" % (target, seed, name), flush=True)
-                row = run_one(args.data, target, seed, name)
+                row = run_one(args.data, target, seed, name, settings)
                 report["results"].append(row)
                 save(report, args.output)
                 print(json.dumps(row), flush=True)
