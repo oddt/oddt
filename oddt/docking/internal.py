@@ -297,12 +297,15 @@ class vina_scoring(object):
                     np.clip(d / -0.7, 0, 1) * hb,
                 ]
             )
-            energies = (pair_terms * self.weights[:5, None]).sum(axis=0)
-            if not intra:
-                # Vina softens the summed receptor energy of each ligand atom;
-                # intraligand interactions are softened individually per pair.
-                energies = np.bincount(cols, weights=energies, minlength=len(coords))[cols]
-            factors = energy_cap / (energy_cap + np.maximum(energies, 0))
+            if np.isinf(energy_cap):
+                factors = np.ones(len(d))
+            else:
+                energies = (pair_terms * self.weights[:5, None]).sum(axis=0)
+                if not intra:
+                    # Vina softens the summed receptor energy of each ligand atom;
+                    # intraligand interactions are softened individually per pair.
+                    energies = np.bincount(cols, weights=energies, minlength=len(coords))[cols]
+                factors = energy_cap / (energy_cap + np.maximum(energies, 0))
             terms = (pair_terms * factors).sum(axis=1)
         if not gradient:
             return terms, None
@@ -385,10 +388,11 @@ class vina_scoring(object):
             clipped to the box. Translation units are ``box_size``.
         maxiter : int, optional
             Maximum number of L-BFGS-B iterations.
-        energy_cap : float or None, optional
+        energy_cap : positive float or None, optional
             Soften positive atom/pair energies using ``E * cap / (cap + E)``
             during Monte Carlo hunting. The default leaves energies unchanged.
-            Box restraints are never softened.
+            Positive infinity is the uncapped limit of the same pair evaluator;
+            None uses direct term reductions. Box restraints are never softened.
 
         Returns
         -------
@@ -401,8 +405,8 @@ class vina_scoring(object):
         bounds = self._search_bounds()
         if not isinstance(maxiter, (int, np.integer)) or maxiter < 1:
             raise ValueError("maxiter must be a positive integer")
-        if energy_cap is not None and (not np.isfinite(energy_cap) or energy_cap <= 0):
-            raise ValueError("energy_cap must be positive and finite, or None")
+        if energy_cap is not None and (np.isnan(energy_cap) or energy_cap <= 0):
+            raise ValueError("energy_cap must be positive (including infinity), or None")
         x0 = self.lig.x0.copy() if x0 is None else np.asarray(x0, dtype=float).copy()
         if x0.shape != self.lig.x0.shape or not np.isfinite(x0).all():
             raise ValueError("x0 must contain six rigid-body genes and one gene per rotatable bond")

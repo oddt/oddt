@@ -158,7 +158,9 @@ class MonteCarloMixin:
                     # As in Vina, refine accepted promising states and save a
                     # bounded set of distinct minima, not rejected proposals.
                     if current_energy < chain_best or len(minima) < num_modes:
-                        refined = self.optimize(current, maxiter=maxiter)
+                        # Use the infinite-cap limit of the hunting evaluator so
+                        # refinement preserves its floating-point reduction order.
+                        refined = self.optimize(current, maxiter=maxiter, energy_cap=np.inf)
                         stats["refinements"] += 1
                         stats["local_minimizations"] += 1
                         stats["objective_evaluations"] += refined.nfev

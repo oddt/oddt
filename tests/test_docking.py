@@ -50,7 +50,7 @@ def test_pose_transform_is_deterministic_and_preserves_geometry(docking_pair):
 
 
 @pytest.mark.parametrize("boundary", [False, True])
-@pytest.mark.parametrize("energy_cap", [None, 10.0])
+@pytest.mark.parametrize("energy_cap", [None, 10.0, np.inf])
 @pytest.mark.parametrize("docking_pair", ["4bfq", "4lb3"], indirect=True)
 def test_objective_gradient(docking_pair, boundary, energy_cap):
     protein, ligand, box = docking_pair
@@ -65,7 +65,7 @@ def test_objective_gradient(docking_pair, boundary, energy_cap):
         delta[i] = 1e-5
         numeric[i] = (engine._objective(x + delta, energy_cap)[0] - engine._objective(x - delta, energy_cap)[0]) / 2e-5
     assert_allclose(actual, numeric, rtol=1e-5, atol=2e-4)
-    if not boundary and energy_cap is None:
+    if not boundary and (energy_cap is None or np.isinf(energy_cap)):
         assert energy == pytest.approx(engine.weighted_total(engine.lig.mutate(x)))
 
 
@@ -311,9 +311,10 @@ def test_rejected_monte_carlo_proposals_do_not_become_parents(docking_pair, monk
 
     def optimize(x, maxiter, energy_cap=None):
         x = x.copy()
-        if energy_cap is not None:
+        if energy_cap == 10.0:
             x[0], energy = next(proposals)
         else:
+            assert np.isinf(energy_cap)
             energy = -10 * x[0]
         coords = engine.lig.mutate(x)
         return OptimizeResult(x=x, fun=energy, coords=coords, affinity=engine.score(coords), nfev=1)
