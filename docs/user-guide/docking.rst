@@ -40,7 +40,7 @@ recovery; all search positions, orientations and torsions are randomized.
    ligand.coords = rotate(ligand.coords, 1.2, -0.7, 2.1) + [12, -7, 8]
    box = np.array([center - 8, center + 8])
    engine = vina_ga(protein, ligand, box=box)
-   poses = engine.dock(population_size=24, generations=8, maxiter=60, seed=42, num_modes=5)
+   poses = engine.dock(population_size=100, generations=8, maxiter=60, seed=42, num_modes=5, progress=True)
    print("RMSD:", rmsd(reference, poses[0]))
    print("Affinity:", poses[0].data["vina_affinity"])
    poses[0].write("sdf", "docked.sdf", overwrite=True)
@@ -61,6 +61,13 @@ Increase ``population_size``/``generations`` for GA, or
 ``exhaustiveness``/``steps`` for MC, for more extensive searching. ``maxiter``
 controls each local minimization. A fixed ``seed`` makes runs reproducible within the same numerical
 environment. Multiple seeds help assess search variability.
+
+Both engines accept ``progress=True`` to display a tqdm progress bar in a
+terminal or notebook. Install the optional dependency with
+``pip install "oddt[progress]"`` (or ``pip install tqdm``). Progress is off by
+default and does not change random sampling or search results. GA counts
+local minimizations, including its initial population; MC counts proposals
+across all trajectories, advancing after any associated refinement finishes.
 
 Scoring base and search mixins
 ------------------------------
@@ -94,8 +101,10 @@ torsions. Each generation retains the best eighth of the population, then
 uses three-way tournament selection, per-gene crossover along the shortest
 angular arc, Gaussian mutations and 10% random immigrants. Every new pose is
 locally minimized. ``mutation_rate`` defaults to 0.2; positive rates mutate
-at least one gene. The benchmark's population of 24 and eight generations
-perform 192 local minimizations, including the initial population.
+at least one gene. The default population is 100. With the benchmark's eight
+generations this performs 804 local minimizations, including the initial
+population. Populations of 24 and 48 performed 192 and 384 respectively; larger populations
+increase search effort but do not guarantee better pose recovery.
 
 Monte Carlo search
 ------------------
@@ -172,7 +181,7 @@ This short probe measures implementation cost, not docking accuracy; it does
 not recover 10GS's native pose. The same optimizations also benefit GA.
 
 At the benchmark defaults MC makes 2,000 proposals plus accepted-pose
-refinements, whereas GA performs 192 local minimizations. The implementation
+refinements, whereas GA now performs 804 local minimizations. The implementation
 speedup does not remove this budget difference. Compare measured objective
 evaluations as well as accuracy and elapsed time when choosing a search.
 

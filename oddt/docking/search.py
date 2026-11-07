@@ -7,10 +7,22 @@ A scoring base supplies ``_search_bounds``, ``_random_conformation``,
 output selection supplied by that base.
 """
 
+from contextlib import nullcontext
 import math
 
 import numpy as np
 from scipy.spatial.transform import Rotation
+
+
+def _progress_bar(enabled, **kwargs):
+    """Import the optional display dependency only when requested."""
+    if not enabled:
+        return nullcontext()
+    try:
+        from tqdm.auto import tqdm
+    except ImportError as error:
+        raise ImportError("Progress bars require tqdm; install oddt[progress] or tqdm") from error
+    return tqdm(dynamic_ncols=True, **kwargs)
 
 
 def _metropolis_accept(old_energy, new_energy, temperature, rng):
@@ -57,6 +69,7 @@ class MonteCarloMixin:
         mutation_amplitude=2.0,
         min_rmsd=1.0,
         energy_range=3.0,
+        progress=False,
     ):
         """Search poses with iterated local search and Metropolis acceptance.
 
@@ -84,6 +97,9 @@ class MonteCarloMixin:
             Atom order is used directly, without alignment or symmetry matching.
         energy_range : float, optional
             Maximum total pair-energy difference from the best feasible pose.
+        progress : bool, optional
+            Show a tqdm progress bar over all trajectories' proposals.
+            Disabled by default; requires the optional tqdm dependency.
 
         Returns
         -------
@@ -131,48 +147,51 @@ class MonteCarloMixin:
         best_energy = np.inf
         # Independent streams keep a trajectory reproducible when increasing
         # exhaustiveness, without modifying NumPy's process-global RNG.
-        for stream in np.random.SeedSequence(seed).spawn(exhaustiveness):
-            rng = np.random.default_rng(stream)
-            current = self._random_conformation(bounds, rng)
-            current_energy = np.inf
-            minima = []
-            chain_best = np.inf
-            stats = {
-                "proposals": steps,
-                "accepted": 0,
-                "uphill_accepted": 0,
-                "refinements": 0,
-                "local_minimizations": 0,
-                "objective_evaluations": 0,
-            }
-            for step in range(steps):
-                proposal = self._mutate_conf(current, rng, mutation_amplitude)
-                candidate = self.optimize(proposal, maxiter=maxiter, energy_cap=10.0)
-                stats["local_minimizations"] += 1
-                stats["objective_evaluations"] += candidate.nfev
-                if _metropolis_accept(current_energy, candidate.fun, temperature, rng):
-                    stats["accepted"] += 1
-                    stats["uphill_accepted"] += int(step > 0 and candidate.fun > current_energy)
-                    current = candidate.x.copy()
-                    current_energy = candidate.fun
-                    # As in Vina, refine accepted promising states and save a
-                    # bounded set of distinct minima, not rejected proposals.
-                    if current_energy < chain_best or len(minima) < num_modes:
-                        # Use the infinite-cap limit of the hunting evaluator so
-                        # refinement preserves its floating-point reduction order.
-                        refined = self.optimize(current, maxiter=maxiter, energy_cap=np.inf)
-                        stats["refinements"] += 1
-                        stats["local_minimizations"] += 1
-                        stats["objective_evaluations"] += refined.nfev
-                        current = refined.x.copy()
-                        current_energy = refined.fun
-                        chain_best = min(chain_best, refined.fun)
-                        best_energy = min(best_energy, refined.fun)
-                        self._add_minimum(minima, refined, min_rmsd, num_modes)
-                self.history_.append(best_energy)
-            stats["best_energy"] = chain_best
-            self.search_stats_.append(stats)
-            archive.extend(minima)
+        with _progress_bar(progress, total=exhaustiveness * steps, desc="MC docking", unit="proposal") as bar:
+            for stream in np.random.SeedSequence(seed).spawn(exhaustiveness):
+                rng = np.random.default_rng(stream)
+                current = self._random_conformation(bounds, rng)
+                current_energy = np.inf
+                minima = []
+                chain_best = np.inf
+                stats = {
+                    "proposals": steps,
+                    "accepted": 0,
+                    "uphill_accepted": 0,
+                    "refinements": 0,
+                    "local_minimizations": 0,
+                    "objective_evaluations": 0,
+                }
+                for step in range(steps):
+                    proposal = self._mutate_conf(current, rng, mutation_amplitude)
+                    candidate = self.optimize(proposal, maxiter=maxiter, energy_cap=10.0)
+                    stats["local_minimizations"] += 1
+                    stats["objective_evaluations"] += candidate.nfev
+                    if _metropolis_accept(current_energy, candidate.fun, temperature, rng):
+                        stats["accepted"] += 1
+                        stats["uphill_accepted"] += int(step > 0 and candidate.fun > current_energy)
+                        current = candidate.x.copy()
+                        current_energy = candidate.fun
+                        # As in Vina, refine accepted promising states and save a
+                        # bounded set of distinct minima, not rejected proposals.
+                        if current_energy < chain_best or len(minima) < num_modes:
+                            # Use the infinite-cap limit of the hunting evaluator so
+                            # refinement preserves its floating-point reduction order.
+                            refined = self.optimize(current, maxiter=maxiter, energy_cap=np.inf)
+                            stats["refinements"] += 1
+                            stats["local_minimizations"] += 1
+                            stats["objective_evaluations"] += refined.nfev
+                            current = refined.x.copy()
+                            current_energy = refined.fun
+                            chain_best = min(chain_best, refined.fun)
+                            best_energy = min(best_energy, refined.fun)
+                            self._add_minimum(minima, refined, min_rmsd, num_modes)
+                    self.history_.append(best_energy)
+                    if bar is not None:
+                        bar.update()
+                stats["best_energy"] = chain_best
+                self.search_stats_.append(stats)
+                archive.extend(minima)
 
         return self._finish_docking(archive, num_modes, min_rmsd, energy_range)
 
@@ -182,7 +201,7 @@ class GeneticAlgorithmMixin:
 
     def dock(
         self,
-        population_size=24,
+        population_size=100,
         generations=10,
         num_modes=9,
         seed=None,
@@ -190,6 +209,7 @@ class GeneticAlgorithmMixin:
         mutation_rate=0.2,
         min_rmsd=1.0,
         energy_range=3.0,
+        progress=False,
     ):
         """Search randomized poses with tournament selection and L-BFGS-B.
 
@@ -206,6 +226,9 @@ class GeneticAlgorithmMixin:
         each generation. ``search_stats_`` records the actual number of local
         minimizations and objective evaluations. Pose selection and scoring
         are supplied by the scoring base, identically to Monte Carlo search.
+        ``progress=True`` displays a tqdm bar counting local minimizations,
+        including the initial population and newly generated offspring.
+        Progress is disabled by default and requires the optional tqdm dependency.
         """
         bounds = self._search_bounds()
         for name, value, minimum in (
@@ -230,38 +253,42 @@ class GeneticAlgorithmMixin:
             result = self.optimize(x, maxiter=maxiter)
             stats["local_minimizations"] += 1
             stats["objective_evaluations"] += result.nfev
+            if bar is not None:
+                bar.update()
             return result
 
         def tournament():
             indices = rng.integers(len(population), size=3)
             return min((population[index] for index in indices), key=lambda result: result.fun).x
 
-        population = [refine(self._random_conformation(bounds, rng)) for _ in range(population_size)]
-        archive = list(population)
-        self.history_ = [min(result.fun for result in population)]
         elite_count = max(1, population_size // 8)
-        scales = np.r_[0.15 * (bounds[1] - bounds[0]), np.full(dimensions - 3, 0.6)]
-        for generation in range(generations):
-            offspring = sorted(population, key=lambda result: result.fun)[:elite_count]
-            while len(offspring) < population_size:
-                if rng.random() < 0.1:
-                    child = self._random_conformation(bounds, rng)
-                else:
-                    first, second = tournament(), tournament()
-                    difference = second - first
-                    difference[3:] = (difference[3:] + np.pi) % (2 * np.pi) - np.pi
-                    child = first + rng.random(dimensions) * difference
-                    mutated = rng.random(dimensions) < mutation_rate
-                    if mutation_rate > 0:
-                        mutated[rng.integers(dimensions)] = True
-                    child += mutated * rng.normal(size=dimensions) * scales
-                    child[:3] = np.clip(child[:3], bounds[0], bounds[1])
-                    child[3:] = (child[3:] + np.pi) % (2 * np.pi) - np.pi
-                result = refine(child)
-                offspring.append(result)
-                archive.append(result)
-            population = offspring
-            self.history_.append(min(result.fun for result in population))
+        total = population_size + generations * (population_size - elite_count)
+        with _progress_bar(progress, total=total, desc="GA docking", unit="minimization") as bar:
+            population = [refine(self._random_conformation(bounds, rng)) for _ in range(population_size)]
+            archive = list(population)
+            self.history_ = [min(result.fun for result in population)]
+            scales = np.r_[0.15 * (bounds[1] - bounds[0]), np.full(dimensions - 3, 0.6)]
+            for generation in range(generations):
+                offspring = sorted(population, key=lambda result: result.fun)[:elite_count]
+                while len(offspring) < population_size:
+                    if rng.random() < 0.1:
+                        child = self._random_conformation(bounds, rng)
+                    else:
+                        first, second = tournament(), tournament()
+                        difference = second - first
+                        difference[3:] = (difference[3:] + np.pi) % (2 * np.pi) - np.pi
+                        child = first + rng.random(dimensions) * difference
+                        mutated = rng.random(dimensions) < mutation_rate
+                        if mutation_rate > 0:
+                            mutated[rng.integers(dimensions)] = True
+                        child += mutated * rng.normal(size=dimensions) * scales
+                        child[:3] = np.clip(child[:3], bounds[0], bounds[1])
+                        child[3:] = (child[3:] + np.pi) % (2 * np.pi) - np.pi
+                    result = refine(child)
+                    offspring.append(result)
+                    archive.append(result)
+                population = offspring
+                self.history_.append(min(result.fun for result in population))
         stats["best_energy"] = self.history_[-1]
         self.search_stats_.append(stats)
         return self._finish_docking(archive, num_modes, min_rmsd, energy_range)

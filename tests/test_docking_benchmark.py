@@ -219,7 +219,8 @@ def test_report_does_not_relabel_genetic_results_as_monte_carlo(small_report, tm
 
 
 @pytest.mark.parametrize("name", ["ga", "mc"])
-def test_benchmark_runs_both_searches_with_the_recorded_budget(benzene, monkeypatch, tmp_path, name):
+@pytest.mark.parametrize("progress", [False, True])
+def test_benchmark_runs_both_searches_with_the_recorded_budget(benzene, monkeypatch, tmp_path, name, progress):
     from asv_bench import docking_pdbbind as benchmark
     from oddt import docking
 
@@ -238,17 +239,59 @@ def test_benchmark_runs_both_searches_with_the_recorded_budget(benzene, monkeypa
         def dock(self, **kwargs):
             expected = dict(benchmark.search_settings()[name])
             expected.pop("algorithm")
-            assert kwargs == dict(expected, seed=7, num_modes=5, energy_range=3.0)
+            assert kwargs == dict(expected, seed=7, num_modes=5, energy_range=3.0, progress=progress)
             pose = benzene.clone
             pose.data.update({"vina_affinity": -1})
             return [pose]
 
     monkeypatch.setattr(docking, "vina_" + name, Engine)
-    row = benchmark.run_one(tmp_path, "example", 7, name)
+    row = benchmark.run_one(tmp_path, "example", 7, name, progress=progress)
     assert row["status"] == "ok", row.get("error")
     assert row["top_recovered_2A"]
     assert row["local_minimizations"] == 200
     assert row["objective_evaluations"] == 1000
+
+
+def test_benchmark_cli_uses_larger_population_and_passes_progress(monkeypatch, tmp_path):
+    import json
+    import sys
+    from asv_bench import docking_pdbbind as benchmark
+
+    monkeypatch.setenv("ODDT_TOOLKIT", "rdk")
+    folder = tmp_path / "example"
+    folder.mkdir()
+    for suffix in ("_ligand.sdf", "_pocket.pdb"):
+        (folder / ("example" + suffix)).touch()
+    output = tmp_path / "results.json"
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "docking_pdbbind",
+            "--data",
+            str(tmp_path),
+            "--engines",
+            "ga",
+            "mc",
+            "--seeds",
+            "7",
+            "--progress",
+            "--output",
+            str(output),
+        ],
+    )
+    calls = []
+
+    def run_one(directory, target, seed, name, settings, progress):
+        calls.append((name, settings, progress))
+        return dict(target=target, seed=seed, engine=name, status="ok")
+
+    monkeypatch.setattr(benchmark, "run_one", run_one)
+    benchmark.main()
+    report = json.loads(output.read_text())
+    assert report["protocol"]["ga"]["population_size"] == 100
+    assert [call[0] for call in calls] == ["ga", "mc"]
+    assert all(settings == benchmark.search_settings() and progress for _, settings, progress in calls)
 
 
 def test_report_renders_both_searches_and_vina(small_report, tmp_path):

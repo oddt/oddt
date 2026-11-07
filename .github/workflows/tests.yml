@@ -67,7 +67,7 @@ jobs:
       - name: Install package and test dependencies
         run: |
           conda install --yes --override-channels --channel conda-forge \
-            pip setuptools wheel pytest-cov
+            pip setuptools wheel pytest-cov tqdm
           python -m pip install --no-build-isolation --no-deps .
 
       - name: Install Vina

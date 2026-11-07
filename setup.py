@@ -21,6 +21,7 @@ setup(
     },
     setup_requires=["numpy"],
     install_requires=open("requirements.txt", "r").readlines(),
+    extras_require={"progress": ["tqdm"]},
     download_url="https://github.com/oddt/oddt/tarball/%s" % VERSION,
     keywords=["cheminformatics", "qsar", "virtual screening", "docking", "pipeline"],
     python_requires=">=3.12",

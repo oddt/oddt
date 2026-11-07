@@ -196,6 +196,101 @@ def test_rigid_docking_is_reproducible_without_changing_global_rng(engine_class,
     assert state[2:] == after[2:]
 
 
+@pytest.fixture
+def progress_output(monkeypatch):
+    from io import StringIO
+
+    auto = pytest.importorskip("tqdm.auto")
+    from tqdm import tqdm
+
+    output = StringIO()
+    bars = []
+
+    def capture(**kwargs):
+        bar = tqdm(file=output, mininterval=0, **kwargs)
+        bars.append(bar)
+        return bar
+
+    monkeypatch.setattr(auto, "tqdm", capture)
+    return bars, output
+
+
+@pytest.mark.parametrize(
+    "engine_class,kwargs,total",
+    [
+        (vina_ga, {"generations": 0}, 100),
+        (vina_ga, {"population_size": 8, "generations": 2}, 22),
+        (vina_mc, {"exhaustiveness": 2, "steps": 3}, 6),
+    ],
+)
+def test_progress_preserves_seeded_search(docking_pair, progress_output, capsys, engine_class, kwargs, total):
+    bars, output = progress_output
+    protein, ligand, box = docking_pair
+    engine = engine_class(protein, ligand, box=box)
+    capsys.readouterr()
+    quiet = engine.dock(**kwargs, seed=7, maxiter=2, num_modes=2)
+    history = engine.history_
+    stats = engine.search_stats_
+    genes = [result.x.copy() for result in engine.results_]
+    captured = capsys.readouterr()
+    assert captured.out == captured.err == ""
+    assert bars == []
+    visible = engine.dock(**kwargs, seed=7, maxiter=2, num_modes=2, progress=True)
+    assert len(bars) == 1
+    assert bars[0].n == bars[0].total == total
+    assert bars[0].disable  # Closed by the context manager.
+    assert "100%" in output.getvalue()
+    assert engine.history_ == history
+    assert engine.search_stats_ == stats
+    assert len(quiet) == len(visible)
+    for first, second in zip(quiet, visible):
+        assert_array_equal(first.coords, second.coords)
+    for first, second in zip(genes, engine.results_):
+        assert_array_equal(first, second.x)
+
+
+@pytest.mark.parametrize(
+    "engine_class,kwargs",
+    [(vina_ga, {"population_size": 4, "generations": 0}), (vina_mc, {"exhaustiveness": 1, "steps": 1})],
+)
+def test_progress_closes_on_failure(docking_pair, progress_output, monkeypatch, engine_class, kwargs):
+    bars, _ = progress_output
+    protein, ligand, box = docking_pair
+    engine = engine_class(protein, ligand, box=box)
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("optimizer failed")
+
+    monkeypatch.setattr(engine, "optimize", fail)
+    with pytest.raises(RuntimeError, match="optimizer failed"):
+        engine.dock(**kwargs, progress=True)
+    assert len(bars) == 1
+    assert bars[0].n == 0
+    assert bars[0].disable
+
+
+@pytest.mark.parametrize(
+    "engine_class,kwargs",
+    [(vina_ga, {"population_size": 8, "generations": 2}), (vina_mc, {"exhaustiveness": 2, "steps": 3})],
+)
+def test_quiet_search_does_not_require_tqdm(docking_pair, monkeypatch, engine_class, kwargs):
+    import builtins
+
+    original_import = builtins.__import__
+
+    def without_tqdm(name, *args, **kwargs):
+        if name == "tqdm" or name.startswith("tqdm."):
+            raise ModuleNotFoundError("No module named 'tqdm'")
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", without_tqdm)
+    protein, ligand, box = docking_pair
+    engine = engine_class(protein, ligand, box=box)
+    assert engine.dock(**kwargs, seed=7, maxiter=2)
+    with pytest.raises(ImportError, match=r"install oddt\[progress\] or tqdm"):
+        engine.dock(**kwargs, seed=7, maxiter=1, progress=True)
+
+
 @pytest.mark.parametrize(
     "kwargs",
     [

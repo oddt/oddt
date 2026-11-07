@@ -67,9 +67,9 @@ orientation and permitted torsions. Ring and conjugated-bond geometry comes
 from the supplied conformation. The experiment therefore tests redocking
 within those constraints rather than generating new ring conformations.
 
-By default each target is run with seeds 1, 7 and 42. GA uses population 24, eight
+By default each target is run with seeds 1, 7 and 42. GA now uses population 100, eight
 generations, mutation rate 0.2 and at most 60 L-BFGS-B iterations per local
-minimization. With three elites retained per generation this is 192 local
+minimization. With twelve elites retained per generation this is 804 local
 minimizations. MC uses eight
 independent Monte Carlo trajectories, 250 proposals per trajectory, and at
 most 60 L-BFGS-B iterations per local minimization. Its temperature is 1.2,
@@ -89,6 +89,19 @@ selection, so their comparison changes only the global search and its budget.
 Each internal run records actual local minimizations and objective evaluations;
 compare these counters alongside time. The comparison with external Vina
 measures complete docking workflows, including its separate scoring implementation.
+
+Use ``--ga-population 24`` or ``--ga-population 48`` to select an earlier budget.
+The completed baseline below records population 24 explicitly. To evaluate population 100
+without overwriting it, run:
+
+.. code-block:: console
+
+   python -m asv_bench.docking_pdbbind --engines ga --ga-population 100 --output docs/_static/benchmarks/pdbbind_ga100.json
+
+Both internal engines support optional tqdm progress bars. Add ``--progress``
+to show them; the default quiet mode is used for timing comparisons. Install
+``oddt[progress]`` or ``tqdm`` to enable this option. The display flag does not
+change the recorded search budget or pose results.
 
 Runtime includes engine construction and docking, including Vina's PDBQT
 writing and interaction-grid generation. Shared input loading, hydrogen
@@ -438,3 +451,114 @@ This reduces MC's search budget and is not equivalent to the default experiment.
 Use ``--targets``, ``--seeds`` or ``--engines`` for a smaller experiment and
 ``--output`` for a separate report. Timings depend on the machine and numerical
 environment. A different seed or broader search can change the resulting poses.
+
+.. ga-population-results-start
+
+GA population comparison
+------------------------
+
+Separate 18-run experiments compare GA populations 24, 48 and 100 on the same six complexes and seeds 1, 7 and 42. All use eight generations, maxiter 60 and up to five returned poses. Runs are sequential on the same machine, with progress disabled. The population-24 measurements come from the completed baseline above.
+
+Population 100 performs 804 local minimizations per run, compared with 384 at population 48 and 192 at population 24. All 18 population-100 runs completed without errors. Median runtime is 106.5 seconds, 2.11 times the population-48 median.
+
+Population 100 improves per-complex median RMSD on 3 of six complexes relative to population 48 and 4 of six relative to population 24. Overall median top-pose RMSD improves from 8.26 to 7.48 Angstroms relative to population 48. Top-pose and best-returned recovery below 2 Angstroms remain 3/18 for all three populations. More search effort improves some poses without recovering additional cases here.
+
+.. list-table:: Across the same 18 target/seed runs
+   :header-rows: 1
+
+   * - GA population
+     - Local minimizations/run
+     - Top <2 A
+     - Any returned <2 A
+     - Median top RMSD
+     - Median time (s)
+   * - 24
+     - 192
+     - 3/18
+     - 3/18
+     - 8.19
+     - 28.6
+   * - 48
+     - 384
+     - 3/18
+     - 3/18
+     - 8.26
+     - 50.4
+   * - 100
+     - 804
+     - 3/18
+     - 3/18
+     - 7.48
+     - 106.5
+
+Per-target values are medians over three seeds. RMSDs are symmetry-aware, in Angstroms; times are seconds.
+
+.. list-table:: Top-pose RMSD by complex and population
+   :header-rows: 1
+
+   * - Complex
+     - Population 24
+     - Population 48
+     - Population 100
+   * - 10GS
+     - 4.43
+     - 6.22
+     - 7.60
+   * - 1IMX
+     - 8.86
+     - 9.75
+     - 6.33
+   * - 1K9Q
+     - 13.03
+     - 9.29
+     - 12.71
+   * - 1NLO
+     - 7.53
+     - 7.92
+     - 7.30
+   * - 1NLP
+     - 15.04
+     - 12.99
+     - 7.51
+   * - 4YEF
+     - 1.06
+     - 0.95
+     - 1.14
+
+.. list-table:: Runtime by complex and population (seconds)
+   :header-rows: 1
+
+   * - Complex
+     - Population 24
+     - Population 48
+     - Population 100
+   * - 10GS
+     - 21.6
+     - 38.7
+     - 80.9
+   * - 1IMX
+     - 27.5
+     - 53.6
+     - 114.0
+   * - 1K9Q
+     - 23.1
+     - 45.1
+     - 93.3
+   * - 1NLO
+     - 42.7
+     - 77.6
+     - 157.0
+   * - 1NLP
+     - 34.7
+     - 54.2
+     - 116.4
+   * - 4YEF
+     - 29.7
+     - 44.7
+     - 93.3
+
+The population-100 experiment has unchanged inputs, numerical package versions and search settings apart from population. Source checks confirm that the GA population defaults are the only engine and runner changes from the population-48 experiment. The :download:`population-100 JSON <../_static/benchmarks/pdbbind_ga100.json>` records source/input checksums, baseline checksums, per-pose RMSDs and search statistics; :download:`CSV <../_static/benchmarks/pdbbind_ga100.csv>` contains the per-run measurements.
+
+An earlier population-24 control on 10GS, seed 42, reproduced every returned RMSD, top affinity and search counter exactly after adding progress support. It is retained in the :download:`population-48 JSON <../_static/benchmarks/pdbbind_ga48.json>`, with its :download:`CSV <../_static/benchmarks/pdbbind_ga48.csv>` measurements.
+
+.. ga-population-results-end

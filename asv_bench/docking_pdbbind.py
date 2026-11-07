@@ -25,7 +25,7 @@ MAX_SYMMETRY_MATCHES = 10_000
 RMSD_BATCH_SIZE = 256
 
 
-def search_settings(ga_population=24, ga_generations=8, mc_exhaustiveness=8, mc_steps=250, maxiter=60):
+def search_settings(ga_population=100, ga_generations=8, mc_exhaustiveness=8, mc_steps=250, maxiter=60):
     """Single source of settings for both execution and report provenance."""
     return {
         "ga": {
@@ -198,7 +198,7 @@ def dock_vina(protein, ligand, center, size, seed):
         return read_vina_poses(prepared_ligand, engine.poses(n_poses=5, energy_range=3)), torsions
 
 
-def run_one(directory, target, seed, engine_name, settings=None):
+def run_one(directory, target, seed, engine_name, settings=None, progress=False):
     from oddt.docking import vina_ga, vina_mc
     from oddt.spatial import rmsd
 
@@ -220,7 +220,7 @@ def run_one(directory, target, seed, engine_name, settings=None):
                 configuration.pop("algorithm")
                 engine_class = {"ga": vina_ga, "mc": vina_mc}[engine_name]
                 engine = engine_class(protein, ligand, box=np.array([center - size / 2, center + size / 2]))
-                poses = engine.dock(**configuration, seed=seed, num_modes=5, energy_range=3.0)
+                poses = engine.dock(**configuration, seed=seed, num_modes=5, energy_range=3.0, progress=progress)
                 row["search_stats"] = engine.search_stats_
                 for metric in ("local_minimizations", "objective_evaluations"):
                     row[metric] = sum(stats[metric] for stats in engine.search_stats_)
@@ -278,13 +278,14 @@ def main():
     parser.add_argument("--targets", nargs="+")
     parser.add_argument("--seeds", nargs="+", type=int, default=[1, 7, 42])
     parser.add_argument("--engines", nargs="+", choices=["ga", "mc", "vina"], default=["ga", "mc", "vina"])
-    parser.add_argument("--ga-population", type=int, default=24)
+    parser.add_argument("--ga-population", type=int, default=100)
     parser.add_argument("--ga-generations", type=int, default=8)
     parser.add_argument("--mc-exhaustiveness", type=int, default=8)
     parser.add_argument("--mc-steps", type=int, default=250)
     parser.add_argument("--maxiter", type=int, default=60)
     parser.add_argument("--output", type=Path, default=ROOT / "docs/_static/benchmarks/pdbbind_docking.json")
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--progress", action="store_true", help="Show tqdm progress bars for internal GA/MC searches")
     args = parser.parse_args()
     os.environ["ODDT_TOOLKIT"] = "rdk"
     import oddt
@@ -373,7 +374,7 @@ def main():
                 if (target, seed, name) in completed:
                     continue
                 print("START %s seed=%d %s" % (target, seed, name), flush=True)
-                row = run_one(args.data, target, seed, name, settings)
+                row = run_one(args.data, target, seed, name, settings, progress=args.progress)
                 report["results"].append(row)
                 save(report, args.output)
                 print(json.dumps(row), flush=True)
