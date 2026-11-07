@@ -46,6 +46,27 @@ def test_benchmark_rmsd_recognizes_graph_symmetry(benzene):
     assert metrics["symmetry_mappings"] == 12
 
 
+def test_benchmark_handles_query_atoms_and_bonds_in_1nlp():
+    from pathlib import Path
+    from rdkit import Chem
+    from oddt.toolkits import rdk
+    from asv_bench.docking_pdbbind import _symmetry_graph
+
+    path = Path(__file__).parent / "data/pdbbind/1nlp/1nlp_ligand.sdf"
+    reference = next(rdk.readfile("sdf", str(path)))
+    reference.removeh()
+    assert any(atom.HasQuery() for atom in reference.Mol.GetAtoms())
+    assert any(bond.HasQuery() for bond in reference.Mol.GetBonds())
+    graph = _symmetry_graph(reference)
+    assert Chem.FindMolChiralCenters(graph) == Chem.FindMolChiralCenters(reference.Mol)
+    assert [(a.GetAtomicNum(), a.GetFormalCharge(), a.GetIsotope()) for a in graph.GetAtoms()] == [
+        (a.GetAtomicNum(), a.GetFormalCharge(), a.GetIsotope()) for a in reference.Mol.GetAtoms()
+    ]
+    metrics = pose_metrics(reference, [reference.clone])
+    assert metrics["symmetry_mappings"] == 16
+    assert metrics["top_symmetry_rmsd"] == pytest.approx(0, abs=1e-7)
+
+
 def test_vina_reader_preserves_heavy_atom_order_with_interleaved_hydrogens(benzene):
     from rdkit import Chem
     from oddt.toolkits import rdk

@@ -67,6 +67,7 @@ def render(report, page, figure, source=None):
             raise ValueError("Engine %s cannot label results from another search algorithm" % engine)
     targets = report["protocol"]["targets"]
     seed_count = len(report["protocol"]["seeds"])
+    seed_word = "seed" if seed_count == 1 else "seeds"
     names = {"ga": "Internal GA", "mc": "Internal MC", "vina": "Vina " + report["versions"].get("vina", "")}
     overall = []
     for engine in report["protocol"]["engines"]:
@@ -94,8 +95,8 @@ def render(report, page, figure, source=None):
                 target.upper(),
                 details.get("ligand_heavy_atoms", "--"),
                 details.get("searched_torsions", "--"),
-                vina_torsions,
             ]
+            + ([vina_torsions] if "vina" in engines else [])
             + [number(summary[target, engine]["median_rmsd"]) for engine in engines]
         )
         recovery.append(
@@ -137,8 +138,8 @@ def render(report, page, figure, source=None):
             if seed_count == 1
             else ""
         ),
-        "RMSDs below are symmetry-aware, in Angstroms. Times are seconds. Per-target values are medians over %d seeds.\n"
-        % seed_count,
+        "RMSDs below are symmetry-aware, in Angstroms. Times are seconds. Per-target values are medians over %d %s.\n"
+        % (seed_count, seed_word),
         table(
             "Across all target/seed runs",
             ["Engine", "Top <2 A", "Any returned <2 A", "Median top RMSD", "Median time", "Errors"],
@@ -146,7 +147,9 @@ def render(report, page, figure, source=None):
         ),
         table(
             "Pose recovery by complex",
-            ["Complex", "Heavy atoms", "Internal torsions", "Vina torsions"] + [names[e] + " RMSD" for e in engines],
+            ["Complex", "Heavy atoms", "Internal torsions"]
+            + (["Vina torsions"] if "vina" in engines else [])
+            + [names[e] + " RMSD" for e in engines],
             accuracy,
         ),
         table(
@@ -201,11 +204,11 @@ def render(report, page, figure, source=None):
         axis.set_xticks(range(len(targets)), [target.upper() for target in targets], rotation=30)
         axis.grid(axis="y", alpha=0.2)
         axis.spines[["top", "right"]].set_visible(False)
-        axis.legend(frameon=False)
+        axis.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01), ncol=len(engines), frameon=False, fontsize=9)
     axes[0].axhline(2, color="#555555", linestyle="--", linewidth=1)
     axes[0].set_ylim(bottom=0)
     axes[1].set_yscale("log")
-    fig.suptitle("PDBbind pocket redocking · %d seeds per complex · fixed settings" % seed_count)
+    fig.suptitle("PDBbind pocket redocking · %d %s per complex · fixed settings" % (seed_count, seed_word))
     figure.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(figure)
     fig.savefig(figure.with_suffix(".png"), dpi=170)

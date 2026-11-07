@@ -1,8 +1,8 @@
 PDBbind docking comparison
 ==========================
 
-This experiment compares ODDT's internal genetic and Monte Carlo engines with installed
-AutoDock Vina 1.2.7 on all six PDBbind complexes distributed with the tests:
+This runner compares ODDT's internal genetic and Monte Carlo engines, with
+optional installed AutoDock Vina 1.2.7, on all six PDBbind complexes distributed with the tests:
 10GS, 1IMX, 1K9Q, 1NLO, 1NLP and 4YEF. The earlier :doc:`docking` example
 was developed on 4LB3; these six complexes provide a separate check.
 
@@ -111,6 +111,10 @@ The primary accuracy measure is symmetry-aware heavy-atom RMSD in the
 protein coordinate frame, with no alignment. Graph automorphisms preserve
 atom identity, connectivity and specified stereochemistry. Hydrogens are
 removed before symmetry matching. Direct atom-order RMSD is also saved.
+The evaluation graph converts SDF query records to literal atom/bond
+attributes while retaining atom indices, charges, isotopes and stereochemistry.
+This handles the query-typed 1NLP fixture, whose literal graph has 16
+automorphisms.
 
 Recovery means RMSD below 2 Angstroms. Top-pose recovery evaluates the
 highest-ranked returned pose. Best-returned recovery asks whether any of the
@@ -124,13 +128,273 @@ and :download:`GA partial CSV <../_static/benchmarks/pdbbind_docking_ga_partial.
 and :download:`MC partial JSON <../_static/benchmarks/pdbbind_docking_mc_partial.json>`
 and :download:`MC partial CSV <../_static/benchmarks/pdbbind_docking_mc_partial.csv>`.
 The MC archive contains 21 completed runs. These are historical partial
-experiments, not the new three-engine comparison.
+experiments, separate from the full comparison below. The earlier single-seed
+GA/MC probe, using 20 MC proposals per trajectory, is retained as
+:download:`probe JSON <../_static/benchmarks/pdbbind_ga_mc_probe.json>` and
+:download:`probe CSV <../_static/benchmarks/pdbbind_ga_mc_probe.csv>`.
 
 .. benchmark-results-start
 
-The revised runner supports GA, MC and external Vina. Results for the
-six-complex GA/MC validation probe are being generated with one seed and
-20 MC proposals per trajectory.
+Results
+-------
+
+This report uses seeds 1, 7, 42 and engines Internal GA, Internal MC, Vina 1.2.7. GA: population 24, generations 8, maxiter 60. MC: 8 trajectories, 250 proposals each, maxiter 60. These budgets are not matched energy-evaluation counts.
+
+
+RMSDs below are symmetry-aware, in Angstroms. Times are seconds. Per-target values are medians over 3 seeds.
+
+.. list-table:: Across all target/seed runs
+   :header-rows: 1
+
+   * - Engine
+     - Top <2 A
+     - Any returned <2 A
+     - Median top RMSD
+     - Median time
+     - Errors
+   * - Internal GA
+     - 3/18
+     - 3/18
+     - 8.19
+     - 28.6
+     - 0
+   * - Internal MC
+     - 2/18
+     - 2/18
+     - 8.52
+     - 363.1
+     - 0
+   * - Vina 1.2.7
+     - 3/18
+     - 4/18
+     - 7.74
+     - 555.7
+     - 0
+
+.. list-table:: Pose recovery by complex
+   :header-rows: 1
+
+   * - Complex
+     - Heavy atoms
+     - Internal torsions
+     - Vina torsions
+     - Internal GA RMSD
+     - Internal MC RMSD
+     - Vina 1.2.7 RMSD
+   * - 10GS
+     - 33
+     - 13
+     - 14
+     - 4.43
+     - 5.36
+     - 5.26
+   * - 1IMX
+     - 60
+     - 22
+     - 34
+     - 8.86
+     - 13.54
+     - 16.24
+   * - 1K9Q
+     - 46
+     - 16
+     - 17
+     - 13.03
+     - 8.14
+     - 13.28
+   * - 1NLO
+     - 84
+     - 24
+     - 25
+     - 7.53
+     - 15.25
+     - 7.17
+   * - 1NLP
+     - 76
+     - 16
+     - 16
+     - 15.04
+     - 13.92
+     - 10.06
+   * - 4YEF
+     - 77
+     - 7
+     - 28
+     - 1.06
+     - 8.78
+     - 1.13
+
+.. list-table:: Recovered runs by complex (RMSD <2 A)
+   :header-rows: 1
+
+   * - Complex
+     - Internal GA top
+     - Internal MC top
+     - Vina 1.2.7 top
+     - Internal GA any returned
+     - Internal MC any returned
+     - Vina 1.2.7 any returned
+   * - 10GS
+     - 0/3
+     - 1/3
+     - 0/3
+     - 0/3
+     - 1/3
+     - 1/3
+   * - 1IMX
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+   * - 1K9Q
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+   * - 1NLO
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+   * - 1NLP
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+   * - 4YEF
+     - 3/3
+     - 1/3
+     - 3/3
+     - 3/3
+     - 1/3
+     - 3/3
+
+.. list-table:: Median runtime by complex
+   :header-rows: 1
+
+   * - Complex
+     - Internal GA (s)
+     - Internal MC (s)
+     - Vina 1.2.7 (s)
+   * - 10GS
+     - 21.6
+     - 271.4
+     - 97.0
+   * - 1IMX
+     - 27.5
+     - 375.5
+     - 726.9
+   * - 1K9Q
+     - 23.1
+     - 308.2
+     - 211.5
+   * - 1NLO
+     - 42.7
+     - 526.5
+     - 1304.8
+   * - 1NLP
+     - 34.7
+     - 468.1
+     - 766.4
+   * - 4YEF
+     - 29.7
+     - 356.9
+     - 402.5
+
+.. list-table:: Median search work (Vina does not expose these counters)
+   :header-rows: 1
+
+   * - Complex
+     - Engine
+     - Local minimizations
+     - Objective evaluations
+   * - 10GS
+     - Internal GA
+     - 192
+     - 30318
+   * - 10GS
+     - Internal MC
+     - 2198
+     - 341460
+   * - 10GS
+     - Vina 1.2.7
+     - --
+     - --
+   * - 1IMX
+     - Internal GA
+     - 192
+     - 32146
+   * - 1IMX
+     - Internal MC
+     - 2198
+     - 353881
+   * - 1IMX
+     - Vina 1.2.7
+     - --
+     - --
+   * - 1K9Q
+     - Internal GA
+     - 192
+     - 36093
+   * - 1K9Q
+     - Internal MC
+     - 2226
+     - 353854
+   * - 1K9Q
+     - Vina 1.2.7
+     - --
+     - --
+   * - 1NLO
+     - Internal GA
+     - 192
+     - 35353
+   * - 1NLO
+     - Internal MC
+     - 2326
+     - 364153
+   * - 1NLO
+     - Vina 1.2.7
+     - --
+     - --
+   * - 1NLP
+     - Internal GA
+     - 192
+     - 36330
+   * - 1NLP
+     - Internal MC
+     - 2329
+     - 355292
+   * - 1NLP
+     - Vina 1.2.7
+     - --
+     - --
+   * - 4YEF
+     - Internal GA
+     - 192
+     - 34284
+   * - 4YEF
+     - Internal MC
+     - 3085
+     - 379234
+   * - 4YEF
+     - Vina 1.2.7
+     - --
+     - --
+
+.. figure:: ../_static/benchmarks/pdbbind_docking.svg
+   :alt: Per-run accuracy and runtime across search engines.
+
+   Dots show individual seeds; larger markers show medians. The dashed line marks 2 Angstrom RMSD. Runtime uses a logarithmic scale.
+
+Download the :download:`per-run CSV <../_static/benchmarks/pdbbind_docking.csv>` or :download:`full JSON report <../_static/benchmarks/pdbbind_docking.json>`. The JSON records the protocol, source/input checksums, per-pose RMSDs and search statistics.
 
 .. benchmark-results-end
 
@@ -168,6 +432,7 @@ For example, a shorter six-complex comparison with one seed is:
 .. code-block:: bash
 
    python -m asv_bench.docking_pdbbind --engines ga mc --seeds 42 --mc-steps 20 --output docs/_static/benchmarks/pdbbind_ga_mc_probe.json
+   python -m asv_bench.docking_pdbbind_report --input docs/_static/benchmarks/pdbbind_ga_mc_probe.json --figure docs/_static/benchmarks/pdbbind_ga_mc_probe.svg
 
 This reduces MC's search budget and is not equivalent to the default experiment.
 Use ``--targets``, ``--seeds`` or ``--engines`` for a smaller experiment and

@@ -82,7 +82,9 @@ torsions, restraints, energy ranking and clustering.
    print(scorer.score())
 
 A custom scoring base must provide the pose/optimizer interface documented in
-``oddt.docking.search``. A box is required for ``optimize()`` and ``dock()``.
+``oddt.docking.search``. Its ``optimize(x, maxiter, energy_cap)`` must accept
+MC's hunting cap of 10 and the uncapped limit ``np.inf``; GA uses its default
+uncapped objective. A box is required for ``optimize()`` and ``dock()``.
 
 Genetic search
 --------------
@@ -159,12 +161,13 @@ cross products, compiled ``bincount`` accumulation, a cached intraligand pair
 mask and reuse of the initial objective in each L-BFGS-B call.
 
 Three alternating, unprofiled before/after pairs on the same machine reduced
-median ``dock()`` time from 4.62 to 3.89 seconds: 1.19 times faster, or 15.8%
+median ``dock()`` time from 4.48 to 3.70 seconds: 1.21 times faster, or 17.3%
 less runtime. The selected genes, coordinates, energies and entire search
 history were identical. The :download:`measurement JSON
 <../_static/benchmarks/mc_performance.json>` records every timing and settings.
-Both sides use the original uncapped scoring reduction order, also retained
-by the shared base to preserve GA's earlier reproducibility.
+Both sides use identical scoring and reduction order. Direct scoring retains
+the original term reductions; MC refinement uses the infinite-cap limit of
+its hunting evaluator, preserving its numerical reduction order too.
 This short probe measures implementation cost, not docking accuracy; it does
 not recover 10GS's native pose. The same optimizations also benefit GA.
 
@@ -185,26 +188,29 @@ input preservation, box containment, pose clustering and fresh score metadata.
 
 .. mc-validation-start
 
-Both backends passed the 41 focused docking, benchmark and scoring tests.
-The top-ranked 4LB3 results on an Apple M2 machine were:
+Both backends passed all 61 focused docking, benchmark and scoring tests.
+The top-ranked 4LB3 results were:
 
-.. list-table:: Monte Carlo redocking, seed 42
+.. list-table:: Flexible redocking, seed 42
    :header-rows: 1
 
    * - Backend
-     - Top RMSD
-     - Docking time
+     - GA top RMSD
+     - MC top RMSD
    * - RDKit
      - 0.32 Angstrom
-     - 235 s
+     - 0.32 Angstrom
    * - Open Babel
+     - 0.62 Angstrom
      - 0.56 Angstrom
-     - 239 s
 
-Times measure ``dock()`` only, excluding shared preparation and engine
-construction. The regression retains its requirement of RMSD below 1 Angstrom.
-The :download:`validation JSON <../_static/benchmarks/4lb3_monte_carlo.json>`
-records measured values, settings, versions and source/input checksums.
+Both retain the requirement of RMSD below 1 Angstrom. The
+:download:`validation JSON <../_static/benchmarks/4lb3_ga_mc.json>` records
+settings, versions and source/input checksums. These functional suites ran
+concurrently, so their durations are not used as performance measurements.
+See the isolated MC timing probe above and the sequential PDBbind comparison
+below for runtime measurements. Historical MC-only measurements are retained
+in the :download:`earlier JSON <../_static/benchmarks/4lb3_monte_carlo.json>`.
 
 .. mc-validation-end
 
@@ -213,5 +219,5 @@ translation, rotation and torsion coordinates analytically. Its ODDT atom typing
 scores and rankings can differ from AutoDock Vina. One successful redocking
 case does not establish accuracy across targets, ligands or protonation states.
 
-See :doc:`docking-benchmarks` for a comparison on the six local PDBbind
-complexes using the same settings across targets and three seeds per engine.
+See :doc:`docking-benchmarks` for the completed six-complex comparison of
+GA, MC and external Vina across three seeds.

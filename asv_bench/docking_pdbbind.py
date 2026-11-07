@@ -21,6 +21,8 @@ import time
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
+MAX_SYMMETRY_MATCHES = 10_000
+RMSD_BATCH_SIZE = 256
 
 
 def search_settings(ga_population=24, ga_generations=8, mc_exhaustiveness=8, mc_steps=250, maxiter=60):
@@ -81,14 +83,41 @@ def prepare(directory, target):
     return protein, reference, ligand, center, size, details
 
 
+def _symmetry_graph(molecule):
+    """Use literal chemical attributes, not SDF substructure-query predicates."""
+    from rdkit import Chem
+
+    source = molecule.Mol
+    if not any(atom.HasQuery() for atom in source.GetAtoms()) and not any(
+        bond.HasQuery() for bond in source.GetBonds()
+    ):
+        return source
+    graph = Chem.RWMol()
+    for atom in source.GetAtoms():
+        graph.AddAtom(Chem.Atom(atom))  # Copy chemical attributes into a plain atom.
+    for bond in source.GetBonds():
+        graph.AddBond(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx(), bond.GetBondType())
+        copied = graph.GetBondWithIdx(graph.GetNumBonds() - 1)
+        copied.SetIsAromatic(bond.GetIsAromatic())
+        copied.SetBondDir(bond.GetBondDir())
+    for original, copied in zip(source.GetBonds(), graph.GetBonds()):
+        if original.GetStereoAtoms():
+            copied.SetStereoAtoms(*original.GetStereoAtoms())
+        copied.SetStereo(original.GetStereo())
+    graph = graph.GetMol()
+    Chem.SanitizeMol(graph)
+    return graph
+
+
 def pose_metrics(reference, poses):
     """Measure direct and graph-symmetry RMSD without fitting coordinates."""
     reference = reference.clone
     reference.removeh()
     # The benchmark uses RDKit. Exclude hydrogen permutations and require
     # stereochemistry when enumerating chemical graph automorphisms.
-    matches = reference.Mol.GetSubstructMatches(reference.Mol, uniquify=False, useChirality=True, maxMatches=10000)
-    if not matches or len(matches) == 10000:
+    graph = _symmetry_graph(reference)
+    matches = graph.GetSubstructMatches(graph, uniquify=False, useChirality=True, maxMatches=MAX_SYMMETRY_MATCHES)
+    if not matches or len(matches) == MAX_SYMMETRY_MATCHES:
         raise ValueError("Could not enumerate all heavy-atom graph automorphisms")
     mappings = np.asarray(matches)
     direct = []
@@ -101,8 +130,13 @@ def pose_metrics(reference, poses):
             raise ValueError("Docked pose has a different heavy-atom count")
         difference = coords - reference.coords
         direct.append(float(np.sqrt(np.mean(np.sum(difference**2, axis=-1)))))
-        difference = coords[mappings] - reference.coords
-        symmetry.append(float(np.sqrt(np.min(np.mean(np.sum(difference**2, axis=-1), axis=-1)))))
+        # Large peptides can have tens of thousands of automorphisms. Bound
+        # the coordinate temporary while retaining an exact minimum over all.
+        best_squared = np.inf
+        for start in range(0, len(mappings), RMSD_BATCH_SIZE):
+            difference = coords[mappings[start : start + RMSD_BATCH_SIZE]] - reference.coords
+            best_squared = min(best_squared, np.min(np.mean(np.sum(difference**2, axis=-1), axis=-1)))
+        symmetry.append(float(np.sqrt(best_squared)))
     return {
         "pose_direct_rmsds": direct,
         "pose_symmetry_rmsds": symmetry,
@@ -283,7 +317,7 @@ def main():
         "box": "Reference heavy-atom centroid; each axis max(16 A, twice maximal absolute centered extent + 8 A)",
         "input_pose": "XYZ Euler rotation (1.2, -0.7, 2.1) radians, then displacement (12, -7, 8) A",
         "ga": settings["ga"],
-        "mc": dict(settings["mc"], hunt_energy_cap=10.0),
+        "mc": dict(settings["mc"], hunt_energy_cap=10.0, refinement_energy_cap="infinity (uncapped limit)"),
         "vina": {
             "exhaustiveness": 8,
             "n_cpu": 1,
@@ -293,6 +327,11 @@ def main():
         "all": {"num_modes": 5, "energy_range": 3},
         "timing": "Engine construction and dock(), including Vina grids and I/O; excludes shared preparation and evaluation",
         "primary_metric": "Heavy-atom graph-symmetry RMSD without alignment, chirality preserved; recovery < 2 A",
+        "symmetry_enumeration": {
+            "max_matches": MAX_SYMMETRY_MATCHES,
+            "rmsd_batch_size": RMSD_BATCH_SIZE,
+            "query_records": "Literal atom/bond attributes; preserve atom order and stereochemistry",
+        },
         "limits": "Small local fixture set; truncated pockets and supplied ring/conjugated geometry; not a PDBbind-wide benchmark",
     }
     packages = ["numpy", "scipy", "rdkit"] + (["vina"] if "vina" in args.engines else [])
