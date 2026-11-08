@@ -1,8 +1,8 @@
 PDBbind docking comparison
 ==========================
 
-This runner compares ODDT's internal genetic, Monte Carlo and experimental
-adaptive differential evolution engines, with
+This runner compares Vina, Vinardo and AD4 scoring with ODDT's internal
+genetic, Monte Carlo and experimental adaptive differential evolution searches, with
 optional installed AutoDock Vina 1.2.7, on all six PDBbind complexes distributed with the tests:
 10GS, 1IMX, 1K9Q, 1NLO, 1NLP and 4YEF. The earlier :doc:`docking` example
 was developed on 4LB3; these six complexes provide a separate check.
@@ -148,7 +148,11 @@ to the source ligand graph, avoiding hydrogen-count differences in file reading.
 Vina PDBQT input is generated from implicit hydrogens with polar donor
 hydrogens added explicitly. Nonpolar hydrogens are omitted before Vina torsion
 perception, preventing terminal methyl groups from gaining extra torsions.
-The internal engine uses the fully hydrogenated source and scores heavy atoms.
+The Vina and Vinardo internal engines use the fully hydrogenated source and
+score heavy atoms. AD4 prepares private copies with Gasteiger charges, merges
+nonpolar-H charges and scores heavy atoms plus explicit polar H. Its
+directionality and joint H-bond saturation are enabled by default; see
+:doc:`docking` for the direct-pair model and its differences from AutoGrid.
 See the `Vina preparation tutorial
 <https://autodock-vina.readthedocs.io/en/stable/docking_basic.html>`_ for its
 recommended input workflow; this experiment uses ODDT's PDBQT writer.
@@ -689,3 +693,37 @@ Reproduce it with:
 .. code-block:: console
 
    python -m asv_bench.docking_pdbbind --engines de --seeds 42 --diagnostics --output benchmark-results/de_probe.json
+
+AD4 and Vinardo scoring comparison
+---------------------------------
+
+This comparison holds the genetic search fixed at population 100, eight
+iterations and at most 60 local L-BFGS-B iterations, with seeds 1, 7 and 42
+on all six fixtures. Each internal engine performs 804 local minimizations.
+Scorer-specific forces and preparation differ. AD4 uses directional,
+saturable hydrogen bonds; terminal polar-H torsions retain their input
+geometry. No target-specific parameters are adjusted.
+
+The comparison view includes the archived Vina-scoring ``ga100`` experiment
+as a historical reference. The renderer verifies identical target/seed grids,
+GA settings, numerical package versions and input-file checksums before
+combining the view. Original measurements remain in their own archive entries;
+the reference rows are not duplicated into the new experiment. Absolute
+binding-score values are not calibrated identically across these models, so
+the comparison uses pose recovery, RMSD and runtime.
+
+Reproduce the new runs, publish the complete experiment and update this
+section with:
+
+.. code-block:: console
+
+   python -m asv_bench.docking_pdbbind --engines vinardo_ga ad4_ga --ga-population 100 --ga-generations 8 --maxiter 60 --seeds 1 7 42 --output benchmark-results/scoring_ga100.json --resume
+   python -m asv_bench.docking_benchmark_data --input benchmark-results/scoring_ga100.json --experiment scoring_ga100
+   python -m asv_bench.docking_pdbbind_report --experiment scoring_ga100 --compare-experiment ga100 --marker scoring-results --title "GA100 scoring comparison" --figure docs/_static/benchmarks/pdbbind_scoring_ga100.svg
+
+.. scoring-results-start
+
+The full comparison is being run; completed measurements are checkpointed
+before publication.
+
+.. scoring-results-end

@@ -387,7 +387,8 @@ def test_benchmark_diagnostics_observe_search_and_run_after_timer(benzene, monke
             pose.data.update({"vina_affinity": -1})
             return [pose]
 
-    def diagnostics(protein, reference, box, snapshots, maxiter, top_pose):
+    def diagnostics(protein, reference, box, snapshots, maxiter, top_pose, scoring="vina"):
+        assert scoring == "vina"
         events.append("diagnostics")
         assert len(snapshots) == 1 and snapshots[0][1]
         return {"observed": True}
@@ -514,3 +515,95 @@ def test_archive_cli_preserves_validation_provenance(small_report, monkeypatch, 
     with pytest.raises(SystemExit):
         main()
     assert archive.read_bytes() == before
+
+
+@pytest.mark.parametrize("scoring", ["ad4", "vinardo"])
+@pytest.mark.parametrize("search", ["ga", "mc", "de"])
+def test_benchmark_selects_scoring_and_search_independently(benzene, monkeypatch, tmp_path, scoring, search):
+    from asv_bench import docking_pdbbind as benchmark
+    from oddt import docking
+
+    monkeypatch.setattr(
+        benchmark, "prepare", lambda *args: (benzene, benzene, benzene, np.zeros(3), np.full(3, 16.0), {})
+    )
+
+    class Engine:
+        def __init__(self, protein, ligand, box):
+            self.search_stats_ = [{"local_minimizations": 1, "objective_evaluations": 2}]
+
+        def dock(self, **kwargs):
+            config = dict(benchmark.search_settings()[search])
+            config.pop("algorithm")
+            assert kwargs == dict(config, seed=7, num_modes=5, energy_range=3.0, progress=False)
+            pose = benzene.clone
+            pose.data[scoring + "_affinity"] = -3.5
+            return [pose]
+
+    monkeypatch.setattr(docking, scoring + "_" + search, Engine)
+    row = benchmark.run_one(tmp_path, "example", 7, scoring + "_" + search)
+    assert row["status"] == "ok", row.get("error")
+    assert row["scoring"] == scoring
+    assert row["algorithm"] == benchmark.ALGORITHMS[search]
+    assert row["top_affinity"] == -3.5
+
+
+def test_report_renders_new_scorers_without_relabeling(small_report, tmp_path):
+    from copy import deepcopy
+
+    report = deepcopy(small_report)
+    report["protocol"]["engines"] = ["ad4_ga", "vinardo_ga"]
+    for scoring in ("ad4", "vinardo"):
+        report["protocol"][scoring + "_ga"] = dict(
+            algorithm="genetic", scoring=scoring, population_size=100, generations=8, maxiter=60
+        )
+    source = [row for row in small_report["results"] if row["engine"] == "ga"]
+    report["results"] = [dict(row, engine=scoring + "_ga") for scoring in ("ad4", "vinardo") for row in source]
+    page = tmp_path / "scoring.rst"
+    page.write_text(".. benchmark-results-start\n\n.. benchmark-results-end\n")
+    render(report, page, tmp_path / "scoring.svg")
+    assert "AD4 GA" in page.read_text() and "Vinardo GA" in page.read_text()
+    report["protocol"]["ad4_ga"]["scoring"] = "vina"
+    with pytest.raises(ValueError, match="another scoring model"):
+        render(report, page, tmp_path / "scoring.svg")
+
+
+@pytest.mark.parametrize("scoring", ["ad4", "vinardo"])
+def test_reference_diagnostics_use_the_selected_scorer(benzene, scoring):
+    from asv_bench.docking_pdbbind import search_diagnostics
+
+    top = benzene.clone
+    top.data[scoring + "_total"] = 123
+    result = search_diagnostics(benzene, benzene, np.array([[-8.0] * 3, [8.0] * 3]), [], 2, top, scoring=scoring)
+    assert result["scoring"] == scoring
+    assert result["returned_top_total"] == 123
+    assert result["reference"]["minimized_total"] <= result["reference"]["initial_total"]
+
+
+def test_scoring_comparison_checks_inputs_budgets_and_preserves_reports(small_report):
+    from copy import deepcopy
+    from asv_bench.docking_pdbbind_report import compare_reports
+
+    primary = deepcopy(small_report)
+    primary["protocol"].update(
+        engines=["ad4_ga"], backend="rdk", ad4_ga={"algorithm": "genetic", "scoring": "ad4", "population_size": 100}
+    )
+    primary["results"] = [dict(row, engine="ad4_ga") for row in primary["results"] if row["engine"] == "ga"]
+    primary["versions"] = {"numpy": "example", "scipy": "example", "rdkit": "example"}
+    primary["sha256"] = {"tests/data/example.sdf": "checksum"}
+    reference = deepcopy(primary)
+    reference["protocol"]["engines"] = ["ga"]
+    reference["protocol"]["ga"] = {"algorithm": "genetic", "population_size": 100}
+    reference["results"] = [dict(row, engine="ga") for row in primary["results"]]
+    before_primary, before_reference = deepcopy(primary), deepcopy(reference)
+    combined = compare_reports(primary, reference, "ga100")
+    assert combined["protocol"]["engines"] == ["ga", "ad4_ga"]
+    assert combined["comparison_reference"]["experiment"] == "ga100"
+    assert primary == before_primary and reference == before_reference
+    summarize(combined)
+    reference["protocol"]["ga"]["population_size"] = 24
+    with pytest.raises(ValueError, match="budgets differ"):
+        compare_reports(primary, reference, "ga24")
+    reference["protocol"]["ga"]["population_size"] = 100
+    reference["sha256"]["tests/data/example.sdf"] = "different"
+    with pytest.raises(ValueError, match="checksums differ"):
+        compare_reports(primary, reference, "different")

@@ -26,6 +26,8 @@ def ad4_pair(first="C", second="C", r=4, charges=(0, 0), smoothing=0):
     engine.smoothing = smoothing
     engine.num_rotors = 0
     engine.unbound_energy = None
+    engine.directional_hb = False
+    engine.hbond_saturation = False
     engine.scoring_coordinates = np.array([[r, 0.0, 0.0]])
     engine.rec_coordinates = np.zeros((1, 3))
     engine._distant = np.zeros((1, 1), dtype=bool)
@@ -225,6 +227,9 @@ def test_new_scorers_compose_with_every_search(docking_pair, engine_class, kwarg
         assert float(pose.data[engine.scoring_name + "_affinity"]) == pytest.approx(result.score)
         assert_allclose(pose.coords[pose.atom_dict["atomicnum"] != 1], result.coords, atol=2e-5)
         if engine.score_all_atoms:
+            assert pose.data["ad4_model"] == "directional_saturated"
+            assert int(pose.data["ad4_directional_hb"]) == 1
+            assert int(pose.data["ad4_hbond_saturation"]) == 1
             assert_allclose(pose.charges, engine.lig_parameters["charges"])
             rescored = ad4_scoring(None, pose, charge_model=None)
             assert_allclose(rescored.lig_parameters["charges"], engine.lig_parameters["charges"])

@@ -1,12 +1,15 @@
 """Render the completed PDBbind comparison as tables and a scientific figure."""
 
 import argparse
+from copy import deepcopy
+import hashlib
+import json
 import os
 from pathlib import Path
 
 import numpy as np
 
-from .docking_pdbbind import ROOT
+from .docking_pdbbind import ROOT, ALGORITHMS, ENGINES, engine_spec
 from .docking_benchmark_data import ARCHIVE, load_report
 
 
@@ -46,6 +49,46 @@ def summarize(report):
     return result
 
 
+def compare_reports(report, reference, experiment):
+    """Compose a comparison view without duplicating archived measurements."""
+    summarize(report)
+    summarize(reference)
+    protocol, baseline = report["protocol"], reference["protocol"]
+    for key in ("targets", "seeds", "backend"):
+        if protocol.get(key) != baseline.get(key):
+            raise ValueError("Comparison protocols differ: " + key)
+    if set(protocol["engines"]) & set(baseline["engines"]):
+        raise ValueError("Comparison engine ids overlap")
+    for package in ("numpy", "scipy", "rdkit"):
+        if report["versions"].get(package) != reference["versions"].get(package):
+            raise ValueError("Comparison numerical versions differ: " + package)
+    inputs = {path: digest for path, digest in report.get("sha256", {}).items() if path.startswith("tests/data/")}
+    old_inputs = {
+        path: digest for path, digest in reference.get("sha256", {}).items() if path.startswith("tests/data/")
+    }
+    if not inputs or inputs != old_inputs:
+        raise ValueError("Comparison input checksums differ or are missing")
+    for name in protocol["engines"]:
+        _, search = engine_spec(name)
+        for old_name in baseline["engines"]:
+            if search is not None and engine_spec(old_name)[1] == search:
+                current = {key: value for key, value in protocol[name].items() if key != "scoring"}
+                previous = {key: value for key, value in baseline[old_name].items() if key != "scoring"}
+                if current != previous:
+                    raise ValueError("Comparison search budgets differ: " + search)
+    merged = deepcopy(report)
+    merged["protocol"]["engines"] = [*baseline["engines"], *protocol["engines"]]
+    for name in baseline["engines"]:
+        merged["protocol"][name] = deepcopy(baseline[name])
+    merged["results"] = [*deepcopy(reference["results"]), *merged["results"]]
+    merged["comparison_reference"] = {
+        "experiment": experiment,
+        "report_sha256": hashlib.sha256(json.dumps(reference, sort_keys=True).encode()).hexdigest(),
+        "platform": deepcopy(reference.get("platform")),
+    }
+    return merged
+
+
 def table(title, headers, rows):
     lines = [".. list-table:: " + title, "   :header-rows: 1", ""]
     for row in [headers, *rows]:
@@ -57,14 +100,18 @@ def number(value, precision=2):
     return "--" if value is None else ("%.*f" % (precision, value))
 
 
-def render(report, page, figure, source=None):
+def render(report, page, figure, source=None, marker="benchmark-results", title="Results"):
     summary = summarize(report)
     engines = report["protocol"]["engines"]
-    if not engines or set(engines) - {"ga", "mc", "de", "vina"}:
-        raise ValueError("The comparison report requires GA, MC, DE or Vina runs")
-    for engine, algorithm in (("ga", "genetic"), ("mc", "monte_carlo"), ("de", "differential_evolution")):
-        if engine in engines and report["protocol"].get(engine, {}).get("algorithm") != algorithm:
+    if not engines or set(engines) - set(ENGINES):
+        raise ValueError("The comparison report requires supported scoring/search engine ids")
+    for engine in engines:
+        scoring, search = engine_spec(engine)
+        config = report["protocol"].get(engine, {})
+        if search is not None and config.get("algorithm") != ALGORITHMS[search]:
             raise ValueError("Engine %s cannot label results from another search algorithm" % engine)
+        if engine not in (*ALGORITHMS, "vina") and config.get("scoring") != scoring:
+            raise ValueError("Engine %s cannot label results from another scoring model" % engine)
     targets = report["protocol"]["targets"]
     seed_count = len(report["protocol"]["seeds"])
     seed_word = "seed" if seed_count == 1 else "seeds"
@@ -74,6 +121,21 @@ def render(report, page, figure, source=None):
         "de": "Internal DE",
         "vina": "Vina " + report["versions"].get("vina", ""),
     }
+    names.update(
+        {
+            name: (
+                engine_spec(name)[0].upper() + " " + engine_spec(name)[1].upper()
+                if name.startswith("ad4_")
+                else "Vinardo " + engine_spec(name)[1].upper()
+            )
+            for name in engines
+            if name not in names
+        }
+    )
+    if len({engine_spec(name)[0] for name in engines}) > 1:
+        for name in engines:
+            if name in ALGORITHMS:
+                names[name] = "Vina scoring " + name.upper()
     overall = []
     for engine in report["protocol"]["engines"]:
         stats = summary["all", engine]
@@ -126,7 +188,8 @@ def render(report, page, figure, source=None):
     budgets = []
     for engine in engines:
         config = report["protocol"].get(engine, {})
-        if engine in ("ga", "de"):
+        _, search = engine_spec(engine)
+        if search in ("ga", "de"):
             budgets.append(
                 "%s: population %s, generations %s, maxiter %s%s."
                 % (
@@ -134,13 +197,14 @@ def render(report, page, figure, source=None):
                     config.get("population_size", "--"),
                     config.get("generations", "--"),
                     config.get("maxiter", "--"),
-                    ", short local maxiter %s" % config.get("local_maxiter", "--") if engine == "de" else "",
+                    ", short local maxiter %s" % config.get("local_maxiter", "--") if search == "de" else "",
                 )
             )
-        elif engine == "mc":
+        elif search == "mc":
             budgets.append(
-                "MC: %s trajectories, %s proposals each, maxiter %s."
+                "%s: %s trajectories, %s proposals each, maxiter %s."
                 % (
+                    names[engine],
                     config.get("exhaustiveness", "--"),
                     config.get("steps", "--"),
                     config.get("maxiter", "--"),
@@ -161,7 +225,7 @@ def render(report, page, figure, source=None):
                 ]
             )
     parts = [
-        "Results\n-------\n",
+        title + "\n" + "-" * len(title) + "\n",
         "This report uses seeds %s and engines %s. %s These budgets are not matched energy-evaluation counts.\n"
         % (
             ", ".join(map(str, report["protocol"]["seeds"])),
@@ -171,6 +235,14 @@ def render(report, page, figure, source=None):
         (
             "A single-seed report is a validation probe and cannot establish search robustness across seeds.\n"
             if seed_count == 1
+            else ""
+        ),
+        (
+            "The Vina-scoring reference is reused from the archived ``%s`` experiment, not rerun. "
+            "Target/seed grids, search budgets, numerical package versions and input checksums match. "
+            "Its timing measurements are historical; source versions remain recorded separately in the archive.\n"
+            % report["comparison_reference"]["experiment"]
+            if "comparison_reference" in report
             else ""
         ),
         "RMSDs below are symmetry-aware, in Angstroms. Times are seconds. Per-target values are medians over %d %s.\n"
@@ -216,9 +288,9 @@ def render(report, page, figure, source=None):
         % (download_stem, download_stem),
     ]
     text = page.read_text()
-    start = text.index(".. benchmark-results-start")
-    end = text.index(".. benchmark-results-end", start)
-    page.write_text(text[:start] + ".. benchmark-results-start\n\n" + "\n".join(parts) + "\n" + text[end:])
+    start = text.index(".. " + marker + "-start")
+    end = text.index(".. " + marker + "-end", start)
+    page.write_text(text[:start] + ".. " + marker + "-start\n\n" + "\n".join(parts) + "\n" + text[end:])
     import matplotlib
 
     matplotlib.use("Agg")
@@ -226,6 +298,16 @@ def render(report, page, figure, source=None):
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.3), constrained_layout=True)
     styles = {"ga": ("#5746a3", "^"), "mc": ("#087f8c", "o"), "de": ("#43852c", "D"), "vina": ("#bd4f00", "s")}
+    styles.update(
+        {
+            name: (
+                "#247c91" if name.startswith("vinardo_") else "#43852c",
+                {"ga": "^", "mc": "o", "de": "D"}[engine_spec(name)[1]],
+            )
+            for name in engines
+            if name not in styles
+        }
+    )
     offsets = np.linspace(-0.22, 0.22, len(engines)) if len(engines) > 1 else [0]
     for engine, offset in zip(engines, offsets):
         color, marker = styles[engine]
@@ -271,11 +353,18 @@ def main():
     parser.add_argument(
         "--experiment", help="Archived experiment to render (default: baseline); omit for standalone reports"
     )
+    parser.add_argument(
+        "--compare-experiment", help="Compatible archived reference experiment to display alongside results"
+    )
+    parser.add_argument("--marker", default="benchmark-results", help="RST start/end marker prefix")
+    parser.add_argument("--title", default="Results", help="Generated report section heading")
     parser.add_argument("--page", type=Path, default=ROOT / "docs/user-guide/docking-benchmarks.rst")
     parser.add_argument("--figure", type=Path, default=ROOT / "docs/_static/benchmarks/pdbbind_docking.svg")
     args = parser.parse_args()
     report = load_report(args.input, args.experiment)
-    render(report, args.page, args.figure, source=args.input)
+    if args.compare_experiment:
+        report = compare_reports(report, load_report(args.input, args.compare_experiment), args.compare_experiment)
+    render(report, args.page, args.figure, source=args.input, marker=args.marker, title=args.title)
 
 
 if __name__ == "__main__":

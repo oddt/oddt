@@ -1,18 +1,20 @@
-"""Independent, direct-pair AD4 radial scoring with analytic derivatives.
+"""Independent, direct-pair AD4 scoring with analytic derivatives.
 
 Equations: Huey et al. (2007), https://doi.org/10.1002/jcc.20634.
 Numerical atom parameters and bound-state weights: AutoDock4.2.6 User Guide,
 pp. 34–35 (printed page numbers). Dielectric: AutoDock3 User Guide, section 9.
 These are transcribed scientific parameters, not upstream implementation code.
 
-This radial model omits AutoGrid's angular H-bond factors and saturation.
-It is not a numerical replica of AutoDock4 or its grid interpolation.
+Directionality and valence use an explicit lone-pair, direct-pair adaptation;
+see ``_ad4_hbond``. It is not a numerical replica of AutoGrid's angular
+polynomials, probe saturation or grid interpolation.
 """
 
 import numpy as np
 from scipy.spatial.distance import cdist
 
 from .base import DockingBase, get_close_neighbors
+from ._ad4_hbond import acceptor_frames, angular_factors, geometry_rules, saturated_contacts
 from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
 
 # R_ii (diameter), epsilon_ii, volume, atomic solvation parameter,
@@ -95,11 +97,12 @@ def _parameters(molecule, charges):
         "charges": charges,
         "unmerged_charges": unmerged_charges,
         "active": active,
+        **geometry_rules(molecule, types),
     }
 
 
 class ad4_scoring(DockingBase):
-    """AD4 radial pair potentials, united-atom charges and bound-state scoring.
+    """AD4 pair terms, directional/saturable H-bonds and bound-state scoring.
 
     Parameters
     ----------
@@ -126,18 +129,29 @@ class ad4_scoring(DockingBase):
         so intraligand energy cancels from reported affinity, but not search.
     sample_callback : callable or None, optional
         Observer called after each local optimization.
+    directional_hb : bool, optional
+        Apply cosine-squared donor and explicit lone-pair angular factors.
+        Default True. False retains radial hydrogen-bond strengths.
+    hbond_saturation : bool, optional
+        Default True limits each donor H to one favorable bond, nitrogen to
+        one accepted bond and oxygen/sulfur to two, jointly across inter- and
+        intraligand contacts. Repulsions are retained.
 
     Notes
     -----
-    Independently implements 12-6 dispersion/repulsion, radial 12-10 H-bonding,
+    Independently implements 12-6 dispersion/repulsion, directional 12-10 H-bonding,
     Mehler–Solmajer screened electrostatics, charge-dependent Gaussian
     desolvation (sigma=3.5 Angstrom) and additive torsional entropy. Distances
     below 0.1 Angstrom are clamped; vdW/H-bonds use an 8 Angstrom cutoff,
     electrostatics/desolvation have no cutoff. Nonpolar H charges are merged
     into their parents. Unsupported elements and nonfinite charges fail.
 
-    This is a radial AD4 variant: AutoGrid's angular H-bond factors, saturation
-    and grid interpolation are omitted. Rings, conjugated bonds and terminal
+    Explicit lone-pair frames and minimum-energy capacity matching adapt AD4's
+    angular/valence requirements to direct pairs, rather than reproducing
+    AutoGrid's angular polynomials, probe saturation or grid interpolation.
+    Matching is piecewise differentiable; exact ties use a selected subgradient.
+    Set both H-bond options to False for the previous radial model.
+    Rings, conjugated bonds and terminal
     polar-H torsions retain their input geometry. The torsion count includes
     searched heavy-atom bonds. Affinities are not AutoDock4-equivalent.
     """
@@ -159,6 +173,8 @@ class ad4_scoring(DockingBase):
         smoothing=0.5,
         unbound_energy=None,
         sample_callback=None,
+        directional_hb=True,
+        hbond_saturation=True,
     ):
         self.weights = np.asarray((0.1662, 0.1209, 0.1406, 0.1322, 0.2983) if weights is None else weights, dtype=float)
         if self.weights.shape != (5,) or not np.isfinite(self.weights).all() or self.weights[-1] < 0:
@@ -169,9 +185,16 @@ class ad4_scoring(DockingBase):
             raise ValueError("smoothing must be nonnegative and finite")
         if unbound_energy is not None and not np.isfinite(unbound_energy):
             raise ValueError("unbound_energy must be finite or None")
+        for name, value in (("directional_hb", directional_hb), ("hbond_saturation", hbond_saturation)):
+            if not isinstance(value, (bool, np.bool_)):
+                raise ValueError(name + " must be a boolean")
+        if hbond_saturation and self.weights[1] < 0:
+            raise ValueError("hbond_saturation requires a nonnegative hydrogen-bond weight")
         self.charge_model = charge_model
         self.smoothing = float(smoothing)
         self.unbound_energy = unbound_energy
+        self.directional_hb = bool(directional_hb)
+        self.hbond_saturation = bool(hbond_saturation)
         super().__init__(rec, lig, box, box_size, sample_callback=sample_callback)
 
     def _prepare(self, molecule):
@@ -207,6 +230,11 @@ class ad4_scoring(DockingBase):
         else:
             prepared, self.rec_parameters = self._prepare(rec)
             self.rec_coordinates = np.array(prepared.coords, dtype=float)
+            self._rec_frames = (
+                acceptor_frames(self.rec_coordinates, self.rec_parameters["acceptor_rules"], gradient=False)
+                if self.directional_hb
+                else {}
+            )
             super().set_protein(prepared)
 
     def set_ligand(self, lig):
@@ -229,10 +257,7 @@ class ad4_scoring(DockingBase):
             raise ValueError("AD4 coords must include finite coordinates for every explicit atom, including hydrogens")
         return coords
 
-    def _pairs(self, coords=None, intra=False, gradient=False, energy_cap=None):
-        if energy_cap is not None and (np.isnan(energy_cap) or energy_cap <= 0):
-            raise ValueError("energy_cap must be positive or None")
-        coords = self._coords(coords)
+    def _pair_data(self, coords, intra=False):
         first = self.lig_parameters if intra else self.rec_parameters
         if first is None:
             raise ValueError("a receptor is required for intermolecular scoring")
@@ -282,27 +307,120 @@ class ad4_scoring(DockingBase):
         desolvation_slope = -r / 3.5**2 * desolvation
         terms = np.array([radial * ~hb, radial * hb, electrostatic, desolvation])
         slopes = np.array([radial_slope * ~hb, radial_slope * hb, electrostatic_slope, desolvation_slope])
-        factors = np.ones(len(r))
-        if energy_cap is not None and np.isfinite(energy_cap):
-            pair_energies = self.weights[:4] @ terms
-            if not intra:
-                pair_energies = np.bincount(cols, weights=pair_energies, minlength=len(coords))[cols]
-            factors = energy_cap / (energy_cap + np.maximum(pair_energies, 0))
-        total = (terms * factors).sum(axis=1)
-        if not gradient:
-            return total, None
-        slope = (self.weights[:4] @ slopes) * factors**2 * (raw_r > 0.1)
-        forces = (coords[cols] - first_coords[rows]) * (slope / np.maximum(raw_r, 1e-12))[:, None]
-        cartesian = np.zeros_like(coords)
-        for axis in range(3):
-            cartesian[:, axis] = np.bincount(cols, weights=forces[:, axis], minlength=len(coords))
-        if intra:
-            np.add.at(cartesian, rows, -forces)
-        return total, cartesian
+        return dict(
+            rows=rows,
+            cols=cols,
+            r=raw_r,
+            terms=terms,
+            slopes=slopes,
+            hb=hb,
+            first_coords=first_coords,
+            first_types=t1,
+            intra=intra,
+        )
+
+    def _evaluate(self, coords=None, gradient=False, energy_cap=None, receptor=True):
+        """Apply angular/valence terms before caps, then differentiate the result."""
+        if energy_cap is not None and (np.isnan(energy_cap) or energy_cap <= 0):
+            raise ValueError("energy_cap must be positive or None")
+        coords = self._coords(coords)
+        data = ([self._pair_data(coords)] if receptor else []) + [self._pair_data(coords, intra=True)]
+        offset = len(self.rec_coordinates) if receptor else 0
+        full_coords = np.vstack((self.rec_coordinates, coords)) if receptor else coords
+        donors, acceptors, radial_hb, contacts = [], [], [], []
+        for item in data:
+            indices = np.flatnonzero(item["hb"] & (item["terms"][1] < 0))
+            first_ids = item["rows"][indices] + (offset if item["intra"] else 0)
+            ligand_ids = item["cols"][indices] + offset
+            first_donor = item["first_types"][indices] == "HD"
+            donors.append(np.where(first_donor, first_ids, ligand_ids))
+            acceptors.append(np.where(first_donor, ligand_ids, first_ids))
+            radial_hb.append(item["terms"][1, indices].copy())
+            contacts.append(indices)
+        donors, acceptors = np.concatenate(donors), np.concatenate(acceptors)
+        radial_hb = np.concatenate(radial_hb)
+        angular = np.ones(len(donors))
+        sparse = None
+        if self.directional_hb and len(donors):
+            frames = acceptor_frames(coords, self.lig_parameters["acceptor_rules"], gradient=gradient)
+            frames = {
+                index + offset: (vectors, indices + offset, jacobian)
+                for index, (vectors, indices, jacobian) in frames.items()
+            }
+            if receptor:
+                frames.update(self._rec_frames)
+            ligand_parents = self.lig_parameters["donor_parent"]
+            parents = np.where(ligand_parents < 0, -1, ligand_parents + offset)
+            if receptor:
+                parents = np.concatenate((self.rec_parameters["donor_parent"], parents))
+            angular, sparse = angular_factors(full_coords, donors, acceptors, parents, frames, gradient=gradient)
+        keep = np.ones(len(donors), dtype=bool)
+        if self.hbond_saturation and len(donors):
+            capacities = self.lig_parameters["acceptor_capacity"]
+            if receptor:
+                capacities = np.concatenate((self.rec_parameters["acceptor_capacity"], capacities))
+            keep = saturated_contacts(donors, acceptors, radial_hb * angular, capacities)
+        coefficients = np.zeros(len(donors))
+        outputs, position = [], 0
+        for item, indices in zip(data, contacts):
+            end = position + len(indices)
+            factors_hb = angular[position:end] * keep[position:end]
+            item["terms"][1, indices] *= factors_hb
+            item["slopes"][1, indices] *= factors_hb
+            factors = np.ones(len(item["r"]))
+            if energy_cap is not None and np.isfinite(energy_cap) and not self.hbond_saturation:
+                pair_energies = self.weights[:4] @ item["terms"]
+                if not item["intra"]:
+                    pair_energies = np.bincount(item["cols"], weights=pair_energies, minlength=len(coords))[
+                        item["cols"]
+                    ]
+                factors = energy_cap / (energy_cap + np.maximum(pair_energies, 0))
+            terms = (item["terms"] * factors).sum(axis=1)
+            cartesian = None
+            if gradient:
+                slope = (self.weights[:4] @ item["slopes"]) * factors**2 * (item["r"] > 0.1)
+                rows, cols = item["rows"], item["cols"]
+                forces = (coords[cols] - item["first_coords"][rows]) * (slope / np.maximum(item["r"], 1e-12))[:, None]
+                cartesian = np.zeros_like(coords)
+                for axis in range(3):
+                    cartesian[:, axis] = np.bincount(cols, weights=forces[:, axis], minlength=len(coords))
+                if item["intra"]:
+                    np.add.at(cartesian, rows, -forces)
+                coefficients[position:end] = (
+                    self.weights[1] * radial_hb[position:end] * keep[position:end] * factors[indices] ** 2
+                )
+            outputs.append([terms, cartesian])
+            position = end
+        if gradient and sparse is not None:
+            contact, atom, derivatives = sparse
+            position = 0
+            for output, indices in zip(outputs, contacts):
+                end = position + len(indices)
+                mask = (contact >= position) & (contact < end) & (atom >= offset)
+                np.add.at(output[1], atom[mask] - offset, derivatives[mask] * coefficients[contact[mask], None])
+                position = end
+        if self.hbond_saturation and energy_cap is not None and np.isfinite(energy_cap):
+            # A monotone cap of the complete energy preserves continuity when
+            # equally good capacity assignments exchange inter/intraligand
+            # contacts. Separate per-atom caps would give those assignments
+            # different energies and introduce jumps at the matching boundary.
+            energy = float(self.weights[:4] @ sum(output[0] for output in outputs))
+            factor = energy_cap / (energy_cap + max(energy, 0))
+            for output in outputs:
+                output[0] *= factor
+                if gradient:
+                    output[1] *= factor**2
+        return outputs
+
+    def _pairs(self, coords=None, intra=False, gradient=False, energy_cap=None):
+        receptor = self.rec_parameters is not None
+        if not intra and not receptor:
+            raise ValueError("a receptor is required for intermolecular scoring")
+        outputs = self._evaluate(coords, gradient, energy_cap, receptor=receptor)
+        return outputs[-1 if intra else 0]
 
     def energy_and_gradient(self, coords, energy_cap=None):
-        inter, g_inter = self._pairs(coords, gradient=True, energy_cap=energy_cap)
-        intra, g_intra = self._pairs(coords, intra=True, gradient=True, energy_cap=energy_cap)
+        (inter, g_inter), (intra, g_intra) = self._evaluate(coords, gradient=True, energy_cap=energy_cap)
         return float(self.weights[:4] @ (inter + intra)), g_inter + g_intra
 
     def score_inter(self, coords=None):
@@ -314,12 +432,14 @@ class ad4_scoring(DockingBase):
         return self._pairs(coords, intra=True)[0]
 
     def energy(self, coords=None):
-        return float(self.weights[:4] @ (self.score_inter(coords) + self.score_intra(coords)))
+        inter, intra = self._evaluate(coords)
+        return float(self.weights[:4] @ (inter[0] + intra[0]))
 
     def score(self, coords=None):
-        score = self.weights[:4] @ self.score_inter(coords) + self.weights[4] * self.num_rotors
+        inter, intra = self._evaluate(coords)
+        score = self.weights[:4] @ inter[0] + self.weights[4] * self.num_rotors
         if self.unbound_energy is not None:
-            score += self.weights[:4] @ self.score_intra(coords) - self.unbound_energy
+            score += self.weights[:4] @ intra[0] - self.unbound_energy
         return float(score)
 
     def score_components(self, coords=None):
@@ -336,7 +456,10 @@ class ad4_scoring(DockingBase):
             ad4_total=float(total),
             ad4_num_rotors=self.num_rotors,
             ad4_torsion=float(self.weights[4] * self.num_rotors),
-            ad4_model="radial",
+            ad4_model=("directional" if self.directional_hb else "radial")
+            + ("_saturated" if self.hbond_saturation else ""),
+            ad4_directional_hb=int(self.directional_hb),
+            ad4_hbond_saturation=int(self.hbond_saturation),
             ad4_charge_model=self.charge_model or "supplied",
             ad4_smoothing=self.smoothing,
             ad4_unbound_model="bound" if self.unbound_energy is None else "fixed",
@@ -365,12 +488,12 @@ class ad4_scoring(DockingBase):
 
 
 class ad4_ga(GeneticAlgorithmMixin, ad4_scoring):
-    """AD4 radial scoring with genetic search and L-BFGS-B refinement."""
+    """Directional, saturable AD4 scoring with genetic search and L-BFGS-B."""
 
 
 class ad4_mc(MonteCarloMixin, ad4_scoring):
-    """AD4 radial scoring with Monte Carlo search and L-BFGS-B refinement."""
+    """Directional, saturable AD4 scoring with Monte Carlo search and L-BFGS-B."""
 
 
 class ad4_de(DifferentialEvolutionMixin, ad4_scoring):
-    """AD4 radial scoring with adaptive differential evolution and L-BFGS-B."""
+    """Directional, saturable AD4 scoring with adaptive DE and L-BFGS-B."""

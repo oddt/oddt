@@ -24,6 +24,42 @@ from .docking_benchmark_data import RUN_OUTPUT, write_csv
 ROOT = Path(__file__).resolve().parents[1]
 MAX_SYMMETRY_MATCHES = 10_000
 RMSD_BATCH_SIZE = 256
+ALGORITHMS = {"ga": "genetic", "mc": "monte_carlo", "de": "differential_evolution"}
+ENGINES = [*ALGORITHMS, "vina", *(scorer + "_" + search for scorer in ("vinardo", "ad4") for search in ALGORITHMS)]
+
+
+def engine_spec(name):
+    """Return scoring model and search; retain historical Vina engine ids."""
+    if name == "vina":
+        return "vina", None
+    if name in ALGORITHMS:
+        return "vina", name
+    if name in ENGINES:
+        return tuple(name.rsplit("_", 1))
+    raise ValueError("Unknown engine: " + name)
+
+
+def scoring_settings(engine):
+    """Record the actual scorer's parameters, independent of search settings."""
+    data = {"name": engine.scoring_name, "coordinate_atoms": "all" if engine.score_all_atoms else "heavy"}
+    if hasattr(engine, "weights"):
+        data["weights"] = engine.weights.tolist()
+        data["term_order"] = [*engine.term_names, "torsion"]
+    if engine.scoring_name == "ad4":
+        data.update(
+            charge_model=engine.charge_model,
+            directional_hb=engine.directional_hb,
+            hbond_saturation=engine.hbond_saturation,
+            smoothing=engine.smoothing,
+            unbound_energy=engine.unbound_energy,
+            preparation="Private copies; add H, calculate Gasteiger charges, merge nonpolar H charges",
+            angular_model="Explicit lone-pair cosine-squared direct-pair adaptation",
+            saturation_model="Joint inter/intraligand capacitated matching",
+            terminal_polar_h_torsions="Fixed input geometry",
+        )
+    else:
+        data["preparation"] = "ODDT atom typing on shared hydrogenated input; heavy atoms scored"
+    return data
 
 
 def search_settings(
@@ -181,13 +217,13 @@ def coordinate_metrics(reference, coordinates):
     }
 
 
-def search_diagnostics(protein, reference, box, snapshots, maxiter, top_pose):
+def search_diagnostics(protein, reference, box, snapshots, maxiter, top_pose, scoring="vina"):
     """Post-search oracles distinguish sampled poses from final energy ranking.
 
     Reference coordinates are used only after dock() has finished. No native
     pose or RMSD feeds back into a search or its output selection.
     """
-    from oddt.docking import vina_scoring
+    from oddt import docking
 
     feasible = [
         (coords, uncapped)
@@ -203,17 +239,18 @@ def search_diagnostics(protein, reference, box, snapshots, maxiter, top_pose):
         result[label + "_best_symmetry_rmsd"] = (
             coordinate_metrics(reference, coords)["best_symmetry_rmsd"] if coords else None
         )
-    scorer = vina_scoring(protein, reference, box=box)
-    native_energy = float(scorer.weighted_total())
+    scorer = getattr(docking, scoring + "_scoring")(protein, reference, box=box)
+    native_energy = float(scorer.energy())
     native = scorer.optimize(maxiter=maxiter)
     native_feasible = bool(np.all(native.coords >= box[0] - 1e-4) and np.all(native.coords <= box[1] + 1e-4))
     result["reference"] = {
         "initial_total": native_energy,
-        "minimized_total": float(scorer.weighted_total(native.coords)),
+        "minimized_total": float(scorer.energy(scorer._result_coords(native))),
         "minimized_symmetry_rmsd": coordinate_metrics(reference, [native.coords])["top_symmetry_rmsd"],
         "minimized_feasible": native_feasible,
     }
-    result["returned_top_total"] = float(top_pose.data["vina_total"])
+    result["returned_top_total"] = float(top_pose.data[scoring + "_total"])
+    result["scoring"] = scoring
     return result
 
 
@@ -266,7 +303,7 @@ def dock_vina(protein, ligand, center, size, seed):
 
 
 def run_one(directory, target, seed, engine_name, settings=None, progress=False, diagnostics=False):
-    from oddt.docking import vina_ga, vina_mc, vina_de
+    from oddt import docking
     from oddt.spatial import rmsd
 
     row = {
@@ -277,6 +314,8 @@ def run_one(directory, target, seed, engine_name, settings=None, progress=False,
         "runner_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
     }
     try:
+        scoring, search = engine_spec(engine_name)
+        row.update(scoring=scoring, algorithm=ALGORITHMS.get(search, "external_vina"))
         protein, reference, ligand, center, size, details = prepare(directory, target)
         row.update(details)
         row["input_rmsd"] = float(rmsd(reference, ligand))
@@ -288,12 +327,19 @@ def run_one(directory, target, seed, engine_name, settings=None, progress=False,
 
         start = time.perf_counter()
         try:
-            if engine_name in ("ga", "mc", "de"):
-                configuration = dict((settings or search_settings())[engine_name])
+            if search is not None:
+                configuration = dict((settings or search_settings())[search])
                 configuration.pop("algorithm")
-                engine_class = {"ga": vina_ga, "mc": vina_mc, "de": vina_de}[engine_name]
+                engine_class = getattr(docking, scoring + "_" + search)
                 observer = {"sample_callback": observe} if diagnostics else {}
                 engine = engine_class(protein, ligand, box=box, **observer)
+                if hasattr(engine, "scoring_name"):
+                    row["scoring_parameters"] = scoring_settings(engine)
+                    row["searched_torsions"] = len(engine.rotors)
+                    if engine.score_all_atoms:
+                        row["prepared_ligand_atoms"] = len(engine.scoring_coordinates)
+                        row["ligand_polar_hydrogens"] = int((engine.lig_parameters["types"] == "HD").sum())
+                        row["ligand_charge"] = float(engine.lig_parameters["charges"].sum())
                 poses = engine.dock(**configuration, seed=seed, num_modes=5, energy_range=3.0, progress=progress)
                 row["search_stats"] = engine.search_stats_
                 for metric in ("local_minimizations", "objective_evaluations"):
@@ -307,11 +353,13 @@ def run_one(directory, target, seed, engine_name, settings=None, progress=False,
         if not poses:
             raise RuntimeError("Docking returned no poses")
         row["num_poses"] = len(poses)
-        row["top_affinity"] = float(poses[0].data["vina_affinity"])
+        row["top_affinity"] = float(poses[0].data[scoring + "_affinity"])
         row.update(pose_metrics(reference, poses))
         if diagnostics:
             row["diagnostics"] = (
-                search_diagnostics(protein, reference, box, snapshots, configuration["maxiter"], poses[0])
+                search_diagnostics(
+                    protein, reference, box, snapshots, configuration["maxiter"], poses[0], scoring=scoring
+                )
                 if engine_name != "vina"
                 else {"unavailable": "Vina API does not expose local-search results"}
             )
@@ -333,7 +381,7 @@ def main():
     parser.add_argument("--data", type=Path, default=ROOT / "tests/data/pdbbind")
     parser.add_argument("--targets", nargs="+")
     parser.add_argument("--seeds", nargs="+", type=int, default=[1, 7, 42])
-    parser.add_argument("--engines", nargs="+", choices=["ga", "mc", "de", "vina"], default=["ga", "mc", "vina"])
+    parser.add_argument("--engines", nargs="+", choices=ENGINES, default=["ga", "mc", "vina"])
     parser.add_argument("--ga-population", type=int, default=100)
     parser.add_argument("--ga-generations", type=int, default=8)
     parser.add_argument("--mc-exhaustiveness", type=int, default=8)
@@ -353,6 +401,7 @@ def main():
     args = parser.parse_args()
     os.environ["ODDT_TOOLKIT"] = "rdk"
     import oddt
+    from oddt import docking
 
     targets = args.targets or discover_targets(args.data)
     if not targets or set(targets) - set(discover_targets(args.data)):
@@ -415,6 +464,20 @@ def main():
         },
         "limits": "Small local fixture set; truncated pockets and supplied ring/conjugated geometry; not a PDBbind-wide benchmark",
     }
+    protocol["scoring_models"] = {
+        scoring: scoring_settings(getattr(docking, scoring + "_scoring")(None))
+        for scoring in sorted({engine_spec(name)[0] for name in args.engines if name != "vina"})
+    }
+    for name in args.engines:
+        scoring, search = engine_spec(name)
+        if search is not None and name not in ALGORITHMS:
+            scorer_class = getattr(docking, scoring + "_scoring")
+            protocol[name] = dict(settings[search], scoring=scoring)
+            if search == "mc":
+                protocol[name].update(
+                    hunt_energy_cap=scorer_class.mc_hunt_energy_cap,
+                    refinement_energy_cap=scorer_class.mc_refinement_energy_cap,
+                )
     packages = ["numpy", "scipy", "rdkit"] + (["vina"] if "vina" in args.engines else [])
     versions = {name: importlib.metadata.version(name) for name in packages}
     source_files = [
@@ -425,6 +488,9 @@ def main():
         Path(oddt.__file__).parent / "docking/search.py",
         Path(oddt.__file__).parent / "docking/__init__.py",
         Path(oddt.__file__).parent / "docking/AutodockVina.py",
+        Path(oddt.__file__).parent / "docking/vinardo.py",
+        Path(oddt.__file__).parent / "docking/ad4.py",
+        Path(oddt.__file__).parent / "docking/_ad4_hbond.py",
     ]
     source_files.extend(
         args.data / target / (target + suffix) for target in targets for suffix in ("_ligand.sdf", "_pocket.pdb")

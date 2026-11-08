@@ -12,7 +12,7 @@ The existing ``vina_docking`` name remains an alias for ``vina_mc``.
 
 ``vinardo_scoring`` and ``ad4_scoring`` provide two additional independently
 implemented models. Each has ``_ga``, ``_mc`` and ``_de`` engines, for example
-``vinardo_ga`` and ``ad4_mc``. AD4 is a **radial direct-pair variant**, with the
+``vinardo_ga`` and ``ad4_mc``. AD4 uses **directional, saturable direct pairs**, with the
 limitations and preparation requirements described below.
 
 Prepare a receptor with appropriate protonation and set ``protein = True``
@@ -143,8 +143,8 @@ using the same PDBQT-style rotor count as the existing Vina scorer.
 ``score_inter()`` and ``score_intra()`` return four unweighted terms in the
 order Gaussian, repulsion, hydrophobic and hydrogen bond.
 
-AD4 radial scoring
-~~~~~~~~~~~~~~~~~~
+AD4 scoring
+~~~~~~~~~~~
 
 .. code-block:: python
 
@@ -163,7 +163,7 @@ bound-state weights are numerical specifications in the
 <https://autodock.scripps.edu/wp-content/uploads/sites/56/2022/04/AutoDock4.2.6_UserGuide.pdf>`_.
 No upstream implementation code is included in either new scorer.
 
-AD4 includes 12-6 van der Waals interactions, radial 12-10 hydrogen bonding,
+AD4 includes 12-6 van der Waals interactions, directional 12-10 hydrogen bonding,
 Mehler–Solmajer distance-dependent dielectric electrostatics and
 charge-dependent Gaussian desolvation. The Gaussian sigma is 3.5 Angstrom,
 as published in the paper. The five default weights are 0.1662, 0.1209,
@@ -174,10 +174,47 @@ torsional entropy. H-bond pairs replace the vdW term. The optional
 These short-range terms have an 8 Angstrom cutoff. Electrostatics and
 desolvation have no cutoff. Distances below 0.1 Angstrom are clamped.
 
-This implementation **omits AutoGrid's angular H-bond factors, H-bond
-saturation and grid interpolation**. It is useful as an AD4 radial model
-with independent search, but its affinities are not numerically equivalent
-to AutoDock4. Rings, conjugated bonds and terminal polar-H torsions retain
+``directional_hb=True`` and ``hbond_saturation=True`` are the defaults.
+Directionality and limited hydrogen-bond multiplicity follow the physical
+requirements described in the AD4 paper. The following explicit functions
+and assignment procedure are **our direct-pair adaptation**, rather than a
+reproduction of AutoGrid's angular polynomials, probe saturation algorithm or
+grid interpolation. Affinities are not numerically equivalent to AutoDock4.
+No upstream implementation code is used.
+
+For a donor D, its polar hydrogen H, and an acceptor A, let ``u_DH`` and
+``u_HA`` be unit vectors pointing from D to H and from H to A. The donor
+factor is ``max(dot(u_DH, u_HA), 0)**2``. The acceptor factor is
+``max(max_j(dot(lone_pair_j, u_AH)), 0)**2``. Their product weights the
+attractive (negative) part of the 12-10 interaction. Positive repulsive
+contacts remain fully active at every angle.
+
+Nitrogen's lone-pair direction opposes the sum of its normalized bonded
+directions; a planar three-coordinate nitrogen uses the plane normal.
+One-coordinate O/S acceptors use two in-plane directions at 120 degrees to
+their bond, with a neighboring heavy atom defining the plane. Two-coordinate
+O/S acceptors use two tetrahedral lone-pair directions. A terminal acceptor
+without a plane-defining neighbor uses an axial direction, and an isolated
+acceptor is spherical. All frames move with their defining atoms. Analytic
+gradients include forces on those neighbors, as well as on D, H and A.
+
+Saturation uses minimum-energy capacitated matching over all favorable
+hydrogen bonds, **jointly across intermolecular and intraligand contacts**.
+Each donor hydrogen donates once; nitrogen accepts once and O/S twice. This
+finds the best allowed combination rather than selecting contacts greedily.
+The uncapped energy is a continuous minimum over assignments and is piecewise
+differentiable. At an exact tie the chosen assignment supplies a subgradient.
+For saturated scoring, finite MC hunting caps apply to the complete energy
+as ``E * cap / (cap + max(E, 0))``. This monotone transformation preserves
+continuity when an assignment switches between inter- and intraligand bonds.
+The shared box restraint remains uncapped. A nonnegative H-bond weight is
+required when saturation is enabled.
+
+Set ``directional_hb=False, hbond_saturation=False`` to recover the preceding
+radial model, including its per-atom intermolecular/per-pair intraligand
+hunting caps. Each option can also be disabled independently.
+
+Rings, conjugated bonds and terminal polar-H torsions retain
 their supplied geometry; the additive torsion count includes searched
 heavy-atom bonds. These distinctions affect both scores and pose recovery.
 
@@ -210,7 +247,8 @@ order vdW, H-bond, electrostatic and desolvation.
 Both scorers emit ``docking_scorer``, ``docking_energy``, ``docking_score``
 and weighted ``docking_term_inter_*`` / ``docking_term_intra_*`` fields.
 They also emit ``vinardo_affinity`` / ``ad4_affinity``, model-prefixed totals
-and rotor counts. AD4 records ``ad4_model=radial``, charge preparation,
+and rotor counts. AD4 records ``ad4_model=directional_saturated`` by default,
+both H-bond flags, charge preparation,
 smoothing and unbound-reference settings. Energies are in kcal/mol; these
 empirical estimates should not be compared across scoring models as if
 they were the same calibrated observable.
@@ -233,12 +271,15 @@ Scorer            Top-pose RMSD (Å)   Best returned RMSD (Å)
 ================  ==================  =======================
 Vinardo           0.564               0.564
 AD4 radial        5.781               1.126
+AD4 directional   1.462               1.140
 ================  ==================  =======================
 
 This checks integration on one complex, not a broad comparison of scoring
-accuracy. AD4 radial found a near-native candidate but ranked another pose
-first. Its omitted H-bond directionality and preparation differences remain
-material limitations.
+accuracy. The directional AD4 row uses both new H-bond terms. The radial row
+records the earlier model with both options off; it found a near-native
+candidate but ranked another pose first.
+Preparation, the explicit angular model and direct-pair/grid differences
+remain material limitations when comparing engines.
 
 Implementing another scorer
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
