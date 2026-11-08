@@ -1,13 +1,13 @@
 """Render the completed PDBbind comparison as tables and a scientific figure."""
 
 import argparse
-import json
 import os
 from pathlib import Path
 
 import numpy as np
 
 from .docking_pdbbind import ROOT
+from .docking_benchmark_data import ARCHIVE, load_report
 
 
 def summarize(report):
@@ -60,15 +60,20 @@ def number(value, precision=2):
 def render(report, page, figure, source=None):
     summary = summarize(report)
     engines = report["protocol"]["engines"]
-    if not {"ga", "mc"}.issubset(engines) or set(engines) - {"ga", "mc", "vina"}:
-        raise ValueError("The comparison report requires GA and MC runs, optionally Vina")
-    for engine, algorithm in (("ga", "genetic"), ("mc", "monte_carlo")):
-        if report["protocol"].get(engine, {}).get("algorithm") != algorithm:
+    if not engines or set(engines) - {"ga", "mc", "de", "vina"}:
+        raise ValueError("The comparison report requires GA, MC, DE or Vina runs")
+    for engine, algorithm in (("ga", "genetic"), ("mc", "monte_carlo"), ("de", "differential_evolution")):
+        if engine in engines and report["protocol"].get(engine, {}).get("algorithm") != algorithm:
             raise ValueError("Engine %s cannot label results from another search algorithm" % engine)
     targets = report["protocol"]["targets"]
     seed_count = len(report["protocol"]["seeds"])
     seed_word = "seed" if seed_count == 1 else "seeds"
-    names = {"ga": "Internal GA", "mc": "Internal MC", "vina": "Vina " + report["versions"].get("vina", "")}
+    names = {
+        "ga": "Internal GA",
+        "mc": "Internal MC",
+        "de": "Internal DE",
+        "vina": "Vina " + report["versions"].get("vina", ""),
+    }
     overall = []
     for engine in report["protocol"]["engines"]:
         stats = summary["all", engine]
@@ -118,20 +123,50 @@ def render(report, page, figure, source=None):
     figure_link = os.path.relpath(figure, page.parent).replace(os.sep, "/")
     source = figure.with_suffix(".json") if source is None else source
     download_stem = str(Path(os.path.relpath(source, page.parent)).with_suffix("")).replace(os.sep, "/")
-    ga, mc = (report["protocol"][name] for name in ("ga", "mc"))
+    budgets = []
+    for engine in engines:
+        config = report["protocol"].get(engine, {})
+        if engine in ("ga", "de"):
+            budgets.append(
+                "%s: population %s, generations %s, maxiter %s%s."
+                % (
+                    names[engine],
+                    config.get("population_size", "--"),
+                    config.get("generations", "--"),
+                    config.get("maxiter", "--"),
+                    ", short local maxiter %s" % config.get("local_maxiter", "--") if engine == "de" else "",
+                )
+            )
+        elif engine == "mc":
+            budgets.append(
+                "MC: %s trajectories, %s proposals each, maxiter %s."
+                % (
+                    config.get("exhaustiveness", "--"),
+                    config.get("steps", "--"),
+                    config.get("maxiter", "--"),
+                )
+            )
+    diagnostic_rows = []
+    for row in report["results"]:
+        diagnostic = row.get("diagnostics", {})
+        if row["status"] == "ok" and "sampled_best_symmetry_rmsd" in diagnostic:
+            diagnostic_rows.append(
+                [
+                    row["target"].upper(),
+                    row["seed"],
+                    names[row["engine"]],
+                    number(diagnostic["sampled_best_symmetry_rmsd"]),
+                    number(diagnostic["uncapped_best_symmetry_rmsd"]),
+                    number(row["best_symmetry_rmsd"]),
+                ]
+            )
     parts = [
         "Results\n-------\n",
-        "This report uses seeds %s and engines %s. GA: population %s, generations %s, maxiter %s. "
-        "MC: %s trajectories, %s proposals each, maxiter %s. These budgets are not matched energy-evaluation counts.\n"
+        "This report uses seeds %s and engines %s. %s These budgets are not matched energy-evaluation counts.\n"
         % (
             ", ".join(map(str, report["protocol"]["seeds"])),
             ", ".join(names[e] for e in engines),
-            ga.get("population_size", "--"),
-            ga.get("generations", "--"),
-            ga.get("maxiter", "--"),
-            mc.get("exhaustiveness", "--"),
-            mc.get("steps", "--"),
-            mc.get("maxiter", "--"),
+            " ".join(budgets),
         ),
         (
             "A single-seed report is a validation probe and cannot establish search robustness across seeds.\n"
@@ -163,6 +198,18 @@ def render(report, page, figure, source=None):
             ["Complex", "Engine", "Local minimizations", "Objective evaluations"],
             work,
         ),
+        (
+            table(
+                "Sampled versus returned poses (per run, symmetry RMSD in Angstroms)",
+                ["Complex", "Seed", "Engine", "Closest sampled", "Closest uncapped", "Best returned"],
+                diagnostic_rows,
+            )
+            + "\nSampled results include discarded proposals and short/capped local searches. "
+            "The uncapped subset includes short searches. Reference minimization diagnostics and "
+            "same-scorer total energies are available in the JSON. These diagnostics do not guide the search.\n"
+            if diagnostic_rows
+            else ""
+        ),
         ".. figure:: %s\n   :alt: Per-run accuracy and runtime across search engines.\n\n   Dots show individual seeds; larger markers show medians. The dashed line marks 2 Angstrom RMSD. Runtime uses a logarithmic scale.\n"
         % figure_link,
         "Download the :download:`per-run CSV <%s.csv>` or :download:`full JSON report <%s.json>`. The JSON records the protocol, source/input checksums, per-pose RMSDs and search statistics.\n"
@@ -178,8 +225,9 @@ def render(report, page, figure, source=None):
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.3), constrained_layout=True)
-    styles = {"ga": ("#5746a3", "^"), "mc": ("#087f8c", "o"), "vina": ("#bd4f00", "s")}
-    for engine, offset in zip(engines, np.linspace(-0.22, 0.22, len(engines))):
+    styles = {"ga": ("#5746a3", "^"), "mc": ("#087f8c", "o"), "de": ("#43852c", "D"), "vina": ("#bd4f00", "s")}
+    offsets = np.linspace(-0.22, 0.22, len(engines)) if len(engines) > 1 else [0]
+    for engine, offset in zip(engines, offsets):
         color, marker = styles[engine]
         for column, (metric, aggregate, label) in enumerate(
             (
@@ -204,7 +252,9 @@ def render(report, page, figure, source=None):
         axis.set_xticks(range(len(targets)), [target.upper() for target in targets], rotation=30)
         axis.grid(axis="y", alpha=0.2)
         axis.spines[["top", "right"]].set_visible(False)
-        axis.legend(loc="lower center", bbox_to_anchor=(0.5, 1.01), ncol=len(engines), frameon=False, fontsize=9)
+        axis.legend(
+            loc="lower center", bbox_to_anchor=(0.5, 1.01), ncol=min(3, len(engines)), frameon=False, fontsize=9
+        )
     axes[0].axhline(2, color="#555555", linestyle="--", linewidth=1)
     axes[0].set_ylim(bottom=0)
     axes[1].set_yscale("log")
@@ -217,11 +267,15 @@ def render(report, page, figure, source=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--input", type=Path, default=ROOT / "docs/_static/benchmarks/pdbbind_docking.json")
+    parser.add_argument("--input", type=Path, default=ARCHIVE)
+    parser.add_argument(
+        "--experiment", help="Archived experiment to render (default: baseline); omit for standalone reports"
+    )
     parser.add_argument("--page", type=Path, default=ROOT / "docs/user-guide/docking-benchmarks.rst")
     parser.add_argument("--figure", type=Path, default=ROOT / "docs/_static/benchmarks/pdbbind_docking.svg")
     args = parser.parse_args()
-    render(json.loads(args.input.read_text()), args.page, args.figure, source=args.input)
+    report = load_report(args.input, args.experiment)
+    render(report, args.page, args.figure, source=args.input)
 
 
 if __name__ == "__main__":

@@ -1,4 +1,4 @@
-"""Compare genetic search, Monte Carlo and Vina on local PDBbind complexes.
+"""Compare GA, Monte Carlo, differential evolution and Vina on local complexes.
 
 Run from the repository root with ``python -m asv_bench.docking_pdbbind``.
 This is a standalone accuracy/runtime experiment, not an ASV timing benchmark.
@@ -6,7 +6,6 @@ Results are checkpointed after every run and can be resumed with ``--resume``.
 """
 
 import argparse
-import csv
 from datetime import datetime, timezone
 import hashlib
 import importlib.metadata
@@ -20,12 +19,23 @@ import time
 
 import numpy as np
 
+from .docking_benchmark_data import RUN_OUTPUT, write_csv
+
 ROOT = Path(__file__).resolve().parents[1]
 MAX_SYMMETRY_MATCHES = 10_000
 RMSD_BATCH_SIZE = 256
 
 
-def search_settings(ga_population=100, ga_generations=8, mc_exhaustiveness=8, mc_steps=250, maxiter=60):
+def search_settings(
+    ga_population=100,
+    ga_generations=8,
+    mc_exhaustiveness=8,
+    mc_steps=250,
+    maxiter=60,
+    de_population=32,
+    de_generations=20,
+    de_local_maxiter=10,
+):
     """Single source of settings for both execution and report provenance."""
     return {
         "ga": {
@@ -42,6 +52,19 @@ def search_settings(ga_population=100, ga_generations=8, mc_exhaustiveness=8, mc
             "maxiter": maxiter,
             "temperature": 1.2,
             "mutation_amplitude": 2.0,
+        },
+        "de": {
+            "algorithm": "differential_evolution",
+            "population_size": de_population,
+            "generations": de_generations,
+            "maxiter": maxiter,
+            "local_maxiter": de_local_maxiter,
+            "pbest_fraction": 0.2,
+            "history_size": 6,
+            "diversity_rmsd": 1.0,
+            "archive_size": 64,
+            "stagnation_generations": 5,
+            "restart_fraction": 0.25,
         },
     }
 
@@ -111,6 +134,16 @@ def _symmetry_graph(molecule):
 
 def pose_metrics(reference, poses):
     """Measure direct and graph-symmetry RMSD without fitting coordinates."""
+    coordinates = []
+    for pose in poses:
+        pose = pose.clone
+        pose.removeh()
+        coordinates.append(np.asarray(pose.coords, dtype=float))
+    return coordinate_metrics(reference, coordinates)
+
+
+def coordinate_metrics(reference, coordinates):
+    """Evaluate heavy-coordinate snapshots, enumerating graph symmetry once."""
     reference = reference.clone
     reference.removeh()
     # The benchmark uses RDKit. Exclude hydrogen permutations and require
@@ -122,10 +155,8 @@ def pose_metrics(reference, poses):
     mappings = np.asarray(matches)
     direct = []
     symmetry = []
-    for pose in poses:
-        pose = pose.clone
-        pose.removeh()
-        coords = np.asarray(pose.coords, dtype=float)
+    for coords in coordinates:
+        coords = np.asarray(coords, dtype=float)
         if coords.shape != reference.coords.shape:
             raise ValueError("Docked pose has a different heavy-atom count")
         difference = coords - reference.coords
@@ -148,6 +179,42 @@ def pose_metrics(reference, poses):
         "top_recovered_2A": symmetry[0] < 2.0,
         "best_recovered_2A": min(symmetry) < 2.0,
     }
+
+
+def search_diagnostics(protein, reference, box, snapshots, maxiter, top_pose):
+    """Post-search oracles distinguish sampled poses from final energy ranking.
+
+    Reference coordinates are used only after dock() has finished. No native
+    pose or RMSD feeds back into a search or its output selection.
+    """
+    from oddt.docking import vina_scoring
+
+    feasible = [
+        (coords, uncapped)
+        for coords, uncapped in snapshots
+        if np.isfinite(coords).all() and np.all(coords >= box[0] - 1e-4) and np.all(coords <= box[1] + 1e-4)
+    ]
+    result = {"local_search_results": len(snapshots), "feasible_results": len(feasible)}
+    for label, coords in (
+        ("sampled", [coords for coords, _ in feasible]),
+        ("uncapped", [coords for coords, uncapped in feasible if uncapped]),
+    ):
+        result[label + "_results"] = len(coords)
+        result[label + "_best_symmetry_rmsd"] = (
+            coordinate_metrics(reference, coords)["best_symmetry_rmsd"] if coords else None
+        )
+    scorer = vina_scoring(protein, reference, box=box)
+    native_energy = float(scorer.weighted_total())
+    native = scorer.optimize(maxiter=maxiter)
+    native_feasible = bool(np.all(native.coords >= box[0] - 1e-4) and np.all(native.coords <= box[1] + 1e-4))
+    result["reference"] = {
+        "initial_total": native_energy,
+        "minimized_total": float(scorer.weighted_total(native.coords)),
+        "minimized_symmetry_rmsd": coordinate_metrics(reference, [native.coords])["top_symmetry_rmsd"],
+        "minimized_feasible": native_feasible,
+    }
+    result["returned_top_total"] = float(top_pose.data["vina_total"])
+    return result
 
 
 def read_vina_poses(ligand, pdbqt):
@@ -198,8 +265,8 @@ def dock_vina(protein, ligand, center, size, seed):
         return read_vina_poses(prepared_ligand, engine.poses(n_poses=5, energy_range=3)), torsions
 
 
-def run_one(directory, target, seed, engine_name, settings=None, progress=False):
-    from oddt.docking import vina_ga, vina_mc
+def run_one(directory, target, seed, engine_name, settings=None, progress=False, diagnostics=False):
+    from oddt.docking import vina_ga, vina_mc, vina_de
     from oddt.spatial import rmsd
 
     row = {
@@ -213,13 +280,20 @@ def run_one(directory, target, seed, engine_name, settings=None, progress=False)
         protein, reference, ligand, center, size, details = prepare(directory, target)
         row.update(details)
         row["input_rmsd"] = float(rmsd(reference, ligand))
+        box = np.array([center - size / 2, center + size / 2])
+        snapshots = []
+
+        def observe(result, cap):
+            snapshots.append((result.coords.copy(), cap is None or np.isinf(cap)))
+
         start = time.perf_counter()
         try:
-            if engine_name in ("ga", "mc"):
+            if engine_name in ("ga", "mc", "de"):
                 configuration = dict((settings or search_settings())[engine_name])
                 configuration.pop("algorithm")
-                engine_class = {"ga": vina_ga, "mc": vina_mc}[engine_name]
-                engine = engine_class(protein, ligand, box=np.array([center - size / 2, center + size / 2]))
+                engine_class = {"ga": vina_ga, "mc": vina_mc, "de": vina_de}[engine_name]
+                observer = {"sample_callback": observe} if diagnostics else {}
+                engine = engine_class(protein, ligand, box=box, **observer)
                 poses = engine.dock(**configuration, seed=seed, num_modes=5, energy_range=3.0, progress=progress)
                 row["search_stats"] = engine.search_stats_
                 for metric in ("local_minimizations", "objective_evaluations"):
@@ -235,6 +309,12 @@ def run_one(directory, target, seed, engine_name, settings=None, progress=False)
         row["num_poses"] = len(poses)
         row["top_affinity"] = float(poses[0].data["vina_affinity"])
         row.update(pose_metrics(reference, poses))
+        if diagnostics:
+            row["diagnostics"] = (
+                search_diagnostics(protein, reference, box, snapshots, configuration["maxiter"], poses[0])
+                if engine_name != "vina"
+                else {"unavailable": "Vina API does not expose local-search results"}
+            )
         row["status"] = "ok"
     except Exception as error:
         row["error"] = "%s: %s" % (type(error).__name__, error)
@@ -245,31 +325,7 @@ def save(report, output):
     report["updated_at_utc"] = datetime.now(timezone.utc).isoformat()
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
-    columns = (
-        "target",
-        "seed",
-        "engine",
-        "status",
-        "elapsed_seconds",
-        "local_minimizations",
-        "objective_evaluations",
-        "ligand_heavy_atoms",
-        "searched_torsions",
-        "vina_torsions",
-        "receptor_heavy_atoms",
-        "num_poses",
-        "top_direct_rmsd",
-        "best_direct_rmsd",
-        "top_symmetry_rmsd",
-        "best_symmetry_rmsd",
-        "top_recovered_2A",
-        "best_recovered_2A",
-        "error",
-    )
-    with output.with_suffix(".csv").open("w", newline="") as stream:
-        writer = csv.DictWriter(stream, fieldnames=columns, extrasaction="ignore")
-        writer.writeheader()
-        writer.writerows(report["results"])
+    write_csv(report, output.with_suffix(".csv"))
 
 
 def main():
@@ -277,15 +333,23 @@ def main():
     parser.add_argument("--data", type=Path, default=ROOT / "tests/data/pdbbind")
     parser.add_argument("--targets", nargs="+")
     parser.add_argument("--seeds", nargs="+", type=int, default=[1, 7, 42])
-    parser.add_argument("--engines", nargs="+", choices=["ga", "mc", "vina"], default=["ga", "mc", "vina"])
+    parser.add_argument("--engines", nargs="+", choices=["ga", "mc", "de", "vina"], default=["ga", "mc", "vina"])
     parser.add_argument("--ga-population", type=int, default=100)
     parser.add_argument("--ga-generations", type=int, default=8)
     parser.add_argument("--mc-exhaustiveness", type=int, default=8)
     parser.add_argument("--mc-steps", type=int, default=250)
+    parser.add_argument("--de-population", type=int, default=32)
+    parser.add_argument("--de-generations", type=int, default=20)
+    parser.add_argument("--de-local-maxiter", type=int, default=10)
     parser.add_argument("--maxiter", type=int, default=60)
-    parser.add_argument("--output", type=Path, default=ROOT / "docs/_static/benchmarks/pdbbind_docking.json")
+    parser.add_argument("--output", type=Path, default=RUN_OUTPUT)
     parser.add_argument("--resume", action="store_true")
-    parser.add_argument("--progress", action="store_true", help="Show tqdm progress bars for internal GA/MC searches")
+    parser.add_argument("--progress", action="store_true", help="Show tqdm progress bars for internal searches")
+    parser.add_argument(
+        "--diagnostics",
+        action="store_true",
+        help="Record sampled-pose and minimized-reference diagnostics after search",
+    )
     args = parser.parse_args()
     os.environ["ODDT_TOOLKIT"] = "rdk"
     import oddt
@@ -302,11 +366,20 @@ def main():
     if (
         args.ga_population < 4
         or args.ga_generations < 0
-        or min(args.mc_exhaustiveness, args.mc_steps, args.maxiter) < 1
+        or args.de_population < 4
+        or args.de_generations < 0
+        or min(args.mc_exhaustiveness, args.mc_steps, args.maxiter, args.de_local_maxiter) < 1
     ):
         parser.error("Invalid search budget")
     settings = search_settings(
-        args.ga_population, args.ga_generations, args.mc_exhaustiveness, args.mc_steps, args.maxiter
+        args.ga_population,
+        args.ga_generations,
+        args.mc_exhaustiveness,
+        args.mc_steps,
+        args.maxiter,
+        args.de_population,
+        args.de_generations,
+        args.de_local_maxiter,
     )
     protocol = {
         "targets": targets,
@@ -319,6 +392,7 @@ def main():
         "input_pose": "XYZ Euler rotation (1.2, -0.7, 2.1) radians, then displacement (12, -7, 8) A",
         "ga": settings["ga"],
         "mc": dict(settings["mc"], hunt_energy_cap=10.0, refinement_energy_cap="infinity (uncapped limit)"),
+        "de": settings["de"],
         "vina": {
             "exhaustiveness": 8,
             "n_cpu": 1,
@@ -327,6 +401,12 @@ def main():
         },
         "all": {"num_modes": 5, "energy_range": 3},
         "timing": "Engine construction and dock(), including Vina grids and I/O; excludes shared preparation and evaluation",
+        "diagnostics": {
+            "enabled": args.diagnostics,
+            "timing": "Snapshot copies are included; RMSDs and reference minimization are evaluated after the timer",
+            "sampled": "All feasible local-search results, including discarded proposals and short/capped searches",
+            "uncapped": "Subset optimized with energy_cap=None or infinity; includes DE short searches",
+        },
         "primary_metric": "Heavy-atom graph-symmetry RMSD without alignment, chirality preserved; recovery < 2 A",
         "symmetry_enumeration": {
             "max_matches": MAX_SYMMETRY_MATCHES,
@@ -339,7 +419,9 @@ def main():
     versions = {name: importlib.metadata.version(name) for name in packages}
     source_files = [
         Path(__file__),
+        Path(__file__).with_name("docking_benchmark_data.py"),
         Path(oddt.__file__).parent / "docking/internal.py",
+        Path(oddt.__file__).parent / "docking/base.py",
         Path(oddt.__file__).parent / "docking/search.py",
         Path(oddt.__file__).parent / "docking/__init__.py",
         Path(oddt.__file__).parent / "docking/AutodockVina.py",
@@ -374,7 +456,9 @@ def main():
                 if (target, seed, name) in completed:
                     continue
                 print("START %s seed=%d %s" % (target, seed, name), flush=True)
-                row = run_one(args.data, target, seed, name, settings, progress=args.progress)
+                row = run_one(
+                    args.data, target, seed, name, settings, progress=args.progress, diagnostics=args.diagnostics
+                )
                 report["results"].append(row)
                 save(report, args.output)
                 print(json.dumps(row), flush=True)

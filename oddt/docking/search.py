@@ -1,10 +1,11 @@
 """Global pose-search mixins, independent of the pair-scoring implementation.
 
 A scoring base supplies ``_search_bounds``, ``_random_conformation``,
-``optimize`` (returning x, fun, coords, affinity and nfev), ``_add_minimum`` and
+``optimize`` (returning x, fun, coords and nfev), ``_add_minimum`` and
 ``_finish_docking``. Pose geometry is exposed as ``lig.x0``, ``lig.mutate(x)``,
 ``rotors`` and ``box_size``. All searches use the same local minimizer and
-output selection supplied by that base.
+output selection supplied by that base. ``DockingBase`` implements this
+interface for models supplying unrestrained energy and Cartesian gradients.
 """
 
 from contextlib import nullcontext
@@ -65,10 +66,10 @@ class MonteCarloMixin:
         num_modes=9,
         seed=None,
         maxiter=50,
-        temperature=1.2,
+        temperature=None,
         mutation_amplitude=2.0,
         min_rmsd=1.0,
-        energy_range=3.0,
+        energy_range=None,
         progress=False,
     ):
         """Search poses with iterated local search and Metropolis acceptance.
@@ -87,16 +88,18 @@ class MonteCarloMixin:
             Seed for an isolated NumPy random generator.
         maxiter : int, optional
             Maximum L-BFGS-B iterations per local minimization.
-        temperature : float, optional
-            Positive Metropolis energy scale; Vina's default is 1.2.
+        temperature : float or None, optional
+            Positive Metropolis energy scale. None uses the scoring base's
+            ``default_mc_temperature`` (1.2 for Vina).
         mutation_amplitude : float, optional
             Positive displacement scale in Angstroms; Vina's default is 2.
             Angular displacement is scaled by the ligand's gyration radius.
         min_rmsd : float, optional
             Minimum heavy-atom RMSD between returned poses, in Angstroms.
             Atom order is used directly, without alignment or symmetry matching.
-        energy_range : float, optional
-            Maximum total pair-energy difference from the best feasible pose.
+        energy_range : float or None, optional
+            Maximum unrestrained energy difference from the best feasible pose.
+            None uses ``default_energy_range`` (3.0 for Vina).
         progress : bool, optional
             Show a tqdm progress bar over all trajectories' proposals.
             Disabled by default; requires the optional tqdm dependency.
@@ -104,8 +107,8 @@ class MonteCarloMixin:
         Returns
         -------
         poses : list of oddt.toolkit.Molecule
-            Independent ligand copies, ordered by total pair energy. Hydrogens
-            follow their parent fragments. Data fields are ``vina_affinity``
+            Independent ligand copies, ordered by unrestrained energy. Hydrogens
+            follow their parent fragments. For Vina, data fields are ``vina_affinity``
             (torsion-corrected inter energy), ``vina_inter``, ``vina_intra`` and
             ``vina_total``. Inputs are unchanged. Up to ``num_modes`` poses are
             returned; all heavy atoms lie inside the box to within 0.0001 A.
@@ -114,8 +117,8 @@ class MonteCarloMixin:
         -----
         Each trajectory starts with random position, uniform orientation and
         random torsions. Each step mutates exactly one entity: translation,
-        orientation, or a single torsion. Proposals undergo L-BFGS-B with Vina's
-        positive-energy soft cap of 10, followed by Metropolis acceptance.
+        orientation, or a single torsion. With Vina scoring, proposals undergo
+        L-BFGS-B with a positive-energy soft cap of 10, then Metropolis acceptance.
         Accepted promising minima receive uncapped refinement before saving.
         As in Vina, the refined coordinates and energy continue the trajectory.
         Subsequent proposals use the hunt cap again; saved/output poses use
@@ -124,8 +127,14 @@ class MonteCarloMixin:
         best uncapped restrained energy after every proposal. ``search_stats_``
         reports accepted moves, uphill moves and refinements per trajectory.
         Scoring, box restraints and SciPy's L-BFGS-B remain independent of Vina.
+        Other bases select caps with ``mc_hunt_energy_cap`` and
+        ``mc_refinement_energy_cap``; DockingBase defaults to uncapped searches.
         """
         bounds = self._search_bounds()
+        temperature = getattr(self, "default_mc_temperature", 1.2) if temperature is None else temperature
+        energy_range = getattr(self, "default_energy_range", 3.0) if energy_range is None else energy_range
+        hunt_cap = getattr(self, "mc_hunt_energy_cap", 10.0)
+        refinement_cap = getattr(self, "mc_refinement_energy_cap", np.inf)
         for name, value, minimum in (
             ("exhaustiveness", exhaustiveness, 1),
             ("steps", steps, 1),
@@ -164,7 +173,7 @@ class MonteCarloMixin:
                 }
                 for step in range(steps):
                     proposal = self._mutate_conf(current, rng, mutation_amplitude)
-                    candidate = self.optimize(proposal, maxiter=maxiter, energy_cap=10.0)
+                    candidate = self.optimize(proposal, maxiter=maxiter, energy_cap=hunt_cap)
                     stats["local_minimizations"] += 1
                     stats["objective_evaluations"] += candidate.nfev
                     if _metropolis_accept(current_energy, candidate.fun, temperature, rng):
@@ -175,9 +184,9 @@ class MonteCarloMixin:
                         # As in Vina, refine accepted promising states and save a
                         # bounded set of distinct minima, not rejected proposals.
                         if current_energy < chain_best or len(minima) < num_modes:
-                            # Use the infinite-cap limit of the hunting evaluator so
-                            # refinement preserves its floating-point reduction order.
-                            refined = self.optimize(current, maxiter=maxiter, energy_cap=np.inf)
+                            # Vina uses the infinite-cap hunting evaluator to
+                            # preserve reduction order; other models choose their cap.
+                            refined = self.optimize(current, maxiter=maxiter, energy_cap=refinement_cap)
                             stats["refinements"] += 1
                             stats["local_minimizations"] += 1
                             stats["objective_evaluations"] += refined.nfev
@@ -208,7 +217,7 @@ class GeneticAlgorithmMixin:
         maxiter=50,
         mutation_rate=0.2,
         min_rmsd=1.0,
-        energy_range=3.0,
+        energy_range=None,
         progress=False,
     ):
         """Search randomized poses with tournament selection and L-BFGS-B.
@@ -229,8 +238,10 @@ class GeneticAlgorithmMixin:
         ``progress=True`` displays a tqdm bar counting local minimizations,
         including the initial population and newly generated offspring.
         Progress is disabled by default and requires the optional tqdm dependency.
+        ``energy_range=None`` uses the scoring base's default energy window.
         """
         bounds = self._search_bounds()
+        energy_range = getattr(self, "default_energy_range", 3.0) if energy_range is None else energy_range
         for name, value, minimum in (
             ("population_size", population_size, 4),
             ("generations", generations, 0),
@@ -339,7 +350,7 @@ class DifferentialEvolutionMixin:
         stagnation_generations=5,
         restart_fraction=0.25,
         min_rmsd=1.0,
-        energy_range=3.0,
+        energy_range=None,
         progress=False,
     ):
         """Search with adaptive current-to-pbest/1 differential evolution.
@@ -376,8 +387,10 @@ class DifferentialEvolutionMixin:
         successful replacements and restarts. ``parameter_memory_`` exposes
         the final scale/crossover memories. ``progress=True`` enables optional
         tqdm output counting initialization, generations and final refinement.
+        ``energy_range=None`` uses the scoring base's default energy window.
         """
         bounds = self._search_bounds()
+        energy_range = getattr(self, "default_energy_range", 3.0) if energy_range is None else energy_range
         for name, value, minimum in (
             ("population_size", population_size, 4),
             ("generations", generations, 0),

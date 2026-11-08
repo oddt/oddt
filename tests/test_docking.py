@@ -14,6 +14,8 @@ from oddt.docking import (
     vina_mc,
     vina_de,
     vina_scoring,
+    DockingBase,
+    LigandPose,
     DifferentialEvolutionMixin,
     GeneticAlgorithmMixin,
     MonteCarloMixin,
@@ -627,3 +629,168 @@ def test_local_search_observer_preserves_results(docking_pair, engine_class, kwa
         assert any(cap == 10.0 for _, cap in snapshots)
     else:
         assert all(cap is None for _, cap in snapshots)
+
+
+class QuadraticScoring(DockingBase):
+    """A synthetic two-component objective, independent of Vina parameters."""
+
+    scoring_name = "quadratic"
+    default_mc_temperature = 0.25
+    default_energy_range = 0.5
+
+    def energy_and_gradient(self, coords, energy_cap=None):
+        displacement = coords - self.lig.c0
+        energy = 0.5 * np.sum(displacement**2)
+        gradient = displacement.copy()
+        if energy_cap is not None and np.isfinite(energy_cap):
+            factor = energy_cap / (energy_cap + energy)
+            energy *= factor
+            gradient *= factor**2
+        return float(energy), gradient
+
+    def score(self, coords=None):
+        # Higher reported scores are deliberately better; search/output must
+        # still minimize physical energy rather than this presentation score.
+        return -self.energy(coords)
+
+    def score_components(self, coords=None):
+        coords = self.lig_dict["coords"] if coords is None else coords
+        displacement = coords - self.lig.c0
+        return {
+            "planar": float(0.5 * np.sum(displacement[:, :2] ** 2)),
+            "vertical": float(0.5 * np.sum(displacement[:, 2] ** 2)),
+        }
+
+
+@pytest.mark.parametrize("boundary", [False, True])
+@pytest.mark.parametrize("cap", [None, 0.5])
+def test_independent_scorer_cartesian_gradients_project_to_pose_space(docking_pair, boundary, cap):
+    protein, ligand, box = docking_pair
+    engine = QuadraticScoring(protein, ligand, box=box, box_size=2)
+    assert not hasattr(engine, "weights")
+    assert not hasattr(engine, "num_rotors")
+    x = np.linspace(0.03, 0.17, len(engine.lig.x0))
+    if boundary:
+        x[0] = 5
+    _, actual = engine._objective(x, cap)
+    numeric = np.empty_like(x)
+    for i in range(len(x)):
+        delta = np.zeros_like(x)
+        delta[i] = 1e-5
+        numeric[i] = (engine._objective(x + delta, cap)[0] - engine._objective(x - delta, cap)[0]) / 2e-5
+    assert_allclose(actual, numeric, rtol=1e-5, atol=2e-4)
+    if not boundary and cap is None:
+        result = engine.optimize(x, maxiter=60)
+        assert result.fun < engine._objective(x)[0]
+        assert result.score == result.affinity == pytest.approx(-engine.energy(result.coords))
+
+
+@pytest.mark.parametrize(
+    "mixin,kwargs",
+    [
+        (GeneticAlgorithmMixin, {"population_size": 4, "generations": 1}),
+        (MonteCarloMixin, {"exhaustiveness": 1, "steps": 3}),
+        (DifferentialEvolutionMixin, {"population_size": 4, "generations": 1}),
+    ],
+)
+def test_all_searches_use_independent_scorer_and_neutral_metadata(docking_pair, mixin, kwargs):
+    class Engine(mixin, QuadraticScoring):
+        pass
+
+    protein, ligand, box = docking_pair
+    ligand.data.update({"source": "synthetic", "docking_term_old": 999, "docking_energy": 999})
+    before = ligand.coords.copy()
+    caps = []
+    engine = Engine(protein, ligand, box=box, sample_callback=lambda result, cap: caps.append(cap))
+    poses = engine.dock(**kwargs, seed=7, maxiter=30, num_modes=3)
+    assert poses
+    assert caps and all(cap is None for cap in caps)
+    energies = [float(pose.data["docking_energy"]) for pose in poses]
+    assert energies == sorted(energies)
+    assert all(energy <= energies[0] + engine.default_energy_range for energy in energies)
+    for pose, result in zip(poses, engine.results_):
+        assert pose.data["source"] == "synthetic"
+        assert pose.data["docking_scorer"] == "quadratic"
+        assert "docking_term_old" not in pose.data
+        assert not any(key.startswith("vina_") for key in pose.data)
+        assert len(pose.atoms) == len(ligand.atoms)
+        assert float(pose.data["docking_energy"]) == pytest.approx(engine.energy(result.coords))
+        assert float(pose.data["docking_score"]) == pytest.approx(-engine.energy(result.coords))
+        for name, value in engine.score_components(result.coords).items():
+            assert float(pose.data["docking_term_" + name]) == pytest.approx(value)
+        assert_allclose(pose.coords[engine._heavy_mask], result.coords, atol=1e-5)
+    assert_array_equal(ligand.coords, before)
+
+
+def test_scorer_controls_mc_temperature_and_caps(docking_pair, monkeypatch):
+    from oddt.docking import search
+
+    class Engine(MonteCarloMixin, QuadraticScoring):
+        mc_hunt_energy_cap = 0.5
+        mc_refinement_energy_cap = np.inf
+
+    protein, ligand, box = docking_pair
+    caps, temperatures = [], []
+    engine = Engine(protein, ligand, box=box, sample_callback=lambda result, cap: caps.append(cap))
+    original = search._metropolis_accept
+
+    def accept(old, new, temperature, rng):
+        temperatures.append(temperature)
+        return original(old, new, temperature, rng)
+
+    monkeypatch.setattr(search, "_metropolis_accept", accept)
+    engine.dock(exhaustiveness=1, steps=2, seed=7, maxiter=60)
+    assert temperatures == [engine.default_mc_temperature] * 2
+    assert 0.5 in caps and np.inf in caps
+    temperatures.clear()
+    engine.dock(exhaustiveness=1, steps=2, seed=7, maxiter=60, temperature=0.7)
+    assert temperatures == [0.7, 0.7]
+
+
+def test_generic_output_ranks_energy_and_uses_requested_window(docking_pair, monkeypatch):
+    from scipy.optimize import OptimizeResult
+
+    class Engine(GeneticAlgorithmMixin, QuadraticScoring):
+        default_energy_range = 0.01
+
+    protein, ligand, box = docking_pair
+    center = box.mean(axis=0)
+    engine = Engine(protein, ligand, box=[center - 20, center + 20])
+
+    def optimize(x, maxiter):
+        coords = engine.lig.mutate(x)
+        energy = engine.energy(coords)
+        return OptimizeResult(x=x, fun=energy, coords=coords, affinity=-energy, nfev=1)
+
+    monkeypatch.setattr(engine, "optimize", optimize)
+
+    def dock(**kwargs):
+        genes = []
+        for shift in (0.0, 1.1, 2.2, 3.3):
+            x = engine.lig.x0.copy()
+            x[0] = shift
+            genes.append(x)
+        starts = iter(genes)
+        monkeypatch.setattr(engine, "_random_conformation", lambda bounds, rng: next(starts))
+        return engine.dock(population_size=4, generations=0, seed=1, num_modes=4, **kwargs)
+
+    assert len(dock()) == 1
+    poses = dock(energy_range=1000)
+    assert len(poses) == 4
+    assert [float(pose.data["docking_energy"]) for pose in poses] == sorted(
+        float(pose.data["docking_energy"]) for pose in poses
+    )
+
+
+def test_vina_scorer_exposes_weighted_components_and_legacy_pose_alias(docking_pair):
+    from oddt.docking.internal import vina_ligand
+
+    protein, ligand, box = docking_pair
+    engine = vina_scoring(protein, ligand, box=box)
+    assert isinstance(engine, DockingBase)
+    assert vina_ligand is LigandPose
+    assert isinstance(engine.lig, LigandPose)
+    components = engine.score_components()
+    assert len(components) == 10
+    assert sum(components.values()) == pytest.approx(engine.weighted_total())
+    assert engine.energy() == engine.weighted_total()

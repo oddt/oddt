@@ -83,12 +83,18 @@ DE counts initialization, each generation, and final archive refinement.
 Scoring base and search mixins
 ------------------------------
 
-``vina_scoring`` supplies pair terms, analytic pose gradients, geometry,
-L-BFGS-B refinement and final pose selection. ``GeneticAlgorithmMixin``,
-``MonteCarloMixin`` and ``DifferentialEvolutionMixin`` supply only their global
-search. The three public engines
-are compositions of these classes; they use identical atom typing, search
-torsions, restraints, energy ranking and clustering.
+``DockingBase`` supplies ligand geometry, Cartesian-to-pose gradient
+projection, box restraints, L-BFGS-B refinement and final pose selection.
+``LigandPose`` evaluates absolute translation, orientation and torsion genes,
+including attached hydrogens for output. ``vina_scoring`` extends the base
+with Vina atom radii, pair terms, energy gradients, torsional correction and
+the existing ``vina_*`` output fields. Its public scoring methods and import
+paths remain available, including the ``vina_docking`` alias.
+
+``GeneticAlgorithmMixin``, ``MonteCarloMixin`` and
+``DifferentialEvolutionMixin`` supply the global searches. All three Vina
+engines compose their search with ``vina_scoring``, sharing the same typing,
+restraints and output selection.
 
 .. code-block:: python
 
@@ -100,10 +106,59 @@ torsions, restraints, energy ranking and clustering.
    scorer = vina_scoring(protein, ligand)  # No box needed for scoring.
    print(scorer.score())
 
-A custom scoring base must provide the pose/optimizer interface documented in
-``oddt.docking.search``. Its ``optimize(x, maxiter, energy_cap)`` must accept
-MC's hunting cap of 10 and the uncapped limit ``np.inf``; GA and DE use the default
-uncapped objective. A box is required for ``optimize()`` and ``dock()``.
+Implementing another scorer
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Subclass ``DockingBase`` and implement
+``energy_and_gradient(coords, energy_cap=None)``. It receives an ``N x 3``
+array of heavy-atom coordinates and returns an unrestrained energy and its
+Cartesian gradient with the same shape. Include the model's intermolecular
+and intramolecular contributions. The base adds box restraints and projects
+forces onto the pose genes. The current interface scores heavy atoms;
+explicit-hydrogen interaction models require an extension of that interface.
+
+The minimal composition is:
+
+.. code-block:: python
+
+   from oddt.docking import DockingBase, GeneticAlgorithmMixin
+
+   class MyScoring(DockingBase):
+       scoring_name = "my_model"
+
+       def energy_and_gradient(self, coords, energy_cap=None):
+           # Supply this model's scalar energy and Cartesian derivatives.
+           return my_potential(self.rec_dict, self.lig_dict, coords, energy_cap)
+
+   class MyEngine(GeneticAlgorithmMixin, MyScoring):
+       pass
+
+``energy(coords)`` defines output ranking and defaults to the energy from
+that hook. Override it to provide an efficient evaluation without gradients.
+``score(coords)`` defines the separately reported score and defaults to
+``energy``. Search acceptance and output ranking minimize energy, regardless
+of the reported score's convention. ``score_components(coords)`` may return
+any number of named, weighted contributions. ``prepare_atom_dict`` can
+parameterize copied atom dictionaries while preserving atom order, ids and
+coordinates. Model-specific caches can be cleared by overriding the receptor
+and ligand setters and calling their base methods.
+
+Generic outputs use ``docking_scorer``, ``docking_energy``, ``docking_score``
+and ``docking_term_<name>`` fields. ``_pose_metadata`` and
+``score_metadata_prefixes`` customize annotation and removal of stale fields.
+Vina retains its existing unweighted term fields and torsion-corrected
+``vina_affinity`` convention. Optimizer results expose the reported value as
+``score``, with ``affinity`` retained as a compatibility alias.
+
+MC obtains hunting and refinement caps from ``mc_hunt_energy_cap`` and
+``mc_refinement_energy_cap``. The generic defaults are ``None``; Vina uses
+10 and infinity, preserving its two numerical evaluation paths. A scorer
+that accepts a finite cap must differentiate the capped energy consistently.
+``None`` and infinity represent uncapped evaluations. GA and DE use ``None``.
+``temperature=None`` selects ``default_mc_temperature``; ``energy_range=None``
+selects ``default_energy_range`` for all searches. Their Vina values remain
+1.2 and 3.0. Explicit arguments override these scorer defaults. A box is
+required for ``optimize()`` and ``dock()``, but not ordinary scoring.
 
 Genetic search
 --------------
