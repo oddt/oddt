@@ -1,10 +1,12 @@
 Internal docking engines
 ========================
 
-:class:`oddt.docking.vina_ga` and :class:`oddt.docking.vina_mc` search ligand
+:class:`oddt.docking.vina_ga`, :class:`oddt.docking.vina_mc` and
+:class:`oddt.docking.vina_de` search ligand
 translation, orientation and rotatable bonds against a rigid receptor. They
-share Vina-inspired scoring and SciPy's L-BFGS-B local minimizer, with genetic
-and Monte Carlo global search respectively. They require NumPy, SciPy and an ODDT molecular
+share Vina-inspired scoring and SciPy's L-BFGS-B local minimizer, with genetic,
+Monte Carlo and adaptive differential evolution global search respectively.
+They require NumPy, SciPy and an ODDT molecular
 backend; no AutoDock Vina installation is needed.
 The existing ``vina_docking`` name remains an alias for ``vina_mc``.
 
@@ -26,7 +28,7 @@ recovery; all search positions, orientations and torsions are randomized.
 
    import numpy as np
    import oddt
-   from oddt.docking import vina_ga, vina_mc
+   from oddt.docking import vina_ga, vina_mc, vina_de
    from oddt.spatial import rmsd, rotate
 
    protein = next(oddt.toolkit.readfile("pdb", "tests/data/pdb/4lb3_pocket.pdb"))
@@ -57,24 +59,34 @@ Use the same inputs and scoring with Monte Carlo:
    engine = vina_mc(protein, ligand, box=box)
    poses = engine.dock(exhaustiveness=8, steps=250, maxiter=60, seed=42, num_modes=5)
 
-Increase ``population_size``/``generations`` for GA, or
+Or use adaptive differential evolution:
+
+.. code-block:: python
+
+   engine = vina_de(protein, ligand, box=box)
+   poses = engine.dock(population_size=32, generations=20, local_maxiter=10,
+                       maxiter=60, seed=42, num_modes=5, progress=True)
+
+Increase ``population_size``/``generations`` for GA or DE, or
 ``exhaustiveness``/``steps`` for MC, for more extensive searching. ``maxiter``
 controls each local minimization. A fixed ``seed`` makes runs reproducible within the same numerical
 environment. Multiple seeds help assess search variability.
 
-Both engines accept ``progress=True`` to display a tqdm progress bar in a
+All engines accept ``progress=True`` to display a tqdm progress bar in a
 terminal or notebook. Install the optional dependency with
 ``pip install "oddt[progress]"`` (or ``pip install tqdm``). Progress is off by
 default and does not change random sampling or search results. GA counts
 local minimizations, including its initial population; MC counts proposals
 across all trajectories, advancing after any associated refinement finishes.
+DE counts initialization, each generation, and final archive refinement.
 
 Scoring base and search mixins
 ------------------------------
 
 ``vina_scoring`` supplies pair terms, analytic pose gradients, geometry,
-L-BFGS-B refinement and final pose selection. ``GeneticAlgorithmMixin`` and
-``MonteCarloMixin`` supply only their global search. The two public engines
+L-BFGS-B refinement and final pose selection. ``GeneticAlgorithmMixin``,
+``MonteCarloMixin`` and ``DifferentialEvolutionMixin`` supply only their global
+search. The three public engines
 are compositions of these classes; they use identical atom typing, search
 torsions, restraints, energy ranking and clustering.
 
@@ -90,7 +102,7 @@ torsions, restraints, energy ranking and clustering.
 
 A custom scoring base must provide the pose/optimizer interface documented in
 ``oddt.docking.search``. Its ``optimize(x, maxiter, energy_cap)`` must accept
-MC's hunting cap of 10 and the uncapped limit ``np.inf``; GA uses its default
+MC's hunting cap of 10 and the uncapped limit ``np.inf``; GA and DE use the default
 uncapped objective. A box is required for ``optimize()`` and ``dock()``.
 
 Genetic search
@@ -134,6 +146,45 @@ It uses the ligand centroid as the rotation anchor, SciPy L-BFGS-B, direct
 pair scoring and explicit ``steps`` rather than Vina's grid/BFGS implementation
 and automatic step heuristic. It is an independent approximation of the search.
 
+Adaptive differential evolution
+-------------------------------
+
+DE uses current-to-pbest/1 mutation: each parent moves toward a randomly
+selected member of the best ``pbest_fraction`` of the population, plus a
+scaled difference between two donors. Displaced parents enter a donor
+archive bounded by the population size. Translation reflects at the search
+bounds, torsions use shortest angular differences, and orientations compose
+relative rotations. Orientation crosses over as one block.
+
+Successful energy improvements adapt the mutation scale and crossover
+probability through a six-slot history. The scale uses a weighted Lehmer
+mean and crossover uses a weighted arithmetic mean. This hybrid takes
+inspiration from SHADE; its local search and molecular geometry operations
+differ from canonical SHADE.
+
+The defaults are 32 members, 20 generations and ten short local iterations.
+Initial members, restarted members and improving trials receive further
+refinement up to ``maxiter`` iterations. ``local_maxiter`` is capped at
+``maxiter``. Proposals within ``diversity_rmsd=1`` Angstrom of another member
+compete with that member, retaining the better energy in that region.
+Crowded members and members stale for five generations can be restarted;
+at most a quarter of the population (rounded up) restarts per generation,
+protecting the best member. Set ``restart_fraction=0`` to disable restarts.
+
+The flexible 4LB3 regression test uses population 32, 20 generations, ten
+short iterations, ``maxiter=60`` and seed 42. From the displaced input above,
+DE returned a top pose at 0.62 Angstrom direct RMSD in 28.4 seconds with
+RDKit, and 0.50 Angstrom in 30.7 seconds with OpenBabel, on Apple M2.
+These times cover ``dock()``; both runs preserve hydrogens and all six
+searched torsions. The wider fixture probe is in :doc:`docking-benchmarks`.
+
+A separate archive keeps up to ``max(archive_size, num_modes)`` feasible pose
+clusters (default ``archive_size=64``). Remaining short-search archive members
+receive full refinement before output ranking. These extra local searches
+are counted in the statistics, so ``population_size * generations`` alone
+does not measure the total search cost. DE remains experimental; improving
+the scoring objective does not guarantee improved native-pose recovery.
+
 Scores and diagnostics
 ----------------------
 
@@ -151,14 +202,26 @@ rotatable-bond penalty. The ``energy_range`` filter uses total energy;
 heavy-atom matching without alignment or symmetry correction.
 
 ``engine.history_`` records the best restrained objective after each MC
-proposal, or initially and after each GA generation. Both engines report
+proposal, initially and after each GA generation, or initially, after each
+DE generation and after final archive refinement. All engines report
 ``local_minimizations`` and SciPy ``objective_evaluations`` in
 ``engine.search_stats_``. MC also reports accepted moves, accepted uphill
 moves and uncapped refinements separately for each trajectory.
+DE reports proposals, accepted replacements, restarts, short searches and
+full refinements. ``engine.parameter_memory_`` contains its final mutation
+scale and crossover memories.
 ``engine.results_`` holds SciPy optimizer results for the returned poses,
 including iteration counts, termination status and pose genes. A local search
 that reaches its iteration limit may still produce an improved candidate.
 Use ``engine.optimize(maxiter=100)`` to refine only the supplied pose.
+
+For an optional read-only view of every local-search result, including
+discarded proposals, pass ``sample_callback=observer`` to the constructor.
+The observer receives ``(result, energy_cap)``. Copy ``result.coords`` to
+retain heavy coordinates. ``energy_cap`` is 10 for MC hunting and ``None``
+or infinity for uncapped searches. Callback exceptions propagate.
+The :doc:`docking-benchmarks` runner uses this hook for optional post-search
+sampling diagnostics without exposing reference coordinates to the search.
 
 MC performance
 --------------
@@ -172,8 +235,9 @@ mask and reuse of the initial objective in each L-BFGS-B call.
 Three alternating, unprofiled before/after pairs on the same machine reduced
 median ``dock()`` time from 4.48 to 3.70 seconds: 1.21 times faster, or 17.3%
 less runtime. The selected genes, coordinates, energies and entire search
-history were identical. The :download:`measurement JSON
-<../_static/benchmarks/mc_performance.json>` records every timing and settings.
+history were identical. The ``validation.mc_performance`` entry in the
+:download:`benchmark archive <../_static/benchmarks/docking.json>` records
+every timing and settings.
 Both sides use identical scoring and reduction order. Direct scoring retains
 the original term reductions; MC refinement uses the infinite-cap limit of
 its hunting evaluator, preserving its numerical reduction order too.
@@ -214,12 +278,13 @@ The top-ranked 4LB3 results were:
      - 0.56 Angstrom
 
 Both retain the requirement of RMSD below 1 Angstrom. The
-:download:`validation JSON <../_static/benchmarks/4lb3_ga_mc.json>` records
-settings, versions and source/input checksums. These functional suites ran
+:download:`benchmark archive <../_static/benchmarks/docking.json>`, under
+``validation.4lb3``, records settings, versions and source/input checksums.
+These functional suites ran
 concurrently, so their durations are not used as performance measurements.
 See the isolated MC timing probe above and the sequential PDBbind comparison
-below for runtime measurements. Historical MC-only measurements are retained
-in the :download:`earlier JSON <../_static/benchmarks/4lb3_monte_carlo.json>`.
+below for runtime measurements. This combined validation supersedes the
+earlier MC-only measurements.
 
 .. mc-validation-end
 

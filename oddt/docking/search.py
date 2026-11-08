@@ -3,7 +3,7 @@
 A scoring base supplies ``_search_bounds``, ``_random_conformation``,
 ``optimize`` (returning x, fun, coords, affinity and nfev), ``_add_minimum`` and
 ``_finish_docking``. Pose geometry is exposed as ``lig.x0``, ``lig.mutate(x)``,
-``rotors`` and ``box_size``. Both searches use the same local minimizer and
+``rotors`` and ``box_size``. All searches use the same local minimizer and
 output selection supplied by that base.
 """
 
@@ -292,3 +292,242 @@ class GeneticAlgorithmMixin:
         stats["best_energy"] = self.history_[-1]
         self.search_stats_.append(stats)
         return self._finish_docking(archive, num_modes, min_rmsd, energy_range)
+
+
+def _de_trial(current, pbest, first, second, scale, crossover, bounds, rng):
+    """Current-to-pbest/1 on translations, SO(3), and periodic torsions.
+
+    Orientation crosses over as one block. Relative rotations are expressed
+    in the common world frame, so Euler branch cuts do not create large moves.
+    """
+    mutant = current.copy()
+    mutant[:3] += scale * (pbest[:3] - current[:3] + first[:3] - second[:3])
+    width = bounds[1] - bounds[0]
+    reflected = (mutant[:3] - bounds[0]) % (2 * width)
+    mutant[:3] = bounds[0] + np.minimum(reflected, 2 * width - reflected)
+    rotations = Rotation.from_euler("xyz", np.array([current[3:6], pbest[3:6], first[3:6], second[3:6]]))
+    increment = scale * (
+        (rotations[1] * rotations[0].inv()).as_rotvec() + (rotations[2] * rotations[3].inv()).as_rotvec()
+    )
+    mutant[3:6] = (Rotation.from_rotvec(increment) * rotations[0]).as_euler("xyz")
+
+    def wrap(value):
+        return (value + np.pi) % (2 * np.pi) - np.pi
+
+    mutant[6:] = wrap(current[6:] + scale * (wrap(pbest[6:] - current[6:]) + wrap(first[6:] - second[6:])))
+    blocks = rng.random(len(current) - 2) < crossover
+    blocks[rng.integers(len(blocks))] = True
+    mask = np.r_[blocks[:3], np.repeat(blocks[3], 3), blocks[4:]]
+    return np.where(mask, mutant, current)
+
+
+class DifferentialEvolutionMixin:
+    """Adaptive differential evolution with local search and diversity restarts."""
+
+    def dock(
+        self,
+        population_size=32,
+        generations=20,
+        num_modes=9,
+        seed=None,
+        maxiter=50,
+        local_maxiter=10,
+        pbest_fraction=0.2,
+        history_size=6,
+        diversity_rmsd=1.0,
+        archive_size=64,
+        stagnation_generations=5,
+        restart_fraction=0.25,
+        min_rmsd=1.0,
+        energy_range=3.0,
+        progress=False,
+    ):
+        """Search with adaptive current-to-pbest/1 differential evolution.
+
+        ``population_size >= 4`` poses evolve for ``generations >= 0`` rounds.
+        Translation differences reflect at box bounds; orientation differences
+        use rotation vectors and torsions use shortest arcs. Crossover treats
+        orientation as a single block and always selects at least one block.
+        ``pbest_fraction`` selects the best fraction of parents as attractors.
+
+        Mutation scale and crossover probability are drawn from success-history
+        memories of length ``history_size`` (initially 0.5). Energy improvements
+        weight a Lehmer mean for scale and an arithmetic mean for crossover.
+        A bounded donor archive retains displaced parents. This is a hybrid
+        inspired by SHADE, rather than an implementation of canonical SHADE.
+
+        Every proposal receives ``min(local_maxiter, maxiter)`` L-BFGS-B
+        iterations. Improving proposals and initial/restarted members receive
+        up to ``maxiter`` further iterations. A proposal within ``diversity_rmsd``
+        Angstroms of an existing member competes with that nearest member;
+        otherwise it competes with its parent. At each generation's end, up to
+        ``restart_fraction`` of members that are crowded or have not improved
+        for ``stagnation_generations`` rounds are randomized. The best member
+        is protected. Set ``restart_fraction=0`` to disable restarts.
+
+        A separate feasible pose archive holds at most ``max(archive_size,
+        num_modes)`` RMSD clusters. Its remaining short-search poses receive
+        full refinement before common output selection. All local searches use
+        the same uncapped scoring objective. Diversity uses direct heavy-atom
+        RMSD without alignment, independently of the benchmark's symmetry RMSD.
+
+        ``history_`` contains the best objective initially, after each round,
+        and after final refinement. ``search_stats_`` records search effort,
+        successful replacements and restarts. ``parameter_memory_`` exposes
+        the final scale/crossover memories. ``progress=True`` enables optional
+        tqdm output counting initialization, generations and final refinement.
+        """
+        bounds = self._search_bounds()
+        for name, value, minimum in (
+            ("population_size", population_size, 4),
+            ("generations", generations, 0),
+            ("num_modes", num_modes, 1),
+            ("maxiter", maxiter, 1),
+            ("local_maxiter", local_maxiter, 1),
+            ("history_size", history_size, 1),
+            ("archive_size", archive_size, 1),
+            ("stagnation_generations", stagnation_generations, 1),
+        ):
+            if not isinstance(value, (int, np.integer)) or value < minimum:
+                raise ValueError("%s must be an integer >= %d" % (name, minimum))
+        for name, value, positive in (
+            ("pbest_fraction", pbest_fraction, True),
+            ("restart_fraction", restart_fraction, False),
+        ):
+            if not np.isfinite(value) or not (0 < value <= 1 if positive else 0 <= value <= 1):
+                raise ValueError("%s must be finite and %s" % (name, "in (0, 1]" if positive else "in [0, 1]"))
+        for name, value in (("diversity_rmsd", diversity_rmsd), ("min_rmsd", min_rmsd), ("energy_range", energy_range)):
+            if not np.isfinite(value) or value < 0:
+                raise ValueError("%s must be finite and nonnegative" % name)
+
+        rng = np.random.default_rng(seed)
+        self.results_ = []
+        self.history_ = []
+        stats = dict.fromkeys(
+            (
+                "proposals",
+                "accepted",
+                "short_minimizations",
+                "refinements",
+                "restarts",
+                "local_minimizations",
+                "objective_evaluations",
+            ),
+            0,
+        )
+        self.search_stats_ = [stats]
+        memory_f = np.full(history_size, 0.5)
+        memory_cr = np.full(history_size, 0.5)
+        memory_slot = 0
+        donors, archive = [], []
+        ages = np.zeros(population_size, dtype=int)
+        best_energy = np.inf
+        capacity = max(archive_size, num_modes)
+
+        def minimize(x, full=False):
+            nonlocal best_energy
+            result = self.optimize(x, maxiter=maxiter if full else min(local_maxiter, maxiter))
+            result.de_fully_refined = full
+            stats["refinements" if full else "short_minimizations"] += 1
+            stats["local_minimizations"] += 1
+            stats["objective_evaluations"] += int(result.nfev)
+            if np.isfinite(result.fun):
+                best_energy = min(best_energy, float(result.fun))
+                self._add_minimum(archive, result, min_rmsd, capacity)
+            return result
+
+        def random_member():
+            short = minimize(self._random_conformation(bounds, rng))
+            return minimize(short.x, full=True)
+
+        def distances(candidate, members):
+            return np.sqrt(
+                np.mean(
+                    np.sum((np.array([member.coords for member in members]) - candidate.coords) ** 2, axis=-1), axis=-1
+                )
+            )
+
+        with _progress_bar(progress, total=generations + 2, desc="DE docking", unit="stage") as bar:
+            population = [random_member() for _ in range(population_size)]
+            self.history_.append(best_energy)
+            if bar is not None:
+                bar.update()
+            for generation in range(generations):
+                # Freeze population parents for a round; replacements and
+                # niche competition use the live population.
+                parents = list(population)
+                ranked = sorted(range(population_size), key=lambda i: parents[i].fun)
+                pbest_count = max(2, int(np.ceil(pbest_fraction * population_size)))
+                successes = []
+                ages += 1
+                for i, parent in enumerate(parents):
+                    slot = rng.integers(history_size)
+                    scale = memory_f[slot] + 0.1 * rng.standard_cauchy()
+                    while scale <= 0:
+                        scale = memory_f[slot] + 0.1 * rng.standard_cauchy()
+                    scale = min(float(scale), 1.0)
+                    crossover = float(np.clip(rng.normal(memory_cr[slot], 0.1), 0, 1))
+                    pbest = parents[rng.choice(ranked[:pbest_count])]
+                    first_index = rng.choice([j for j in range(population_size) if j != i])
+                    pool = [member.x for j, member in enumerate(parents) if j not in (i, first_index)] + donors
+                    second = pool[rng.integers(len(pool))]
+                    trial = _de_trial(parent.x, pbest.x, parents[first_index].x, second, scale, crossover, bounds, rng)
+                    candidate = minimize(trial)
+                    stats["proposals"] += 1
+                    if not np.isfinite(candidate.fun):
+                        continue
+                    rmsds = distances(candidate, population)
+                    nearest = int(np.argmin(rmsds))
+                    competitor = nearest if rmsds[nearest] < diversity_rmsd else i
+                    if candidate.fun >= population[competitor].fun:
+                        continue
+                    candidate = minimize(candidate.x, full=True)
+                    # Refinement may move into a different niche.
+                    rmsds = distances(candidate, population)
+                    nearest = int(np.argmin(rmsds))
+                    competitor = nearest if rmsds[nearest] < diversity_rmsd else i
+                    improvement = population[competitor].fun - candidate.fun
+                    if not np.isfinite(candidate.fun) or improvement <= 0:
+                        continue
+                    donors.append(population[competitor].x.copy())
+                    if len(donors) > population_size:
+                        donors.pop(int(rng.integers(len(donors))))
+                    population[competitor] = candidate
+                    ages[competitor] = 0
+                    stats["accepted"] += 1
+                    if np.isfinite(improvement):
+                        successes.append((scale, crossover, improvement))
+                if successes:
+                    sf, scr, weights = np.array(successes).T
+                    weights /= weights.sum()
+                    memory_f[memory_slot] = np.sum(weights * sf**2) / np.sum(weights * sf)
+                    memory_cr[memory_slot] = np.sum(weights * scr)
+                    memory_slot = (memory_slot + 1) % history_size
+
+                ranked = sorted(range(population_size), key=lambda i: population[i].fun)
+                representatives, crowded = [], set()
+                for i in ranked:
+                    if representatives and np.min(distances(population[i], representatives)) < diversity_rmsd:
+                        crowded.add(i)
+                    else:
+                        representatives.append(population[i])
+                restartable = [i for i in reversed(ranked[1:]) if i in crowded or ages[i] >= stagnation_generations]
+                for i in restartable[: int(np.ceil(restart_fraction * population_size))]:
+                    population[i] = random_member()
+                    ages[i] = 0
+                    stats["restarts"] += 1
+                self.history_.append(best_energy)
+                if bar is not None:
+                    bar.update()
+
+            final_archive = []
+            for result in list(archive):
+                if not result.de_fully_refined:
+                    result = minimize(result.x, full=True)
+                self._add_minimum(final_archive, result, min_rmsd, capacity)
+            self.history_.append(best_energy)
+            if bar is not None:
+                bar.update()
+        self.parameter_memory_ = {"scale": memory_f.copy(), "crossover": memory_cr.copy()}
+        stats["best_energy"] = best_energy
+        return self._finish_docking(final_archive, num_modes, min_rmsd, energy_range)

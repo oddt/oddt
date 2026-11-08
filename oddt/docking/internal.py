@@ -6,7 +6,7 @@ from scipy.optimize import minimize
 from scipy.spatial.transform import Rotation
 
 from oddt.spatial import distance, rotate
-from .search import GeneticAlgorithmMixin, MonteCarloMixin
+from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
 
 
 def _cross_rows(first, second):
@@ -116,6 +116,11 @@ class vina_scoring(object):
         Angstroms per unit of the three translation genes.
     weights : array-like, shape (6,), optional
         Five Vina pair-potential weights and the rotatable-bond penalty.
+    sample_callback : callable or None, optional
+        Read-only observer called as ``sample_callback(result, energy_cap)``
+        after each local search, including proposals later discarded. The
+        result contains heavy-atom coordinates; copy them to retain a snapshot.
+        Callback exceptions propagate. Disabled by default.
 
     Notes
     -----
@@ -123,7 +128,10 @@ class vina_scoring(object):
     ODDT atom typing and direct pair scoring rather than Vina affinity grids.
     """
 
-    def __init__(self, rec, lig=None, box=None, box_size=1.0, weights=None):
+    def __init__(self, rec, lig=None, box=None, box_size=1.0, weights=None, sample_callback=None):
+        if sample_callback is not None and not callable(sample_callback):
+            raise ValueError("sample_callback must be callable or None")
+        self.sample_callback = sample_callback
         if not np.isfinite(box_size) or box_size <= 0:
             raise ValueError("box_size must be positive and finite")
         self.box_size = float(box_size)
@@ -436,6 +444,8 @@ class vina_scoring(object):
             result.message = "Local search did not improve the starting pose; retained starting pose."
         result.coords = self.lig.mutate(result.x)
         result.affinity = float(self.score(result.coords))
+        if self.sample_callback is not None:
+            self.sample_callback(result, energy_cap)
         return result
 
     def _random_conformation(self, bounds, rng):
@@ -445,7 +455,7 @@ class vina_scoring(object):
         return x
 
     def _add_minimum(self, minima, result, min_rmsd, capacity):
-        """Keep a bounded set of distinct feasible, fully refined minima."""
+        """Keep a bounded set of distinct feasible local-search results."""
         if (
             not np.isfinite(result.fun)
             or not np.all(result.coords >= self.box[0] - 1e-4)
@@ -540,6 +550,10 @@ class vina_ga(GeneticAlgorithmMixin, vina_scoring):
 
 class vina_mc(MonteCarloMixin, vina_scoring):
     """Vina scoring with Monte Carlo basin hopping and L-BFGS-B refinement."""
+
+
+class vina_de(DifferentialEvolutionMixin, vina_scoring):
+    """Vina scoring with adaptive differential evolution and L-BFGS-B."""
 
 
 # Preserve the existing Monte Carlo API and scoring-descriptor imports.

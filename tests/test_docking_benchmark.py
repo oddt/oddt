@@ -218,9 +218,9 @@ def test_report_does_not_relabel_genetic_results_as_monte_carlo(small_report, tm
         render(small_report, tmp_path / "report.rst", tmp_path / "figure.svg")
 
 
-@pytest.mark.parametrize("name", ["ga", "mc"])
+@pytest.mark.parametrize("name", ["ga", "mc", "de"])
 @pytest.mark.parametrize("progress", [False, True])
-def test_benchmark_runs_both_searches_with_the_recorded_budget(benzene, monkeypatch, tmp_path, name, progress):
+def test_benchmark_runs_search_with_the_recorded_budget(benzene, monkeypatch, tmp_path, name, progress):
     from asv_bench import docking_pdbbind as benchmark
     from oddt import docking
 
@@ -273,6 +273,13 @@ def test_benchmark_cli_uses_larger_population_and_passes_progress(monkeypatch, t
             "--engines",
             "ga",
             "mc",
+            "de",
+            "--de-population",
+            "12",
+            "--de-generations",
+            "2",
+            "--de-local-maxiter",
+            "4",
             "--seeds",
             "7",
             "--progress",
@@ -282,7 +289,8 @@ def test_benchmark_cli_uses_larger_population_and_passes_progress(monkeypatch, t
     )
     calls = []
 
-    def run_one(directory, target, seed, name, settings, progress):
+    def run_one(directory, target, seed, name, settings, progress, diagnostics):
+        assert diagnostics is False
         calls.append((name, settings, progress))
         return dict(target=target, seed=seed, engine=name, status="ok")
 
@@ -290,8 +298,13 @@ def test_benchmark_cli_uses_larger_population_and_passes_progress(monkeypatch, t
     benchmark.main()
     report = json.loads(output.read_text())
     assert report["protocol"]["ga"]["population_size"] == 100
-    assert [call[0] for call in calls] == ["ga", "mc"]
-    assert all(settings == benchmark.search_settings() and progress for _, settings, progress in calls)
+    assert (
+        report["protocol"]["de"]
+        == benchmark.search_settings(de_population=12, de_generations=2, de_local_maxiter=4)["de"]
+    )
+    assert [call[0] for call in calls] == ["ga", "mc", "de"]
+    expected = benchmark.search_settings(de_population=12, de_generations=2, de_local_maxiter=4)
+    assert all(settings == expected and progress for _, settings, progress in calls)
 
 
 def test_report_renders_both_searches_and_vina(small_report, tmp_path):
@@ -304,3 +317,200 @@ def test_report_renders_both_searches_and_vina(small_report, tmp_path):
         assert label in text
     assert figure.stat().st_size > 1000
     assert figure.with_suffix(".png").stat().st_size > 1000
+
+
+def test_report_renders_de_only_and_checks_algorithm(small_report, tmp_path):
+    protocol = small_report["protocol"]
+    protocol["engines"] = ["de"]
+    protocol["de"] = {"algorithm": "differential_evolution", "population_size": 32, "generations": 20}
+    small_report["results"] = [dict(row, engine="de") for row in small_report["results"] if row["engine"] == "ga"]
+    small_report["results"][0].update(
+        {
+            "best_symmetry_rmsd": 0.8,
+            "diagnostics": {"sampled_best_symmetry_rmsd": 0.2, "uncapped_best_symmetry_rmsd": 0.3},
+        }
+    )
+    page = tmp_path / "de.rst"
+    page.write_text(".. benchmark-results-start\n\n.. benchmark-results-end\n")
+    render(small_report, page, tmp_path / "de.svg")
+    assert "Internal DE: population 32, generations 20" in page.read_text()
+    assert "Closest sampled" in page.read_text()
+    assert "0.20" in page.read_text()
+    protocol["de"]["algorithm"] = "genetic"
+    with pytest.raises(ValueError, match="cannot label"):
+        render(small_report, page, tmp_path / "de.svg")
+
+
+def test_diagnostics_include_discarded_and_capped_poses_but_exclude_outside_box(benzene):
+    from asv_bench.docking_pdbbind import search_diagnostics
+
+    coords = np.asarray(benzene.coords[:6], dtype=float)
+    box = np.array([[-8.0] * 3, [8.0] * 3])
+    top = benzene.clone
+    top.data.update({"vina_total": 123})
+    diagnostic = search_diagnostics(
+        benzene,
+        benzene,
+        box,
+        [(coords, False), (coords + [3, 0, 0], True), (coords + [20, 0, 0], True)],
+        maxiter=2,
+        top_pose=top,
+    )
+    assert diagnostic["local_search_results"] == 3
+    assert diagnostic["feasible_results"] == 2
+    assert diagnostic["sampled_best_symmetry_rmsd"] == pytest.approx(0, abs=1e-7)
+    assert diagnostic["uncapped_best_symmetry_rmsd"] == pytest.approx(3)
+    assert diagnostic["returned_top_total"] == 123
+    assert diagnostic["reference"]["minimized_total"] <= diagnostic["reference"]["initial_total"]
+
+
+def test_benchmark_diagnostics_observe_search_and_run_after_timer(benzene, monkeypatch, tmp_path):
+    from scipy.optimize import OptimizeResult
+    from asv_bench import docking_pdbbind as benchmark
+    from oddt import docking
+
+    events = []
+    monkeypatch.setattr(
+        benchmark, "prepare", lambda *args: (benzene, benzene, benzene, np.zeros(3), np.full(3, 16), {})
+    )
+    monkeypatch.setattr(benchmark.time, "perf_counter", lambda: events.append("timer") or len(events))
+
+    class Engine:
+        def __init__(self, protein, ligand, box, sample_callback):
+            self.observe = sample_callback
+            self.search_stats_ = [{"local_minimizations": 1, "objective_evaluations": 1}]
+
+        def dock(self, **kwargs):
+            events.append("dock")
+            self.observe(OptimizeResult(coords=benzene.coords[:6].copy()), None)
+            pose = benzene.clone
+            pose.data.update({"vina_affinity": -1})
+            return [pose]
+
+    def diagnostics(protein, reference, box, snapshots, maxiter, top_pose):
+        events.append("diagnostics")
+        assert len(snapshots) == 1 and snapshots[0][1]
+        return {"observed": True}
+
+    monkeypatch.setattr(docking, "vina_de", Engine)
+    monkeypatch.setattr(benchmark, "search_diagnostics", diagnostics)
+    row = benchmark.run_one(tmp_path, "example", 1, "de", diagnostics=True)
+    assert row["status"] == "ok", row.get("error")
+    assert row["diagnostics"] == {"observed": True}
+    assert events == ["timer", "dock", "timer", "diagnostics"]
+
+
+def test_published_archive_retains_protocols_provenance_and_csv_rows():
+    import csv
+    import json
+    from asv_bench.docking_benchmark_data import ARCHIVE, RESULT_COLUMNS
+
+    archive = json.loads(ARCHIVE.read_text())
+    assert archive["schema_version"] == 1
+    assert {"baseline", "ga48", "ga100", "de_probe"} <= archive["experiments"].keys()
+    assert {"4lb3", "mc_performance"} <= archive["validation"].keys()
+    with ARCHIVE.with_suffix(".csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == sum(len(report["results"]) for report in archive["experiments"].values())
+    for name, report in archive["experiments"].items():
+        summarize(report)  # Each experiment remains independently complete.
+        expected = [
+            {key: str(row[key]) if row.get(key) is not None else "" for key in RESULT_COLUMNS}
+            for row in report["results"]
+        ]
+        actual = [{key: row[key] for key in RESULT_COLUMNS} for row in rows if row["experiment"] == name]
+        assert actual == expected
+    source_files = {(entry["file"], entry["sha256"]) for entry in archive["source_files"].values()}
+    ga100 = archive["experiments"]["ga100"]
+    for name, digest in ga100["comparison_baselines"].items():
+        assert (name, digest) in source_files
+    control = archive["experiments"]["ga48"]["baseline_control"]
+    assert (control["baseline_file"], control["baseline_sha256"]) in source_files
+
+
+def test_loader_selects_archive_experiments_and_supports_standalone(small_report, tmp_path):
+    import json
+    from asv_bench.docking_benchmark_data import load_report
+
+    path = tmp_path / "archive.json"
+    variant = dict(small_report, updated_at_utc="variant")
+    path.write_text(json.dumps({"schema_version": 1, "experiments": {"baseline": small_report, "variant": variant}}))
+    assert load_report(path) == small_report
+    assert load_report(path, "variant") == variant
+    with pytest.raises(ValueError, match="Unknown experiment"):
+        load_report(path, "absent")
+    path.write_text(json.dumps(small_report))
+    assert load_report(path) == small_report
+    with pytest.raises(ValueError, match="consolidated archive"):
+        load_report(path, "variant")
+
+
+def test_archive_cli_adds_completed_report_and_preserves_existing_names(small_report, monkeypatch, tmp_path):
+    import csv
+    import json
+    import sys
+    from asv_bench.docking_benchmark_data import main
+
+    source = tmp_path / "run.json"
+    source.write_text(json.dumps(small_report))
+    archive = tmp_path / "published.json"
+    monkeypatch.setattr(
+        sys, "argv", ["archive", "--input", str(source), "--archive", str(archive), "--experiment", "new"]
+    )
+    main()
+    data = json.loads(archive.read_text())
+    assert data["experiments"]["new"] == small_report
+    assert data["source_files"]["new"]["file"] == "run.json"
+    with archive.with_suffix(".csv").open(newline="") as stream:
+        rows = list(csv.DictReader(stream))
+    assert len(rows) == len(small_report["results"])
+    assert all(row["experiment"] == "new" for row in rows)
+    before = archive.read_bytes()
+    with pytest.raises(SystemExit):
+        main()
+    assert archive.read_bytes() == before
+
+
+def test_archive_cli_rejects_partial_report_without_writing(small_report, monkeypatch, tmp_path):
+    import json
+    import sys
+    from asv_bench.docking_benchmark_data import main
+
+    small_report["results"].pop()
+    source = tmp_path / "partial.json"
+    source.write_text(json.dumps(small_report))
+    archive = tmp_path / "published.json"
+    monkeypatch.setattr(
+        sys, "argv", ["archive", "--input", str(source), "--archive", str(archive), "--experiment", "partial"]
+    )
+    with pytest.raises(SystemExit):
+        main()
+    assert not archive.exists()
+    assert not archive.with_suffix(".csv").exists()
+
+
+def test_archive_cli_preserves_validation_provenance(small_report, monkeypatch, tmp_path):
+    import json
+    import sys
+    from asv_bench.docking_benchmark_data import main
+
+    source = tmp_path / "run.json"
+    source.write_text(json.dumps(small_report))
+    archive = tmp_path / "published.json"
+    archive.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "experiments": {},
+                "validation": {"4lb3": {}},
+                "source_files": {"4lb3": {"file": "validation.json", "sha256": "original", "section": "validation"}},
+            }
+        )
+    )
+    monkeypatch.setattr(
+        sys, "argv", ["archive", "--input", str(source), "--archive", str(archive), "--experiment", "4lb3"]
+    )
+    before = archive.read_bytes()
+    with pytest.raises(SystemExit):
+        main()
+    assert archive.read_bytes() == before

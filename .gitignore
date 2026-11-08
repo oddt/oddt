@@ -64,6 +64,9 @@ asv_bench/env/
 asv_bench/html/
 asv_bench/results/
 
+# Local docking checkpoints; publish selected experiments in the shared archive.
+/benchmark-results/
+
 # training artifacts
 *.pickle
 

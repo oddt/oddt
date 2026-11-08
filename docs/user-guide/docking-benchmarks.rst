@@ -1,7 +1,8 @@
 PDBbind docking comparison
 ==========================
 
-This runner compares ODDT's internal genetic and Monte Carlo engines, with
+This runner compares ODDT's internal genetic, Monte Carlo and experimental
+adaptive differential evolution engines, with
 optional installed AutoDock Vina 1.2.7, on all six PDBbind complexes distributed with the tests:
 10GS, 1IMX, 1K9Q, 1NLO, 1NLP and 4YEF. The earlier :doc:`docking` example
 was developed on 4LB3; these six complexes provide a separate check.
@@ -96,12 +97,47 @@ without overwriting it, run:
 
 .. code-block:: console
 
-   python -m asv_bench.docking_pdbbind --engines ga --ga-population 100 --output docs/_static/benchmarks/pdbbind_ga100.json
+   python -m asv_bench.docking_pdbbind --engines ga --ga-population 100 --output benchmark-results/ga100.json
 
-Both internal engines support optional tqdm progress bars. Add ``--progress``
+All internal engines support optional tqdm progress bars. Add ``--progress``
 to show them; the default quiet mode is used for timing comparisons. Install
 ``oddt[progress]`` or ``tqdm`` to enable this option. The display flag does not
 change the recorded search budget or pose results.
+
+DE and search diagnostics
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+DE is available explicitly through ``--engines de``; the default engine list
+remains GA, MC and Vina. It shares the internal scoring base and final pose
+selection. Defaults are 32 members, 20 generations, ten short L-BFGS-B
+iterations, and further refinement up to the runner's common ``--maxiter 60``.
+Success-history adaptation, RMSD niche competition and restarts are described
+in :doc:`docking`. Customize the budget with ``--de-population``,
+``--de-generations`` and ``--de-local-maxiter``. For example:
+
+.. code-block:: console
+
+   python -m asv_bench.docking_pdbbind --engines ga mc de vina --diagnostics --output benchmark-results/four_engines.json
+
+``--diagnostics`` records the closest symmetry RMSD among all feasible
+local-search results, including discarded proposals, and separately among
+uncapped results. The latter includes DE's short local searches, which may
+not have converged. These oracle measurements describe sampling, independently
+of the returned-pose energy ranking. They never affect search decisions.
+The JSON also records reference total energy before and after local
+minimization, its resulting RMSD and feasibility, and the top returned pose's
+total energy under the same internal scoring function. Comparing these
+values helps identify scoring and reference-geometry limitations. External
+Vina does not expose local-search snapshots through its Python API.
+
+Snapshot-copy overhead is included in diagnostic run times. RMSD evaluation
+and reference minimization happen after timing. Use the same diagnostic flag
+for timing comparisons and a new output path for each protocol. Full DE
+versus Vina superiority requires a wider comparison across seeds and matched
+search effort; the historical results below predate DE.
+
+Runtime
+~~~~~~~
 
 Runtime includes engine construction and docking, including Vina's PDBQT
 writing and interaction-grid generation. Shared input loading, hydrogen
@@ -135,16 +171,30 @@ up to five returned poses is below the threshold; this can reveal cases where
 a native-like pose was found but ranked below another pose. Failed runs count
 as misses in recovery rates. Timing and RMSD medians use completed runs only.
 
-The earlier interrupted search measurements are archived separately in
-:download:`GA partial JSON <../_static/benchmarks/pdbbind_docking_ga_partial.json>`
-and :download:`GA partial CSV <../_static/benchmarks/pdbbind_docking_ga_partial.csv>`,
-and :download:`MC partial JSON <../_static/benchmarks/pdbbind_docking_mc_partial.json>`
-and :download:`MC partial CSV <../_static/benchmarks/pdbbind_docking_mc_partial.csv>`.
-The MC archive contains 21 completed runs. These are historical partial
-experiments, separate from the full comparison below. The earlier single-seed
-GA/MC probe, using 20 MC proposals per trajectory, is retained as
-:download:`probe JSON <../_static/benchmarks/pdbbind_ga_mc_probe.json>` and
-:download:`probe CSV <../_static/benchmarks/pdbbind_ga_mc_probe.csv>`.
+Published data
+--------------
+
+All published measurements are stored in one
+:download:`JSON archive <../_static/benchmarks/docking.json>` and one derived
+:download:`per-run CSV <../_static/benchmarks/docking.csv>`. The JSON's
+``experiments`` entries retain independent protocols, package versions,
+source/input checksums, per-pose RMSDs and counters:
+
+* ``baseline``: 54 GA/MC/Vina runs, including GA population 24.
+* ``ga48``: 18 GA population-48 runs, plus the baseline reproducibility control.
+* ``ga100``: 18 GA population-100 runs and comparison provenance.
+* ``de_probe``: six DE runs with sampling and reference diagnostics.
+
+The CSV has 96 rows and an ``experiment`` column. Filter by that column
+before comparing runs; budgets and diagnostic settings differ across
+experiments. The JSON also retains ``validation.4lb3`` and
+``validation.mc_performance``. These functional and profiling records have
+different schemas and are not included in the PDBbind CSV.
+
+``source_files`` records the original filenames and SHA-256 hashes. Those
+filenames also appear in historical baseline references inside the unchanged
+reports; resolve them through this index. Superseded partial GA/MC runs,
+the preliminary GA/MC probe and older MC-only 4LB3 measurements were removed.
 
 .. benchmark-results-start
 
@@ -407,7 +457,7 @@ RMSDs below are symmetry-aware, in Angstroms. Times are seconds. Per-target valu
 
    Dots show individual seeds; larger markers show medians. The dashed line marks 2 Angstrom RMSD. Runtime uses a logarithmic scale.
 
-Download the :download:`per-run CSV <../_static/benchmarks/pdbbind_docking.csv>` or :download:`full JSON report <../_static/benchmarks/pdbbind_docking.json>`. The JSON records the protocol, source/input checksums, per-pose RMSDs and search statistics.
+Download the :download:`per-run CSV <../_static/benchmarks/docking.csv>` or :download:`JSON archive <../_static/benchmarks/docking.json>`. These results are in experiment ``baseline``.
 
 .. benchmark-results-end
 
@@ -421,33 +471,35 @@ root:
 
    python -m asv_bench.docking_pdbbind
 
-The runner writes a JSON report containing settings, package versions, source
+The runner writes ``benchmark-results/docking.json`` containing settings, package versions, source
 checksums, input checksums, per-pose RMSDs and run status, together with a CSV
-of per-run metrics. Each completed run is checkpointed. To resume an interrupted
+of per-run metrics. This local output directory is ignored by Git; published
+data is kept in the shared archive. Each completed run is checkpointed. To resume an interrupted
 run with unchanged sources and settings:
 
 .. code-block:: bash
 
    python -m asv_bench.docking_pdbbind --resume
 
-After all runs finish, regenerate the summary tables and figure with:
+After all runs finish, add the completed report to the archive using a unique
+experiment name, then generate its tables and figure:
 
 .. code-block:: bash
 
-   python -m asv_bench.docking_pdbbind_report
+   python -m asv_bench.docking_benchmark_data --input benchmark-results/docking.json --experiment new_comparison
+   python -m asv_bench.docking_pdbbind_report --experiment new_comparison
+
+The archive command rejects incomplete or duplicated run grids and preserves
+existing experiment names. It regenerates the consolidated CSV automatically.
+To regenerate the published baseline without running docking, use
+``python -m asv_bench.docking_pdbbind_report --experiment baseline``.
+The renderer also accepts a standalone report through ``--input``.
 
 The default engine list is ``ga mc vina``. Use ``--engines ga mc`` to compare
 only the two searches on shared scoring. Search budgets can be varied with
 ``--ga-population``, ``--ga-generations``, ``--mc-exhaustiveness``,
-``--mc-steps`` and ``--maxiter``; the exact values are saved in the protocol.
-For example, a shorter six-complex comparison with one seed is:
-
-.. code-block:: bash
-
-   python -m asv_bench.docking_pdbbind --engines ga mc --seeds 42 --mc-steps 20 --output docs/_static/benchmarks/pdbbind_ga_mc_probe.json
-   python -m asv_bench.docking_pdbbind_report --input docs/_static/benchmarks/pdbbind_ga_mc_probe.json --figure docs/_static/benchmarks/pdbbind_ga_mc_probe.svg
-
-This reduces MC's search budget and is not equivalent to the default experiment.
+``--mc-steps``, ``--de-population``, ``--de-generations``, ``--de-local-maxiter``
+and ``--maxiter``; the exact values are saved in the protocol.
 Use ``--targets``, ``--seeds`` or ``--engines`` for a smaller experiment and
 ``--output`` for a separate report. Timings depend on the machine and numerical
 environment. A different seed or broader search can change the resulting poses.
@@ -557,8 +609,83 @@ Per-target values are medians over three seeds. RMSDs are symmetry-aware, in Ang
      - 44.7
      - 93.3
 
-The population-100 experiment has unchanged inputs, numerical package versions and search settings apart from population. Source checks confirm that the GA population defaults are the only engine and runner changes from the population-48 experiment. The :download:`population-100 JSON <../_static/benchmarks/pdbbind_ga100.json>` records source/input checksums, baseline checksums, per-pose RMSDs and search statistics; :download:`CSV <../_static/benchmarks/pdbbind_ga100.csv>` contains the per-run measurements.
+The population-100 experiment has unchanged inputs, numerical package versions and search settings apart from population. Source checks confirm that the GA population defaults are the only engine and runner changes from the population-48 experiment. The ``ga100`` experiment in the :download:`JSON archive <../_static/benchmarks/docking.json>` records source/input checksums, baseline checksums, per-pose RMSDs and search statistics; filter the :download:`CSV <../_static/benchmarks/docking.csv>` by ``experiment=ga100`` for the per-run measurements.
 
-An earlier population-24 control on 10GS, seed 42, reproduced every returned RMSD, top affinity and search counter exactly after adding progress support. It is retained in the :download:`population-48 JSON <../_static/benchmarks/pdbbind_ga48.json>`, with its :download:`CSV <../_static/benchmarks/pdbbind_ga48.csv>` measurements.
+An earlier population-24 control on 10GS, seed 42, reproduced every returned RMSD, top affinity and search counter exactly after adding progress support. It is retained under ``experiments.ga48.baseline_control`` in the same JSON archive.
 
 .. ga-population-results-end
+
+DE validation probe
+-------------------
+
+The adaptive DE implementation was checked on all six complexes using seed
+42, population 32, 20 generations, ten short iterations and at most 60
+further refinement iterations. Diagnostics were enabled and progress was off.
+All six runs completed. Top and best-returned recovery were both 1/6
+(4YEF); the median top symmetry RMSD was 8.98 Angstroms and median docking
+time was 46.8 seconds. This single-seed probe does not establish an accuracy
+improvement over GA, MC or Vina. The historical comparisons above use
+different budgets and have no snapshot-copy overhead.
+
+.. list-table:: DE probe: symmetry RMSD in Angstroms and runtime in seconds
+   :header-rows: 1
+
+   * - Complex
+     - Top returned
+     - Best returned
+     - Closest sampled
+     - Time (s)
+   * - 10GS
+     - 6.22
+     - 5.52
+     - 3.75
+     - 37.3
+   * - 1IMX
+     - 9.00
+     - 6.43
+     - 4.94
+     - 50.8
+   * - 1K9Q
+     - 12.52
+     - 7.44
+     - 4.59
+     - 45.1
+   * - 1NLO
+     - 8.97
+     - 8.89
+     - 4.07
+     - 63.5
+   * - 1NLP
+     - 14.52
+     - 10.41
+     - 5.07
+     - 48.4
+   * - 4YEF
+     - 1.48
+     - 1.00
+     - 0.87
+     - 38.8
+
+The closest sampled result was still above 2 Angstroms on each of the five
+missed complexes. For 10GS the minimized reference remained close to the
+input (0.70 Angstroms), with total score -15.84 versus DE's -13.81: DE missed
+a better-scoring reference basin. For 1K9Q, DE's distant top pose scored
+-10.67 versus -9.19 for the minimized reference (1.46 Angstroms from input).
+Here the internal score favored the distant pose over that reference minimum.
+These examples show why search and scoring need separate diagnostics.
+
+.. figure:: ../_static/benchmarks/pdbbind_de_probe.svg
+   :alt: DE accuracy and runtime on six PDBbind test complexes using seed 42.
+
+   A single-seed validation probe. RMSD accounts for chemical graph symmetry;
+   runtime uses a logarithmic scale.
+
+The ``de_probe`` experiment in the :download:`JSON archive <../_static/benchmarks/docking.json>`
+contains protocol, source/input checksums, search counters and reference diagnostics.
+Filter the :download:`per-run CSV <../_static/benchmarks/docking.csv>` by
+``experiment=de_probe`` for these measurements.
+Reproduce it with:
+
+.. code-block:: console
+
+   python -m asv_bench.docking_pdbbind --engines de --seeds 42 --diagnostics --output benchmark-results/de_probe.json

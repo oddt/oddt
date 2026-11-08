@@ -8,7 +8,16 @@ from numpy.testing import assert_allclose, assert_array_equal
 import pytest
 
 import oddt
-from oddt.docking import vina_docking, vina_ga, vina_mc, vina_scoring, GeneticAlgorithmMixin, MonteCarloMixin
+from oddt.docking import (
+    vina_docking,
+    vina_ga,
+    vina_mc,
+    vina_de,
+    vina_scoring,
+    DifferentialEvolutionMixin,
+    GeneticAlgorithmMixin,
+    MonteCarloMixin,
+)
 from oddt.docking.search import _metropolis_accept
 from oddt.spatial import distance, rmsd, rotate
 
@@ -119,6 +128,7 @@ def test_conjugated_amide_stays_rigid():
     [
         (vina_mc, {"exhaustiveness": 8, "steps": 250}),
         (vina_ga, {"population_size": 24, "generations": 8}),
+        (vina_de, {}),
     ],
 )
 def test_redocking_4lb3(record_property, engine_class, kwargs):
@@ -142,14 +152,16 @@ def test_redocking_4lb3(record_property, engine_class, kwargs):
     record_property("top_rmsd", float(rmsd(reference, poses[0])))
     assert 1 <= len(poses) <= 5
     assert rmsd(reference, poses[0]) < 1
-    assert len(engine.history_) == (2000 if engine_class is vina_mc else 9)
+    assert len(engine.history_) == {vina_mc: 2000, vina_ga: 9, vina_de: 22}[engine_class]
     assert np.all(np.diff(engine.history_) <= 0)
     if engine_class is vina_mc:
         assert len(engine.search_stats_) == 8
         assert all(0 < chain["accepted"] <= 250 for chain in engine.search_stats_)
         assert all(chain["local_minimizations"] == 250 + chain["refinements"] for chain in engine.search_stats_)
-    else:
+    elif engine_class is vina_ga:
         assert engine.search_stats_[0]["local_minimizations"] == 24 + 8 * 21
+    else:
+        assert engine.search_stats_[0]["proposals"] == 32 * 20
     assert all(stats["objective_evaluations"] >= stats["local_minimizations"] for stats in engine.search_stats_)
     assert_array_equal(ligand.coords, original)
     assert_array_equal(protein.coords, receptor_coords)
@@ -173,7 +185,11 @@ def test_redocking_4lb3(record_property, engine_class, kwargs):
 
 @pytest.mark.parametrize(
     "engine_class,kwargs",
-    [(vina_mc, {"exhaustiveness": 2, "steps": 4}), (vina_ga, {"population_size": 4, "generations": 1})],
+    [
+        (vina_mc, {"exhaustiveness": 2, "steps": 4}),
+        (vina_ga, {"population_size": 4, "generations": 1}),
+        (vina_de, {"population_size": 4, "generations": 1}),
+    ],
 )
 def test_rigid_docking_is_reproducible_without_changing_global_rng(engine_class, kwargs):
     protein = next(oddt.toolkit.readfile("pdb", str(DATA / "4ljh_pocket.pdb")))
@@ -221,6 +237,7 @@ def progress_output(monkeypatch):
         (vina_ga, {"generations": 0}, 100),
         (vina_ga, {"population_size": 8, "generations": 2}, 22),
         (vina_mc, {"exhaustiveness": 2, "steps": 3}, 6),
+        (vina_de, {"population_size": 4, "generations": 2}, 4),
     ],
 )
 def test_progress_preserves_seeded_search(docking_pair, progress_output, capsys, engine_class, kwargs, total):
@@ -251,7 +268,11 @@ def test_progress_preserves_seeded_search(docking_pair, progress_output, capsys,
 
 @pytest.mark.parametrize(
     "engine_class,kwargs",
-    [(vina_ga, {"population_size": 4, "generations": 0}), (vina_mc, {"exhaustiveness": 1, "steps": 1})],
+    [
+        (vina_ga, {"population_size": 4, "generations": 0}),
+        (vina_mc, {"exhaustiveness": 1, "steps": 1}),
+        (vina_de, {"population_size": 4, "generations": 0}),
+    ],
 )
 def test_progress_closes_on_failure(docking_pair, progress_output, monkeypatch, engine_class, kwargs):
     bars, _ = progress_output
@@ -271,7 +292,11 @@ def test_progress_closes_on_failure(docking_pair, progress_output, monkeypatch, 
 
 @pytest.mark.parametrize(
     "engine_class,kwargs",
-    [(vina_ga, {"population_size": 8, "generations": 2}), (vina_mc, {"exhaustiveness": 2, "steps": 3})],
+    [
+        (vina_ga, {"population_size": 8, "generations": 2}),
+        (vina_mc, {"exhaustiveness": 2, "steps": 3}),
+        (vina_de, {"population_size": 4, "generations": 2}),
+    ],
 )
 def test_quiet_search_does_not_require_tqdm(docking_pair, monkeypatch, engine_class, kwargs):
     import builtins
@@ -326,12 +351,19 @@ def test_missing_search_inputs_and_invalid_box(docking_pair):
         engine.optimize([0])
 
 
-def test_no_feasible_pose_in_tiny_box(docking_pair):
+@pytest.mark.parametrize(
+    "engine_class,kwargs",
+    [
+        (vina_mc, {"exhaustiveness": 1, "steps": 1}),
+        (vina_de, {"population_size": 4, "generations": 0}),
+    ],
+)
+def test_no_feasible_pose_in_tiny_box(docking_pair, engine_class, kwargs):
     protein, ligand, box = docking_pair
     center = box.mean(axis=0)
-    engine = vina_docking(protein, ligand, box=[center - 0.01, center + 0.01])
+    engine = engine_class(protein, ligand, box=[center - 0.01, center + 0.01])
     with pytest.raises(RuntimeError, match="No pose fits"):
-        engine.dock(exhaustiveness=1, steps=1, maxiter=1, seed=1)
+        engine.dock(**kwargs, maxiter=1, seed=1)
     assert engine.results_ == []
 
 
@@ -436,7 +468,7 @@ def test_rejected_monte_carlo_proposals_do_not_become_parents(docking_pair, monk
     assert engine.results_[0].x[0] == 2
 
 
-@pytest.mark.parametrize("mixin", [GeneticAlgorithmMixin, MonteCarloMixin])
+@pytest.mark.parametrize("mixin", [GeneticAlgorithmMixin, MonteCarloMixin, DifferentialEvolutionMixin])
 def test_search_mixins_compose_with_the_scoring_base(docking_pair, mixin):
     class Engine(mixin, vina_scoring):
         pass
@@ -468,3 +500,130 @@ def test_invalid_genetic_parameters(docking_pair, kwargs):
     protein, ligand, box = docking_pair
     with pytest.raises(ValueError):
         vina_ga(protein, ligand, box=box).dock(**kwargs)
+
+
+def test_de_moves_across_periodic_boundaries_and_composes_rotations():
+    from scipy.spatial.transform import Rotation
+    from oddt.docking.search import _de_trial
+
+    parents = np.zeros((4, 7))
+    parents[:, 3] = [np.pi - 0.01, -np.pi + 0.01, 0.2, 0.2]
+    parents[:, 6] = parents[:, 3]
+    bounds = np.array([[-2.0] * 3, [2.0] * 3])
+    trial = _de_trial(*parents, 0.5, 1.0, bounds, np.random.default_rng(1))
+    relative = Rotation.from_euler("xyz", trial[3:6]) * Rotation.from_euler("xyz", parents[0, 3:6]).inv()
+    assert_allclose(relative.as_rotvec(), [0.01, 0, 0], atol=1e-12)
+    assert abs((trial[6] - parents[0, 6] + np.pi) % (2 * np.pi) - np.pi) == pytest.approx(0.01)
+
+    # A common rotation of all four parents rotates the proposal by the same
+    # amount, including when Euler representations cross a branch cut.
+    frame = Rotation.from_euler("xyz", [0.3, -0.7, 1.1])
+    rotated = parents.copy()
+    rotated[:, 3:6] = (frame * Rotation.from_euler("xyz", parents[:, 3:6])).as_euler("xyz")
+    other = _de_trial(*rotated, 0.5, 1.0, bounds, np.random.default_rng(1))
+    assert_allclose(
+        Rotation.from_euler("xyz", other[3:6]).as_matrix(),
+        (frame * Rotation.from_euler("xyz", trial[3:6])).as_matrix(),
+        atol=1e-12,
+    )
+
+
+def test_de_reflects_translation_and_forces_one_crossover_block():
+    from oddt.docking.search import _de_trial
+
+    parents = np.array([[0.0] * 8, [1.0] * 8, [10.0] * 8, [-10.0] * 8])
+    bounds = np.array([[-2.0] * 3, [2.0] * 3])
+    for seed in range(20):
+        trial = _de_trial(*parents, 1.0, 0.0, bounds, np.random.default_rng(seed))
+        changed = trial != parents[0]
+        assert changed.any()
+        assert np.all(trial[:3] >= bounds[0]) and np.all(trial[:3] <= bounds[1])
+        assert changed[3] == changed[4] == changed[5]
+        assert changed[:3].sum() + changed[3] + changed[6:].sum() == 1
+
+
+@pytest.mark.parametrize("improving", [False, True])
+def test_de_restarts_crowded_members_and_adapts_only_from_improvements(docking_pair, monkeypatch, improving):
+    from scipy.optimize import OptimizeResult
+
+    protein, ligand, box = docking_pair
+    engine = vina_de(protein, ligand, box=box)
+    calls = []
+
+    def collapse(x, maxiter):
+        calls.append(maxiter)
+        genes = engine.lig.x0.copy()
+        return OptimizeResult(
+            x=genes, coords=engine.lig.mutate(genes), fun=-len(calls) if improving else -1.0, nfev=1, affinity=-1.0
+        )
+
+    monkeypatch.setattr(engine, "optimize", collapse)
+    engine.dock(population_size=8, generations=3, maxiter=7, local_maxiter=2, seed=5)
+    stats = engine.search_stats_[0]
+    assert stats["restarts"] == 6
+    assert stats["proposals"] == 24
+    assert stats["local_minimizations"] == stats["objective_evaluations"] == len(calls)
+    assert stats["local_minimizations"] == stats["short_minimizations"] + stats["refinements"]
+    assert set(calls) == {2, 7}
+    assert np.all(np.diff(engine.history_) <= 0)
+    if improving:
+        assert stats["accepted"] == 24
+        assert np.any(engine.parameter_memory_["scale"] != 0.5)
+        assert np.any(engine.parameter_memory_["crossover"] != 0.5)
+    else:
+        assert stats["accepted"] == 0
+        assert stats["refinements"] < stats["short_minimizations"]
+        assert_array_equal(engine.parameter_memory_["scale"], np.full(6, 0.5))
+    assert all(result.de_fully_refined for result in engine.results_)
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"population_size": 3},
+        {"generations": -0.1},
+        {"local_maxiter": 0},
+        {"maxiter": 0},
+        {"num_modes": 0},
+        {"history_size": 0},
+        {"archive_size": 0},
+        {"stagnation_generations": 0},
+        {"pbest_fraction": 0},
+        {"pbest_fraction": np.nan},
+        {"restart_fraction": 1.1},
+        {"diversity_rmsd": -1},
+        {"min_rmsd": np.nan},
+        {"energy_range": -1},
+    ],
+)
+def test_invalid_de_parameters(docking_pair, kwargs):
+    protein, ligand, box = docking_pair
+    with pytest.raises(ValueError):
+        vina_de(protein, ligand, box=box).dock(**kwargs)
+
+
+@pytest.mark.parametrize(
+    "engine_class,kwargs",
+    [
+        (vina_ga, {"population_size": 4, "generations": 0}),
+        (vina_mc, {"exhaustiveness": 1, "steps": 2}),
+        (vina_de, {"population_size": 4, "generations": 1}),
+    ],
+)
+def test_local_search_observer_preserves_results(docking_pair, engine_class, kwargs):
+    protein, ligand, box = docking_pair
+    snapshots = []
+    engine = engine_class(protein, ligand, box=box)
+    quiet = engine.dock(**kwargs, seed=7, maxiter=10)
+    stats = engine.search_stats_
+    engine.sample_callback = lambda result, cap: snapshots.append((result.coords.copy(), cap))
+    observed = engine.dock(**kwargs, seed=7, maxiter=10)
+    assert len(snapshots) == sum(item["local_minimizations"] for item in stats)
+    assert engine.search_stats_ == stats
+    assert len(quiet) == len(observed)
+    for first, second in zip(quiet, observed):
+        assert_array_equal(first.coords, second.coords)
+    if engine_class is vina_mc:
+        assert any(cap == 10.0 for _, cap in snapshots)
+    else:
+        assert all(cap is None for _, cap in snapshots)
