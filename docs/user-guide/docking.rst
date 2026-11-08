@@ -10,6 +10,11 @@ They require NumPy, SciPy and an ODDT molecular
 backend; no AutoDock Vina installation is needed.
 The existing ``vina_docking`` name remains an alias for ``vina_mc``.
 
+``vinardo_scoring`` and ``ad4_scoring`` provide two additional independently
+implemented models. Each has ``_ga``, ``_mc`` and ``_de`` engines, for example
+``vinardo_ga`` and ``ad4_mc``. AD4 is a **radial direct-pair variant**, with the
+limitations and preparation requirements described below.
+
 Prepare a receptor with appropriate protonation and set ``protein = True``
 before computing atom properties. Supply a ligand with a three-dimensional
 conformation. Ring conformations remain fixed during the search.
@@ -106,16 +111,149 @@ restraints and output selection.
    scorer = vina_scoring(protein, ligand)  # No box needed for scoring.
    print(scorer.score())
 
+Vinardo scoring
+~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from oddt.docking import vinardo_scoring, vinardo_ga
+
+   scorer = vinardo_scoring(protein, ligand)
+   print(scorer.score(), scorer.score_components())
+   engine = vinardo_ga(protein, ligand, box=box)
+   poses = engine.dock(population_size=100, generations=8, seed=42)
+   print(poses[0].data["vinardo_affinity"])
+
+The implementation follows the equations and Tables 1–3 in
+`Quiroga and Villar (2016) <https://doi.org/10.1371/journal.pone.0155183>`_.
+It has one Gaussian (width 0.8 Angstrom, weight -0.045), quadratic overlap
+repulsion (0.8), hydrophobic attraction (-0.035, surface-gap transition from
+0 to 2.5 Angstrom), and hydrogen bonding (-0.6, transition from -0.6 to 0
+Angstrom). Carbon radii are 2.0 Angstrom for aliphatic and 1.9 for aromatic
+atoms; nitrogen and oxygen radii are 1.7 and 1.6 respectively. Other supported
+elements retain the Vina radii. Pairs use an 8 Angstrom center-distance cutoff.
+Unsupported elements raise an error. Typing uses ODDT's donor, acceptor and
+hydrophobic flags, so results need not match other programs' preparation.
+
+Search energy is the weighted sum of intermolecular and intraligand terms,
+excluding intraligand pairs separated by three or fewer bonds. Reported
+affinity is the intermolecular energy divided by ``1 + 0.05846 * N_rot``,
+using the same PDBQT-style rotor count as the existing Vina scorer.
+``weights`` accepts four pair weights followed by the torsional coefficient.
+``score_inter()`` and ``score_intra()`` return four unweighted terms in the
+order Gaussian, repulsion, hydrophobic and hydrogen bond.
+
+AD4 radial scoring
+~~~~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from oddt.docking import ad4_scoring, ad4_mc
+
+   scorer = ad4_scoring(protein, ligand)  # Private copies: add H and Gasteiger charges.
+   print(scorer.score(), scorer.score_components())
+   engine = ad4_mc(protein, ligand, box=box)
+   poses = engine.dock(exhaustiveness=8, steps=250, seed=42)
+   print(poses[0].data["ad4_affinity"])
+
+The equations are independently written from
+`Huey et al. (2007) <https://doi.org/10.1002/jcc.20634>`_; atom parameters and
+bound-state weights are numerical specifications in the
+`AutoDock4.2.6 User Guide, pp. 34–35
+<https://autodock.scripps.edu/wp-content/uploads/sites/56/2022/04/AutoDock4.2.6_UserGuide.pdf>`_.
+No upstream implementation code is included in either new scorer.
+
+AD4 includes 12-6 van der Waals interactions, radial 12-10 hydrogen bonding,
+Mehler–Solmajer distance-dependent dielectric electrostatics and
+charge-dependent Gaussian desolvation. The Gaussian sigma is 3.5 Angstrom,
+as published in the paper. The five default weights are 0.1662, 0.1209,
+0.1406, 0.1322 and 0.2983 for vdW, H-bond, electrostatics, desolvation and
+torsional entropy. H-bond pairs replace the vdW term. The optional
+``smoothing=0.5`` takes the minimum vdW/H-bond potential within a full-width
+0.5 Angstrom interval; ``smoothing=0`` evaluates the unsmoothed equations.
+These short-range terms have an 8 Angstrom cutoff. Electrostatics and
+desolvation have no cutoff. Distances below 0.1 Angstrom are clamped.
+
+This implementation **omits AutoGrid's angular H-bond factors, H-bond
+saturation and grid interpolation**. It is useful as an AD4 radial model
+with independent search, but its affinities are not numerically equivalent
+to AutoDock4. Rings, conjugated bonds and terminal polar-H torsions retain
+their supplied geometry; the additive torsion count includes searched
+heavy-atom bonds. These distinctions affect both scores and pose recovery.
+
+By default, both molecules are cloned, missing hydrogens are added and
+Gasteiger charges are calculated on those private copies. Correct protonation,
+tautomer choice and missing heavy atoms remain the caller's responsibility.
+Nonpolar H charges are merged into their bonded parent. Heavy atoms and
+explicit polar H participate in scoring; inactive H have zero force. Output
+molecules include added ligand hydrogens, while the inputs are preserved.
+Unsupported elements or nonfinite partial charges raise an error. The parameter
+table supports H, C, N, O, F, Mg, P, S, Cl, Ca, Mn, Fe, Zn, Br and I.
+
+Use ``charge_model=None`` to preserve supplied partial charges. Explicit
+polar hydrogens must already be present, and any omitted nonpolar-H charges
+must already be merged. This option is also appropriate for prepared metal
+sites for which Gasteiger charge calculation fails. When calling scoring
+methods with ``coords``, AD4 requires coordinates for **every atom of the
+prepared ligand**, in order, including H. The default coordinates are
+available as ``scoring_coordinates``; after local search obtain the full
+coordinates with ``engine.lig.mutate(result.x, all_atoms=True)``.
+
+Search minimizes intermolecular plus intraligand energy. By default the
+unbound reference is the bound conformation, so intraligand energy cancels
+from the reported affinity: ``inter + 0.2983 * N_rot``. A fixed
+``unbound_energy`` instead reports ``inter + intra - unbound_energy + torsion``.
+Output ranking still uses the search energy, as with the other scorers.
+``score_inter()`` and ``score_intra()`` return four unweighted terms in the
+order vdW, H-bond, electrostatic and desolvation.
+
+Both scorers emit ``docking_scorer``, ``docking_energy``, ``docking_score``
+and weighted ``docking_term_inter_*`` / ``docking_term_intra_*`` fields.
+They also emit ``vinardo_affinity`` / ``ad4_affinity``, model-prefixed totals
+and rotor counts. AD4 records ``ad4_model=radial``, charge preparation,
+smoothing and unbound-reference settings. Energies are in kcal/mol; these
+empirical estimates should not be compared across scoring models as if
+they were the same calibrated observable.
+
+Scorer validation
+~~~~~~~~~~~~~~~~~
+
+Tests check published pair minima, independent dielectric reference values,
+charge conservation, analytic gradients on 4BFQ and 4LB3 (including box
+restraints and capped MC energies), and composition with all three searches
+on both RDKit and OpenBabel. Saved Vina energy, gradient, optimization and
+seeded search controls remain exactly unchanged on both backends.
+
+A single RDKit 4LB3 redocking validation used the displaced flexible ligand
+from the example above, GA population 24, eight generations, 60 local
+iterations, seed 42 and five output modes:
+
+================  ==================  =======================
+Scorer            Top-pose RMSD (Å)   Best returned RMSD (Å)
+================  ==================  =======================
+Vinardo           0.564               0.564
+AD4 radial        5.781               1.126
+================  ==================  =======================
+
+This checks integration on one complex, not a broad comparison of scoring
+accuracy. AD4 radial found a near-native candidate but ranked another pose
+first. Its omitted H-bond directionality and preparation differences remain
+material limitations.
+
 Implementing another scorer
-~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Subclass ``DockingBase`` and implement
 ``energy_and_gradient(coords, energy_cap=None)``. It receives an ``N x 3``
 array of heavy-atom coordinates and returns an unrestrained energy and its
 Cartesian gradient with the same shape. Include the model's intermolecular
 and intramolecular contributions. The base adds box restraints and projects
-forces onto the pose genes. The current interface scores heavy atoms;
-explicit-hydrogen interaction models require an extension of that interface.
+forces onto the pose genes. A scorer can set ``score_all_atoms=True`` to
+receive every explicit ligand atom, as AD4 does. Its gradient must have the
+same shape; inactive atoms may have zero force. Rotation and torsion
+projection retain the heavy-atom centroid as the translation anchor, and
+box restraints and RMSD clustering still use heavy atoms. Such scorers
+must supply compatible full coordinates for default scoring and metadata.
 
 The minimal composition is:
 

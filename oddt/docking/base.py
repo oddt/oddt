@@ -102,10 +102,11 @@ class DockingBase:
     -----
     Subclasses implement ``energy_and_gradient(coords, energy_cap=None)`` for
     heavy-atom Cartesian coordinates, excluding the shared box restraint.
+    Set ``score_all_atoms=True`` to receive all explicit ligand atoms instead.
     ``energy`` defines the unrestrained energy used for output ranking;
     ``score`` optionally defines a distinct reported score. Named weighted
     contributions may be supplied by ``score_components``. Hydrogens follow
-    their fragments in output poses, but are not scored by this interface.
+    their fragments; all-atom models can include their forces in refinement.
 
     Override ``prepare_atom_dict`` for scorer-specific typing/parameters and
     ``_pose_metadata`` or ``score_metadata_prefixes`` for specialized outputs.
@@ -115,6 +116,7 @@ class DockingBase:
     """
 
     scoring_name = "custom"
+    score_all_atoms = False
     score_metadata_prefixes = ("docking_",)
     default_mc_temperature = 1.2
     default_energy_range = 3.0
@@ -143,7 +145,7 @@ class DockingBase:
         return atom_dict
 
     def energy_and_gradient(self, coords, energy_cap=None):
-        """Return physical energy and an Nx3 heavy-atom Cartesian gradient.
+        """Return physical energy and a matching Nx3 Cartesian gradient.
 
         This excludes box restraints. None requests the exact objective;
         infinity is also uncapped. A scorer may implement finite positive
@@ -174,9 +176,18 @@ class DockingBase:
             "docking_score": float(result.score if "score" in result else result.affinity),
         }
         data.update(
-            {"docking_term_" + name: float(value) for name, value in self.score_components(result.coords).items()}
+            {
+                "docking_term_" + name: float(value)
+                for name, value in self.score_components(self._result_coords(result)).items()
+            }
         )
         return data
+
+    def _result_coords(self, result):
+        """Scoring coordinates, while search archives retain heavy coordinates."""
+        if self.score_all_atoms:
+            return self.lig.mutate(result.x, all_atoms=True)
+        return result.coords
 
     def set_box(self, box):
         if box is not None:
@@ -271,12 +282,17 @@ class DockingBase:
 
     def _objective(self, x, energy_cap=None):
         """Scorer energy plus a box restraint, with a pose-space gradient."""
-        coords = self.lig.mutate(x)
+        coords = self.lig.mutate(x, all_atoms=True) if self.score_all_atoms else self.lig.mutate(x)
         energy, cartesian = self.energy_and_gradient(coords, energy_cap=energy_cap)
         # A stiff wall confines all heavy atoms, not just the ligand centroid.
-        outside = coords - np.clip(coords, self.box[0], self.box[1])
+        heavy_coords = coords[self._heavy_mask] if self.score_all_atoms else coords
+        outside = heavy_coords - np.clip(heavy_coords, self.box[0], self.box[1])
         energy = energy + 1e4 * (outside**2).sum()
-        cartesian = cartesian + 2e4 * outside
+        if self.score_all_atoms:
+            cartesian = cartesian.copy()
+            cartesian[self._heavy_mask] += 2e4 * outside
+        else:
+            cartesian = cartesian + 2e4 * outside
         gradient = np.empty_like(x)
         gradient[:3] = cartesian.sum(axis=0) * self.box_size
         # The XYZ Euler transform is Rz(gamma) Ry(beta) Rx(alpha). Project
@@ -289,16 +305,20 @@ class DockingBase:
                 [0, 0, 1],
             ]
         )
-        torque = _cross_rows(coords - coords.mean(axis=0), cartesian).sum(axis=0)
+        torque = _cross_rows(coords - heavy_coords.mean(axis=0), cartesian).sum(axis=0)
         gradient[3:6] = axes @ torque
         # Each rotor moves a connected fragment around its bond. Removing the
         # mean force accounts for recentering the ligand after torsion changes.
-        centered_gradient = cartesian - cartesian.mean(axis=0)
+        if self.score_all_atoms:
+            centered_gradient = cartesian.copy()
+            centered_gradient[self._heavy_mask] -= cartesian.sum(axis=0) / self._heavy_mask.sum()
+        else:
+            centered_gradient = cartesian - cartesian.mean(axis=0)
         for i, rotor in enumerate(self.rotors, start=6):
-            _, a2, a3, _ = rotor["atoms"]
+            _, a2, a3, _ = rotor["full_atoms" if self.score_all_atoms else "atoms"]
             axis = coords[a2] - coords[a3]
             axis /= np.linalg.norm(axis)
-            mask = rotor["mask"]
+            mask = rotor["full_mask" if self.score_all_atoms else "mask"]
             torque = _cross_rows(coords[mask] - coords[a3], centered_gradient[mask]).sum(axis=0)
             gradient[i] = np.dot(axis, torque)
         return float(energy), gradient
@@ -360,7 +380,7 @@ class DockingBase:
             result.success = False
             result.message = "Local search did not improve the starting pose; retained starting pose."
         result.coords = self.lig.mutate(result.x)
-        result.affinity = float(self.score(result.coords))
+        result.affinity = float(self.score(self._result_coords(result)))
         result.score = result.affinity
         if self.sample_callback is not None:
             self.sample_callback(result, energy_cap)
@@ -403,12 +423,12 @@ class DockingBase:
         if not feasible:
             raise RuntimeError("No pose fits inside the search box; enlarge the box or increase the search budget")
         # Rank by physical energy, excluding the numerical boundary restraint.
-        feasible.sort(key=lambda result: self.energy(result.coords))
-        best_energy = self.energy(feasible[0].coords)
+        feasible.sort(key=lambda result: self.energy(self._result_coords(result)))
+        best_energy = self.energy(self._result_coords(feasible[0]))
         self.results_ = []
         poses = []
         for result in feasible:
-            total = self.energy(result.coords)
+            total = self.energy(self._result_coords(result))
             if total > best_energy + energy_range:
                 break
             if any(
