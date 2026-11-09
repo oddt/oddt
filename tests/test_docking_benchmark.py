@@ -305,18 +305,26 @@ def test_benchmark_cli_uses_larger_population_and_passes_progress(monkeypatch, t
     assert [call[0] for call in calls] == ["ga", "mc", "de"]
     expected = benchmark.search_settings(de_population=12, de_generations=2, de_local_maxiter=4)
     assert all(settings == expected and progress for _, settings, progress in calls)
+    assert not output.with_suffix(".csv").exists()
 
 
 def test_report_renders_both_searches_and_vina(small_report, tmp_path):
+    import json
+
     page = tmp_path / "report.rst"
     page.write_text("Results\n=======\n\n.. benchmark-results-start\n\n.. benchmark-results-end\n")
     figure = tmp_path / "figure.svg"
-    render(small_report, page, figure)
+    source = tmp_path / "raw.json"
+    source.write_text(json.dumps(small_report))
+    render(small_report, page, source=source)
+    assert not figure.exists()
+    assert "per-run CSV" not in page.read_text()  # No link to a nonexistent standalone CSV.
+    render(small_report, page, figure, source=source)
     text = page.read_text()
     for label in ("Internal GA", "Internal MC", "Vina 1.2.7", "Local minimizations", "Objective evaluations"):
         assert label in text
     assert figure.stat().st_size > 1000
-    assert figure.with_suffix(".png").stat().st_size > 1000
+    assert not figure.with_suffix(".png").exists()
 
 
 def test_report_renders_de_only_and_checks_algorithm(small_report, tmp_path):
@@ -607,3 +615,45 @@ def test_scoring_comparison_checks_inputs_budgets_and_preserves_reports(small_re
     reference["sha256"]["tests/data/example.sdf"] = "different"
     with pytest.raises(ValueError, match="checksums differ"):
         compare_reports(primary, reference, "different")
+
+
+def test_archive_overview_keeps_experiments_and_failed_run_denominators(small_report):
+    from copy import deepcopy
+    from asv_bench.docking_pdbbind_report import overview_data
+
+    other = deepcopy(small_report)
+    other["protocol"].update(engines=["ga"], seeds=[42], ga={"algorithm": "genetic", "population_size": 100})
+    other["results"] = [dict(small_report["results"][2], seed=42, top_symmetry_rmsd=8, top_recovered_2A=False)]
+    archive = {"schema_version": 1, "experiments": {"baseline": small_report, "ga100": other}}
+    original = deepcopy(archive)
+    targets, rows = overview_data(archive)
+    assert targets == ["example"]
+    assert sum(r["overall"]["attempts"] for r in rows) == 7
+    baseline = next(r for r in rows if r["experiment"] == "baseline" and r["engine"] == "ga")
+    assert baseline["targets"]["example"]["median_rmsd"] == 1
+    assert baseline["overall"]["top_recovered"] == 1
+    assert baseline["overall"]["attempts"] == 2  # Failed seed remains in the denominator.
+    newer = next(r for r in rows if r["experiment"] == "ga100")
+    assert newer["targets"]["example"]["median_rmsd"] == 8
+    assert newer["overall"]["attempts"] == 1
+    assert "GA100 (1 seed)" in newer["label"]
+    assert archive == original
+
+
+def test_overview_cli_exports_one_image_without_changing_data(small_report, tmp_path, monkeypatch):
+    import json
+    import sys
+    from asv_bench.docking_pdbbind_report import main
+
+    source = tmp_path / "docking.json"
+    original = json.dumps({"schema_version": 1, "experiments": {"baseline": small_report}})
+    source.write_text(original)
+    monkeypatch.setattr(sys, "argv", ["report", "--overview", "--input", str(source)])
+    main()
+    svg = source.with_suffix(".svg").read_text()
+    assert "baseline: Vina score GA (2 seeds)" in svg
+    assert "EXAMPLE" in svg
+    assert "1/2" in svg
+    assert source.read_text() == original
+    assert not source.with_suffix(".png").exists()
+    assert not source.with_suffix(".csv").exists()

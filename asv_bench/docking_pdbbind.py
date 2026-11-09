@@ -19,7 +19,7 @@ import time
 
 import numpy as np
 
-from .docking_benchmark_data import RUN_OUTPUT, write_csv
+from .docking_benchmark_data import RUN_OUTPUT
 
 ROOT = Path(__file__).resolve().parents[1]
 MAX_SYMMETRY_MATCHES = 10_000
@@ -370,10 +370,10 @@ def run_one(directory, target, seed, engine_name, settings=None, progress=False,
 
 
 def save(report, output):
+    """Checkpoint raw results; the archive owns the shared CSV export."""
     report["updated_at_utc"] = datetime.now(timezone.utc).isoformat()
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, indent=2, allow_nan=False) + "\n")
-    write_csv(report, output.with_suffix(".csv"))
 
 
 def main():

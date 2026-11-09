@@ -188,8 +188,10 @@ source/input checksums, per-pose RMSDs and counters:
 * ``ga48``: 18 GA population-48 runs, plus the baseline reproducibility control.
 * ``ga100``: 18 GA population-100 runs and comparison provenance.
 * ``de_probe``: six DE runs with sampling and reference diagnostics.
+* ``scoring_ga100``: 36 Vinardo/AD4 GA population-100 runs, using the
+  archived ``ga100`` experiment as the Vina-scoring comparison reference.
 
-The CSV has 96 rows and an ``experiment`` column. Filter by that column
+The CSV has 132 rows and an ``experiment`` column. Filter by that column
 before comparing runs; budgets and diagnostic settings differ across
 experiments. The JSON also retains ``validation.4lb3`` and
 ``validation.mc_performance``. These functional and profiling records have
@@ -199,6 +201,21 @@ different schemas and are not included in the PDBbind CSV.
 filenames also appear in historical baseline references inside the unchanged
 reports; resolve them through this index. Superseded partial GA/MC runs,
 the preliminary GA/MC probe and older MC-only 4LB3 measurements were removed.
+
+.. figure:: ../_static/benchmarks/docking.svg
+   :alt: Median docking accuracy, runtime and recovery for every archived experiment.
+
+   One overview covers all 132 runs. Each row retains its experiment, engine
+   and seed count; search budgets differ between rows. Cells show per-complex
+   medians. Outlines mark median RMSD below 2 Angstroms; the right columns
+   count recovered runs, including failed runs as misses. DE is a single-seed
+   probe with diagnostics. Timing colors use a logarithmic scale.
+
+The archive, its derived CSV and this SVG are the three published benchmark
+assets. Regenerate the overview with
+``python -m asv_bench.docking_pdbbind_report --overview``. Optional image
+exports use ``--figure path.svg`` or ``--figure path.png`` and create only
+the requested format.
 
 .. benchmark-results-start
 
@@ -456,11 +473,6 @@ RMSDs below are symmetry-aware, in Angstroms. Times are seconds. Per-target valu
      - --
      - --
 
-.. figure:: ../_static/benchmarks/pdbbind_docking.svg
-   :alt: Per-run accuracy and runtime across search engines.
-
-   Dots show individual seeds; larger markers show medians. The dashed line marks 2 Angstrom RMSD. Runtime uses a logarithmic scale.
-
 Download the :download:`per-run CSV <../_static/benchmarks/docking.csv>` or :download:`JSON archive <../_static/benchmarks/docking.json>`. These results are in experiment ``baseline``.
 
 .. benchmark-results-end
@@ -475,29 +487,31 @@ root:
 
    python -m asv_bench.docking_pdbbind
 
-The runner writes ``benchmark-results/docking.json`` containing settings, package versions, source
-checksums, input checksums, per-pose RMSDs and run status, together with a CSV
-of per-run metrics. This local output directory is ignored by Git; published
-data is kept in the shared archive. Each completed run is checkpointed. To resume an interrupted
-run with unchanged sources and settings:
+The runner writes ``benchmark-results/docking.json`` with settings, package
+versions, source/input checksums, per-pose RMSDs and run status. It checkpoints
+after each completed run. This local directory is ignored by Git; publishing
+a completed experiment to the archive generates the shared CSV. To resume an
+interrupted run with unchanged sources and settings:
 
 .. code-block:: bash
 
    python -m asv_bench.docking_pdbbind --resume
 
 After all runs finish, add the completed report to the archive using a unique
-experiment name, then generate its tables and figure:
+experiment name, then generate its tables and refresh the shared overview:
 
 .. code-block:: bash
 
    python -m asv_bench.docking_benchmark_data --input benchmark-results/docking.json --experiment new_comparison
    python -m asv_bench.docking_pdbbind_report --experiment new_comparison
+   python -m asv_bench.docking_pdbbind_report --overview
 
 The archive command rejects incomplete or duplicated run grids and preserves
 existing experiment names. It regenerates the consolidated CSV automatically.
 To regenerate the published baseline without running docking, use
 ``python -m asv_bench.docking_pdbbind_report --experiment baseline``.
-The renderer also accepts a standalone report through ``--input``.
+The renderer also accepts a standalone report through ``--input``. Table
+updates create no image exports unless ``--figure`` is supplied.
 
 The default engine list is ``ga mc vina``. Use ``--engines ga mc`` to compare
 only the two searches on shared scoring. Search budgets can be varied with
@@ -678,12 +692,6 @@ a better-scoring reference basin. For 1K9Q, DE's distant top pose scored
 Here the internal score favored the distant pose over that reference minimum.
 These examples show why search and scoring need separate diagnostics.
 
-.. figure:: ../_static/benchmarks/pdbbind_de_probe.svg
-   :alt: DE accuracy and runtime on six PDBbind test complexes using seed 42.
-
-   A single-seed validation probe. RMSD accounts for chemical graph symmetry;
-   runtime uses a logarithmic scale.
-
 The ``de_probe`` experiment in the :download:`JSON archive <../_static/benchmarks/docking.json>`
 contains protocol, source/input checksums, search counters and reference diagnostics.
 Filter the :download:`per-run CSV <../_static/benchmarks/docking.csv>` by
@@ -695,14 +703,18 @@ Reproduce it with:
    python -m asv_bench.docking_pdbbind --engines de --seeds 42 --diagnostics --output benchmark-results/de_probe.json
 
 AD4 and Vinardo scoring comparison
----------------------------------
+----------------------------------
 
 This comparison holds the genetic search fixed at population 100, eight
-iterations and at most 60 local L-BFGS-B iterations, with seeds 1, 7 and 42
+generations and at most 60 local L-BFGS-B iterations, with seeds 1, 7 and 42
 on all six fixtures. Each internal engine performs 804 local minimizations.
 Scorer-specific forces and preparation differ. AD4 uses directional,
 saturable hydrogen bonds; terminal polar-H torsions retain their input
 geometry. No target-specific parameters are adjusted.
+
+AD4 here is ODDT's independently implemented direct-pair adaptation. All
+three scoring models use the internal genetic search; the earlier external
+Vina comparison remains a separate experiment.
 
 The comparison view includes the archived Vina-scoring ``ga100`` experiment
 as a historical reference. The renderer verifies identical target/seed grids,
@@ -712,6 +724,13 @@ the reference rows are not duplicated into the new experiment. Absolute
 binding-score values are not calibrated identically across these models, so
 the comparison uses pose recovery, RMSD and runtime.
 
+On these six fixtures, all three models recover only 4YEF, in every seed:
+top and any-returned recovery are both 3/18. Vinardo has lower recorded
+median top RMSD and runtime than the historical Vina-scoring GA100 reference.
+AD4 gives the closest top poses on 4YEF (median 0.80 Angstroms), but has the
+highest overall median RMSD and runtime. These fixtures do not establish
+general scorer superiority.
+
 Reproduce the new runs, publish the complete experiment and update this
 section with:
 
@@ -719,11 +738,261 @@ section with:
 
    python -m asv_bench.docking_pdbbind --engines vinardo_ga ad4_ga --ga-population 100 --ga-generations 8 --maxiter 60 --seeds 1 7 42 --output benchmark-results/scoring_ga100.json --resume
    python -m asv_bench.docking_benchmark_data --input benchmark-results/scoring_ga100.json --experiment scoring_ga100
-   python -m asv_bench.docking_pdbbind_report --experiment scoring_ga100 --compare-experiment ga100 --marker scoring-results --title "GA100 scoring comparison" --figure docs/_static/benchmarks/pdbbind_scoring_ga100.svg
+   python -m asv_bench.docking_pdbbind_report --experiment scoring_ga100 --compare-experiment ga100 --marker scoring-results --title "GA100 scoring comparison"
+   python -m asv_bench.docking_pdbbind_report --overview
 
 .. scoring-results-start
 
-The full comparison is being run; completed measurements are checkpointed
-before publication.
+GA100 scoring comparison
+------------------------
+
+This report uses seeds 1, 7, 42 and engines Vina scoring GA, Vinardo GA, AD4 GA. Vina scoring GA: population 100, generations 8, maxiter 60. Vinardo GA: population 100, generations 8, maxiter 60. AD4 GA: population 100, generations 8, maxiter 60. These budgets are not matched energy-evaluation counts.
+
+
+The Vina-scoring reference is reused from the archived ``ga100`` experiment, not rerun. Target/seed grids, search budgets, numerical package versions and input checksums match. Its timing measurements are historical; source versions remain recorded separately in the archive.
+
+RMSDs below are symmetry-aware, in Angstroms. Times are seconds. Per-target values are medians over 3 seeds.
+
+.. list-table:: Across all target/seed runs
+   :header-rows: 1
+
+   * - Engine
+     - Top <2 A
+     - Any returned <2 A
+     - Median top RMSD
+     - Median time
+     - Errors
+   * - Vina scoring GA
+     - 3/18
+     - 3/18
+     - 7.48
+     - 106.5
+     - 0
+   * - Vinardo GA
+     - 3/18
+     - 3/18
+     - 6.36
+     - 87.1
+     - 0
+   * - AD4 GA
+     - 3/18
+     - 3/18
+     - 8.25
+     - 744.8
+     - 0
+
+.. list-table:: Pose recovery by complex
+   :header-rows: 1
+
+   * - Complex
+     - Heavy atoms
+     - Internal torsions
+     - Vina scoring GA RMSD
+     - Vinardo GA RMSD
+     - AD4 GA RMSD
+   * - 10GS
+     - 33
+     - 13
+     - 7.60
+     - 2.47
+     - 8.07
+   * - 1IMX
+     - 60
+     - 22
+     - 6.33
+     - 4.45
+     - 6.94
+   * - 1K9Q
+     - 46
+     - 16
+     - 12.71
+     - 6.82
+     - 12.68
+   * - 1NLO
+     - 84
+     - 24
+     - 7.30
+     - 7.08
+     - 10.47
+   * - 1NLP
+     - 76
+     - 16
+     - 7.51
+     - 6.11
+     - 12.36
+   * - 4YEF
+     - 77
+     - 7
+     - 1.14
+     - 1.33
+     - 0.80
+
+.. list-table:: Recovered runs by complex (RMSD <2 A)
+   :header-rows: 1
+
+   * - Complex
+     - Vina scoring GA top
+     - Vinardo GA top
+     - AD4 GA top
+     - Vina scoring GA any returned
+     - Vinardo GA any returned
+     - AD4 GA any returned
+   * - 10GS
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+   * - 1IMX
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+   * - 1K9Q
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+   * - 1NLO
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+   * - 1NLP
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+     - 0/3
+   * - 4YEF
+     - 3/3
+     - 3/3
+     - 3/3
+     - 3/3
+     - 3/3
+     - 3/3
+
+.. list-table:: Median runtime by complex
+   :header-rows: 1
+
+   * - Complex
+     - Vina scoring GA (s)
+     - Vinardo GA (s)
+     - AD4 GA (s)
+   * - 10GS
+     - 80.9
+     - 58.4
+     - 562.1
+   * - 1IMX
+     - 114.0
+     - 101.7
+     - 798.2
+   * - 1K9Q
+     - 93.3
+     - 76.5
+     - 404.9
+   * - 1NLO
+     - 157.0
+     - 162.0
+     - 923.6
+   * - 1NLP
+     - 116.4
+     - 99.9
+     - 711.9
+   * - 4YEF
+     - 93.3
+     - 70.4
+     - 1076.2
+
+.. list-table:: Median search work
+   :header-rows: 1
+
+   * - Complex
+     - Engine
+     - Local minimizations
+     - Objective evaluations
+   * - 10GS
+     - Vina scoring GA
+     - 804
+     - 126816
+   * - 10GS
+     - Vinardo GA
+     - 804
+     - 86908
+   * - 10GS
+     - AD4 GA
+     - 804
+     - 73903
+   * - 1IMX
+     - Vina scoring GA
+     - 804
+     - 137668
+   * - 1IMX
+     - Vinardo GA
+     - 804
+     - 117233
+   * - 1IMX
+     - AD4 GA
+     - 804
+     - 92272
+   * - 1K9Q
+     - Vina scoring GA
+     - 804
+     - 147518
+   * - 1K9Q
+     - Vinardo GA
+     - 804
+     - 115324
+   * - 1K9Q
+     - AD4 GA
+     - 804
+     - 88684
+   * - 1NLO
+     - Vina scoring GA
+     - 804
+     - 154660
+   * - 1NLO
+     - Vinardo GA
+     - 804
+     - 144086
+   * - 1NLO
+     - AD4 GA
+     - 804
+     - 101362
+   * - 1NLP
+     - Vina scoring GA
+     - 804
+     - 147567
+   * - 1NLP
+     - Vinardo GA
+     - 804
+     - 116468
+   * - 1NLP
+     - AD4 GA
+     - 804
+     - 94345
+   * - 4YEF
+     - Vina scoring GA
+     - 804
+     - 148575
+   * - 4YEF
+     - Vinardo GA
+     - 804
+     - 106054
+   * - 4YEF
+     - AD4 GA
+     - 804
+     - 77940
+
+
+Download the :download:`per-run CSV <../_static/benchmarks/docking.csv>` or :download:`full JSON report <../_static/benchmarks/docking.json>`. The JSON records the protocol, source/input checksums, per-pose RMSDs and search statistics.
 
 .. scoring-results-end

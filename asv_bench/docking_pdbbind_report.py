@@ -1,4 +1,4 @@
-"""Render the completed PDBbind comparison as tables and a scientific figure."""
+"""Render experiment tables and one scientific overview of the shared archive."""
 
 import argparse
 from copy import deepcopy
@@ -100,8 +100,8 @@ def number(value, precision=2):
     return "--" if value is None else ("%.*f" % (precision, value))
 
 
-def render(report, page, figure, source=None, marker="benchmark-results", title="Results"):
-    summary = summarize(report)
+def validate_engines(report):
+    """Keep engine labels consistent with the recorded search/scoring models."""
     engines = report["protocol"]["engines"]
     if not engines or set(engines) - set(ENGINES):
         raise ValueError("The comparison report requires supported scoring/search engine ids")
@@ -112,6 +112,12 @@ def render(report, page, figure, source=None, marker="benchmark-results", title=
             raise ValueError("Engine %s cannot label results from another search algorithm" % engine)
         if engine not in (*ALGORITHMS, "vina") and config.get("scoring") != scoring:
             raise ValueError("Engine %s cannot label results from another scoring model" % engine)
+    return engines
+
+
+def render(report, page, figure=None, source=None, marker="benchmark-results", title="Results"):
+    summary = summarize(report)
+    engines = validate_engines(report)
     targets = report["protocol"]["targets"]
     seed_count = len(report["protocol"]["seeds"])
     seed_word = "seed" if seed_count == 1 else "seeds"
@@ -182,8 +188,8 @@ def render(report, page, figure, source=None, marker="benchmark-results", title=
                 values = [row[metric] for row in successful if metric in row]
                 counts.append(number(float(np.median(values)), 0) if values else "--")
             work.append([target.upper(), names[engine], *counts])
-    figure_link = os.path.relpath(figure, page.parent).replace(os.sep, "/")
-    source = figure.with_suffix(".json") if source is None else source
+    figure_link = os.path.relpath(figure, page.parent).replace(os.sep, "/") if figure is not None else None
+    source = ARCHIVE if source is None else Path(source)
     download_stem = str(Path(os.path.relpath(source, page.parent)).with_suffix("")).replace(os.sep, "/")
     budgets = []
     for engine in engines:
@@ -266,7 +272,7 @@ def render(report, page, figure, source=None, marker="benchmark-results", title=
         ),
         table("Median runtime by complex", ["Complex"] + [names[e] + " (s)" for e in engines], timing),
         table(
-            "Median search work (Vina does not expose these counters)",
+            "Median search work" + (" (Vina does not expose these counters)" if "vina" in engines else ""),
             ["Complex", "Engine", "Local minimizations", "Objective evaluations"],
             work,
         ),
@@ -282,15 +288,26 @@ def render(report, page, figure, source=None, marker="benchmark-results", title=
             if diagnostic_rows
             else ""
         ),
-        ".. figure:: %s\n   :alt: Per-run accuracy and runtime across search engines.\n\n   Dots show individual seeds; larger markers show medians. The dashed line marks 2 Angstrom RMSD. Runtime uses a logarithmic scale.\n"
-        % figure_link,
-        "Download the :download:`per-run CSV <%s.csv>` or :download:`full JSON report <%s.json>`. The JSON records the protocol, source/input checksums, per-pose RMSDs and search statistics.\n"
-        % (download_stem, download_stem),
+        (
+            ".. figure:: %s\n   :alt: Per-run accuracy and runtime across docking engines.\n\n   Dots show individual seeds; larger markers show medians. The dashed line marks 2 Angstrom RMSD. Runtime uses a logarithmic scale.\n"
+            % figure_link
+            if figure is not None
+            else ""
+        ),
+        (
+            "Download the :download:`per-run CSV <%s.csv>` or :download:`full JSON report <%s.json>`. "
+            % (download_stem, download_stem)
+            if source.with_suffix(".csv").is_file()
+            else "Download the :download:`full JSON report <%s.json>`. " % download_stem
+        )
+        + "The JSON records the protocol, source/input checksums, per-pose RMSDs and search statistics.\n",
     ]
     text = page.read_text()
     start = text.index(".. " + marker + "-start")
     end = text.index(".. " + marker + "-end", start)
     page.write_text(text[:start] + ".. " + marker + "-start\n\n" + "\n".join(parts) + "\n" + text[end:])
+    if figure is None:
+        return
     import matplotlib
 
     matplotlib.use("Agg")
@@ -343,8 +360,128 @@ def render(report, page, figure, source=None, marker="benchmark-results", title=
     fig.suptitle("PDBbind pocket redocking · %d %s per complex · fixed settings" % (seed_count, seed_word))
     figure.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(figure)
-    fig.savefig(figure.with_suffix(".png"), dpi=170)
     plt.close(fig)
+
+
+def overview_data(archive):
+    """Summarize each archived engine separately, retaining its seed denominator."""
+    if archive.get("schema_version") != 1 or not archive.get("experiments"):
+        raise ValueError("The overview requires a nonempty consolidated archive")
+    targets = list(dict.fromkeys(t for r in archive["experiments"].values() for t in r["protocol"]["targets"]))
+    rows = []
+    for experiment, report in archive["experiments"].items():
+        summary = summarize(report)
+        protocol = report["protocol"]
+        seeds = len(protocol["seeds"])
+        for engine in validate_engines(report):
+            scoring, search = engine_spec(engine)
+            if search is None:
+                label = "Vina " + report["versions"].get("vina", "")
+            else:
+                model = {"vina": "Vina score", "vinardo": "Vinardo", "ad4": "AD4"}[scoring]
+                population = protocol.get(engine, {}).get("population_size", "") if search in ("ga", "de") else ""
+                label = "%s %s%s" % (model, search.upper(), population)
+            notes = "%d %s" % (seeds, "seed" if seeds == 1 else "seeds")
+            if protocol.get("diagnostics", {}).get("enabled"):
+                notes += ", diagnostics"
+            rows.append(
+                {
+                    "experiment": experiment,
+                    "engine": engine,
+                    "label": "%s: %s (%s)" % (experiment, label, notes),
+                    "targets": {t: summary.get((t, engine)) for t in targets},
+                    "overall": summary["all", engine],
+                }
+            )
+    return targets, rows
+
+
+def render_overview(archive, figure):
+    """Write one image covering all experiments without pooling their settings."""
+    targets, rows = overview_data(archive)
+    import matplotlib
+
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
+    from matplotlib.colors import LogNorm, Normalize
+    from matplotlib.patches import Rectangle
+
+    with plt.rc_context({"svg.fonttype": "none"}):
+        fig, axes = plt.subplots(
+            1,
+            3,
+            figsize=(15, max(5.2, 0.55 * len(rows) + 2)),
+            gridspec_kw={"width_ratios": [1, 1, 0.45]},
+            constrained_layout=True,
+        )
+        for column, (metric, title, precision) in enumerate(
+            (("median_rmsd", "Top-pose symmetry RMSD (Å)", 2), ("median_seconds", "Docking time (s, log scale)", 1))
+        ):
+            values = np.array(
+                [[r["targets"][t][metric] if r["targets"][t] else np.nan for t in targets] for r in rows],
+                dtype=float,
+            )
+            finite = values[np.isfinite(values)]
+            if column == 1:
+                if np.any(finite <= 0):
+                    raise ValueError("Docking times must be positive for a logarithmic scale")
+                low, high = (float(finite.min()), float(finite.max())) if finite.size else (1, 10)
+                norm = LogNorm(low, max(high, low * 1.01))
+            else:
+                norm = Normalize(0, max(2, float(finite.max()) if finite.size else 2))
+            axis = axes[column]
+            cmap = plt.get_cmap("YlGnBu").with_extremes(bad="#eeeeee")
+            im = axis.imshow(np.ma.masked_invalid(values), aspect="auto", cmap=cmap, norm=norm)
+            axis.set_title(title, pad=12)
+            axis.set_xticks(range(len(targets)), [t.upper() for t in targets])
+            if column == 0:
+                axis.set_yticks(range(len(rows)), [r["label"] for r in rows])
+            else:
+                axis.set_yticks([])
+            axis.tick_params(length=0, labelsize=10)
+            if column == 0:
+                axis.tick_params(axis="y", pad=10)
+            for i in range(len(rows)):
+                for j in range(len(targets)):
+                    value = values[i, j]
+                    color = "white" if np.isfinite(value) and norm(value) > 0.6 else "#16212a"
+                    axis.text(
+                        j,
+                        i,
+                        number(value, precision) if np.isfinite(value) else "--",
+                        ha="center",
+                        va="center",
+                        fontsize=10,
+                        color=color,
+                    )
+                    if column == 0 and np.isfinite(value) and value < 2:
+                        axis.add_patch(
+                            Rectangle((j - 0.48, i - 0.48), 0.96, 0.96, fill=False, edgecolor="#26734b", linewidth=2)
+                        )
+            axis.spines[:].set_visible(False)
+            fig.colorbar(im, ax=axis, orientation="horizontal", fraction=0.06, pad=0.08)
+        axis = axes[2]
+        axis.set_xlim(0, 2)
+        axis.set_ylim(len(rows) - 0.5, -0.5)
+        axis.set_title("Recovered <2 Å", pad=33)
+        axis.set_xticks([0.4, 1.5], ["Top", "Any returned"])
+        axis.xaxis.tick_top()
+        axis.tick_params(length=0, labelsize=10)
+        axis.set_yticks([])
+        axis.spines[:].set_visible(False)
+        for i, row in enumerate(rows):
+            stats = row["overall"]
+            for x, key in ((0.4, "top_recovered"), (1.5, "best_recovered")):
+                axis.text(x, i, "%d/%d" % (stats[key], stats["attempts"]), ha="center", va="center", fontsize=11)
+        fig.suptitle("PDBbind docking benchmark archive", fontsize=18)
+        fig.supxlabel(
+            "Per-complex medians; budgets differ by row. Outlines: median RMSD <2 Å. Failed runs count as recovery misses.",
+            fontsize=10,
+        )
+        figure = Path(figure)
+        figure.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(figure, dpi=170)
+        plt.close(fig)
 
 
 def main():
@@ -359,8 +496,16 @@ def main():
     parser.add_argument("--marker", default="benchmark-results", help="RST start/end marker prefix")
     parser.add_argument("--title", default="Results", help="Generated report section heading")
     parser.add_argument("--page", type=Path, default=ROOT / "docs/user-guide/docking-benchmarks.rst")
-    parser.add_argument("--figure", type=Path, default=ROOT / "docs/_static/benchmarks/pdbbind_docking.svg")
+    parser.add_argument("--figure", type=Path, help="Optional image export; only the requested format is written")
+    parser.add_argument(
+        "--overview", action="store_true", help="Render the archive as one overview image (default: docking.svg)"
+    )
     args = parser.parse_args()
+    if args.overview:
+        if args.experiment or args.compare_experiment:
+            parser.error("--overview summarizes every archived experiment; omit experiment selectors")
+        render_overview(json.loads(args.input.read_text()), args.figure or args.input.with_suffix(".svg"))
+        return
     report = load_report(args.input, args.experiment)
     if args.compare_experiment:
         report = compare_reports(report, load_report(args.input, args.compare_experiment), args.compare_experiment)
