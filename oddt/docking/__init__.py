@@ -1,20 +1,22 @@
 from .AutodockVina import AutoDockVina
 from ._compat import deprecated_class_alias as _deprecated_class_alias
 from .base import DockingBase, LigandPose
-from .internal import OddtVinaDocking, OddtVinaScoring, OddtVinaGA, OddtVinaMC, OddtVinaDE
-from .vinardo import OddtVinardoScoring, OddtVinardoGA, OddtVinardoMC, OddtVinardoDE
-from .ad4 import OddtAD4Scoring, OddtAD4GA, OddtAD4MC, OddtAD4DE
+from .internal import OddtVinaDocking, OddtVinaScoring, OddtVinaGA, OddtVinaMC, OddtVinaDE, OddtVinaACO
+from .vinardo import OddtVinardoScoring, OddtVinardoGA, OddtVinardoMC, OddtVinardoDE, OddtVinardoACO
+from .ad4 import OddtAD4Scoring, OddtAD4GA, OddtAD4MC, OddtAD4DE, OddtAD4ACO
 from .plp import (
     OddtPLPScoring,
     OddtPLPGA,
     OddtPLPMC,
     OddtPLPDE,
+    OddtPLPACO,
     OddtChemPLPScoring,
     OddtChemPLPGA,
     OddtChemPLPMC,
     OddtChemPLPDE,
+    OddtChemPLPACO,
 )
-from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
+from .search import AntColonyMixin, DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
 
 __all__ = [
     "AutoDockVina",
@@ -25,22 +27,28 @@ __all__ = [
     "OddtVinaGA",
     "OddtVinaMC",
     "OddtVinaDE",
+    "OddtVinaACO",
     "OddtVinardoScoring",
     "OddtVinardoGA",
     "OddtVinardoMC",
     "OddtVinardoDE",
+    "OddtVinardoACO",
     "OddtAD4Scoring",
     "OddtAD4GA",
     "OddtAD4MC",
     "OddtAD4DE",
+    "OddtAD4ACO",
     "OddtPLPScoring",
     "OddtPLPGA",
     "OddtPLPMC",
     "OddtPLPDE",
+    "OddtPLPACO",
     "OddtChemPLPScoring",
     "OddtChemPLPGA",
     "OddtChemPLPMC",
     "OddtChemPLPDE",
+    "OddtChemPLPACO",
+    "AntColonyMixin",
     "DifferentialEvolutionMixin",
     "GeneticAlgorithmMixin",
     "MonteCarloMixin",

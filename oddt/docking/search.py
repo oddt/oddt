@@ -305,6 +305,211 @@ class GeneticAlgorithmMixin:
         return self._finish_docking(archive, num_modes, min_rmsd, energy_range)
 
 
+def _acor_weights(size, q):
+    """Normalized Gaussian rank weights, Socha & Dorigo (2008), Eqs. 7--8."""
+    with np.errstate(over="ignore", under="ignore"):
+        scaled = np.arange(size, dtype=float) / (q * size)
+        weights = np.exp(-0.5 * scaled**2)
+    return weights / weights.sum()
+
+
+def _acor_widths(poses, selected, xi, bounds, min_sigma):
+    """Eq. 9 widths, with shortest torsion arcs and isotropic SO(3) kernels."""
+    center = poses[selected]
+    delta = poses - center
+    delta[:, 6:] = (delta[:, 6:] + np.pi) % (2 * np.pi) - np.pi
+    widths = xi * np.abs(delta).sum(axis=0) / (len(poses) - 1)
+    rotations = Rotation.from_euler("xyz", poses[:, 3:6])
+    angles = (rotations * rotations[selected].inv()).magnitude()
+    # An isotropic three-dimensional tangent Gaussian has RMS angle sqrt(3)*sigma.
+    widths[3:6] = xi * angles.sum() / ((len(poses) - 1) * np.sqrt(3))
+    scales = np.r_[bounds[1] - bounds[0], np.full(3, 2 * np.pi / np.sqrt(3)), np.full(len(center) - 6, 2 * np.pi)]
+    return np.maximum(widths, min_sigma * scales)
+
+
+def _acor_sample(poses, weights, xi, bounds, min_sigma, rng):
+    """Choose one archive kernel for the entire pose and construct one ant."""
+    selected = rng.choice(len(poses), p=weights)
+    center = poses[selected]
+    sigma = _acor_widths(poses, selected, xi, bounds, min_sigma)
+    displacement = rng.normal(size=len(center)) * sigma
+    candidate = center + displacement
+    width = bounds[1] - bounds[0]
+    reflected = (candidate[:3] - bounds[0]) % (2 * width)
+    candidate[:3] = bounds[0] + np.minimum(reflected, 2 * width - reflected)
+    candidate[3:6] = (Rotation.from_rotvec(displacement[3:6]) * Rotation.from_euler("xyz", center[3:6])).as_euler("xyz")
+    candidate[6:] = (candidate[6:] + np.pi) % (2 * np.pi) - np.pi
+    return candidate
+
+
+class AntColonyMixin:
+    """Continuous ant-colony pose search with a ranked Gaussian-kernel archive.
+
+    Independently implements the archive/rank/width equations of Socha & Dorigo
+    (2008), doi:10.1016/j.ejor.2006.06.046. Rotation-space kernels, wrapped
+    torsions, reflected bounds, exploration floors, random immigrants and local
+    minimization adapt ACO_R to docking. This is not the PLANTS search algorithm.
+    """
+
+    def dock(
+        self,
+        ants=16,
+        iterations=20,
+        archive_size=32,
+        q=0.2,
+        xi=0.85,
+        min_sigma=0.02,
+        random_fraction=0.1,
+        num_modes=9,
+        seed=None,
+        maxiter=50,
+        min_rmsd=1.0,
+        energy_range=None,
+        progress=False,
+    ):
+        """Sample and refine ants from a continuous pheromone distribution.
+
+        Parameters
+        ----------
+        ants : int, optional
+            Poses sampled per iteration, at least one. Default is 16.
+        iterations : int, optional
+            Archive updates, at least zero. Default is 20; zero evaluates only
+            the initial randomized archive.
+        archive_size : int, optional
+            Ranked pheromone memory size, at least two. Default is 32.
+        q : float, optional
+            Positive Gaussian rank width, default 0.2. Smaller values favor
+            the best archive members more strongly.
+        xi : float, optional
+            Positive multiplier of mean archive distances, default 0.85.
+            Larger values slow concentration of the sampling distribution.
+        min_sigma : float, optional
+            Minimum kernel width as a fraction of the translation box width
+            or full angular period, in [0, 1]. Default is 0.02. For orientation
+            this sets the RMS tangent angle rather than a single-axis width.
+        random_fraction : float, optional
+            Probability of an independently randomized ant, in [0, 1].
+            Default is 0.1. Zero disables random immigrants.
+        num_modes : int, optional
+            Maximum number of returned pose clusters, at least one.
+        seed : int or None, optional
+            Seed for an isolated NumPy generator; global RNG state is preserved.
+        maxiter : int, optional
+            Maximum uncapped L-BFGS-B iterations for every pose, at least one.
+        min_rmsd : float, optional
+            Nonnegative heavy-atom RMSD for output clustering, in Angstroms.
+        energy_range : float or None, optional
+            Nonnegative total-energy window in the scorer's units. None uses
+            the scorer's default. The box restraint is excluded from filtering.
+        progress : bool, optional
+            Show optional tqdm progress over all local minimizations.
+
+        Returns
+        -------
+        poses : list of oddt.toolkit.Molecule
+            Feasible pose copies, ordered by the scorer's unrestrained energy.
+            Inputs and their score metadata are preserved.
+
+        Notes
+        -----
+        Starts with archive_size independent random poses, with uniform SO(3)
+        orientation. Each ant chooses one rank-weighted archive member for all
+        pose variables. Translation uses Gaussian kernels reflected at box
+        bounds; orientation uses an isotropic rotation-vector increment; torsion
+        widths and samples use shortest periodic arcs. The complete colony is
+        sampled from the previous iteration's frozen archive. After uncapped
+        local refinement, the best archive_size finite results survive.
+
+        Exploration floors and immigrants counter archive collapse. The ranked
+        model may contain similar poses; a separate RMSD-clustered pool retains
+        up to max(archive_size, num_modes) feasible output candidates. Both pools
+        are bounded. The default budget is 352 local minimizations, run serially.
+
+        ``history_`` records the best restrained objective initially and after each
+        iteration. ``search_stats_`` records actual work and archive replacements.
+        ``pheromone_archive_`` and ``pheromone_weights_`` expose the final ranked model.
+        No reference coordinates or reference RMSD guide the search.
+        """
+        bounds = self._search_bounds()
+        energy_range = getattr(self, "default_energy_range", 3.0) if energy_range is None else energy_range
+        for name, value, minimum in (
+            ("ants", ants, 1),
+            ("iterations", iterations, 0),
+            ("archive_size", archive_size, 2),
+            ("num_modes", num_modes, 1),
+            ("maxiter", maxiter, 1),
+        ):
+            if not isinstance(value, (int, np.integer)) or isinstance(value, (bool, np.bool_)) or value < minimum:
+                raise ValueError("%s must be an integer >= %d" % (name, minimum))
+        for name, value in (("q", q), ("xi", xi)):
+            if not np.isfinite(value) or value <= 0:
+                raise ValueError("%s must be positive and finite" % name)
+        for name, value in (("min_sigma", min_sigma), ("random_fraction", random_fraction)):
+            if not np.isfinite(value) or not 0 <= value <= 1:
+                raise ValueError("%s must be finite and between zero and one" % name)
+        if not np.isfinite(min_rmsd) or min_rmsd < 0 or not np.isfinite(energy_range) or energy_range < 0:
+            raise ValueError("min_rmsd and energy_range must be finite and nonnegative")
+        rng = np.random.default_rng(seed)
+        self.results_, self.history_ = [], []
+        self.pheromone_archive_, self.pheromone_weights_ = [], np.empty(0)
+        stats = dict.fromkeys(
+            (
+                "local_minimizations",
+                "objective_evaluations",
+                "kernel_samples",
+                "random_samples",
+                "archive_replacements",
+            ),
+            0,
+        )
+        self.search_stats_ = [stats]
+        candidates = []
+
+        def refine(x):
+            result = self.optimize(x, maxiter=maxiter)
+            stats["local_minimizations"] += 1
+            stats["objective_evaluations"] += int(result.nfev)
+            self._add_minimum(candidates, result, min_rmsd, max(archive_size, num_modes))
+            if bar is not None:
+                bar.update()
+            return result
+
+        total = archive_size + ants * iterations
+        with _progress_bar(progress, total=total, desc="ACO docking", unit="minimization") as bar:
+            initial = [refine(self._random_conformation(bounds, rng)) for _ in range(archive_size)]
+            memory = sorted((result for result in initial if np.isfinite(result.fun)), key=lambda result: result.fun)
+            if len(memory) < 2:
+                raise RuntimeError(
+                    "ACO requires at least two finite initial poses; check scoring or increase archive_size"
+                )
+            self.history_.append(float(memory[0].fun))
+            for iteration in range(iterations):
+                poses = np.array([result.x for result in memory])
+                weights = _acor_weights(len(memory), q)
+                colony = []
+                for ant in range(ants):
+                    if rng.random() < random_fraction:
+                        x = self._random_conformation(bounds, rng)
+                        stats["random_samples"] += 1
+                    else:
+                        x = _acor_sample(poses, weights, xi, bounds, min_sigma, rng)
+                        stats["kernel_samples"] += 1
+                    result = refine(x)
+                    if np.isfinite(result.fun):
+                        colony.append(result)
+                combined = [(result, False) for result in memory] + [(result, True) for result in colony]
+                combined.sort(key=lambda entry: entry[0].fun)
+                retained = combined[:archive_size]
+                stats["archive_replacements"] += sum(new for _, new in retained)
+                memory = [result for result, _ in retained]
+                self.history_.append(float(memory[0].fun))
+            self.pheromone_archive_ = memory
+            self.pheromone_weights_ = _acor_weights(len(memory), q)
+        stats["best_energy"] = self.history_[-1]
+        return self._finish_docking(candidates, num_modes, min_rmsd, energy_range)
+
+
 def _de_trial(current, pbest, first, second, scale, crossover, bounds, rng):
     """Current-to-pbest/1 on translations, SO(3), and periodic torsions.
 

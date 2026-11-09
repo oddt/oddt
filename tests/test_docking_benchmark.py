@@ -218,7 +218,7 @@ def test_report_does_not_relabel_genetic_results_as_monte_carlo(small_report, tm
         render(small_report, tmp_path / "report.rst", tmp_path / "figure.svg")
 
 
-@pytest.mark.parametrize("name", ["ga", "mc", "de"])
+@pytest.mark.parametrize("name", ["ga", "mc", "de", "aco"])
 @pytest.mark.parametrize("progress", [False, True])
 def test_benchmark_runs_search_with_the_recorded_budget(benzene, monkeypatch, tmp_path, name, progress):
     from asv_bench import docking_pdbbind as benchmark
@@ -274,12 +274,19 @@ def test_benchmark_cli_uses_larger_population_and_passes_progress(monkeypatch, t
             "ga",
             "mc",
             "de",
+            "aco",
             "--de-population",
             "12",
             "--de-generations",
             "2",
             "--de-local-maxiter",
             "4",
+            "--aco-ants",
+            "4",
+            "--aco-iterations",
+            "2",
+            "--aco-archive",
+            "8",
             "--seeds",
             "7",
             "--progress",
@@ -302,8 +309,11 @@ def test_benchmark_cli_uses_larger_population_and_passes_progress(monkeypatch, t
         report["protocol"]["de"]
         == benchmark.search_settings(de_population=12, de_generations=2, de_local_maxiter=4)["de"]
     )
-    assert [call[0] for call in calls] == ["ga", "mc", "de"]
-    expected = benchmark.search_settings(de_population=12, de_generations=2, de_local_maxiter=4)
+    assert [call[0] for call in calls] == ["ga", "mc", "de", "aco"]
+    expected = benchmark.search_settings(
+        de_population=12, de_generations=2, de_local_maxiter=4, aco_ants=4, aco_iterations=2, aco_archive=8
+    )
+    assert report["protocol"]["aco"] == expected["aco"]
     assert all(settings == expected and progress for _, settings, progress in calls)
     assert not output.with_suffix(".csv").exists()
 
@@ -347,6 +357,21 @@ def test_report_renders_de_only_and_checks_algorithm(small_report, tmp_path):
     protocol["de"]["algorithm"] = "genetic"
     with pytest.raises(ValueError, match="cannot label"):
         render(small_report, page, tmp_path / "de.svg")
+
+
+@pytest.mark.parametrize("scoring", ["vina", "vinardo", "ad4", "plp", "chemplp"])
+def test_report_renders_ant_colony_budget_and_model(small_report, tmp_path, scoring):
+    from asv_bench.docking_pdbbind import search_settings
+
+    name = "aco" if scoring == "vina" else scoring + "_aco"
+    small_report["protocol"]["engines"] = [name]
+    small_report["protocol"][name] = dict(search_settings()["aco"], scoring=scoring)
+    small_report["results"] = [dict(row, engine=name) for row in small_report["results"] if row["engine"] == "ga"]
+    page = tmp_path / "aco.rst"
+    page.write_text(".. benchmark-results-start\n\n.. benchmark-results-end\n")
+    render(small_report, page, tmp_path / "aco.svg")
+    assert "ACO: archive 32, 16 ants, iterations 20, maxiter 60" in page.read_text()
+    assert "ant_colony" == small_report["protocol"][name]["algorithm"]
 
 
 def test_diagnostics_include_discarded_and_capped_poses_but_exclude_outside_box(benzene):
@@ -527,7 +552,7 @@ def test_archive_cli_preserves_validation_provenance(small_report, monkeypatch, 
 
 
 @pytest.mark.parametrize("scoring", ["ad4", "vinardo", "plp", "chemplp"])
-@pytest.mark.parametrize("search", ["ga", "mc", "de"])
+@pytest.mark.parametrize("search", ["ga", "mc", "de", "aco"])
 def test_benchmark_selects_scoring_and_search_independently(benzene, monkeypatch, tmp_path, scoring, search):
     from asv_bench import docking_pdbbind as benchmark
     from oddt import docking

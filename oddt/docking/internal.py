@@ -13,7 +13,7 @@ from .base import (
     get_close_neighbors,
     change_dihedral,
 )
-from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
+from .search import AntColonyMixin, DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
 
 
 def num_rotors_pdbqt(lig):
@@ -260,6 +260,10 @@ class OddtVinaDE(DifferentialEvolutionMixin, OddtVinaScoring):
     """Vina scoring with adaptive differential evolution and L-BFGS-B."""
 
 
+class OddtVinaACO(AntColonyMixin, OddtVinaScoring):
+    """Vina scoring with continuous ant-colony search and L-BFGS-B."""
+
+
 # The default docking engine continues to use Monte Carlo search.
 OddtVinaDocking = OddtVinaMC
 
@@ -279,6 +283,12 @@ def __dir__():
     return sorted(set(globals()) | _DEPRECATED_ALIASES.keys())
 
 
-__all__ = ["OddtVinaScoring", "OddtVinaDocking", "OddtVinaGA", "OddtVinaMC", "OddtVinaDE", "num_rotors_pdbqt"] + list(
-    _DEPRECATED_ALIASES
-)
+__all__ = [
+    "OddtVinaScoring",
+    "OddtVinaDocking",
+    "OddtVinaGA",
+    "OddtVinaMC",
+    "OddtVinaDE",
+    "OddtVinaACO",
+    "num_rotors_pdbqt",
+] + list(_DEPRECATED_ALIASES)

@@ -25,7 +25,7 @@ from ._plp_preparation import (
     validate_torsion,
 )
 from ._plp_terms import angle_factor, plp_potential, product_factors, ramp, repulsive_potential, torsional_potential
-from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
+from .search import AntColonyMixin, DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
 
 __all__ = [
     "OddtPLPScoring",
@@ -33,9 +33,11 @@ __all__ = [
     "OddtPLPGA",
     "OddtPLPMC",
     "OddtPLPDE",
+    "OddtPLPACO",
     "OddtChemPLPGA",
     "OddtChemPLPMC",
     "OddtChemPLPDE",
+    "OddtChemPLPACO",
 ]
 
 _RADIAL_NAMES = ("plp_hydrogen", "plp_metal", "plp_buried", "plp_nonpolar", "plp_repulsive")
@@ -516,3 +518,11 @@ class OddtChemPLPMC(MonteCarloMixin, OddtChemPLPScoring):
 
 class OddtChemPLPDE(DifferentialEvolutionMixin, OddtChemPLPScoring):
     """ChemPLP scoring with adaptive differential evolution and L-BFGS-B."""
+
+
+class OddtPLPACO(AntColonyMixin, OddtPLPScoring):
+    """PLP scoring with continuous ant-colony search and L-BFGS-B."""
+
+
+class OddtChemPLPACO(AntColonyMixin, OddtChemPLPScoring):
+    """ChemPLP scoring with continuous ant-colony search and L-BFGS-B."""

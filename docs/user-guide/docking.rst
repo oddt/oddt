@@ -1,22 +1,22 @@
 Internal docking engines
 ========================
 
-:class:`oddt.docking.OddtVinaGA`, :class:`oddt.docking.OddtVinaMC` and
-:class:`oddt.docking.OddtVinaDE` search ligand
+:class:`oddt.docking.OddtVinaGA`, :class:`oddt.docking.OddtVinaMC`,
+:class:`oddt.docking.OddtVinaDE` and :class:`oddt.docking.OddtVinaACO` search ligand
 translation, orientation and rotatable bonds against a rigid receptor. They
 share Vina-inspired scoring and SciPy's L-BFGS-B local minimizer, with genetic,
-Monte Carlo and adaptive differential evolution global search respectively.
+Monte Carlo, adaptive differential evolution and continuous ant-colony search respectively.
 They require NumPy, SciPy and an ODDT molecular
 backend; no AutoDock Vina installation is needed.
 ``OddtVinaDocking`` is the default Monte Carlo engine, an alias for ``OddtVinaMC``.
 
 ``OddtVinardoScoring`` and ``OddtAD4Scoring`` provide two additional independently
-implemented models. Each has ``GA``, ``MC`` and ``DE`` engines, for example
+implemented models. Each has ``GA``, ``MC``, ``DE`` and ``ACO`` engines, for example
 ``OddtVinardoGA`` and ``OddtAD4MC``. AD4 uses **directional, saturable direct pairs**, with the
 limitations and preparation requirements described below.
 
 ``OddtPLPScoring`` and ``OddtChemPLPScoring`` implement PLP M5 and ChemPLP M3
-with analytic derivatives. They also compose with all three searches, for
+with analytic derivatives. They also compose with all four searches, for
 example ``OddtChemPLPGA``. These independently implemented models use
 empirical score units rather than kcal/mol; see their parameter coverage below.
 
@@ -132,6 +132,7 @@ default and does not change random sampling or search results. GA counts
 local minimizations, including its initial population; MC counts proposals
 across all trajectories, advancing after any associated refinement finishes.
 DE counts initialization, each generation, and final archive refinement.
+ACO counts each local minimization, including the initial pheromone archive.
 
 Scoring base and search mixins
 ------------------------------
@@ -144,8 +145,8 @@ with Vina atom radii, pair terms, energy gradients, torsional correction and
 the existing ``vina_*`` output fields. Its public scoring methods and import
 paths remain available, including the ``OddtVinaDocking`` alias.
 
-``GeneticAlgorithmMixin``, ``MonteCarloMixin`` and
-``DifferentialEvolutionMixin`` supply the global searches. All three Vina
+``GeneticAlgorithmMixin``, ``MonteCarloMixin``, ``DifferentialEvolutionMixin``
+and ``AntColonyMixin`` supply the global searches. All four Vina
 engines compose their search with ``OddtVinaScoring``, sharing the same typing,
 restraints and output selection.
 
@@ -320,6 +321,7 @@ PLP and ChemPLP
 
 ``OddtPLPGA``, ``OddtPLPMC`` and ``OddtPLPDE`` use PLP scoring;
 ``OddtChemPLPGA``, ``OddtChemPLPMC`` and ``OddtChemPLPDE`` use ChemPLP.
+``OddtPLPACO`` and ``OddtChemPLPACO`` add continuous ant-colony search.
 They share the existing search implementations and optional tqdm displays.
 The search remains serial. MC uses uncapped local minimization by default.
 Its temperature and the output ``energy_range`` are in the chosen scorer's
@@ -579,6 +581,71 @@ receive full refinement before output ranking. These extra local searches
 are counted in the statistics, so ``population_size * generations`` alone
 does not measure the total search cost. DE remains experimental; improving
 the scoring objective does not guarantee improved native-pose recovery.
+
+Continuous ant-colony search
+----------------------------
+
+``AntColonyMixin`` implements a docking adaptation of the continuous
+ACO_R archive and Gaussian-kernel equations in
+`Socha and Dorigo (2008) <https://doi.org/10.1016/j.ejor.2006.06.046>`_.
+It is independently implemented from the published method, with ODDT pose
+geometry, exploration controls and L-BFGS-B local refinement. It does not
+include the full decision-space coordinate-system adaptation in ACO_R's Appendix A.
+
+.. code-block:: python
+
+   from oddt.docking import OddtChemPLPACO
+
+   engine = OddtChemPLPACO(protein, ligand, box=box)
+   poses = engine.dock(archive_size=32, ants=16, iterations=20,
+                       maxiter=60, seed=42, num_modes=5, progress=True)
+   print(poses[0].data["chemplp_score"])
+
+Use ``OddtVinaACO``, ``OddtVinardoACO``, ``OddtAD4ACO``, ``OddtPLPACO`` or
+``OddtChemPLPACO`` to select the scoring model. All use the same local
+minimizer, box restraints, callbacks and final pose selection as the other
+search engines. PLP/ChemPLP retain their documented parameter coverage.
+
+The initial ``archive_size`` poses randomize translation, uniform SO(3)
+orientation and allowed torsions, then undergo uncapped L-BFGS-B refinement.
+Ranked solutions define the pheromone model: rank ``r`` (zero-based) has
+sampling weight proportional to ``exp(-0.5 * (r / (q * k))**2)``, where
+``k`` is the current archive size and ``q=0.2`` by default. Smaller ``q``
+concentrates sampling on the best solutions. Each ant chooses one archive
+member for the entire pose, then samples around it. Kernel widths are
+``xi * mean_absolute_distance`` to the other members, with ``xi=0.85``.
+
+Translations reflect at box boundaries. Torsions use wrapped differences
+and samples so that angles near minus/plus pi remain close. Orientation
+uses an isotropic Gaussian rotation-vector increment; its RMS tangent
+angle is ``xi`` times the mean SO(3) distance to the other members. This
+avoids treating equivalent Euler representations as distant solutions.
+
+``min_sigma=0.02`` sets a width floor relative to each box dimension or
+full angular period. It specifies RMS tangent angle for orientation.
+``random_fraction=0.1`` independently replaces a sampled ant with a uniform
+random pose. These exploration mechanisms limit collapse of the archive;
+set either to zero to disable it. Every colony samples from the previous
+iteration's frozen archive. After refinement, the best ``archive_size``
+finite results survive. The ranked archive can contain similar poses;
+a separate pool preserves up to ``max(archive_size, num_modes)`` feasible
+RMSD clusters for output.
+
+Defaults evaluate ``32 + 16 * 20 = 352`` local minimizations, run serially.
+Increase ``ants``, ``iterations`` or ``archive_size`` for more searching.
+``iterations=0`` evaluates only the initial archive. ``history_`` contains
+the best restrained objective initially and after each iteration;
+``search_stats_`` records actual minimizations, objective evaluations,
+kernel/random samples and archive replacements. ``pheromone_archive_``
+and ``pheromone_weights_`` expose the final ranked model. This search is
+experimental; broader accuracy and runtime comparisons are still needed.
+
+A small RDKit 4LB3 probe used a 12-pose archive, eight ants, four iterations,
+60 local iterations, seed 42, five modes and an energy range of 100. From
+the displaced input in the example, with all six heavy-atom torsions flexible,
+the top-pose direct RMSDs were 0.893 Angstroms (Vina), 0.967 (PLP) and
+1.714 (ChemPLP). Each run performed 44 local minimizations. These are
+integration checks, not a matched accuracy comparison with the other searches.
 
 Scores and diagnostics
 ----------------------

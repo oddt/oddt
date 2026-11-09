@@ -24,7 +24,7 @@ from .docking_benchmark_data import RUN_OUTPUT
 ROOT = Path(__file__).resolve().parents[1]
 MAX_SYMMETRY_MATCHES = 10_000
 RMSD_BATCH_SIZE = 256
-ALGORITHMS = {"ga": "genetic", "mc": "monte_carlo", "de": "differential_evolution"}
+ALGORITHMS = {"ga": "genetic", "mc": "monte_carlo", "de": "differential_evolution", "aco": "ant_colony"}
 SCORERS = {"vina": "OddtVina", "vinardo": "OddtVinardo", "ad4": "OddtAD4", "plp": "OddtPLP", "chemplp": "OddtChemPLP"}
 ENGINES = [
     *ALGORITHMS,
@@ -100,6 +100,9 @@ def search_settings(
     de_population=32,
     de_generations=20,
     de_local_maxiter=10,
+    aco_ants=16,
+    aco_iterations=20,
+    aco_archive=32,
 ):
     """Single source of settings for both execution and report provenance."""
     return {
@@ -130,6 +133,17 @@ def search_settings(
             "archive_size": 64,
             "stagnation_generations": 5,
             "restart_fraction": 0.25,
+        },
+        "aco": {
+            "algorithm": "ant_colony",
+            "ants": aco_ants,
+            "iterations": aco_iterations,
+            "archive_size": aco_archive,
+            "maxiter": maxiter,
+            "q": 0.2,
+            "xi": 0.85,
+            "min_sigma": 0.02,
+            "random_fraction": 0.1,
         },
     }
 
@@ -422,6 +436,9 @@ def main():
     parser.add_argument("--de-population", type=int, default=32)
     parser.add_argument("--de-generations", type=int, default=20)
     parser.add_argument("--de-local-maxiter", type=int, default=10)
+    parser.add_argument("--aco-ants", type=int, default=16)
+    parser.add_argument("--aco-iterations", type=int, default=20)
+    parser.add_argument("--aco-archive", type=int, default=32)
     parser.add_argument("--maxiter", type=int, default=60)
     parser.add_argument("--output", type=Path, default=RUN_OUTPUT)
     parser.add_argument("--resume", action="store_true")
@@ -449,6 +466,9 @@ def main():
         or args.ga_generations < 0
         or args.de_population < 4
         or args.de_generations < 0
+        or args.aco_archive < 2
+        or args.aco_iterations < 0
+        or args.aco_ants < 1
         or min(args.mc_exhaustiveness, args.mc_steps, args.maxiter, args.de_local_maxiter) < 1
     ):
         parser.error("Invalid search budget")
@@ -461,6 +481,9 @@ def main():
         args.de_population,
         args.de_generations,
         args.de_local_maxiter,
+        args.aco_ants,
+        args.aco_iterations,
+        args.aco_archive,
     )
     protocol = {
         "targets": targets,
@@ -474,6 +497,7 @@ def main():
         "ga": settings["ga"],
         "mc": dict(settings["mc"], hunt_energy_cap=10.0, refinement_energy_cap="infinity (uncapped limit)"),
         "de": settings["de"],
+        "aco": settings["aco"],
         "vina": {
             "exhaustiveness": 8,
             "n_cpu": 1,

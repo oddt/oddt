@@ -10,7 +10,7 @@ from scipy.spatial.distance import cdist
 
 from .base import DockingBase
 from .internal import num_rotors_pdbqt
-from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
+from .search import AntColonyMixin, DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
 
 
 class OddtVinardoScoring(DockingBase):
@@ -160,3 +160,7 @@ class OddtVinardoMC(MonteCarloMixin, OddtVinardoScoring):
 
 class OddtVinardoDE(DifferentialEvolutionMixin, OddtVinardoScoring):
     """Vinardo scoring with adaptive differential evolution and L-BFGS-B."""
+
+
+class OddtVinardoACO(AntColonyMixin, OddtVinardoScoring):
+    """Vinardo scoring with continuous ant-colony search and L-BFGS-B."""

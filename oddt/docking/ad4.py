@@ -16,7 +16,7 @@ from scipy.spatial.distance import cdist
 from ._compat import deprecated_class_alias as _deprecated_class_alias
 from .base import DockingBase, get_close_neighbors
 from ._ad4_hbond import acceptor_frames, angular_factors, geometry_rules, saturated_contacts
-from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
+from .search import AntColonyMixin, DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
 
 # R_ii (diameter), epsilon_ii, volume, atomic solvation parameter,
 # optimum H-bond distance, H-bond well depth. Units: Angstrom, kcal/mol.
@@ -531,3 +531,7 @@ class OddtAD4MC(MonteCarloMixin, OddtAD4Scoring):
 
 class OddtAD4DE(DifferentialEvolutionMixin, OddtAD4Scoring):
     """Directional, saturable AD4 scoring with adaptive DE and L-BFGS-B."""
+
+
+class OddtAD4ACO(AntColonyMixin, OddtAD4Scoring):
+    """Directional, saturable AD4 scoring with continuous ACO and L-BFGS-B."""

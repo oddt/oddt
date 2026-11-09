@@ -2,13 +2,15 @@ PDBbind docking comparison
 ==========================
 
 This runner supports Vina, Vinardo, AD4, PLP and ChemPLP scoring with ODDT's internal
-genetic, Monte Carlo and experimental adaptive differential evolution searches, with
+genetic, Monte Carlo, adaptive differential evolution and ant-colony searches, with
 optional installed AutoDock Vina 1.2.7, on all six PDBbind complexes distributed with the tests:
 10GS, 1IMX, 1K9Q, 1NLO, 1NLP and 4YEF. The earlier :doc:`docking` example
 was developed on 4LB3; these six complexes provide a separate check.
 
 PLP/ChemPLP can be selected with ``--engines plp_ga chemplp_ga``;
 ``plp_mc``, ``plp_de``, ``chemplp_mc`` and ``chemplp_de`` are also available.
+ACO selectors are ``aco`` (Vina scoring), ``vinardo_aco``, ``ad4_aco``,
+``plp_aco`` and ``chemplp_aco``. Existing archived measurements predate ACO.
 The archived measurements below predate these two scorers. No PLP/ChemPLP
 accuracy or speed comparison is implied by those measurements. See
 :doc:`docking` for parameter coverage and preparation differences.
@@ -140,6 +142,24 @@ minimization, its resulting RMSD and feasibility, and the top returned pose's
 total energy under the same internal scoring function. Comparing these
 values helps identify scoring and reference-geometry limitations. External
 Vina does not expose local-search snapshots through its Python API.
+
+Ant-colony budget
+~~~~~~~~~~~~~~~~~
+
+ACO defaults to a 32-pose pheromone archive, 16 ants per iteration and 20
+iterations, with full uncapped local refinement up to ``--maxiter 60``.
+That is 352 local minimizations, including initialization. Its rank width
+is 0.2, kernel-distance multiplier 0.85, minimum width fraction 0.02 and
+random-immigrant probability 0.1. The runner records these parameters and
+all source checksums. This budget is not matched to GA, MC or DE.
+
+``--aco-ants``, ``--aco-iterations`` and ``--aco-archive`` customize the
+budget. Progress and sampling diagnostics use the same interfaces as
+the other internal searches. For example:
+
+.. code-block:: console
+
+   python -m asv_bench.docking_pdbbind --engines plp_aco chemplp_aco --aco-ants 16 --aco-iterations 20 --aco-archive 32 --seeds 42 --diagnostics --output benchmark-results/aco.json
 
 Snapshot-copy overhead is included in diagnostic run times. RMSD evaluation
 and reference minimization happen after timing. Use the same diagnostic flag

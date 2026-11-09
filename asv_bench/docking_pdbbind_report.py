@@ -127,6 +127,7 @@ def render(report, page, figure=None, source=None, marker="benchmark-results", t
         "ga": "Internal GA",
         "mc": "Internal MC",
         "de": "Internal DE",
+        "aco": "Internal ACO",
         "vina": "Vina " + report["versions"].get("vina", ""),
     }
     names.update(
@@ -202,6 +203,17 @@ def render(report, page, figure=None, source=None, marker="benchmark-results", t
                     config.get("generations", "--"),
                     config.get("maxiter", "--"),
                     ", short local maxiter %s" % config.get("local_maxiter", "--") if search == "de" else "",
+                )
+            )
+        elif search == "aco":
+            budgets.append(
+                "%s: archive %s, %s ants, iterations %s, maxiter %s."
+                % (
+                    names[engine],
+                    config.get("archive_size", "--"),
+                    config.get("ants", "--"),
+                    config.get("iterations", "--"),
+                    config.get("maxiter", "--"),
                 )
             )
         elif search == "mc":
@@ -312,12 +324,18 @@ def render(report, page, figure=None, source=None, marker="benchmark-results", t
     import matplotlib.pyplot as plt
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.3), constrained_layout=True)
-    styles = {"ga": ("#5746a3", "^"), "mc": ("#087f8c", "o"), "de": ("#43852c", "D"), "vina": ("#bd4f00", "s")}
+    styles = {
+        "ga": ("#5746a3", "^"),
+        "mc": ("#087f8c", "o"),
+        "de": ("#43852c", "D"),
+        "aco": ("#a23b72", "P"),
+        "vina": ("#bd4f00", "s"),
+    }
     styles.update(
         {
             name: (
                 "#247c91" if name.startswith("vinardo_") else "#43852c",
-                {"ga": "^", "mc": "o", "de": "D"}[engine_spec(name)[1]],
+                {"ga": "^", "mc": "o", "de": "D", "aco": "P"}[engine_spec(name)[1]],
             )
             for name in engines
             if name not in styles
