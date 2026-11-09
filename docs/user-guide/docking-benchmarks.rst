@@ -2,7 +2,7 @@ PDBbind docking comparison
 ==========================
 
 This runner supports Vina, Vinardo, AD4, PLP and ChemPLP scoring with ODDT's internal
-genetic, Monte Carlo, adaptive differential evolution and ant-colony searches, with
+genetic, Monte Carlo, adaptive differential evolution, ant-colony and Bayesian searches, with
 optional installed AutoDock Vina 1.2.7, on all six PDBbind complexes distributed with the tests:
 10GS, 1IMX, 1K9Q, 1NLO, 1NLP and 4YEF. The earlier :doc:`docking` example
 was developed on 4LB3; these six complexes provide a separate check.
@@ -11,6 +11,8 @@ PLP/ChemPLP can be selected with ``--engines plp_ga chemplp_ga``;
 ``plp_mc``, ``plp_de``, ``chemplp_mc`` and ``chemplp_de`` are also available.
 ACO selectors are ``aco`` (Vina scoring), ``vinardo_aco``, ``ad4_aco``,
 ``plp_aco`` and ``chemplp_aco``. Existing archived measurements predate ACO.
+Bayesian selectors are ``bo`` (Vina scoring), ``vinardo_bo``, ``ad4_bo``,
+``plp_bo`` and ``chemplp_bo``. Existing archived measurements also predate BO.
 The archived measurements below predate these two scorers. No PLP/ChemPLP
 accuracy or speed comparison is implied by those measurements. See
 :doc:`docking` for parameter coverage and preparation differences.
@@ -160,6 +162,27 @@ the other internal searches. For example:
 .. code-block:: console
 
    python -m asv_bench.docking_pdbbind --engines plp_aco chemplp_aco --aco-ants 16 --aco-iterations 20 --aco-archive 32 --seeds 42 --diagnostics --output benchmark-results/aco.json
+
+Bayesian search budget
+~~~~~~~~~~~~~~~~~~~~~~
+
+BO defaults to 24 initial poses and 80 acquisition/random evaluations,
+each refined up to ``--maxiter 60``, for 104 local minimizations. Each
+acquisition uses a 512-candidate pool and at most 128 GP training samples.
+The Matérn-5/2 length scale is fixed at 0.5, normalized observation variance
+is 1e-6, improvement margin is 0.01, local candidate fraction is 0.75,
+local proposal scale is 0.15 and random-evaluation probability is 0.1.
+See :doc:`docking` for pose features, target normalization and memory rules.
+
+Use ``--bo-initial``, ``--bo-iterations``, ``--bo-candidates`` and
+``--bo-max-samples`` to change the budget. The JSON records the actual
+settings, scikit-learn version and source checksums. Timing includes GP
+fitting and acquisition selection as well as scoring, and the default
+evaluation budget is not matched to the other search methods. For example:
+
+.. code-block:: console
+
+   python -m asv_bench.docking_pdbbind --engines bo chemplp_bo --bo-initial 24 --bo-iterations 80 --bo-candidates 512 --bo-max-samples 128 --seeds 42 --diagnostics --output benchmark-results/bo.json
 
 Snapshot-copy overhead is included in diagnostic run times. RMSD evaluation
 and reference minimization happen after timing. Use the same diagnostic flag

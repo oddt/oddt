@@ -12,6 +12,8 @@ from contextlib import nullcontext
 import math
 
 import numpy as np
+from scipy.special import ndtr
+from scipy.spatial.distance import cdist
 from scipy.spatial.transform import Rotation
 
 
@@ -508,6 +510,276 @@ class AntColonyMixin:
             self.pheromone_weights_ = _acor_weights(len(memory), q)
         stats["best_energy"] = self.history_[-1]
         return self._finish_docking(candidates, num_modes, min_rmsd, energy_range)
+
+
+def _bo_features(poses, bounds):
+    """Continuous pose features invariant to Euler representations and 2pi wraps.
+
+    Each of translation, orientation and the combined torsion block has maximum
+    pairwise distance one. Rotation matrix chord distance is sin(theta/2).
+    Euclidean embeddings keep the Matérn covariance positive semidefinite.
+    """
+    poses = np.atleast_2d(poses)
+    translation = (poses[:, :3] - bounds[0]) / ((bounds[1] - bounds[0]) * np.sqrt(3))
+    orientation = Rotation.from_euler("xyz", poses[:, 3:6]).as_matrix().reshape(-1, 9) / np.sqrt(8)
+    torsions = poses[:, 6:]
+    periodic = np.concatenate((np.sin(torsions), np.cos(torsions)), axis=1) / (2 * np.sqrt(max(1, torsions.shape[1])))
+    return np.concatenate((translation, orientation, periodic), axis=1)
+
+
+def _expected_improvement(mean, std, best, exploration):
+    """Gaussian expected improvement for minimization, in normalized units."""
+    improvement = best - mean - exploration
+    z = np.divide(improvement, std, out=np.zeros_like(improvement), where=std > 1e-12)
+    value = improvement * ndtr(z) + std * np.exp(-0.5 * z**2) / np.sqrt(2 * np.pi)
+    return np.maximum(np.where(std > 1e-12, value, improvement), 0)
+
+
+def _bo_local_trial(center, bounds, scale, rng):
+    """Local acquisition candidate on translations, SO(3) and periodic torsions."""
+    displacement = rng.normal(size=len(center)) * scale
+    candidate = center.copy()
+    width = bounds[1] - bounds[0]
+    reflected = (center[:3] + displacement[:3] * width - bounds[0]) % (2 * width)
+    candidate[:3] = bounds[0] + np.minimum(reflected, 2 * width - reflected)
+    candidate[3:6] = (
+        Rotation.from_rotvec(displacement[3:6] * np.pi) * Rotation.from_euler("xyz", center[3:6])
+    ).as_euler("xyz")
+    candidate[6:] = (center[6:] + displacement[6:] * 2 * np.pi + np.pi) % (2 * np.pi) - np.pi
+    return candidate
+
+
+class BayesianOptimizationMixin:
+    """Gaussian-process Bayesian pose search with expected improvement.
+
+    Uses a fixed Matérn-5/2 kernel and scikit-learn's Gaussian-process posterior.
+    Expected improvement follows the standard minimization formulation; see
+    Frazier (2018), https://arxiv.org/abs/1807.02811. Pose embeddings, bounded
+    memory, local acquisition pools and L-BFGS-B are ODDT docking adaptations.
+    """
+
+    def _bo_candidates(self, bounds, rng, count, minima, local_fraction, local_scale):
+        """Combine uniform exploration and multiscale trials around good minima."""
+        local_count = int(count * local_fraction) if minima else 0
+        candidates = []
+        for i in range(count):
+            if i < local_count:
+                center = minima[rng.integers(min(5, len(minima)))].x
+                scale = local_scale * rng.choice([0.25, 0.5, 1.0, 2.0])
+                candidates.append(_bo_local_trial(center, bounds, scale, rng))
+            else:
+                candidates.append(self._random_conformation(bounds, rng))
+        return np.asarray(candidates)
+
+    def dock(
+        self,
+        n_initial=24,
+        iterations=80,
+        candidate_pool=512,
+        max_samples=128,
+        length_scale=0.5,
+        noise=1e-6,
+        exploration=0.01,
+        local_fraction=0.75,
+        local_scale=0.15,
+        random_fraction=0.1,
+        archive_size=64,
+        num_modes=9,
+        seed=None,
+        maxiter=50,
+        min_rmsd=1.0,
+        energy_range=None,
+        progress=False,
+    ):
+        """Choose local-search starts using a Bayesian model of basin energies.
+
+        Parameters
+        ----------
+        n_initial : int, optional
+            Independent uniform initial poses, at least two. Default is 24.
+        iterations : int, optional
+            Further local minimizations, at least zero. Default is 80.
+        candidate_pool : int, optional
+            Unevaluated acquisition candidates per iteration, at least two.
+            Default is 512. Candidates do not invoke the scoring function.
+        max_samples : int, optional
+            Maximum GP training observations, at least two. Default is 128.
+            Keeps the best observation and the most recent other observations.
+        length_scale : float, optional
+            Positive fixed Matérn-5/2 length scale, default 0.5, in the normalized
+            Euclidean pose embedding. Kernel hyperparameters are not optimized.
+        noise : float, optional
+            Positive normalized observation variance, default 1e-6. A 1e-10
+            numerical floor stabilizes nearly identical inputs.
+        exploration : float, optional
+            Nonnegative improvement margin, default 0.01, in standard deviations
+            of retained energies. Flat energies use a unit normalization scale.
+        local_fraction : float, optional
+            Fraction of candidates around up to five best feasible minima,
+            in [0, 1]. Default is 0.75. Others use uniform random poses.
+        local_scale : float, optional
+            Local proposal width, in (0, 1], default 0.15. Translation uses box
+            widths, rotation pi radians and torsions 2pi radians. Each candidate
+            multiplies this by one of 0.25, 0.5, 1 or 2.
+        random_fraction : float, optional
+            Probability of a uniform random evaluation instead of acquisition,
+            in [0, 1]. Default is 0.1.
+        archive_size : int, optional
+            Feasible output-pool capacity, at least one. Default is 64; raised
+            to num_modes when necessary. Independent of GP training memory.
+        num_modes : int, optional
+            Maximum returned pose clusters, at least one.
+        seed : int or None, optional
+            Seed for an isolated NumPy generator; preserves global RNG state.
+        maxiter : int, optional
+            Maximum uncapped L-BFGS-B iterations per evaluation, at least one.
+        min_rmsd : float, optional
+            Nonnegative heavy-atom RMSD for output clustering, in Angstroms.
+        energy_range : float or None, optional
+            Nonnegative scorer-specific total-energy window. None uses the
+            scorer's default. Final filtering excludes box restraints.
+        progress : bool, optional
+            Show optional tqdm progress over local minimizations.
+
+        Returns
+        -------
+        poses : list of oddt.toolkit.Molecule
+            Feasible pose copies ranked by unrestrained scoring energy.
+
+        Notes
+        -----
+        The GP learns starting pose -> energy after uncapped local refinement,
+        including the box restraint. It is a model of the basin-search objective,
+        not the pointwise force field. Labels always have the same local budget.
+        Rotation matrices and torsion sine/cosine features avoid branch cuts.
+        Each translation/orientation/combined-torsion feature block has maximum
+        distance one. Targets are standardized; GP fitting has bounded cubic
+        cost in max_samples, and candidate predictions use the finite pool.
+
+        Expected improvement selects one previously unobserved candidate in the
+        retained memory. If all EI values vanish, maximum posterior uncertainty
+        selects it. An entirely duplicate pool falls back to a random pose.
+        Nonfinite local results are excluded from training and pose selection;
+        at least two finite initial results are required.
+
+        Defaults perform 104 local minimizations, serially. ``history_`` records
+        the best restrained objective initially and after every iteration;
+        ``search_stats_`` counts scoring work, surrogate fits and proposal types.
+        ``bo_observations_`` stores retained raw starts/energies. ``surrogate_``
+        predicts standardized energies from pose features; convert with
+        ``surrogate_target_mean_`` and ``surrogate_target_scale_``. The final
+        model includes the final observation. No native-pose information is used.
+        """
+        from sklearn.gaussian_process import GaussianProcessRegressor
+        from sklearn.gaussian_process.kernels import Matern
+
+        bounds = self._search_bounds()
+        energy_range = getattr(self, "default_energy_range", 3.0) if energy_range is None else energy_range
+        for name, value, minimum in (
+            ("n_initial", n_initial, 2),
+            ("iterations", iterations, 0),
+            ("candidate_pool", candidate_pool, 2),
+            ("max_samples", max_samples, 2),
+            ("archive_size", archive_size, 1),
+            ("num_modes", num_modes, 1),
+            ("maxiter", maxiter, 1),
+        ):
+            if not isinstance(value, (int, np.integer)) or isinstance(value, (bool, np.bool_)) or value < minimum:
+                raise ValueError("%s must be an integer >= %d" % (name, minimum))
+        for name, value in (("length_scale", length_scale), ("noise", noise), ("local_scale", local_scale)):
+            if not np.isfinite(value) or value <= 0 or (name == "local_scale" and value > 1):
+                raise ValueError("%s must be positive and finite (local_scale <= 1)" % name)
+        for name, value in (("local_fraction", local_fraction), ("random_fraction", random_fraction)):
+            if not np.isfinite(value) or not 0 <= value <= 1:
+                raise ValueError("%s must be finite and between zero and one" % name)
+        if not np.isfinite(exploration) or exploration < 0:
+            raise ValueError("exploration must be finite and nonnegative")
+        if not np.isfinite(min_rmsd) or min_rmsd < 0 or not np.isfinite(energy_range) or energy_range < 0:
+            raise ValueError("min_rmsd and energy_range must be finite and nonnegative")
+        rng = np.random.default_rng(seed)
+        self.results_, self.history_ = [], []
+        self.surrogate_ = None
+        self.bo_observations_ = {"x": np.empty((0, len(self.lig.x0))), "energy": np.empty(0)}
+        self.surrogate_target_mean_, self.surrogate_target_scale_ = 0.0, 1.0
+        observations, minima = [], []
+        best = np.inf
+        stats = dict.fromkeys(
+            (
+                "local_minimizations",
+                "objective_evaluations",
+                "surrogate_fits",
+                "acquisition_samples",
+                "random_samples",
+                "duplicate_fallbacks",
+            ),
+            0,
+        )
+        self.search_stats_ = [stats]
+
+        def refine(start):
+            nonlocal best
+            start = np.asarray(start, dtype=float).copy()
+            result = self.optimize(start, maxiter=maxiter)
+            stats["local_minimizations"] += 1
+            stats["objective_evaluations"] += int(result.nfev)
+            if np.isfinite(result.fun):
+                best = min(best, float(result.fun))
+                observations.append((start.copy(), float(result.fun)))
+                if len(observations) > max_samples:
+                    keep = int(np.argmin([value for _, value in observations]))
+                    observations.pop(1 if keep == 0 else 0)
+                self._add_minimum(minima, result, min_rmsd, max(archive_size, num_modes))
+            if bar is not None:
+                bar.update()
+
+        def fit():
+            x = np.array([start for start, _ in observations])
+            y = np.array([value for _, value in observations])
+            self.surrogate_target_mean_ = float(y.mean())
+            scale = float(y.std())
+            self.surrogate_target_scale_ = scale if scale > 1e-12 else 1.0
+            normalized = (y - self.surrogate_target_mean_) / self.surrogate_target_scale_
+            self.surrogate_ = GaussianProcessRegressor(
+                kernel=Matern(length_scale=length_scale, length_scale_bounds="fixed", nu=2.5),
+                alpha=max(noise, 1e-10),
+                optimizer=None,
+            ).fit(_bo_features(x, bounds), normalized)
+            self.bo_observations_ = {"x": x, "energy": y}
+            stats["surrogate_fits"] += 1
+            return float(normalized.min())
+
+        with _progress_bar(progress, total=n_initial + iterations, desc="BO docking", unit="minimization") as bar:
+            for i in range(n_initial):
+                refine(self._random_conformation(bounds, rng))
+            if len(observations) < 2:
+                raise RuntimeError("BO requires at least two finite initial poses; check scoring or increase n_initial")
+            self.history_.append(best)
+            for iteration in range(iterations):
+                if rng.random() < random_fraction:
+                    start = self._random_conformation(bounds, rng)
+                    stats["random_samples"] += 1
+                else:
+                    target = fit()
+                    pool = self._bo_candidates(bounds, rng, candidate_pool, minima, local_fraction, local_scale)
+                    features = _bo_features(pool, bounds)
+                    observed = self.surrogate_.X_train_
+                    novel = np.min(cdist(features, observed), axis=1) > 1e-8
+                    if novel.any():
+                        pool, features = pool[novel], features[novel]
+                        mean, std = self.surrogate_.predict(features, return_std=True)
+                        ei = _expected_improvement(mean, std, target, exploration)
+                        selected = int(np.argmax(ei if ei.max() > 0 else std))
+                        start = pool[selected]
+                        stats["acquisition_samples"] += 1
+                    else:
+                        start = self._random_conformation(bounds, rng)
+                        stats["random_samples"] += 1
+                        stats["duplicate_fallbacks"] += 1
+                refine(start)
+                self.history_.append(best)
+            fit()
+        stats["best_energy"] = best
+        return self._finish_docking(minima, num_modes, min_rmsd, energy_range)
 
 
 def _de_trial(current, pbest, first, second, scale, crossover, bounds, rng):

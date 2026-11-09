@@ -1,4 +1,4 @@
-"""Compare GA, Monte Carlo, differential evolution and Vina on local complexes.
+"""Compare internal docking searches/scorers and Vina on local complexes.
 
 Run from the repository root with ``python -m asv_bench.docking_pdbbind``.
 This is a standalone accuracy/runtime experiment, not an ASV timing benchmark.
@@ -24,7 +24,13 @@ from .docking_benchmark_data import RUN_OUTPUT
 ROOT = Path(__file__).resolve().parents[1]
 MAX_SYMMETRY_MATCHES = 10_000
 RMSD_BATCH_SIZE = 256
-ALGORITHMS = {"ga": "genetic", "mc": "monte_carlo", "de": "differential_evolution", "aco": "ant_colony"}
+ALGORITHMS = {
+    "ga": "genetic",
+    "mc": "monte_carlo",
+    "de": "differential_evolution",
+    "aco": "ant_colony",
+    "bo": "bayesian_optimization",
+}
 SCORERS = {"vina": "OddtVina", "vinardo": "OddtVinardo", "ad4": "OddtAD4", "plp": "OddtPLP", "chemplp": "OddtChemPLP"}
 ENGINES = [
     *ALGORITHMS,
@@ -103,6 +109,10 @@ def search_settings(
     aco_ants=16,
     aco_iterations=20,
     aco_archive=32,
+    bo_initial=24,
+    bo_iterations=80,
+    bo_candidates=512,
+    bo_max_samples=128,
 ):
     """Single source of settings for both execution and report provenance."""
     return {
@@ -144,6 +154,21 @@ def search_settings(
             "xi": 0.85,
             "min_sigma": 0.02,
             "random_fraction": 0.1,
+        },
+        "bo": {
+            "algorithm": "bayesian_optimization",
+            "n_initial": bo_initial,
+            "iterations": bo_iterations,
+            "candidate_pool": bo_candidates,
+            "max_samples": bo_max_samples,
+            "maxiter": maxiter,
+            "length_scale": 0.5,
+            "noise": 1e-6,
+            "exploration": 0.01,
+            "local_fraction": 0.75,
+            "local_scale": 0.15,
+            "random_fraction": 0.1,
+            "archive_size": 64,
         },
     }
 
@@ -439,6 +464,10 @@ def main():
     parser.add_argument("--aco-ants", type=int, default=16)
     parser.add_argument("--aco-iterations", type=int, default=20)
     parser.add_argument("--aco-archive", type=int, default=32)
+    parser.add_argument("--bo-initial", type=int, default=24)
+    parser.add_argument("--bo-iterations", type=int, default=80)
+    parser.add_argument("--bo-candidates", type=int, default=512)
+    parser.add_argument("--bo-max-samples", type=int, default=128)
     parser.add_argument("--maxiter", type=int, default=60)
     parser.add_argument("--output", type=Path, default=RUN_OUTPUT)
     parser.add_argument("--resume", action="store_true")
@@ -469,6 +498,10 @@ def main():
         or args.aco_archive < 2
         or args.aco_iterations < 0
         or args.aco_ants < 1
+        or args.bo_initial < 2
+        or args.bo_iterations < 0
+        or args.bo_candidates < 2
+        or args.bo_max_samples < 2
         or min(args.mc_exhaustiveness, args.mc_steps, args.maxiter, args.de_local_maxiter) < 1
     ):
         parser.error("Invalid search budget")
@@ -484,6 +517,10 @@ def main():
         args.aco_ants,
         args.aco_iterations,
         args.aco_archive,
+        args.bo_initial,
+        args.bo_iterations,
+        args.bo_candidates,
+        args.bo_max_samples,
     )
     protocol = {
         "targets": targets,
@@ -498,6 +535,7 @@ def main():
         "mc": dict(settings["mc"], hunt_energy_cap=10.0, refinement_energy_cap="infinity (uncapped limit)"),
         "de": settings["de"],
         "aco": settings["aco"],
+        "bo": settings["bo"],
         "vina": {
             "exhaustiveness": 8,
             "n_cpu": 1,
@@ -535,6 +573,8 @@ def main():
                     refinement_energy_cap=scorer_class.mc_refinement_energy_cap,
                 )
     packages = ["numpy", "scipy", "rdkit"] + (["vina"] if "vina" in args.engines else [])
+    if any(engine_spec(name)[1] == "bo" for name in args.engines):
+        packages.append("scikit-learn")
     versions = {name: importlib.metadata.version(name) for name in packages}
     source_files = [
         Path(__file__),

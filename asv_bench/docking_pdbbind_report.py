@@ -128,6 +128,7 @@ def render(report, page, figure=None, source=None, marker="benchmark-results", t
         "mc": "Internal MC",
         "de": "Internal DE",
         "aco": "Internal ACO",
+        "bo": "Internal BO",
         "vina": "Vina " + report["versions"].get("vina", ""),
     }
     names.update(
@@ -213,6 +214,18 @@ def render(report, page, figure=None, source=None, marker="benchmark-results", t
                     config.get("archive_size", "--"),
                     config.get("ants", "--"),
                     config.get("iterations", "--"),
+                    config.get("maxiter", "--"),
+                )
+            )
+        elif search == "bo":
+            budgets.append(
+                "%s: initial %s, iterations %s, candidates %s, GP samples %s, maxiter %s."
+                % (
+                    names[engine],
+                    config.get("n_initial", "--"),
+                    config.get("iterations", "--"),
+                    config.get("candidate_pool", "--"),
+                    config.get("max_samples", "--"),
                     config.get("maxiter", "--"),
                 )
             )
@@ -329,13 +342,14 @@ def render(report, page, figure=None, source=None, marker="benchmark-results", t
         "mc": ("#087f8c", "o"),
         "de": ("#43852c", "D"),
         "aco": ("#a23b72", "P"),
+        "bo": ("#b38b00", "X"),
         "vina": ("#bd4f00", "s"),
     }
     styles.update(
         {
             name: (
                 "#247c91" if name.startswith("vinardo_") else "#43852c",
-                {"ga": "^", "mc": "o", "de": "D", "aco": "P"}[engine_spec(name)[1]],
+                {"ga": "^", "mc": "o", "de": "D", "aco": "P", "bo": "X"}[engine_spec(name)[1]],
             )
             for name in engines
             if name not in styles

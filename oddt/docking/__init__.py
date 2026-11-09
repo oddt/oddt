@@ -1,22 +1,30 @@
 from .AutodockVina import AutoDockVina
 from ._compat import deprecated_class_alias as _deprecated_class_alias
 from .base import DockingBase, LigandPose
-from .internal import OddtVinaDocking, OddtVinaScoring, OddtVinaGA, OddtVinaMC, OddtVinaDE, OddtVinaACO
-from .vinardo import OddtVinardoScoring, OddtVinardoGA, OddtVinardoMC, OddtVinardoDE, OddtVinardoACO
-from .ad4 import OddtAD4Scoring, OddtAD4GA, OddtAD4MC, OddtAD4DE, OddtAD4ACO
+from .internal import OddtVinaDocking, OddtVinaScoring, OddtVinaGA, OddtVinaMC, OddtVinaDE, OddtVinaACO, OddtVinaBO
+from .vinardo import OddtVinardoScoring, OddtVinardoGA, OddtVinardoMC, OddtVinardoDE, OddtVinardoACO, OddtVinardoBO
+from .ad4 import OddtAD4Scoring, OddtAD4GA, OddtAD4MC, OddtAD4DE, OddtAD4ACO, OddtAD4BO
 from .plp import (
     OddtPLPScoring,
     OddtPLPGA,
     OddtPLPMC,
     OddtPLPDE,
     OddtPLPACO,
+    OddtPLPBO,
     OddtChemPLPScoring,
     OddtChemPLPGA,
     OddtChemPLPMC,
     OddtChemPLPDE,
     OddtChemPLPACO,
+    OddtChemPLPBO,
 )
-from .search import AntColonyMixin, DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
+from .search import (
+    AntColonyMixin,
+    BayesianOptimizationMixin,
+    DifferentialEvolutionMixin,
+    GeneticAlgorithmMixin,
+    MonteCarloMixin,
+)
 
 __all__ = [
     "AutoDockVina",
@@ -28,27 +36,33 @@ __all__ = [
     "OddtVinaMC",
     "OddtVinaDE",
     "OddtVinaACO",
+    "OddtVinaBO",
     "OddtVinardoScoring",
     "OddtVinardoGA",
     "OddtVinardoMC",
     "OddtVinardoDE",
     "OddtVinardoACO",
+    "OddtVinardoBO",
     "OddtAD4Scoring",
     "OddtAD4GA",
     "OddtAD4MC",
     "OddtAD4DE",
     "OddtAD4ACO",
+    "OddtAD4BO",
     "OddtPLPScoring",
     "OddtPLPGA",
     "OddtPLPMC",
     "OddtPLPDE",
     "OddtPLPACO",
+    "OddtPLPBO",
     "OddtChemPLPScoring",
     "OddtChemPLPGA",
     "OddtChemPLPMC",
     "OddtChemPLPDE",
     "OddtChemPLPACO",
+    "OddtChemPLPBO",
     "AntColonyMixin",
+    "BayesianOptimizationMixin",
     "DifferentialEvolutionMixin",
     "GeneticAlgorithmMixin",
     "MonteCarloMixin",

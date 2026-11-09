@@ -2,21 +2,23 @@ Internal docking engines
 ========================
 
 :class:`oddt.docking.OddtVinaGA`, :class:`oddt.docking.OddtVinaMC`,
-:class:`oddt.docking.OddtVinaDE` and :class:`oddt.docking.OddtVinaACO` search ligand
+:class:`oddt.docking.OddtVinaDE`, :class:`oddt.docking.OddtVinaACO` and
+:class:`oddt.docking.OddtVinaBO` search ligand
 translation, orientation and rotatable bonds against a rigid receptor. They
 share Vina-inspired scoring and SciPy's L-BFGS-B local minimizer, with genetic,
-Monte Carlo, adaptive differential evolution and continuous ant-colony search respectively.
+Monte Carlo, adaptive differential evolution, continuous ant-colony and Bayesian search respectively.
 They require NumPy, SciPy and an ODDT molecular
 backend; no AutoDock Vina installation is needed.
+Bayesian search also uses ODDT's existing scikit-learn dependency.
 ``OddtVinaDocking`` is the default Monte Carlo engine, an alias for ``OddtVinaMC``.
 
 ``OddtVinardoScoring`` and ``OddtAD4Scoring`` provide two additional independently
-implemented models. Each has ``GA``, ``MC``, ``DE`` and ``ACO`` engines, for example
+implemented models. Each has ``GA``, ``MC``, ``DE``, ``ACO`` and ``BO`` engines, for example
 ``OddtVinardoGA`` and ``OddtAD4MC``. AD4 uses **directional, saturable direct pairs**, with the
 limitations and preparation requirements described below.
 
 ``OddtPLPScoring`` and ``OddtChemPLPScoring`` implement PLP M5 and ChemPLP M3
-with analytic derivatives. They also compose with all four searches, for
+with analytic derivatives. They also compose with all five searches, for
 example ``OddtChemPLPGA``. These independently implemented models use
 empirical score units rather than kcal/mol; see their parameter coverage below.
 
@@ -133,6 +135,7 @@ local minimizations, including its initial population; MC counts proposals
 across all trajectories, advancing after any associated refinement finishes.
 DE counts initialization, each generation, and final archive refinement.
 ACO counts each local minimization, including the initial pheromone archive.
+BO counts initial evaluations and each subsequent locally refined proposal.
 
 Scoring base and search mixins
 ------------------------------
@@ -145,8 +148,8 @@ with Vina atom radii, pair terms, energy gradients, torsional correction and
 the existing ``vina_*`` output fields. Its public scoring methods and import
 paths remain available, including the ``OddtVinaDocking`` alias.
 
-``GeneticAlgorithmMixin``, ``MonteCarloMixin``, ``DifferentialEvolutionMixin``
-and ``AntColonyMixin`` supply the global searches. All four Vina
+``GeneticAlgorithmMixin``, ``MonteCarloMixin``, ``DifferentialEvolutionMixin``,
+``AntColonyMixin`` and ``BayesianOptimizationMixin`` supply the global searches. All five Vina
 engines compose their search with ``OddtVinaScoring``, sharing the same typing,
 restraints and output selection.
 
@@ -322,6 +325,7 @@ PLP and ChemPLP
 ``OddtPLPGA``, ``OddtPLPMC`` and ``OddtPLPDE`` use PLP scoring;
 ``OddtChemPLPGA``, ``OddtChemPLPMC`` and ``OddtChemPLPDE`` use ChemPLP.
 ``OddtPLPACO`` and ``OddtChemPLPACO`` add continuous ant-colony search.
+``OddtPLPBO`` and ``OddtChemPLPBO`` use Bayesian optimization.
 They share the existing search implementations and optional tqdm displays.
 The search remains serial. MC uses uncapped local minimization by default.
 Its temperature and the output ``energy_range`` are in the chosen scorer's
@@ -646,6 +650,84 @@ the displaced input in the example, with all six heavy-atom torsions flexible,
 the top-pose direct RMSDs were 0.893 Angstroms (Vina), 0.967 (PLP) and
 1.714 (ChemPLP). Each run performed 44 local minimizations. These are
 integration checks, not a matched accuracy comparison with the other searches.
+
+Bayesian optimization
+---------------------
+
+``BayesianOptimizationMixin`` uses a Gaussian-process surrogate and expected
+improvement to choose starting poses for local refinement, following the
+general framework described by `Frazier (2018)
+<https://arxiv.org/abs/1807.02811>`_. It composes with all internal scoring
+models as ``OddtVinaBO``, ``OddtVinardoBO``, ``OddtAD4BO``, ``OddtPLPBO``
+and ``OddtChemPLPBO``.
+
+.. code-block:: python
+
+   from oddt.docking import OddtChemPLPBO
+
+   engine = OddtChemPLPBO(protein, ligand, box=box)
+   poses = engine.dock(n_initial=24, iterations=80, candidate_pool=512,
+                       max_samples=128, maxiter=60, seed=42,
+                       num_modes=5, progress=True)
+   print(poses[0].data["chemplp_score"])
+
+The first ``n_initial`` poses are uniformly randomized, including SO(3)
+orientation, and refined with uncapped L-BFGS-B. A scikit-learn Gaussian
+process learns **starting pose -> energy after local refinement**, including
+the box restraint. This is the basin-search objective for the fixed local
+budget. Optimized coordinates are used to build local candidate pools and
+produce output poses; they do not replace the input coordinates in training
+pairs. No reference pose or RMSD enters the model.
+
+The covariance is a Matérn-5/2 kernel with fixed ``length_scale=0.5``.
+Translations are normalized by the search box; orientations use rotation
+matrices; torsions use sine/cosine pairs. Each translation, orientation and
+combined-torsion block has pairwise distance at most one. These Euclidean
+features avoid angular branch cuts and keep the covariance positive
+semidefinite. Energies are standardized for GP fitting. ``noise=1e-6`` is a
+normalized observation variance with a numerical floor of 1e-10; kernel
+hyperparameters are not optimized.
+
+Each iteration constructs ``candidate_pool=512`` unevaluated poses.
+``local_fraction=0.75`` places candidates around up to five best feasible
+minima; the rest are uniform. Local proposals use reflected translations,
+composed rotations and wrapped torsions. ``local_scale=0.15`` controls their
+width, with randomly chosen multipliers 0.25, 0.5, 1 and 2 for fine and broad
+steps. Candidate generation and GP prediction do not call the docking scorer.
+
+Expected improvement selects one novel candidate in retained training memory:
+with ``d = best - mean - exploration``, it is
+``d * Phi(d/std) + std * phi(d/std)``. ``exploration=0.01`` is in standardized
+energy units. If all expected improvements vanish, maximum posterior
+uncertainty selects the candidate. An entirely duplicate pool falls back
+to a random pose. Independently, ``random_fraction=0.1`` bypasses acquisition
+with a uniform random evaluation. Each selected pose receives the same
+uncapped local refinement as the initial poses.
+
+``max_samples=128`` bounds the GP training set, retaining the best observation
+and the most recent other observations. A separate pool holds up to
+``max(archive_size, num_modes)`` feasible RMSD clusters, with
+``archive_size=64`` by default. GP training has cubic cost in the retained
+sample count. Small scoring budgets and highly flexible ligands may make
+surrogate overhead or limited model accuracy significant; this experimental
+search is not guaranteed to outperform GA, MC, DE or ACO.
+
+Defaults perform ``24 + 80 = 104`` local minimizations, serially.
+``iterations=0`` evaluates only the initial starts. ``history_`` records the
+best restrained objective initially and after each iteration. In addition
+to local minimizations and objective evaluations, ``search_stats_`` reports
+surrogate fits, acquisition/random evaluations and duplicate-pool fallbacks.
+``bo_observations_`` stores retained raw starting genes and energies.
+``surrogate_`` is the final fitted GP, including the final observation, with
+standardized targets. Convert its predictions to scoring units using
+``surrogate_target_mean_`` and ``surrogate_target_scale_``.
+
+A small RDKit 4LB3 probe used 12 initial poses, 32 iterations, a 256-candidate
+pool, 60 local iterations, seed 42, five modes and an energy range of 100.
+From the displaced input in the example, with all six heavy-atom torsions
+flexible, top-pose direct RMSDs were 0.760 Angstroms (Vina), 2.008 (PLP) and
+0.906 (ChemPLP). Each run performed 44 local minimizations. This is a
+single-complex integration probe rather than a broad accuracy comparison.
 
 Scores and diagnostics
 ----------------------
