@@ -195,6 +195,7 @@ class ad4_scoring(DockingBase):
         self.unbound_energy = unbound_energy
         self.directional_hb = bool(directional_hb)
         self.hbond_saturation = bool(hbond_saturation)
+        self._pair_cache = {}
         super().__init__(rec, lig, box, box_size, sample_callback=sample_callback)
 
     def _prepare(self, molecule):
@@ -224,6 +225,7 @@ class ad4_scoring(DockingBase):
         return prepared, _parameters(prepared, charges)
 
     def set_protein(self, rec):
+        self._pair_cache.pop(False, None)
         if rec is None:
             self.rec_parameters = None
             super().set_protein(None)
@@ -238,6 +240,7 @@ class ad4_scoring(DockingBase):
             super().set_protein(prepared)
 
     def set_ligand(self, lig):
+        self._pair_cache.clear()
         prepared, self.lig_parameters = self._prepare(lig)
         super().set_ligand(prepared)
         self.scoring_coordinates = np.array(prepared.coords, dtype=float)
@@ -257,37 +260,68 @@ class ad4_scoring(DockingBase):
             raise ValueError("AD4 coords must include finite coordinates for every explicit atom, including hydrogens")
         return coords
 
-    def _pair_data(self, coords, intra=False):
+    def _pair_parameters(self, intra=False):
+        """Cache pose-independent pairs, typing and coefficients until preparation changes."""
         first = self.lig_parameters if intra else self.rec_parameters
         if first is None:
             raise ValueError("a receptor is required for intermolecular scoring")
-        first_coords = coords if intra else self.rec_coordinates
+        if intra in self._pair_cache:
+            return self._pair_cache[intra]
         first_ids = np.flatnonzero(first["active"])
         ligand_ids = np.flatnonzero(self.lig_parameters["active"])
-        distances = cdist(first_coords[first_ids], coords[ligand_ids])
-        mask = self._distant[np.ix_(first_ids, ligand_ids)] if intra else np.ones(distances.shape, dtype=bool)
+        mask = (
+            self._distant[np.ix_(first_ids, ligand_ids)]
+            if intra
+            else np.ones((len(first_ids), len(ligand_ids)), dtype=bool)
+        )
         row, col = np.nonzero(mask)
         rows, cols = first_ids[row], ligand_ids[col]
-        raw_r = distances[row, col]
-        r = np.maximum(raw_r, 0.1)
         p, q = first["values"][rows], self.lig_parameters["values"][cols]
         q1, q2 = first["charges"][rows], self.lig_parameters["charges"][cols]
         t1, t2 = first["types"][rows], self.lig_parameters["types"][cols]
         hb = ((t1 == "HD") & (q[:, 5] > 0)) | ((t2 == "HD") & (p[:, 5] > 0))
         optimum = np.where(hb, p[:, 4] + q[:, 4], (p[:, 0] + q[:, 0]) / 2)
         depth = np.where(hb, p[:, 5] + q[:, 5], np.sqrt(p[:, 1] * q[:, 1]))
+        power = np.where(hb, 10, 6)
+        solvation = (p[:, 3] + 0.01097 * np.abs(q1)) * q[:, 2] + (q[:, 3] + 0.01097 * np.abs(q2)) * p[:, 2]
+        self._pair_cache[intra] = dict(
+            first_ids=first_ids,
+            ligand_ids=ligand_ids,
+            row=row,
+            col=col,
+            rows=rows,
+            cols=cols,
+            hb=hb,
+            optimum=optimum,
+            depth=depth,
+            power=power,
+            a=power / (12 - power),
+            b=12 / (12 - power),
+            electrostatic=332.06371 * q1 * q2,
+            solvation=solvation,
+            first_types=t1,
+        )
+        return self._pair_cache[intra]
+
+    def _pair_data(self, coords, intra=False):
+        pairs = self._pair_parameters(intra)
+        first_coords = coords if intra else self.rec_coordinates
+        distances = cdist(first_coords[pairs["first_ids"]], coords[pairs["ligand_ids"]])
+        raw_r = distances[pairs["row"], pairs["col"]]
+        r = np.maximum(raw_r, 0.1)
+        hb, optimum, depth = pairs["hb"], pairs["optimum"], pairs["depth"]
         # Minimum over [r - smoothing/2, r + smoothing/2]: move toward the
         # potential's known minimum, or use its flat well if it is in the interval.
         offset = r - optimum
         smoothed_r = optimum + np.sign(offset) * np.maximum(np.abs(offset) - self.smoothing / 2, 0)
         smoothed_r = np.maximum(smoothed_r, 0.1)
         ratio = optimum / smoothed_r
-        power = np.where(hb, 10, 6)
+        power = pairs["power"]
         # General n-m well of depth epsilon at R: m/(n-m)*(R/r)^n - n/(n-m)*(R/r)^m.
-        a = power / (12 - power)
-        b = 12 / (12 - power)
-        radial = depth * (a * ratio**12 - b * ratio**power)
-        radial_slope = depth * (-12 * a * ratio**12 + power * b * ratio**power) / smoothed_r
+        a, b = pairs["a"], pairs["b"]
+        high, low = ratio**12, ratio**power
+        radial = depth * (a * high - b * low)
+        radial_slope = depth * (-12 * a * high + power * b * low) / smoothed_r
         radial_slope *= (np.abs(offset) > self.smoothing / 2) & (smoothed_r > 0.1)
         short = r < 8
         radial *= short
@@ -300,22 +334,21 @@ class ad4_scoring(DockingBase):
         dielectric_valid = dielectric > 1
         dielectric = np.maximum(dielectric, 1)
         d_dielectric *= dielectric_valid
-        electrostatic = 332.06371 * q1 * q2 / (dielectric * r)
+        electrostatic = pairs["electrostatic"] / (dielectric * r)
         electrostatic_slope = -electrostatic * (1 / r + d_dielectric / dielectric)
-        solvation = (p[:, 3] + 0.01097 * np.abs(q1)) * q[:, 2] + (q[:, 3] + 0.01097 * np.abs(q2)) * p[:, 2]
-        desolvation = solvation * np.exp(-(r**2) / (2 * 3.5**2))
+        desolvation = pairs["solvation"] * np.exp(-(r**2) / (2 * 3.5**2))
         desolvation_slope = -r / 3.5**2 * desolvation
         terms = np.array([radial * ~hb, radial * hb, electrostatic, desolvation])
         slopes = np.array([radial_slope * ~hb, radial_slope * hb, electrostatic_slope, desolvation_slope])
         return dict(
-            rows=rows,
-            cols=cols,
+            rows=pairs["rows"],
+            cols=pairs["cols"],
             r=raw_r,
             terms=terms,
             slopes=slopes,
             hb=hb,
             first_coords=first_coords,
-            first_types=t1,
+            first_types=pairs["first_types"],
             intra=intra,
         )
 

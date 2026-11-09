@@ -16,7 +16,7 @@ from oddt.docking import (
     vinardo_de,
 )
 from oddt.docking.ad4 import AD4_PARAMETERS
-from .test_docking import docking_pair  # noqa: F401
+from .test_docking import DATA, docking_pair  # noqa: F401
 
 
 def ad4_pair(first="C", second="C", r=4, charges=(0, 0), smoothing=0):
@@ -28,6 +28,7 @@ def ad4_pair(first="C", second="C", r=4, charges=(0, 0), smoothing=0):
     engine.unbound_energy = None
     engine.directional_hb = False
     engine.hbond_saturation = False
+    engine._pair_cache = {}
     engine.scoring_coordinates = np.array([[r, 0.0, 0.0]])
     engine.rec_coordinates = np.zeros((1, 3))
     engine._distant = np.zeros((1, 1), dtype=bool)
@@ -181,6 +182,74 @@ def test_ad4_preparation_preserves_inputs_and_conserves_charge(docking_pair):
     assert_allclose(engine.scoring_coordinates, changed)
     with pytest.raises(ValueError, match="every explicit atom"):
         engine.set_coords(changed[engine._heavy_mask])
+
+
+def test_ad4_pair_cache_reuses_coefficients_across_poses(docking_pair):
+    protein, ligand, _ = docking_pair
+    engine = ad4_scoring(protein, ligand)
+    engine.energy_and_gradient(engine.scoring_coordinates)
+    inter, intra = engine._pair_cache[False], engine._pair_cache[True]
+    # Coordinates and scoring options remain dynamic after the cache is warm.
+    engine.set_coords(engine.scoring_coordinates + [0.4, -0.2, 0.1])
+    engine.smoothing = 0.2
+    engine.weights = np.array([0.2, 0.1, 0.15, 0.12, 0.3])
+    fresh = ad4_scoring(protein, ligand, smoothing=engine.smoothing, weights=engine.weights)
+    coords = engine.scoring_coordinates
+    for cap in (None, 10.0, np.inf):
+        value, gradient = engine.energy_and_gradient(coords, cap)
+        expected, expected_gradient = fresh.energy_and_gradient(coords, cap)
+        assert_allclose(value, expected, rtol=1e-12, atol=1e-12)
+        assert_allclose(gradient, expected_gradient, rtol=1e-12, atol=1e-12)
+    assert engine.score() == pytest.approx(fresh.score(coords), rel=1e-12)
+    assert engine._pair_cache[False] is inter
+    assert engine._pair_cache[True] is intra
+
+
+def test_ad4_pair_cache_rebuilds_after_receptor_change(docking_pair):
+    protein, ligand, _ = docking_pair
+    engine = ad4_scoring(protein, ligand)
+    coords = engine.scoring_coordinates.copy()
+    original_value, original_gradient = engine.energy_and_gradient(coords)
+    intra = engine._pair_cache[True]
+    # The ligand also serves as a replacement receptor with different typing
+    # and atom count; no protein-specific preparation is required by AD4.
+    engine.set_protein(ligand)
+    assert False not in engine._pair_cache
+    assert engine._pair_cache[True] is intra
+    fresh = ad4_scoring(ligand, ligand)
+    value, gradient = engine.energy_and_gradient(coords)
+    expected, expected_gradient = fresh.energy_and_gradient(coords)
+    assert_allclose(value, expected, rtol=1e-12, atol=1e-12)
+    assert_allclose(gradient, expected_gradient, rtol=1e-12, atol=1e-12)
+
+    engine.set_protein(None)
+    assert False not in engine._pair_cache
+    with pytest.raises(ValueError, match="receptor is required"):
+        engine.energy_and_gradient(coords)
+    assert_allclose(engine.score_intra(), ad4_scoring(None, ligand).score_intra(), rtol=1e-12, atol=1e-12)
+    assert engine._pair_cache[True] is intra
+
+    engine.set_protein(protein)
+    value, gradient = engine.energy_and_gradient(coords)
+    assert_allclose(value, original_value, rtol=1e-12, atol=1e-12)
+    assert_allclose(gradient, original_gradient, rtol=1e-12, atol=1e-12)
+
+
+def test_ad4_pair_cache_rebuilds_after_ligand_change(docking_pair):
+    protein, ligand, _ = docking_pair
+    engine = ad4_scoring(protein)
+    engine.set_ligand(ligand)
+    engine.energy_and_gradient(engine.scoring_coordinates)
+    replacement = next(oddt.toolkit.readfile("sdf", str(DATA / "4lb3_ligand.sdf")))
+    engine.set_ligand(replacement)
+    assert not engine._pair_cache
+    fresh = ad4_scoring(protein, replacement)
+    coords = engine.scoring_coordinates
+    for cap in (None, 10.0, np.inf):
+        value, gradient = engine.energy_and_gradient(coords, cap)
+        expected, expected_gradient = fresh.energy_and_gradient(coords, cap)
+        assert_allclose(value, expected, rtol=1e-12, atol=1e-12)
+        assert_allclose(gradient, expected_gradient, rtol=1e-12, atol=1e-12)
 
 
 def test_ad4_supplied_charges_are_preserved(docking_pair):

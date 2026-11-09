@@ -191,7 +191,10 @@ source/input checksums, per-pose RMSDs and counters:
 * ``scoring_ga100``: 36 Vinardo/AD4 GA population-100 runs, using the
   archived ``ga100`` experiment as the Vina-scoring comparison reference.
 
-The CSV has 132 rows and an ``experiment`` column. Filter by that column
+* ``ad4_optimized_ga100``: 18 AD4 GA population-100 runs after pair caching and
+  hydrogen-bond geometry optimizations, with the original search budget.
+
+The CSV has 150 rows and an ``experiment`` column. Filter by that column
 before comparing runs; budgets and diagnostic settings differ across
 experiments. The JSON also retains ``validation.4lb3`` and
 ``validation.mc_performance``. These functional and profiling records have
@@ -205,7 +208,7 @@ the preliminary GA/MC probe and older MC-only 4LB3 measurements were removed.
 .. figure:: ../_static/benchmarks/docking.svg
    :alt: Median docking accuracy, runtime and recovery for every archived experiment.
 
-   One overview covers all 132 runs. Each row retains its experiment, engine
+   One overview covers all 150 runs. Each row retains its experiment, engine
    and seed count; search budgets differ between rows. Cells show per-complex
    medians. Outlines mark median RMSD below 2 Angstroms; the right columns
    count recovered runs, including failed runs as misses. DE is a single-seed
@@ -705,6 +708,9 @@ Reproduce it with:
 AD4 and Vinardo scoring comparison
 ----------------------------------
 
+The AD4 measurements in this section precede the performance optimizations
+reported in the final section below.
+
 This comparison holds the genetic search fixed at population 100, eight
 generations and at most 60 local L-BFGS-B iterations, with seeds 1, 7 and 42
 on all six fixtures. Each internal engine performs 804 local minimizations.
@@ -996,3 +1002,97 @@ RMSDs below are symmetry-aware, in Angstroms. Times are seconds. Per-target valu
 Download the :download:`per-run CSV <../_static/benchmarks/docking.csv>` or :download:`full JSON report <../_static/benchmarks/docking.json>`. The JSON records the protocol, source/input checksums, per-pose RMSDs and search statistics.
 
 .. scoring-results-end
+
+.. ad4-optimization-start
+
+AD4 performance after optimization
+----------------------------------
+
+This reruns all six fixtures and seeds 1, 7 and 42 with AD4 GA population 100, eight generations and maxiter 60. Runs are sequential on the same machine, with progress and diagnostics disabled. The pair cache, batched tetrahedral lone-pair frames, zero-donor angular pruning and energy-only Jacobian shortcut preserve the scoring equations. Input files, numerical package versions, scoring parameters, search code and budgets match the historical ``scoring_ga100`` AD4 runs. The previous results remain in that archive entry; new measurements are in ``ad4_optimized_ga100``.
+
+All 18 optimized runs completed without errors. The ratio of overall median
+runtimes is 1.67x; the median of the 18 paired runtime ratios is 1.62x. These
+are full docking timings, including preparation specific to the engine and
+output scoring. Top and any-returned recovery remain 3/18, all on 4YEF.
+Overall median top-pose RMSD increases from 8.25 to 9.31 Angstroms.
+
+.. list-table:: AD4 across the same 18 target/seed runs
+   :header-rows: 1
+
+   * - Version
+     - Median time (s)
+     - Median top RMSD (A)
+     - Top <2 A
+     - Any returned <2 A
+   * - Original AD4 GA100
+     - 744.8
+     - 8.25
+     - 3/18
+     - 3/18
+   * - Optimized AD4 GA100
+     - 444.8
+     - 9.31
+     - 3/18
+     - 3/18
+
+.. list-table:: AD4 by complex: medians over three seeds
+   :header-rows: 1
+
+   * - Complex
+     - Original time (s)
+     - Optimized time (s)
+     - Time ratio
+     - Original top RMSD (A)
+     - Optimized top RMSD (A)
+   * - 10GS
+     - 562.1
+     - 343.5
+     - 1.64x
+     - 8.07
+     - 7.23
+   * - 1IMX
+     - 798.2
+     - 443.7
+     - 1.80x
+     - 6.94
+     - 11.40
+   * - 1K9Q
+     - 404.9
+     - 264.9
+     - 1.53x
+     - 12.68
+     - 12.38
+   * - 1NLO
+     - 923.6
+     - 576.4
+     - 1.60x
+     - 10.47
+     - 10.47
+   * - 1NLP
+     - 711.9
+     - 445.8
+     - 1.60x
+     - 12.36
+     - 7.69
+   * - 4YEF
+     - 1076.2
+     - 538.4
+     - 2.00x
+     - 0.80
+     - 0.84
+
+Objective-evaluation counts match in 0/18 paired runs, and all returned symmetry RMSDs match exactly in 1/18. The new archive entry includes each run's counters and per-pose RMSDs so changes in search work can be distinguished from evaluation cost. The small floating-point differences introduced by batched derivatives can affect the path of a long search.
+
+Filter the :download:`shared CSV <../_static/benchmarks/docking.csv>` by ``experiment=ad4_optimized_ga100`` or inspect the :download:`JSON archive <../_static/benchmarks/docking.json>` for provenance and individual results.
+
+Commands used for this experiment are below. Use a new output path and
+experiment name to collect another measurement; existing archive entries
+are preserved.
+
+.. code-block:: console
+
+   python -m asv_bench.docking_pdbbind --engines ad4_ga --ga-population 100 --ga-generations 8 --maxiter 60 --seeds 1 7 42 --output benchmark-results/ad4_optimized_ga100.json --resume
+   python -m asv_bench.docking_benchmark_data --input benchmark-results/ad4_optimized_ga100.json --experiment ad4_optimized_ga100
+   python -m asv_bench.docking_pdbbind_report --overview
+
+.. ad4-optimization-end

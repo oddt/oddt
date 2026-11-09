@@ -91,6 +91,90 @@ def test_lone_pair_orientations():
     assert_allclose(tetra @ coords[1:].T, -np.ones((2, 2)) / 3, atol=1e-12)
 
 
+def test_batched_tetrahedral_frame_derivatives():
+    rng = np.random.default_rng(91)
+    coords = rng.normal(size=(12, 3))
+    rules = {i: ("tetrahedral", (i, i + 1, i + 2)) for i in range(0, 12, 3)}
+    weights = rng.normal(size=(4, 2, 3))
+    frames = acceptor_frames(coords, rules)
+    energy_frames = acceptor_frames(coords, rules, gradient=False)
+    actual = np.zeros_like(coords)
+    for weight, atom in zip(weights, rules):
+        vectors, indices, jacobian = frames[atom]
+        assert_array_equal(energy_frames[atom][0], vectors)
+        assert energy_frames[atom][2] is None
+        actual[indices] += np.einsum("li,lipq->pq", weight, jacobian)
+
+    def weighted_vectors(coordinates):
+        values = acceptor_frames(coordinates, rules, gradient=False)
+        return sum(np.sum(weight * values[atom][0]) for weight, atom in zip(weights, rules))
+
+    numeric = np.zeros_like(coords)
+    for atom in range(len(coords)):
+        for axis in range(3):
+            delta = np.zeros_like(coords)
+            delta[atom, axis] = 1e-6
+            numeric[atom, axis] = (weighted_vectors(coords + delta) - weighted_vectors(coords - delta)) / 2e-6
+    assert_allclose(actual, numeric, rtol=2e-6, atol=2e-7)
+
+
+@pytest.mark.parametrize("kind", ["nitrogen", "tetrahedral", "planar", "spherical"])
+def test_acceptor_energy_only_matches_gradient_frames(kind):
+    coords, rules, _ = angular_system(kind)
+    expected, indices, _ = acceptor_frames(coords, rules)[2]
+    vectors, actual_indices, jacobian = acceptor_frames(coords, rules, gradient=False)[2]
+    if expected is None:
+        assert vectors is None
+    else:
+        assert_array_equal(vectors, expected)
+    assert_array_equal(actual_indices, indices)
+    assert jacobian is None
+
+
+def test_angular_pruning_preserves_contact_indices_and_gradients():
+    coords = np.array([[-1.0, 0, 0], [0.0, 0, 0], [1.9, 0, 0], [0, 1.9, 0], [-1.9, 0, 0], [1.9, 1.9, 0]])
+    donors, acceptors = np.ones(4, int), np.array([4, 2, 3, 5])
+    parents = np.array([-1, 0, -1, -1, -1, -1])
+    frames = {i: (None, np.array([i]), None) for i in acceptors}
+    factors, (contact, atom, derivatives) = angular_factors(coords, donors, acceptors, parents, frames)
+    assert_allclose(factors, [0, 1, 0, 0.5], atol=1e-12)
+    assert_array_equal(np.unique(contact), [1, 3])
+    actual = np.zeros((4,) + coords.shape)
+    np.add.at(actual, (contact, atom), derivatives)
+    numeric = np.zeros_like(actual)
+    for index in range(len(coords)):
+        for axis in range(3):
+            delta = np.zeros_like(coords)
+            delta[index, axis] = 1e-6
+            plus = angular_factors(coords + delta, donors, acceptors, parents, frames, gradient=False)[0]
+            minus = angular_factors(coords - delta, donors, acceptors, parents, frames, gradient=False)[0]
+            numeric[:, index, axis] = (plus - minus) / 2e-6
+    assert_allclose(actual, numeric, rtol=1e-5, atol=2e-6)
+
+
+@pytest.mark.parametrize("gradient", [False, True])
+def test_angular_zero_donor_factors_skip_acceptor_geometry(gradient):
+    coords = np.array([[-1.0, 0, 0], [0.0, 0, 0], [-1.9, 0, 0], [0, 1.9, 0]])
+    factors, sparse = angular_factors(
+        coords, np.array([1, 1]), np.array([2, 3]), np.array([-1, 0, -1, -1]), {}, gradient=gradient
+    )
+    assert_array_equal(factors, [0, 0])
+    if gradient:
+        assert sparse[0].shape == sparse[1].shape == (0,)
+        assert sparse[2].shape == (0, 3)
+    else:
+        assert sparse is None
+
+
+def test_angular_pruning_still_validates_donor_geometry():
+    coords = np.array([[-1.0, 0, 0], [0.0, 0, 0], [-1.9, 0, 0]])
+    with pytest.raises(ValueError, match="missing its bonded parent"):
+        angular_factors(coords, np.array([1]), np.array([2]), np.full(3, -1), {})
+    coords[0] = coords[1]
+    with pytest.raises(ValueError, match="nonzero donor bonds"):
+        angular_factors(coords, np.array([1]), np.array([2]), np.array([-1, 0, -1]), {})
+
+
 def test_capacity_matching_finds_global_optimum():
     donors = np.array([0, 0, 1])
     acceptors = np.array([2, 3, 2])
@@ -164,6 +248,14 @@ def test_wrong_angle_does_not_remove_repulsion():
 def test_degenerate_bonded_frame_fails_clearly():
     with pytest.raises(ValueError, match="nondegenerate"):
         acceptor_frames(np.zeros((2, 3)), {0: ("nitrogen", (0, 1))})
+
+
+@pytest.mark.parametrize("neighbors", [[[0, 0, 0], [1, 0, 0]], [[1, 0, 0], [-1, 0, 0]], [[1, 0, 0], [2, 0, 0]]])
+@pytest.mark.parametrize("gradient", [False, True])
+def test_degenerate_tetrahedral_frames_fail_clearly(neighbors, gradient):
+    coords = np.array([[0.0, 0, 0]] + neighbors)
+    with pytest.raises(ValueError, match="nondegenerate"):
+        acceptor_frames(coords, {0: ("tetrahedral", (0, 1, 2))}, gradient=gradient)
 
 
 def test_saturated_hunting_cap_transforms_the_complete_energy():
