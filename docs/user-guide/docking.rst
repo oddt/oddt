@@ -1,18 +1,18 @@
 Internal docking engines
 ========================
 
-:class:`oddt.docking.vina_ga`, :class:`oddt.docking.vina_mc` and
-:class:`oddt.docking.vina_de` search ligand
+:class:`oddt.docking.OddtVinaGA`, :class:`oddt.docking.OddtVinaMC` and
+:class:`oddt.docking.OddtVinaDE` search ligand
 translation, orientation and rotatable bonds against a rigid receptor. They
 share Vina-inspired scoring and SciPy's L-BFGS-B local minimizer, with genetic,
 Monte Carlo and adaptive differential evolution global search respectively.
 They require NumPy, SciPy and an ODDT molecular
 backend; no AutoDock Vina installation is needed.
-The existing ``vina_docking`` name remains an alias for ``vina_mc``.
+``OddtVinaDocking`` is the default Monte Carlo engine, an alias for ``OddtVinaMC``.
 
-``vinardo_scoring`` and ``ad4_scoring`` provide two additional independently
-implemented models. Each has ``_ga``, ``_mc`` and ``_de`` engines, for example
-``vinardo_ga`` and ``ad4_mc``. AD4 uses **directional, saturable direct pairs**, with the
+``OddtVinardoScoring`` and ``OddtAD4Scoring`` provide two additional independently
+implemented models. Each has ``GA``, ``MC`` and ``DE`` engines, for example
+``OddtVinardoGA`` and ``OddtAD4MC``. AD4 uses **directional, saturable direct pairs**, with the
 limitations and preparation requirements described below.
 
 Prepare a receptor with appropriate protonation and set ``protein = True``
@@ -21,6 +21,49 @@ conformation. Ring conformations remain fixed during the search.
 Conjugated carbonyl-heteroatom bonds, including amides and esters, also retain
 their input geometry. For 4LB3 this leaves six searched heavy-atom torsions;
 the earlier seven-torsion implementation incorrectly allowed the amide to rotate.
+
+Class names and compatibility
+-----------------------------
+
+ODDT's reimplemented docking and scoring engines use the ``Oddt`` prefix,
+for example ``OddtVinaScoring`` and ``OddtVinaDocking``. ``AutoDockVina``
+wraps the installed Vina library or executable and keeps its unprefixed name.
+
+Use the prefixed class names in new code. Snake_case names and the earlier
+unprefixed CamelCase internal-engine names remain deprecated aliases for
+the same class objects, including the import paths in
+``oddt.docking.internal``, ``oddt.docking.vinardo``, ``oddt.docking.ad4`` and
+``oddt.docking.AutodockVina``. Importing or accessing a deprecated alias emits
+``DeprecationWarning`` pointing to its replacement. Run Python with ``-Wd``
+to display these warnings. The aliases will be removed in a future release.
+
+.. list-table:: Class-name migration
+   :header-rows: 1
+
+   * - Deprecated name
+     - Replacement
+   * - ``vina_docking``, ``VinaDocking``
+     - ``OddtVinaDocking`` (alias for ``OddtVinaMC``)
+   * - ``vina_scoring``, ``VinaScoring``
+     - ``OddtVinaScoring``
+   * - ``vina_ga``, ``vina_mc``, ``vina_de``
+     - ``OddtVinaGA``, ``OddtVinaMC``, ``OddtVinaDE``
+   * - ``vinardo_scoring``, ``vinardo_ga``, ``vinardo_mc``, ``vinardo_de``
+     - ``OddtVinardoScoring``, ``OddtVinardoGA``, ``OddtVinardoMC``, ``OddtVinardoDE``
+   * - ``ad4_scoring``, ``ad4_ga``, ``ad4_mc``, ``ad4_de``
+     - ``OddtAD4Scoring``, ``OddtAD4GA``, ``OddtAD4MC``, ``OddtAD4DE``
+   * - ``autodock_vina``
+     - ``AutoDockVina`` (the external Vina wrapper)
+   * - ``vina_ligand``
+     - ``LigandPose``
+
+The same prefix migration applies to the other unprefixed CamelCase names,
+such as ``VinardoGA`` to ``OddtVinardoGA`` and ``AD4MC`` to ``OddtAD4MC``.
+
+The aliases preserve class identity, subclassing, type checks and lookup of
+class names stored in older pickles. The lowercase benchmark engine IDs
+(``ga``, ``ad4_ga``, etc.) and virtual-screening/CLI selector
+``autodock_vina`` remain supported without class-deprecation warnings.
 
 Redock a test complex
 ---------------------
@@ -33,7 +76,7 @@ recovery; all search positions, orientations and torsions are randomized.
 
    import numpy as np
    import oddt
-   from oddt.docking import vina_ga, vina_mc, vina_de
+   from oddt.docking import OddtVinaGA, OddtVinaMC, OddtVinaDE
    from oddt.spatial import rmsd, rotate
 
    protein = next(oddt.toolkit.readfile("pdb", "tests/data/pdb/4lb3_pocket.pdb"))
@@ -46,7 +89,7 @@ recovery; all search positions, orientations and torsions are randomized.
    ligand = reference.clone
    ligand.coords = rotate(ligand.coords, 1.2, -0.7, 2.1) + [12, -7, 8]
    box = np.array([center - 8, center + 8])
-   engine = vina_ga(protein, ligand, box=box)
+   engine = OddtVinaGA(protein, ligand, box=box)
    poses = engine.dock(population_size=100, generations=8, maxiter=60, seed=42, num_modes=5, progress=True)
    print("RMSD:", rmsd(reference, poses[0]))
    print("Affinity:", poses[0].data["vina_affinity"])
@@ -61,14 +104,14 @@ Use the same inputs and scoring with Monte Carlo:
 
 .. code-block:: python
 
-   engine = vina_mc(protein, ligand, box=box)
+   engine = OddtVinaMC(protein, ligand, box=box)
    poses = engine.dock(exhaustiveness=8, steps=250, maxiter=60, seed=42, num_modes=5)
 
 Or use adaptive differential evolution:
 
 .. code-block:: python
 
-   engine = vina_de(protein, ligand, box=box)
+   engine = OddtVinaDE(protein, ligand, box=box)
    poses = engine.dock(population_size=32, generations=20, local_maxiter=10,
                        maxiter=60, seed=42, num_modes=5, progress=True)
 
@@ -91,24 +134,24 @@ Scoring base and search mixins
 ``DockingBase`` supplies ligand geometry, Cartesian-to-pose gradient
 projection, box restraints, L-BFGS-B refinement and final pose selection.
 ``LigandPose`` evaluates absolute translation, orientation and torsion genes,
-including attached hydrogens for output. ``vina_scoring`` extends the base
+including attached hydrogens for output. ``OddtVinaScoring`` extends the base
 with Vina atom radii, pair terms, energy gradients, torsional correction and
 the existing ``vina_*`` output fields. Its public scoring methods and import
-paths remain available, including the ``vina_docking`` alias.
+paths remain available, including the ``OddtVinaDocking`` alias.
 
 ``GeneticAlgorithmMixin``, ``MonteCarloMixin`` and
 ``DifferentialEvolutionMixin`` supply the global searches. All three Vina
-engines compose their search with ``vina_scoring``, sharing the same typing,
+engines compose their search with ``OddtVinaScoring``, sharing the same typing,
 restraints and output selection.
 
 .. code-block:: python
 
-   from oddt.docking import vina_scoring, GeneticAlgorithmMixin
+   from oddt.docking import OddtVinaScoring, GeneticAlgorithmMixin
 
-   class MyEngine(GeneticAlgorithmMixin, vina_scoring):
+   class MyEngine(GeneticAlgorithmMixin, OddtVinaScoring):
        pass
 
-   scorer = vina_scoring(protein, ligand)  # No box needed for scoring.
+   scorer = OddtVinaScoring(protein, ligand)  # No box needed for scoring.
    print(scorer.score())
 
 Vinardo scoring
@@ -116,11 +159,11 @@ Vinardo scoring
 
 .. code-block:: python
 
-   from oddt.docking import vinardo_scoring, vinardo_ga
+   from oddt.docking import OddtVinardoScoring, OddtVinardoGA
 
-   scorer = vinardo_scoring(protein, ligand)
+   scorer = OddtVinardoScoring(protein, ligand)
    print(scorer.score(), scorer.score_components())
-   engine = vinardo_ga(protein, ligand, box=box)
+   engine = OddtVinardoGA(protein, ligand, box=box)
    poses = engine.dock(population_size=100, generations=8, seed=42)
    print(poses[0].data["vinardo_affinity"])
 
@@ -148,11 +191,11 @@ AD4 scoring
 
 .. code-block:: python
 
-   from oddt.docking import ad4_scoring, ad4_mc
+   from oddt.docking import OddtAD4Scoring, OddtAD4MC
 
-   scorer = ad4_scoring(protein, ligand)  # Private copies: add H and Gasteiger charges.
+   scorer = OddtAD4Scoring(protein, ligand)  # Private copies: add H and Gasteiger charges.
    print(scorer.score(), scorer.score_components())
-   engine = ad4_mc(protein, ligand, box=box)
+   engine = OddtAD4MC(protein, ligand, box=box)
    poses = engine.dock(exhaustiveness=8, steps=250, seed=42)
    print(poses[0].data["ad4_affinity"])
 

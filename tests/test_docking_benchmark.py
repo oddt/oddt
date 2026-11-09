@@ -244,7 +244,7 @@ def test_benchmark_runs_search_with_the_recorded_budget(benzene, monkeypatch, tm
             pose.data.update({"vina_affinity": -1})
             return [pose]
 
-    monkeypatch.setattr(docking, "vina_" + name, Engine)
+    monkeypatch.setattr(docking, "OddtVina" + name.upper(), Engine)
     row = benchmark.run_one(tmp_path, "example", 7, name, progress=progress)
     assert row["status"] == "ok", row.get("error")
     assert row["top_recovered_2A"]
@@ -401,7 +401,7 @@ def test_benchmark_diagnostics_observe_search_and_run_after_timer(benzene, monke
         assert len(snapshots) == 1 and snapshots[0][1]
         return {"observed": True}
 
-    monkeypatch.setattr(docking, "vina_de", Engine)
+    monkeypatch.setattr(docking, "OddtVinaDE", Engine)
     monkeypatch.setattr(benchmark, "search_diagnostics", diagnostics)
     row = benchmark.run_one(tmp_path, "example", 1, "de", diagnostics=True)
     assert row["status"] == "ok", row.get("error")
@@ -547,7 +547,8 @@ def test_benchmark_selects_scoring_and_search_independently(benzene, monkeypatch
             pose.data[scoring + "_affinity"] = -3.5
             return [pose]
 
-    monkeypatch.setattr(docking, scoring + "_" + search, Engine)
+    prefix = {"ad4": "OddtAD4", "vinardo": "OddtVinardo"}[scoring]
+    monkeypatch.setattr(docking, prefix + search.upper(), Engine)
     row = benchmark.run_one(tmp_path, "example", 7, scoring + "_" + search)
     assert row["status"] == "ok", row.get("error")
     assert row["scoring"] == scoring

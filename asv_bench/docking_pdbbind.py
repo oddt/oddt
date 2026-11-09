@@ -28,6 +28,14 @@ ALGORITHMS = {"ga": "genetic", "mc": "monte_carlo", "de": "differential_evolutio
 ENGINES = [*ALGORITHMS, "vina", *(scorer + "_" + search for scorer in ("vinardo", "ad4") for search in ALGORITHMS)]
 
 
+def _engine_class(scoring, search=None):
+    """Resolve ODDT-prefixed classes while retaining the historical benchmark IDs."""
+    from oddt import docking
+
+    prefix = {"vina": "OddtVina", "vinardo": "OddtVinardo", "ad4": "OddtAD4"}[scoring]
+    return getattr(docking, prefix + ("Scoring" if search is None else search.upper()))
+
+
 def engine_spec(name):
     """Return scoring model and search; retain historical Vina engine ids."""
     if name == "vina":
@@ -115,7 +123,7 @@ def discover_targets(directory):
 
 def prepare(directory, target):
     import oddt
-    from oddt.docking import vina_scoring
+    from oddt.docking import OddtVinaScoring
     from oddt.spatial import rotate
 
     protein = next(oddt.toolkit.readfile("pdb", str(directory / target / (target + "_pocket.pdb"))))
@@ -131,7 +139,7 @@ def prepare(directory, target):
     size = np.maximum(16.0, 2 * np.max(np.abs(coords - center), axis=0) + 8.0)
     ligand = reference.clone
     ligand.coords = rotate(ligand.coords, 1.2, -0.7, 2.1) + [12, -7, 8]
-    probe = vina_scoring(protein, ligand)
+    probe = OddtVinaScoring(protein, ligand)
     details = {
         "receptor_heavy_atoms": int(len(probe.rec_dict)),
         "ligand_heavy_atoms": int(len(coords)),
@@ -223,8 +231,6 @@ def search_diagnostics(protein, reference, box, snapshots, maxiter, top_pose, sc
     Reference coordinates are used only after dock() has finished. No native
     pose or RMSD feeds back into a search or its output selection.
     """
-    from oddt import docking
-
     feasible = [
         (coords, uncapped)
         for coords, uncapped in snapshots
@@ -239,7 +245,7 @@ def search_diagnostics(protein, reference, box, snapshots, maxiter, top_pose, sc
         result[label + "_best_symmetry_rmsd"] = (
             coordinate_metrics(reference, coords)["best_symmetry_rmsd"] if coords else None
         )
-    scorer = getattr(docking, scoring + "_scoring")(protein, reference, box=box)
+    scorer = _engine_class(scoring)(protein, reference, box=box)
     native_energy = float(scorer.energy())
     native = scorer.optimize(maxiter=maxiter)
     native_feasible = bool(np.all(native.coords >= box[0] - 1e-4) and np.all(native.coords <= box[1] + 1e-4))
@@ -303,7 +309,6 @@ def dock_vina(protein, ligand, center, size, seed):
 
 
 def run_one(directory, target, seed, engine_name, settings=None, progress=False, diagnostics=False):
-    from oddt import docking
     from oddt.spatial import rmsd
 
     row = {
@@ -330,7 +335,7 @@ def run_one(directory, target, seed, engine_name, settings=None, progress=False,
             if search is not None:
                 configuration = dict((settings or search_settings())[search])
                 configuration.pop("algorithm")
-                engine_class = getattr(docking, scoring + "_" + search)
+                engine_class = _engine_class(scoring, search)
                 observer = {"sample_callback": observe} if diagnostics else {}
                 engine = engine_class(protein, ligand, box=box, **observer)
                 if hasattr(engine, "scoring_name"):
@@ -401,7 +406,6 @@ def main():
     args = parser.parse_args()
     os.environ["ODDT_TOOLKIT"] = "rdk"
     import oddt
-    from oddt import docking
 
     targets = args.targets or discover_targets(args.data)
     if not targets or set(targets) - set(discover_targets(args.data)):
@@ -465,13 +469,13 @@ def main():
         "limits": "Small local fixture set; truncated pockets and supplied ring/conjugated geometry; not a PDBbind-wide benchmark",
     }
     protocol["scoring_models"] = {
-        scoring: scoring_settings(getattr(docking, scoring + "_scoring")(None))
+        scoring: scoring_settings(_engine_class(scoring)(None))
         for scoring in sorted({engine_spec(name)[0] for name in args.engines if name != "vina"})
     }
     for name in args.engines:
         scoring, search = engine_spec(name)
         if search is not None and name not in ALGORITHMS:
-            scorer_class = getattr(docking, scoring + "_scoring")
+            scorer_class = _engine_class(scoring)
             protocol[name] = dict(settings[search], scoring=scoring)
             if search == "mc":
                 protocol[name].update(

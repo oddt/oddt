@@ -16,7 +16,8 @@ except ImportError:
     vina_python = None
 
 import oddt
-from oddt.docking.internal import vina_docking
+from ._compat import deprecated_class_alias as _deprecated_class_alias
+from oddt.docking.internal import OddtVinaDocking
 from oddt.utils import is_openbabel_molecule, is_molecule, check_molecule
 from oddt.spatial import rmsd
 
@@ -32,7 +33,7 @@ def _explicit_donor_mask(molecule, atom_dict):
     return np.isin(atom_dict["id"], donors)
 
 
-class autodock_vina(object):
+class AutoDockVina(object):
     def __init__(
         self,
         protein=None,
@@ -279,7 +280,7 @@ class autodock_vina(object):
                 continue
             if self._vina is not None:
                 if internal_scorer is None:
-                    internal_scorer = vina_docking(self.protein)
+                    internal_scorer = OddtVinaDocking(self.protein)
                     internal_scorer.rec_dict["isdonor"] &= _explicit_donor_mask(self.protein, internal_scorer.rec_dict)
                 internal_scorer.set_ligand(ligand)
                 internal_scorer.lig_dict["isdonor"] &= _explicit_donor_mask(ligand, internal_scorer.lig_dict)
@@ -512,3 +513,19 @@ def parse_vina_docking_output(output):
             s = line.split()
             out.append({"vina_affinity": s[1], "vina_rmsd_lb": s[2], "vina_rmsd_ub": s[3]})
     return out
+
+
+_DEPRECATED_ALIASES = {"autodock_vina": "AutoDockVina"}
+
+
+def __getattr__(name):
+    return _deprecated_class_alias(name, globals(), _DEPRECATED_ALIASES)
+
+
+def __dir__():
+    return sorted(set(globals()) | _DEPRECATED_ALIASES.keys())
+
+
+__all__ = ["AutoDockVina", "write_vina_pdbqt", "parse_vina_scoring_output", "parse_vina_docking_output"] + list(
+    _DEPRECATED_ALIASES
+)

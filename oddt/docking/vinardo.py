@@ -5,6 +5,7 @@ No implementation code from Vinardo, Smina or AutoDock Vina is used here.
 """
 
 import numpy as np
+from ._compat import deprecated_class_alias as _deprecated_class_alias
 from scipy.spatial.distance import cdist
 
 from .base import DockingBase
@@ -12,7 +13,7 @@ from .internal import num_rotors_pdbqt
 from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
 
 
-class vinardo_scoring(DockingBase):
+class OddtVinardoScoring(DockingBase):
     """Vinardo pair scoring with analytic gradients and ODDT atom typing.
 
     Parameters
@@ -149,13 +150,13 @@ class vinardo_scoring(DockingBase):
         return data
 
 
-class vinardo_ga(GeneticAlgorithmMixin, vinardo_scoring):
+class OddtVinardoGA(GeneticAlgorithmMixin, OddtVinardoScoring):
     """Vinardo scoring with genetic search and L-BFGS-B refinement."""
 
 
-class vinardo_mc(MonteCarloMixin, vinardo_scoring):
+class OddtVinardoMC(MonteCarloMixin, OddtVinardoScoring):
     """Vinardo scoring with Monte Carlo search and L-BFGS-B refinement."""
 
 
-class vinardo_de(DifferentialEvolutionMixin, vinardo_scoring):
+class OddtVinardoDE(DifferentialEvolutionMixin, OddtVinardoScoring):
     """Vinardo scoring with adaptive differential evolution and L-BFGS-B."""

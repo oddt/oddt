@@ -13,6 +13,7 @@ polynomials, probe saturation or grid interpolation.
 import numpy as np
 from scipy.spatial.distance import cdist
 
+from ._compat import deprecated_class_alias as _deprecated_class_alias
 from .base import DockingBase, get_close_neighbors
 from ._ad4_hbond import acceptor_frames, angular_factors, geometry_rules, saturated_contacts
 from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
@@ -101,7 +102,7 @@ def _parameters(molecule, charges):
     }
 
 
-class ad4_scoring(DockingBase):
+class OddtAD4Scoring(DockingBase):
     """AD4 pair terms, directional/saturable H-bonds and bound-state scoring.
 
     Parameters
@@ -520,13 +521,13 @@ class ad4_scoring(DockingBase):
         return poses
 
 
-class ad4_ga(GeneticAlgorithmMixin, ad4_scoring):
+class OddtAD4GA(GeneticAlgorithmMixin, OddtAD4Scoring):
     """Directional, saturable AD4 scoring with genetic search and L-BFGS-B."""
 
 
-class ad4_mc(MonteCarloMixin, ad4_scoring):
+class OddtAD4MC(MonteCarloMixin, OddtAD4Scoring):
     """Directional, saturable AD4 scoring with Monte Carlo search and L-BFGS-B."""
 
 
-class ad4_de(DifferentialEvolutionMixin, ad4_scoring):
+class OddtAD4DE(DifferentialEvolutionMixin, OddtAD4Scoring):
     """Directional, saturable AD4 scoring with adaptive DE and L-BFGS-B."""

@@ -10,7 +10,7 @@ import pytest
 from sklearn.metrics import r2_score
 
 import oddt
-from oddt.docking.AutodockVina import autodock_vina, parse_vina_scoring_output, parse_vina_docking_output, vina_python
+from oddt.docking.AutodockVina import AutoDockVina, parse_vina_scoring_output, parse_vina_docking_output, vina_python
 from oddt.scoring import scorer, ensemble_descriptor, ensemble_model
 from oddt.scoring.descriptors import (
     autodock_vina_descriptor,
@@ -112,7 +112,7 @@ def test_vina_scoring_grid(monkeypatch, tmp_path, version):
     monkeypatch.setattr("oddt.docking.AutodockVina.vina_python", SimpleNamespace(__version__="1.2.7", Vina=PythonVina))
     receptor = next(oddt.toolkit.readfile("pdb", receptor_pdb))
     ligand = next(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data/dude/xiap/crystal_ligand.sdf")))
-    engine = autodock_vina(
+    engine = AutoDockVina(
         receptor, size=(1, 1, 1), executable="vina" if version == "1.1.2" else None, prefix_dir=str(tmp_path)
     )
     docking_params = engine.params.copy()
@@ -168,7 +168,7 @@ def test_vina_python_docking(monkeypatch, tmp_path):
     receptor = next(oddt.toolkit.readfile("pdb", receptor_pdb))
     ligand = next(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data/dude/xiap/crystal_ligand.sdf")))
     original_coords = ligand.coords.copy()
-    engine = autodock_vina(
+    engine = AutoDockVina(
         receptor,
         center=(1, 2, 3),
         size=(10, 12, 14),
@@ -209,7 +209,7 @@ def test_vina_python_invalid_ligand(monkeypatch, tmp_path, operation, skip_bad_m
     monkeypatch.setattr("oddt.docking.AutodockVina.vina_python", SimpleNamespace(__version__="1.2.7", Vina=make_vina))
     receptor = next(oddt.toolkit.readfile("pdb", receptor_pdb))
     ligand = next(oddt.toolkit.readfile("sdf", os.path.join(test_data_dir, "data/dude/xiap/crystal_ligand.sdf")))
-    engine = autodock_vina(receptor, skip_bad_mols=skip_bad_mols, prefix_dir=str(tmp_path))
+    engine = AutoDockVina(receptor, skip_bad_mols=skip_bad_mols, prefix_dir=str(tmp_path))
     if skip_bad_mols:
         with pytest.warns(UserWarning, match="Invalid ligand"):
             assert getattr(engine, operation)(ligand) == []

@@ -6,14 +6,14 @@ import pytest
 
 import oddt
 from oddt.docking import (
-    ad4_scoring,
-    ad4_ga,
-    ad4_mc,
-    ad4_de,
-    vinardo_scoring,
-    vinardo_ga,
-    vinardo_mc,
-    vinardo_de,
+    OddtAD4Scoring,
+    OddtAD4GA,
+    OddtAD4MC,
+    OddtAD4DE,
+    OddtVinardoScoring,
+    OddtVinardoGA,
+    OddtVinardoMC,
+    OddtVinardoDE,
 )
 from oddt.docking.ad4 import AD4_PARAMETERS
 from .test_docking import DATA, docking_pair  # noqa: F401
@@ -21,7 +21,7 @@ from .test_docking import DATA, docking_pair  # noqa: F401
 
 def ad4_pair(first="C", second="C", r=4, charges=(0, 0), smoothing=0):
     """One independent pair, without molecule preparation or covalent bonds."""
-    engine = ad4_scoring.__new__(ad4_scoring)
+    engine = OddtAD4Scoring.__new__(OddtAD4Scoring)
     engine.weights = np.array([0.1662, 0.1209, 0.1406, 0.1322, 0.2983])
     engine.smoothing = smoothing
     engine.num_rotors = 0
@@ -106,7 +106,7 @@ def test_ad4_smoothing_is_a_flat_well():
         assert_allclose(gradient, 0, atol=1e-12)
 
 
-@pytest.mark.parametrize("scorer", [vinardo_scoring, ad4_scoring])
+@pytest.mark.parametrize("scorer", [OddtVinardoScoring, OddtAD4Scoring])
 @pytest.mark.parametrize("cap", [None, 10.0, np.inf])
 @pytest.mark.parametrize("boundary", [False, True])
 @pytest.mark.parametrize("docking_pair", ["4bfq", "4lb3"], indirect=True)
@@ -128,7 +128,7 @@ def test_new_scorer_pose_derivative(docking_pair, scorer, cap, boundary):
 
 def test_vinardo_published_radii_and_pair_terms(docking_pair):
     protein, ligand, _ = docking_pair
-    engine = vinardo_scoring(protein, ligand)
+    engine = OddtVinardoScoring(protein, ligand)
     atoms = engine.rec_dict
     for element, aromatic, radius in ((6, False, 2), (6, True, 1.9), (7, False, 1.7), (8, False, 1.6)):
         mask = atoms["atomicnum"] == element
@@ -157,7 +157,7 @@ def test_ad4_preparation_preserves_inputs_and_conserves_charge(docking_pair):
     original_p, original_l = protein.coords.copy(), ligand.coords.copy()
     ligand.title = "AD4 input"
     ligand.data["source"] = "test"
-    engine = ad4_scoring(protein, ligand, box=box)
+    engine = OddtAD4Scoring(protein, ligand, box=box)
     assert_array_equal(protein.coords, original_p)
     assert_array_equal(ligand.coords, original_l)
     assert engine._ligand.title == ligand.title
@@ -186,14 +186,14 @@ def test_ad4_preparation_preserves_inputs_and_conserves_charge(docking_pair):
 
 def test_ad4_pair_cache_reuses_coefficients_across_poses(docking_pair):
     protein, ligand, _ = docking_pair
-    engine = ad4_scoring(protein, ligand)
+    engine = OddtAD4Scoring(protein, ligand)
     engine.energy_and_gradient(engine.scoring_coordinates)
     inter, intra = engine._pair_cache[False], engine._pair_cache[True]
     # Coordinates and scoring options remain dynamic after the cache is warm.
     engine.set_coords(engine.scoring_coordinates + [0.4, -0.2, 0.1])
     engine.smoothing = 0.2
     engine.weights = np.array([0.2, 0.1, 0.15, 0.12, 0.3])
-    fresh = ad4_scoring(protein, ligand, smoothing=engine.smoothing, weights=engine.weights)
+    fresh = OddtAD4Scoring(protein, ligand, smoothing=engine.smoothing, weights=engine.weights)
     coords = engine.scoring_coordinates
     for cap in (None, 10.0, np.inf):
         value, gradient = engine.energy_and_gradient(coords, cap)
@@ -207,7 +207,7 @@ def test_ad4_pair_cache_reuses_coefficients_across_poses(docking_pair):
 
 def test_ad4_pair_cache_rebuilds_after_receptor_change(docking_pair):
     protein, ligand, _ = docking_pair
-    engine = ad4_scoring(protein, ligand)
+    engine = OddtAD4Scoring(protein, ligand)
     coords = engine.scoring_coordinates.copy()
     original_value, original_gradient = engine.energy_and_gradient(coords)
     intra = engine._pair_cache[True]
@@ -216,7 +216,7 @@ def test_ad4_pair_cache_rebuilds_after_receptor_change(docking_pair):
     engine.set_protein(ligand)
     assert False not in engine._pair_cache
     assert engine._pair_cache[True] is intra
-    fresh = ad4_scoring(ligand, ligand)
+    fresh = OddtAD4Scoring(ligand, ligand)
     value, gradient = engine.energy_and_gradient(coords)
     expected, expected_gradient = fresh.energy_and_gradient(coords)
     assert_allclose(value, expected, rtol=1e-12, atol=1e-12)
@@ -226,7 +226,7 @@ def test_ad4_pair_cache_rebuilds_after_receptor_change(docking_pair):
     assert False not in engine._pair_cache
     with pytest.raises(ValueError, match="receptor is required"):
         engine.energy_and_gradient(coords)
-    assert_allclose(engine.score_intra(), ad4_scoring(None, ligand).score_intra(), rtol=1e-12, atol=1e-12)
+    assert_allclose(engine.score_intra(), OddtAD4Scoring(None, ligand).score_intra(), rtol=1e-12, atol=1e-12)
     assert engine._pair_cache[True] is intra
 
     engine.set_protein(protein)
@@ -237,13 +237,13 @@ def test_ad4_pair_cache_rebuilds_after_receptor_change(docking_pair):
 
 def test_ad4_pair_cache_rebuilds_after_ligand_change(docking_pair):
     protein, ligand, _ = docking_pair
-    engine = ad4_scoring(protein)
+    engine = OddtAD4Scoring(protein)
     engine.set_ligand(ligand)
     engine.energy_and_gradient(engine.scoring_coordinates)
     replacement = next(oddt.toolkit.readfile("sdf", str(DATA / "4lb3_ligand.sdf")))
     engine.set_ligand(replacement)
     assert not engine._pair_cache
-    fresh = ad4_scoring(protein, replacement)
+    fresh = OddtAD4Scoring(protein, replacement)
     coords = engine.scoring_coordinates
     for cap in (None, 10.0, np.inf):
         value, gradient = engine.energy_and_gradient(coords, cap)
@@ -258,7 +258,7 @@ def test_ad4_supplied_charges_are_preserved(docking_pair):
     protein.calccharges()
     ligand.calccharges()
     original = ligand.charges.copy()
-    engine = ad4_scoring(protein, ligand, charge_model=None)
+    engine = OddtAD4Scoring(protein, ligand, charge_model=None)
     assert engine.lig_parameters["charges"].sum() == pytest.approx(original.sum())
     polar = engine.lig_parameters["types"] == "HD"
     assert_allclose(engine.lig_parameters["charges"][polar], original[polar])
@@ -271,12 +271,12 @@ def test_ad4_supplied_charges_are_preserved(docking_pair):
 @pytest.mark.parametrize(
     "engine_class,kwargs",
     [
-        (vinardo_ga, {"population_size": 4, "generations": 1}),
-        (vinardo_mc, {"exhaustiveness": 1, "steps": 3}),
-        (vinardo_de, {"population_size": 4, "generations": 1, "local_maxiter": 2}),
-        (ad4_ga, {"population_size": 4, "generations": 1}),
-        (ad4_mc, {"exhaustiveness": 1, "steps": 3}),
-        (ad4_de, {"population_size": 4, "generations": 1, "local_maxiter": 2}),
+        (OddtVinardoGA, {"population_size": 4, "generations": 1}),
+        (OddtVinardoMC, {"exhaustiveness": 1, "steps": 3}),
+        (OddtVinardoDE, {"population_size": 4, "generations": 1, "local_maxiter": 2}),
+        (OddtAD4GA, {"population_size": 4, "generations": 1}),
+        (OddtAD4MC, {"exhaustiveness": 1, "steps": 3}),
+        (OddtAD4DE, {"population_size": 4, "generations": 1, "local_maxiter": 2}),
     ],
 )
 def test_new_scorers_compose_with_every_search(docking_pair, engine_class, kwargs):
@@ -300,13 +300,13 @@ def test_new_scorers_compose_with_every_search(docking_pair, engine_class, kwarg
             assert int(pose.data["ad4_directional_hb"]) == 1
             assert int(pose.data["ad4_hbond_saturation"]) == 1
             assert_allclose(pose.charges, engine.lig_parameters["charges"])
-            rescored = ad4_scoring(None, pose, charge_model=None)
+            rescored = OddtAD4Scoring(None, pose, charge_model=None)
             assert_allclose(rescored.lig_parameters["charges"], engine.lig_parameters["charges"])
     assert energies == sorted(energies)
     assert_array_equal(ligand.coords, original)
 
 
-@pytest.mark.parametrize("scorer", [vinardo_scoring, ad4_scoring])
+@pytest.mark.parametrize("scorer", [OddtVinardoScoring, OddtAD4Scoring])
 def test_new_scorer_validation(docking_pair, scorer):
     protein, ligand, _ = docking_pair
     for weights in ([1, 2], [0, 0, 0, 0, -1], [0, 0, 0, np.nan, 0]):
@@ -314,8 +314,8 @@ def test_new_scorer_validation(docking_pair, scorer):
             scorer(protein, ligand, weights=weights)
     engine = scorer(protein, ligand)
     with pytest.raises(ValueError, match="positive"):
-        engine.energy_and_gradient(engine.scoring_coordinates if scorer is ad4_scoring else engine.lig.c0, 0)
-    if scorer is ad4_scoring:
+        engine.energy_and_gradient(engine.scoring_coordinates if scorer is OddtAD4Scoring else engine.lig.c0, 0)
+    if scorer is OddtAD4Scoring:
         for kwargs in ({"charge_model": "unknown"}, {"smoothing": -1}, {"unbound_energy": np.inf}):
             with pytest.raises(ValueError):
                 scorer(protein, ligand, **kwargs)

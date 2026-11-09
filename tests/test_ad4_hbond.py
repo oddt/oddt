@@ -275,10 +275,10 @@ def test_saturated_hunting_cap_transforms_the_complete_energy():
 
 
 def test_hydrogen_bond_options_are_validated():
-    from oddt.docking import ad4_scoring
+    from oddt.docking import OddtAD4Scoring
 
     for options in ({"directional_hb": 1}, {"hbond_saturation": "yes"}, {"weights": [1, -1, 1, 1, 0]}):
         with pytest.raises(ValueError):
-            ad4_scoring(None, **options)
-    scorer = ad4_scoring(None, directional_hb=False, hbond_saturation=False)
+            OddtAD4Scoring(None, **options)
+    scorer = OddtAD4Scoring(None, directional_hb=False, hbond_saturation=False)
     assert not scorer.directional_hb and not scorer.hbond_saturation

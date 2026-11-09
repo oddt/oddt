@@ -237,12 +237,12 @@ class virtualscreening:
         Following docking engines are supported:
 
         1. Audodock Vina (```engine="autodock_vina"```), see
-        :class:`oddt.docking.autodock_vina`.
+        :class:`oddt.docking.AutoDockVina`.
         """
         if engine.lower() == "autodock_vina":
-            from oddt.docking import autodock_vina
+            from oddt.docking import AutoDockVina
 
-            engine = autodock_vina(protein, *args, **kwargs)
+            engine = AutoDockVina(protein, *args, **kwargs)
         else:
             raise ValueError("Docking engine %s was not implemented in ODDT" % engine)
         self._pipe.append(engine.dock)
@@ -315,9 +315,9 @@ class virtualscreening:
                 sf = PLECscore.load(**new_kwargs)
                 sf.set_protein(protein)
             elif function.lower() == "autodock_vina":
-                from oddt.docking import autodock_vina
+                from oddt.docking import AutoDockVina
 
-                sf = autodock_vina(protein, *args, **kwargs)
+                sf = AutoDockVina(protein, *args, **kwargs)
                 sf.set_protein(protein)
             else:
                 raise ValueError("Scoring Function %s was not implemented in " "ODDT" % function)

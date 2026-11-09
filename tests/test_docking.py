@@ -9,11 +9,11 @@ import pytest
 
 import oddt
 from oddt.docking import (
-    vina_docking,
-    vina_ga,
-    vina_mc,
-    vina_de,
-    vina_scoring,
+    OddtVinaDocking,
+    OddtVinaGA,
+    OddtVinaMC,
+    OddtVinaDE,
+    OddtVinaScoring,
     DockingBase,
     LigandPose,
     DifferentialEvolutionMixin,
@@ -40,7 +40,7 @@ def docking_pair(request):
 
 def test_pose_transform_is_deterministic_and_preserves_geometry(docking_pair):
     protein, ligand, box = docking_pair
-    engine = vina_docking(protein, ligand, box=box, box_size=2)
+    engine = OddtVinaDocking(protein, ligand, box=box, box_size=2)
     x = np.linspace(0.13, 0.67, len(engine.lig.x0))
     expected = engine.lig.mutate(x, force=True)
     for i in range(len(x)):
@@ -65,7 +65,7 @@ def test_pose_transform_is_deterministic_and_preserves_geometry(docking_pair):
 @pytest.mark.parametrize("docking_pair", ["4bfq", "4lb3"], indirect=True)
 def test_objective_gradient(docking_pair, boundary, energy_cap):
     protein, ligand, box = docking_pair
-    engine = vina_docking(protein, ligand, box=box, box_size=2)
+    engine = OddtVinaDocking(protein, ligand, box=box, box_size=2)
     x = np.linspace(0.13, 0.67, len(engine.lig.x0))
     if boundary:
         x[0] = 5
@@ -82,7 +82,7 @@ def test_objective_gradient(docking_pair, boundary, energy_cap):
 
 def test_intraligand_pairs_are_counted_once(docking_pair):
     protein, ligand, box = docking_pair
-    engine = vina_docking(protein, ligand, box=box)
+    engine = OddtVinaDocking(protein, ligand, box=box)
     coords = engine.lig.c0
     radii = engine.lig_dict["radius"]
     r = distance(coords, coords)
@@ -96,7 +96,7 @@ def test_intraligand_pairs_are_counted_once(docking_pair):
 
 def test_lbfgs_improves_a_perturbed_pose(docking_pair):
     protein, ligand, box = docking_pair
-    engine = vina_docking(protein, ligand, box=box)
+    engine = OddtVinaDocking(protein, ligand, box=box)
     x = np.linspace(0.13, 0.67, len(engine.lig.x0))
     initial = engine._objective(x)[0]
     result = engine.optimize(x, maxiter=60)
@@ -111,7 +111,7 @@ def test_lbfgs_improves_a_perturbed_pose(docking_pair):
 def test_conjugated_amide_stays_rigid():
     ligand = next(oddt.toolkit.readfile("sdf", str(DATA / "4lb3_ligand.sdf")))
     ligand.addh()
-    engine = vina_docking(None, ligand)
+    engine = OddtVinaDocking(None, ligand)
     # The carbonyl C-N bond (10, 9) is conjugated. The six remaining
     # heavy-atom torsions retain flexibility on either side of the amide.
     assert len(engine.rotors) == 6
@@ -128,9 +128,9 @@ def test_conjugated_amide_stays_rigid():
 @pytest.mark.parametrize(
     "engine_class,kwargs",
     [
-        (vina_mc, {"exhaustiveness": 8, "steps": 250}),
-        (vina_ga, {"population_size": 24, "generations": 8}),
-        (vina_de, {}),
+        (OddtVinaMC, {"exhaustiveness": 8, "steps": 250}),
+        (OddtVinaGA, {"population_size": 24, "generations": 8}),
+        (OddtVinaDE, {}),
     ],
 )
 def test_redocking_4lb3(record_property, engine_class, kwargs):
@@ -154,13 +154,13 @@ def test_redocking_4lb3(record_property, engine_class, kwargs):
     record_property("top_rmsd", float(rmsd(reference, poses[0])))
     assert 1 <= len(poses) <= 5
     assert rmsd(reference, poses[0]) < 1
-    assert len(engine.history_) == {vina_mc: 2000, vina_ga: 9, vina_de: 22}[engine_class]
+    assert len(engine.history_) == {OddtVinaMC: 2000, OddtVinaGA: 9, OddtVinaDE: 22}[engine_class]
     assert np.all(np.diff(engine.history_) <= 0)
-    if engine_class is vina_mc:
+    if engine_class is OddtVinaMC:
         assert len(engine.search_stats_) == 8
         assert all(0 < chain["accepted"] <= 250 for chain in engine.search_stats_)
         assert all(chain["local_minimizations"] == 250 + chain["refinements"] for chain in engine.search_stats_)
-    elif engine_class is vina_ga:
+    elif engine_class is OddtVinaGA:
         assert engine.search_stats_[0]["local_minimizations"] == 24 + 8 * 21
     else:
         assert engine.search_stats_[0]["proposals"] == 32 * 20
@@ -188,9 +188,9 @@ def test_redocking_4lb3(record_property, engine_class, kwargs):
 @pytest.mark.parametrize(
     "engine_class,kwargs",
     [
-        (vina_mc, {"exhaustiveness": 2, "steps": 4}),
-        (vina_ga, {"population_size": 4, "generations": 1}),
-        (vina_de, {"population_size": 4, "generations": 1}),
+        (OddtVinaMC, {"exhaustiveness": 2, "steps": 4}),
+        (OddtVinaGA, {"population_size": 4, "generations": 1}),
+        (OddtVinaDE, {"population_size": 4, "generations": 1}),
     ],
 )
 def test_rigid_docking_is_reproducible_without_changing_global_rng(engine_class, kwargs):
@@ -236,10 +236,10 @@ def progress_output(monkeypatch):
 @pytest.mark.parametrize(
     "engine_class,kwargs,total",
     [
-        (vina_ga, {"generations": 0}, 100),
-        (vina_ga, {"population_size": 8, "generations": 2}, 22),
-        (vina_mc, {"exhaustiveness": 2, "steps": 3}, 6),
-        (vina_de, {"population_size": 4, "generations": 2}, 4),
+        (OddtVinaGA, {"generations": 0}, 100),
+        (OddtVinaGA, {"population_size": 8, "generations": 2}, 22),
+        (OddtVinaMC, {"exhaustiveness": 2, "steps": 3}, 6),
+        (OddtVinaDE, {"population_size": 4, "generations": 2}, 4),
     ],
 )
 def test_progress_preserves_seeded_search(docking_pair, progress_output, capsys, engine_class, kwargs, total):
@@ -271,9 +271,9 @@ def test_progress_preserves_seeded_search(docking_pair, progress_output, capsys,
 @pytest.mark.parametrize(
     "engine_class,kwargs",
     [
-        (vina_ga, {"population_size": 4, "generations": 0}),
-        (vina_mc, {"exhaustiveness": 1, "steps": 1}),
-        (vina_de, {"population_size": 4, "generations": 0}),
+        (OddtVinaGA, {"population_size": 4, "generations": 0}),
+        (OddtVinaMC, {"exhaustiveness": 1, "steps": 1}),
+        (OddtVinaDE, {"population_size": 4, "generations": 0}),
     ],
 )
 def test_progress_closes_on_failure(docking_pair, progress_output, monkeypatch, engine_class, kwargs):
@@ -295,9 +295,9 @@ def test_progress_closes_on_failure(docking_pair, progress_output, monkeypatch, 
 @pytest.mark.parametrize(
     "engine_class,kwargs",
     [
-        (vina_ga, {"population_size": 8, "generations": 2}),
-        (vina_mc, {"exhaustiveness": 2, "steps": 3}),
-        (vina_de, {"population_size": 4, "generations": 2}),
+        (OddtVinaGA, {"population_size": 8, "generations": 2}),
+        (OddtVinaMC, {"exhaustiveness": 2, "steps": 3}),
+        (OddtVinaDE, {"population_size": 4, "generations": 2}),
     ],
 )
 def test_quiet_search_does_not_require_tqdm(docking_pair, monkeypatch, engine_class, kwargs):
@@ -336,18 +336,22 @@ def test_quiet_search_does_not_require_tqdm(docking_pair, monkeypatch, engine_cl
 def test_invalid_search_parameters(docking_pair, kwargs):
     protein, ligand, box = docking_pair
     with pytest.raises(ValueError):
-        vina_docking(protein, ligand, box=box).dock(**kwargs)
+        OddtVinaDocking(protein, ligand, box=box).dock(**kwargs)
 
 
 def test_missing_search_inputs_and_invalid_box(docking_pair):
     protein, ligand, box = docking_pair
-    for engine in (vina_docking(None, ligand, box), vina_docking(protein, box=box), vina_docking(protein, ligand)):
+    for engine in (
+        OddtVinaDocking(None, ligand, box),
+        OddtVinaDocking(protein, box=box),
+        OddtVinaDocking(protein, ligand),
+    ):
         with pytest.raises(ValueError):
             engine.dock()
     for invalid in (np.zeros((2, 3)), [0, 1], [[0, 0, 0], [1, np.inf, 1]]):
         with pytest.raises(ValueError, match="box"):
-            vina_docking(protein, ligand, box=invalid)
-    engine = vina_docking(protein, ligand, box=box, weights=np.ones(6))
+            OddtVinaDocking(protein, ligand, box=invalid)
+    engine = OddtVinaDocking(protein, ligand, box=box, weights=np.ones(6))
     assert_array_equal(engine.weights, np.ones(6))
     with pytest.raises(ValueError, match="x0"):
         engine.optimize([0])
@@ -356,8 +360,8 @@ def test_missing_search_inputs_and_invalid_box(docking_pair):
 @pytest.mark.parametrize(
     "engine_class,kwargs",
     [
-        (vina_mc, {"exhaustiveness": 1, "steps": 1}),
-        (vina_de, {"population_size": 4, "generations": 0}),
+        (OddtVinaMC, {"exhaustiveness": 1, "steps": 1}),
+        (OddtVinaDE, {"population_size": 4, "generations": 0}),
     ],
 )
 def test_no_feasible_pose_in_tiny_box(docking_pair, engine_class, kwargs):
@@ -388,7 +392,7 @@ def test_monte_carlo_mutates_one_entity(docking_pair, entity):
     from scipy.spatial.transform import Rotation
 
     protein, ligand, box = docking_pair
-    engine = vina_docking(protein, ligand, box=box, box_size=2)
+    engine = OddtVinaDocking(protein, ligand, box=box, box_size=2)
     x = np.linspace(0.13, 0.67, len(engine.lig.x0))
     original = x.copy()
     vector = np.array([0.2, -0.3, 0.1])
@@ -424,7 +428,7 @@ def test_rejected_monte_carlo_proposals_do_not_become_parents(docking_pair, monk
     from oddt.docking import search
 
     protein, ligand, box = docking_pair
-    engine = vina_docking(protein, ligand, box=box)
+    engine = OddtVinaDocking(protein, ligand, box=box)
     monkeypatch.setattr(engine, "_random_conformation", lambda bounds, rng: engine.lig.x0.copy())
     parents = []
     proposals = iter([(1.0, -1.0), (99.0, 1000.0), (2.0, -20.0)])
@@ -472,15 +476,15 @@ def test_rejected_monte_carlo_proposals_do_not_become_parents(docking_pair, monk
 
 @pytest.mark.parametrize("mixin", [GeneticAlgorithmMixin, MonteCarloMixin, DifferentialEvolutionMixin])
 def test_search_mixins_compose_with_the_scoring_base(docking_pair, mixin):
-    class Engine(mixin, vina_scoring):
+    class Engine(mixin, OddtVinaScoring):
         pass
 
     protein, ligand, box = docking_pair
     engine = Engine(protein, ligand, box=box)
-    scorer = vina_scoring(protein, ligand, box=box)
+    scorer = OddtVinaScoring(protein, ligand, box=box)
     assert_allclose(engine.score_total(), scorer.score_total(), atol=0)
     assert_allclose(engine.optimize(maxiter=2).x, scorer.optimize(maxiter=2).x, atol=0)
-    assert vina_docking is vina_mc
+    assert OddtVinaDocking is OddtVinaMC
 
 
 @pytest.mark.parametrize(
@@ -501,7 +505,7 @@ def test_search_mixins_compose_with_the_scoring_base(docking_pair, mixin):
 def test_invalid_genetic_parameters(docking_pair, kwargs):
     protein, ligand, box = docking_pair
     with pytest.raises(ValueError):
-        vina_ga(protein, ligand, box=box).dock(**kwargs)
+        OddtVinaGA(protein, ligand, box=box).dock(**kwargs)
 
 
 def test_de_moves_across_periodic_boundaries_and_composes_rotations():
@@ -549,7 +553,7 @@ def test_de_restarts_crowded_members_and_adapts_only_from_improvements(docking_p
     from scipy.optimize import OptimizeResult
 
     protein, ligand, box = docking_pair
-    engine = vina_de(protein, ligand, box=box)
+    engine = OddtVinaDE(protein, ligand, box=box)
     calls = []
 
     def collapse(x, maxiter):
@@ -601,15 +605,15 @@ def test_de_restarts_crowded_members_and_adapts_only_from_improvements(docking_p
 def test_invalid_de_parameters(docking_pair, kwargs):
     protein, ligand, box = docking_pair
     with pytest.raises(ValueError):
-        vina_de(protein, ligand, box=box).dock(**kwargs)
+        OddtVinaDE(protein, ligand, box=box).dock(**kwargs)
 
 
 @pytest.mark.parametrize(
     "engine_class,kwargs",
     [
-        (vina_ga, {"population_size": 4, "generations": 0}),
-        (vina_mc, {"exhaustiveness": 1, "steps": 2}),
-        (vina_de, {"population_size": 4, "generations": 1}),
+        (OddtVinaGA, {"population_size": 4, "generations": 0}),
+        (OddtVinaMC, {"exhaustiveness": 1, "steps": 2}),
+        (OddtVinaDE, {"population_size": 4, "generations": 1}),
     ],
 )
 def test_local_search_observer_preserves_results(docking_pair, engine_class, kwargs):
@@ -625,7 +629,7 @@ def test_local_search_observer_preserves_results(docking_pair, engine_class, kwa
     assert len(quiet) == len(observed)
     for first, second in zip(quiet, observed):
         assert_array_equal(first.coords, second.coords)
-    if engine_class is vina_mc:
+    if engine_class is OddtVinaMC:
         assert any(cap == 10.0 for _, cap in snapshots)
     else:
         assert all(cap is None for _, cap in snapshots)
@@ -783,10 +787,11 @@ def test_generic_output_ranks_energy_and_uses_requested_window(docking_pair, mon
 
 
 def test_vina_scorer_exposes_weighted_components_and_legacy_pose_alias(docking_pair):
-    from oddt.docking.internal import vina_ligand
+    with pytest.warns(DeprecationWarning, match="vina_ligand.*LigandPose"):
+        from oddt.docking.internal import vina_ligand
 
     protein, ligand, box = docking_pair
-    engine = vina_scoring(protein, ligand, box=box)
+    engine = OddtVinaScoring(protein, ligand, box=box)
     assert isinstance(engine, DockingBase)
     assert vina_ligand is LigandPose
     assert isinstance(engine.lig, LigandPose)

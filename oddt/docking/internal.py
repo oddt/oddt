@@ -3,6 +3,7 @@
 import numpy as np
 
 from oddt.spatial import distance
+from ._compat import deprecated_class_alias as _deprecated_class_alias
 from .base import (
     DockingBase,
     LigandPose,
@@ -32,7 +33,7 @@ def num_rotors_pdbqt(lig):
     return i
 
 
-class vina_scoring(DockingBase):
+class OddtVinaScoring(DockingBase):
     """Vina scoring, pose geometry and L-BFGS-B refinement against a rigid receptor.
 
     Parameters
@@ -247,18 +248,37 @@ class vina_scoring(DockingBase):
         return data
 
 
-class vina_ga(GeneticAlgorithmMixin, vina_scoring):
+class OddtVinaGA(GeneticAlgorithmMixin, OddtVinaScoring):
     """Vina scoring with a genetic algorithm and L-BFGS-B local refinement."""
 
 
-class vina_mc(MonteCarloMixin, vina_scoring):
+class OddtVinaMC(MonteCarloMixin, OddtVinaScoring):
     """Vina scoring with Monte Carlo basin hopping and L-BFGS-B refinement."""
 
 
-class vina_de(DifferentialEvolutionMixin, vina_scoring):
+class OddtVinaDE(DifferentialEvolutionMixin, OddtVinaScoring):
     """Vina scoring with adaptive differential evolution and L-BFGS-B."""
 
 
-# Preserve existing search and geometry import paths.
-vina_docking = vina_mc
-vina_ligand = LigandPose
+# The default docking engine continues to use Monte Carlo search.
+OddtVinaDocking = OddtVinaMC
+
+_DEPRECATED_ALIASES = {
+    "vina_scoring": "OddtVinaScoring",
+    "vina_docking": "OddtVinaDocking",
+    "vina_ligand": "LigandPose",
+}
+_DEPRECATED_ALIASES.update({name[4:]: name for name in _DEPRECATED_ALIASES.values() if name.startswith("Oddt")})
+
+
+def __getattr__(name):
+    return _deprecated_class_alias(name, globals(), _DEPRECATED_ALIASES)
+
+
+def __dir__():
+    return sorted(set(globals()) | _DEPRECATED_ALIASES.keys())
+
+
+__all__ = ["OddtVinaScoring", "OddtVinaDocking", "OddtVinaGA", "OddtVinaMC", "OddtVinaDE", "num_rotors_pdbqt"] + list(
+    _DEPRECATED_ALIASES
+)
