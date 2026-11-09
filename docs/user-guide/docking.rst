@@ -15,6 +15,11 @@ implemented models. Each has ``GA``, ``MC`` and ``DE`` engines, for example
 ``OddtVinardoGA`` and ``OddtAD4MC``. AD4 uses **directional, saturable direct pairs**, with the
 limitations and preparation requirements described below.
 
+``OddtPLPScoring`` and ``OddtChemPLPScoring`` implement PLP M5 and ChemPLP M3
+with analytic derivatives. They also compose with all three searches, for
+example ``OddtChemPLPGA``. These independently implemented models use
+empirical score units rather than kcal/mol; see their parameter coverage below.
+
 Prepare a receptor with appropriate protonation and set ``protein = True``
 before computing atom properties. Supply a ligand with a three-dimensional
 conformation. Ring conformations remain fixed during the search.
@@ -296,6 +301,110 @@ smoothing and unbound-reference settings. Energies are in kcal/mol; these
 empirical estimates should not be compared across scoring models as if
 they were the same calibrated observable.
 
+PLP and ChemPLP
+~~~~~~~~~~~~~~~
+
+.. code-block:: python
+
+   from oddt.docking import OddtChemPLPGA, OddtPLPScoring
+
+   # Reuse the prepared protein, ligand and box from the redocking example.
+   engine = OddtChemPLPGA(protein, ligand, box=box)
+   poses = engine.dock(population_size=100, generations=8, maxiter=60,
+                       seed=42, num_modes=5, progress=True)
+   print(poses[0].data["chemplp_score"])
+   print(engine.score_components(poses[0].coords))
+
+   scorer = OddtPLPScoring(protein, ligand)
+   print(scorer.score_components())
+
+``OddtPLPGA``, ``OddtPLPMC`` and ``OddtPLPDE`` use PLP scoring;
+``OddtChemPLPGA``, ``OddtChemPLPMC`` and ``OddtChemPLPDE`` use ChemPLP.
+They share the existing search implementations and optional tqdm displays.
+The search remains serial. MC uses uncapped local minimization by default.
+Its temperature and the output ``energy_range`` are in the chosen scorer's
+units and may need tuning; Vina's numerical defaults are not calibrated for PLP.
+
+PLP contains piecewise-linear hydrogen-bond, metal, buried and nonpolar
+contact potentials, a repulsive contact potential, intra-ligand clashes and
+cosine torsion strain. ChemPLP adds explicit donor--H--acceptor and acceptor
+neighbor angles, charged hydrogen bonds, weak CH--O bonds and directional
+metal coordination. Each donor H contributes only its best hydrogen bond.
+Mg/Ca use radial coordination; other receptor metals use vacant sites from
+fitted tetrahedral or octahedral geometry, with one best acceptor per site.
+
+The equations and parameters follow Oliver Korb's
+`2008 thesis <https://nbn-resolving.org/urn:nbn:de:bsz:352-opus-64838>`_,
+Section 3.3.3 and Tables 3.2--3.5, 3.8 (ChemPLP M3) and 3.9 (PLP M5), and
+the related `2009 article <https://doi.org/10.1021/ci800298z>`_. No code from
+PLANTS, GOLD or another docking implementation is used.
+
+.. list-table:: Default score parameters
+   :header-rows: 1
+
+   * - Parameter
+     - PLP M5
+     - ChemPLP M3
+   * - PLP hydrogen / metal / buried / nonpolar / repulsive
+     - -2 / -4 / -0.05 / -0.4 / 0.5
+     - -1 / -1 / -0.1 / -0.4 / 1
+   * - Clash / torsion
+     - 1 / 1
+     - 1 / 2
+   * - Directional hydrogen / CH--O / metal
+     - Not used
+     - -3 / -3 / -6
+   * - Charged hydrogen / metal multipliers
+     - Not used
+     - 2 / 2
+
+``parameters`` overrides the named entries in ``default_parameters``.
+``score_inter()`` and ``score_intra()`` return **weighted** contributions;
+``score_components()`` labels these contributions and their sum equals
+``energy()`` and ``score()``. Poses are ranked by this same total, including
+ligand strain. There is no affinity conversion or historical -20 offset.
+Output fields include ``plp_score`` / ``chemplp_score``, the corresponding
+``*_total`` and ``*_torsion_fallback_terms``, plus scorer-neutral
+``docking_score``, ``docking_energy`` and ``docking_term_*`` fields.
+
+Preparation and parameter coverage
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Hydrogens are added to private copies. Coordinates passed to scoring methods
+must include **every prepared ligand atom**, including H, in the order of
+``scoring_coordinates``. ODDT donor/acceptor perception is used, with the
+published ester-oxygen exclusion and neutral nitro-oxygen charge treatment.
+It can differ from SPORES preparation. Ligand metal ions are unsupported.
+
+The torsion term uses a **partial SYBYL numerical library**, transcribed from
+the published `ADF QMMM Manual (2018), pp. 31--32
+<https://www.scm.com/doc.2018/QMMM/_downloads/QMMM.pdf>`_. It is not the full
+Tripos 5.2 parameterization. Unmatched outer-atom quadruples use the generic
+``torsion_fallback=(0.2, 1, 3)`` barrier/sign/period; every use appears in
+``torsion_fallbacks_`` and is counted in pose metadata and benchmark provenance.
+Supply additional data through ``torsion_parameters`` or require complete
+coverage with ``torsion_fallback=None``:
+
+.. code-block:: python
+
+   # The key is a four-SYBYL-type pattern; '*' matches any type.
+   custom = {("C.2", "C.3", "C.3", "C.3"): (0.252, 1, 3)}
+   scorer = OddtPLPScoring(protein, ligand, torsion_parameters=custom)
+   print(scorer.torsion_fallbacks_)
+
+More specific patterns take priority; both directions are matched. Equal
+specificity uses the later entry. Torsions include outer hydrogens around
+searched heavy-atom rotors. Rings, conjugated bonds and terminal polar H
+retain their input geometry, as in the other ODDT engines.
+
+ChemPLP fits receptor metal sites to N/O/S neighbors within ``metal_cutoff``
+(default 2.8 Angstroms). Fewer than two noncollinear neighbors cannot define
+an orientation and use the radial Mg/Ca form. ``metal_geometries_`` reports
+these cases as ``radial_underdetermined``. The receptor and explicit waters
+are fixed; flexible receptor strain and displaceable-water occupancy are not
+modeled. These preparation and parameter differences mean this implementation
+does not reproduce PLANTS or GOLD scores exactly.
+
 Scorer validation
 ~~~~~~~~~~~~~~~~~
 
@@ -304,6 +413,15 @@ charge conservation, analytic gradients on 4BFQ and 4LB3 (including box
 restraints and capped MC energies), and composition with all three searches
 on both RDKit and OpenBabel. Saved Vina energy, gradient, optimization and
 seeded search controls remain exactly unchanged on both backends.
+
+PLP/ChemPLP tests separately check published radial wells, charged and weak
+hydrogen bonds, best-contact selection, fitted metal-site geometry, clash
+exclusions, torsion lookup, Cartesian/pose derivatives and all six search
+combinations on RDKit and OpenBabel. A small RDKit 4LB3 probe with six
+searched torsions, GA population 12, two generations, 60 local iterations,
+seed 42 and five output modes reached top-pose RMSDs of 1.446 Angstroms
+for PLP and 3.358 Angstroms for ChemPLP. This is an integration probe with
+a small search budget, not a calibrated comparison of docking accuracy.
 
 A single RDKit 4LB3 redocking validation used the displaced flexible ligand
 from the example above, GA population 24, eight generations, 60 local

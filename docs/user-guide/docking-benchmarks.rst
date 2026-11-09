@@ -1,11 +1,17 @@
 PDBbind docking comparison
 ==========================
 
-This runner compares Vina, Vinardo and AD4 scoring with ODDT's internal
+This runner supports Vina, Vinardo, AD4, PLP and ChemPLP scoring with ODDT's internal
 genetic, Monte Carlo and experimental adaptive differential evolution searches, with
 optional installed AutoDock Vina 1.2.7, on all six PDBbind complexes distributed with the tests:
 10GS, 1IMX, 1K9Q, 1NLO, 1NLP and 4YEF. The earlier :doc:`docking` example
 was developed on 4LB3; these six complexes provide a separate check.
+
+PLP/ChemPLP can be selected with ``--engines plp_ga chemplp_ga``;
+``plp_mc``, ``plp_de``, ``chemplp_mc`` and ``chemplp_de`` are also available.
+The archived measurements below predate these two scorers. No PLP/ChemPLP
+accuracy or speed comparison is implied by those measurements. See
+:doc:`docking` for parameter coverage and preparation differences.
 
 These fixtures are a small, selected set with large and flexible ligands.
 They are not a representative sample of the full PDBbind database. In
@@ -74,12 +80,17 @@ minimization. With twelve elites retained per generation this is 804 local
 minimizations. MC uses eight
 independent Monte Carlo trajectories, 250 proposals per trajectory, and at
 most 60 L-BFGS-B iterations per local minimization. Its temperature is 1.2,
-mutation amplitude is 2 Angstroms, and hunt energy cap is 10. Accepted
+mutation amplitude is 2 Angstroms, and the Vina-scoring hunt energy cap is 10. Accepted
 promising minima receive uncapped local refinement.
 Vina uses exhaustiveness 8 and one CPU. These parameters specify
 different search budgets; they are not a matched number of energy evaluations.
 All engines return at most five poses with an energy-range setting of 3,
 interpreted using each engine's own energy convention.
+PLP and ChemPLP use uncapped MC minimization and empirical score units.
+Their ``temperature=1.2`` and ``energy_range=3`` defaults have not been
+calibrated against Vina. Their rows save ``top_score`` and ``score_units``;
+``top_affinity`` is left empty. All scorer parameters, torsion fallback counts
+and metal-geometry adaptations are recorded in the JSON provenance.
 The saved ``searched_torsions`` field counts internal-engine heavy-atom search
 genes on all kinds of row; Vina uses its own PDBQT torsion definitions.
 The table reports these counts separately. Vina can include torsions that

@@ -427,7 +427,8 @@ def test_published_archive_retains_protocols_provenance_and_csv_rows():
             {key: str(row[key]) if row.get(key) is not None else "" for key in RESULT_COLUMNS}
             for row in report["results"]
         ]
-        actual = [{key: row[key] for key in RESULT_COLUMNS} for row in rows if row["experiment"] == name]
+        # Older published exports predate optional score/unit columns.
+        actual = [{key: row.get(key, "") for key in RESULT_COLUMNS} for row in rows if row["experiment"] == name]
         assert actual == expected
     source_files = {(entry["file"], entry["sha256"]) for entry in archive["source_files"].values()}
     ga100 = archive["experiments"]["ga100"]
@@ -525,7 +526,7 @@ def test_archive_cli_preserves_validation_provenance(small_report, monkeypatch, 
     assert archive.read_bytes() == before
 
 
-@pytest.mark.parametrize("scoring", ["ad4", "vinardo"])
+@pytest.mark.parametrize("scoring", ["ad4", "vinardo", "plp", "chemplp"])
 @pytest.mark.parametrize("search", ["ga", "mc", "de"])
 def test_benchmark_selects_scoring_and_search_independently(benzene, monkeypatch, tmp_path, scoring, search):
     from asv_bench import docking_pdbbind as benchmark
@@ -544,39 +545,46 @@ def test_benchmark_selects_scoring_and_search_independently(benzene, monkeypatch
             config.pop("algorithm")
             assert kwargs == dict(config, seed=7, num_modes=5, energy_range=3.0, progress=False)
             pose = benzene.clone
-            pose.data[scoring + "_affinity"] = -3.5
+            pose.data[scoring + ("_score" if scoring in ("plp", "chemplp") else "_affinity")] = -3.5
             return [pose]
 
-    prefix = {"ad4": "OddtAD4", "vinardo": "OddtVinardo"}[scoring]
+    prefix = benchmark.SCORERS[scoring]
     monkeypatch.setattr(docking, prefix + search.upper(), Engine)
     row = benchmark.run_one(tmp_path, "example", 7, scoring + "_" + search)
     assert row["status"] == "ok", row.get("error")
     assert row["scoring"] == scoring
     assert row["algorithm"] == benchmark.ALGORITHMS[search]
-    assert row["top_affinity"] == -3.5
+    assert row["top_score"] == -3.5
+    if scoring in ("plp", "chemplp"):
+        assert "top_affinity" not in row
+        assert row["score_units"] == "empirical score units"
+    else:
+        assert row["top_affinity"] == -3.5
 
 
 def test_report_renders_new_scorers_without_relabeling(small_report, tmp_path):
     from copy import deepcopy
 
     report = deepcopy(small_report)
-    report["protocol"]["engines"] = ["ad4_ga", "vinardo_ga"]
-    for scoring in ("ad4", "vinardo"):
+    models = ("ad4", "vinardo", "plp", "chemplp")
+    report["protocol"]["engines"] = [model + "_ga" for model in models]
+    for scoring in models:
         report["protocol"][scoring + "_ga"] = dict(
             algorithm="genetic", scoring=scoring, population_size=100, generations=8, maxiter=60
         )
     source = [row for row in small_report["results"] if row["engine"] == "ga"]
-    report["results"] = [dict(row, engine=scoring + "_ga") for scoring in ("ad4", "vinardo") for row in source]
+    report["results"] = [dict(row, engine=scoring + "_ga") for scoring in models for row in source]
     page = tmp_path / "scoring.rst"
     page.write_text(".. benchmark-results-start\n\n.. benchmark-results-end\n")
     render(report, page, tmp_path / "scoring.svg")
     assert "AD4 GA" in page.read_text() and "Vinardo GA" in page.read_text()
+    assert "PLP GA" in page.read_text() and "ChemPLP GA" in page.read_text()
     report["protocol"]["ad4_ga"]["scoring"] = "vina"
     with pytest.raises(ValueError, match="another scoring model"):
         render(report, page, tmp_path / "scoring.svg")
 
 
-@pytest.mark.parametrize("scoring", ["ad4", "vinardo"])
+@pytest.mark.parametrize("scoring", ["ad4", "vinardo", "plp", "chemplp"])
 def test_reference_diagnostics_use_the_selected_scorer(benzene, scoring):
     from asv_bench.docking_pdbbind import search_diagnostics
 
@@ -586,6 +594,28 @@ def test_reference_diagnostics_use_the_selected_scorer(benzene, scoring):
     assert result["scoring"] == scoring
     assert result["returned_top_total"] == 123
     assert result["reference"]["minimized_total"] <= result["reference"]["initial_total"]
+
+
+@pytest.mark.parametrize("scoring", ["plp", "chemplp"])
+def test_plp_benchmark_records_actual_parameters_and_score_units(benzene, monkeypatch, tmp_path, scoring):
+    import json
+    from asv_bench import docking_pdbbind as benchmark
+
+    monkeypatch.setattr(
+        benchmark, "prepare", lambda *args: (benzene, benzene, benzene, np.zeros(3), np.full(3, 16.0), {})
+    )
+    settings = benchmark.search_settings(ga_population=4, ga_generations=0, maxiter=3)
+    row = benchmark.run_one(tmp_path, "example", 42, scoring + "_ga", settings=settings, diagnostics=True)
+    assert row["status"] == "ok", row.get("error")
+    assert "top_affinity" not in row
+    assert row["score_units"] == "empirical score units"
+    parameters = row["scoring_parameters"]
+    assert parameters["coordinate_atoms"] == "all"
+    assert parameters["parameterization"] == ("PLP M5" if scoring == "plp" else "ChemPLP M3")
+    assert parameters["parameters"]["torsion"] == (1 if scoring == "plp" else 2)
+    assert parameters["torsion_fallback"] == (0.2, 1, 3)
+    assert row["diagnostics"]["scoring"] == scoring
+    json.dumps(row, allow_nan=False)
 
 
 def test_scoring_comparison_checks_inputs_budgets_and_preserves_reports(small_report):

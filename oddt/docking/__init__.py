@@ -4,6 +4,16 @@ from .base import DockingBase, LigandPose
 from .internal import OddtVinaDocking, OddtVinaScoring, OddtVinaGA, OddtVinaMC, OddtVinaDE
 from .vinardo import OddtVinardoScoring, OddtVinardoGA, OddtVinardoMC, OddtVinardoDE
 from .ad4 import OddtAD4Scoring, OddtAD4GA, OddtAD4MC, OddtAD4DE
+from .plp import (
+    OddtPLPScoring,
+    OddtPLPGA,
+    OddtPLPMC,
+    OddtPLPDE,
+    OddtChemPLPScoring,
+    OddtChemPLPGA,
+    OddtChemPLPMC,
+    OddtChemPLPDE,
+)
 from .search import DifferentialEvolutionMixin, GeneticAlgorithmMixin, MonteCarloMixin
 
 __all__ = [
@@ -23,6 +33,14 @@ __all__ = [
     "OddtAD4GA",
     "OddtAD4MC",
     "OddtAD4DE",
+    "OddtPLPScoring",
+    "OddtPLPGA",
+    "OddtPLPMC",
+    "OddtPLPDE",
+    "OddtChemPLPScoring",
+    "OddtChemPLPGA",
+    "OddtChemPLPMC",
+    "OddtChemPLPDE",
     "DifferentialEvolutionMixin",
     "GeneticAlgorithmMixin",
     "MonteCarloMixin",

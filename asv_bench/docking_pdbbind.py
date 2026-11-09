@@ -25,14 +25,19 @@ ROOT = Path(__file__).resolve().parents[1]
 MAX_SYMMETRY_MATCHES = 10_000
 RMSD_BATCH_SIZE = 256
 ALGORITHMS = {"ga": "genetic", "mc": "monte_carlo", "de": "differential_evolution"}
-ENGINES = [*ALGORITHMS, "vina", *(scorer + "_" + search for scorer in ("vinardo", "ad4") for search in ALGORITHMS)]
+SCORERS = {"vina": "OddtVina", "vinardo": "OddtVinardo", "ad4": "OddtAD4", "plp": "OddtPLP", "chemplp": "OddtChemPLP"}
+ENGINES = [
+    *ALGORITHMS,
+    "vina",
+    *(scorer + "_" + search for scorer in SCORERS if scorer != "vina" for search in ALGORITHMS),
+]
 
 
 def _engine_class(scoring, search=None):
     """Resolve ODDT-prefixed classes while retaining the historical benchmark IDs."""
     from oddt import docking
 
-    prefix = {"vina": "OddtVina", "vinardo": "OddtVinardo", "ad4": "OddtAD4"}[scoring]
+    prefix = SCORERS[scoring]
     return getattr(docking, prefix + ("Scoring" if search is None else search.upper()))
 
 
@@ -63,6 +68,22 @@ def scoring_settings(engine):
             preparation="Private copies; add H, calculate Gasteiger charges, merge nonpolar H charges",
             angular_model="Explicit lone-pair cosine-squared direct-pair adaptation",
             saturation_model="Joint inter/intraligand capacitated matching",
+            terminal_polar_h_torsions="Fixed input geometry",
+        )
+    elif engine.scoring_name in ("plp", "chemplp"):
+        data.update(
+            parameters=dict(engine.parameters),
+            term_order=list(engine.term_names),
+            parameterization=engine.parameterization,
+            units=engine.score_units,
+            preparation="Private hydrogenated copies; ODDT typing with ester/nitro exceptions",
+            torsion_parameters=[
+                dict(types=list(types), values=list(values)) for types, values in engine.torsion_parameters.items()
+            ],
+            torsion_fallback=engine.torsion_fallback,
+            torsion_fallback_terms=len(engine.torsion_fallbacks_),
+            metal_cutoff=engine.metal_cutoff,
+            metal_geometries=[dict(atom=site["atom"], geometry=site["geometry"]) for site in engine.metal_geometries_],
             terminal_polar_h_torsions="Fixed input geometry",
         )
     else:
@@ -343,6 +364,7 @@ def run_one(directory, target, seed, engine_name, settings=None, progress=False,
                     row["searched_torsions"] = len(engine.rotors)
                     if engine.score_all_atoms:
                         row["prepared_ligand_atoms"] = len(engine.scoring_coordinates)
+                    if scoring == "ad4":
                         row["ligand_polar_hydrogens"] = int((engine.lig_parameters["types"] == "HD").sum())
                         row["ligand_charge"] = float(engine.lig_parameters["charges"].sum())
                 poses = engine.dock(**configuration, seed=seed, num_modes=5, energy_range=3.0, progress=progress)
@@ -358,7 +380,13 @@ def run_one(directory, target, seed, engine_name, settings=None, progress=False,
         if not poses:
             raise RuntimeError("Docking returned no poses")
         row["num_poses"] = len(poses)
-        row["top_affinity"] = float(poses[0].data[scoring + "_affinity"])
+        if scoring in ("plp", "chemplp"):
+            row["top_score"] = float(poses[0].data[scoring + "_score"])
+            row["score_units"] = "empirical score units"
+        else:
+            row["top_affinity"] = float(poses[0].data[scoring + "_affinity"])
+            row["top_score"] = row["top_affinity"]
+            row["score_units"] = "kcal/mol"
         row.update(pose_metrics(reference, poses))
         if diagnostics:
             row["diagnostics"] = (
@@ -495,6 +523,9 @@ def main():
         Path(oddt.__file__).parent / "docking/vinardo.py",
         Path(oddt.__file__).parent / "docking/ad4.py",
         Path(oddt.__file__).parent / "docking/_ad4_hbond.py",
+        Path(oddt.__file__).parent / "docking/plp.py",
+        Path(oddt.__file__).parent / "docking/_plp_terms.py",
+        Path(oddt.__file__).parent / "docking/_plp_preparation.py",
     ]
     source_files.extend(
         args.data / target / (target + suffix) for target in targets for suffix in ("_ligand.sdf", "_pocket.pdb")

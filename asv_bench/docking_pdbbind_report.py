@@ -10,6 +10,8 @@ from pathlib import Path
 import numpy as np
 
 from .docking_pdbbind import ROOT, ALGORITHMS, ENGINES, engine_spec
+
+MODEL_NAMES = {"vina": "Vina score", "vinardo": "Vinardo", "ad4": "AD4", "plp": "PLP", "chemplp": "ChemPLP"}
 from .docking_benchmark_data import ARCHIVE, load_report
 
 
@@ -129,11 +131,7 @@ def render(report, page, figure=None, source=None, marker="benchmark-results", t
     }
     names.update(
         {
-            name: (
-                engine_spec(name)[0].upper() + " " + engine_spec(name)[1].upper()
-                if name.startswith("ad4_")
-                else "Vinardo " + engine_spec(name)[1].upper()
-            )
+            name: MODEL_NAMES[engine_spec(name)[0]] + " " + engine_spec(name)[1].upper()
             for name in engines
             if name not in names
         }
@@ -378,7 +376,7 @@ def overview_data(archive):
             if search is None:
                 label = "Vina " + report["versions"].get("vina", "")
             else:
-                model = {"vina": "Vina score", "vinardo": "Vinardo", "ad4": "AD4"}[scoring]
+                model = MODEL_NAMES[scoring]
                 population = protocol.get(engine, {}).get("population_size", "") if search in ("ga", "de") else ""
                 label = "%s %s%s" % (model, search.upper(), population)
             notes = "%d %s" % (seeds, "seed" if seeds == 1 else "seeds")

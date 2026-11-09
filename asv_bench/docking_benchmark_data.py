@@ -23,6 +23,8 @@ RESULT_COLUMNS = (
     "status",
     "elapsed_seconds",
     "top_affinity",
+    "top_score",
+    "score_units",
     "local_minimizations",
     "objective_evaluations",
     "ligand_heavy_atoms",
