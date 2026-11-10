@@ -411,6 +411,126 @@ are fixed; flexible receptor strain and displaceable-water occupancy are not
 modeled. These preparation and parameter differences mean this implementation
 does not reproduce PLANTS or GOLD scores exactly.
 
+X-Score rescoring
+~~~~~~~~~~~~~~~~~
+
+``OddtXScoreScoring`` evaluates the HPScore, HMScore and HSScore models and
+their consensus for an existing protein--ligand pose. **Higher scores are
+better**, in pKd units. This is a post-docking scorer: HM has hard
+environment tests and HS uses surface-dot occlusion, so it is not composed
+with the L-BFGS-B search mixins.
+
+.. code-block:: python
+
+   from oddt.docking import OddtXScoreScoring
+
+   scorer = OddtXScoreScoring(protein, reference)
+   print(scorer.score_variants())  # hp, hm, hs, each in pKd units
+   print(scorer.score())           # Mean enabled-variant score
+   print(scorer.raw_terms())
+
+   # Rescore poses returned by any docking engine; input poses are preserved.
+   ranked = scorer.rescore(poses)
+   print(ranked[0].data["xscore_score"])
+
+``models="hp"``, ``"hm"``, ``"hs"`` or a list such as ``["hp", "hm"]``
+selects individual models. The default, ``"consensus"``, averages all three.
+``predict_ligands()`` lazily yields scored copies in input order;
+``rescore()`` ranks copies by descending score, preserving ties.
+``score_components()`` returns weighted consensus contributions, including
+the intercept, whose sum equals ``score()``. ``raw_terms()`` returns unweighted
+VDW, H-bond, hydrophobic pair/match/surface and rotor values; disabled
+hydrophobic models have zero raw terms and incur no corresponding work.
+
+The model follows Equations 2--12 and Table 1 of
+`Wang, Lai and Wang (2002) <https://doi.org/10.1023/A:1016357811882>`_.
+Its coefficients are the **original 2002 calibration**, rather than the
+recalibrated defaults in later X-Score releases. No X-Score/XLOGP
+implementation code or parameter files are used.
+
+.. list-table:: Published 2002 regression coefficients, in pKd units
+   :header-rows: 1
+
+   * - Variant
+     - VDW
+     - H-bond
+     - Hydrophobic term
+     - Rotor
+     - Intercept
+   * - HPScore
+     - -0.00096
+     - 0.412
+     - 0.0373
+     - -0.100
+     - 2.78
+   * - HMScore
+     - -0.00214
+     - 0.311
+     - 0.602
+     - -0.169
+     - 3.10
+   * - HSScore
+     - -0.00201
+     - 0.307
+     - 0.00710
+     - -0.159
+     - 2.69
+
+``coefficients`` can override a model row in the order shown above. The
+heavy-atom van der Waals term uses the published 8--4 potential, capped at
++100 per pair, with no invented distance cutoff. H-bonds use donor and
+acceptor heavy-neighbor centroid roots, a 0.7-A distance ramp and angular
+ramps from 60 to 120 degrees. Each heavy pair contributes at most once.
+Donors are limited by attached H counts; acceptors by lone-pair capacities.
+Saturation uses deterministic strongest-first assignment. Rootless or
+coincident-root atoms use an isotropic angle, and metal donor capacities
+are Zn 4, Ca 8 and other metals 6. These are explicit interpretations of
+details not fully specified in the paper.
+
+HP counts hydrophobic contacts with the published surface-gap ramp from
+0.5 to 2 Angstroms. Hydrophobic atoms are halogens and carbons without
+heavy heteroatom neighbors. The rotor term independently implements the
+published acyclic sp3--sp3/sp2 definition and crossed-rotor correction;
+it can differ from the number of torsions searched by a docking engine.
+
+HM applies a strict environment-sum threshold of -0.5 to receptor heavy atoms
+within 6 Angstroms. Atomic hydrophobic scales use all 90 values in Table 1 of
+`Wang, Gao and Lai (2000)
+<https://www.pkumdl.cn/ligbuilder3/xlogp2.pdf>`_, without molecular logP
+correction factors. This is an atomic-scale lookup, not a complete molecular
+XLOGP predictor. Charged topologies are projected to that neutral lookup
+scheme; affected prepared-atom indices appear in ``xlogp2_charged_atoms_``.
+Metals have zero atomic HM scale. Unknown organic topologies raise an error.
+``receptor_logp`` and ``ligand_logp`` override the atomic values in retained
+heavy-atom order. As in the published threshold, an empty environment has
+sum zero; HM alone is therefore unsuitable for rejecting remote poses.
+
+HS calculates buried ligand solvent-accessible area using independent
+Fibonacci sphere quadrature, with ``surface_spacing=0.5`` and
+``probe_radius=1.5`` Angstroms. Hydrogens on hydrophobic atoms contribute
+area to their parents; all retained atoms can occlude surface. The exposed
+``hydrogen_radius=1.2`` Angstroms is a preparation choice because the paper
+does not specify that radius. Surface quadrature follows the molecular frame
+where a noncollinear frame is defined. Finite quadrature and collinear
+geometries can introduce sampling error.
+
+Both molecules are cloned and hydrogenated. Mark receptors ``protein=True``
+before use. HOH/WAT/H2O receptor residues are removed by default; use
+``remove_water=False`` to retain them. Other supplied atoms are retained.
+Ligand metals and unsupported elements raise errors. Explicit coordinates
+passed to scoring methods must contain every prepared ligand atom, including
+H, in ``scoring_coordinates`` order. ODDT typing, charge projection,
+root/saturation conventions and surface discretization can differ from
+the original software; binary-equivalent scores are not claimed.
+
+Scored poses carry ``xscore_score``, ``xscore_hp``, ``xscore_hm``,
+``xscore_hs`` for enabled variants, ``xscore_term_*`` raw terms,
+``xscore_units="pKd"`` and the calibration identifier ``xscore_model``.
+Stale ``xscore_*`` fields are removed on copies; other input metadata remains.
+The virtual-screening pipeline accepts ``vs.score("xscore", protein=protein)``
+and selectors ``xscore_hp``, ``xscore_hm`` and ``xscore_hs``, or an
+``OddtXScoreScoring`` instance.
+
 Scorer validation
 ~~~~~~~~~~~~~~~~~
 

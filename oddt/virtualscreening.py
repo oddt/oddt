@@ -272,6 +272,7 @@ class virtualscreening:
             raise ValueError("Protein needs to be set for structure based " "scoring")
         # trigger cache
         protein.atom_dict
+        from oddt.docking.xscore import OddtXScoreScoring
 
         if isinstance(function, str):
             if isfile(function):
@@ -314,6 +315,10 @@ class virtualscreening:
                         new_kwargs["size"] = int(bit.replace("s", ""))
                 sf = PLECscore.load(**new_kwargs)
                 sf.set_protein(protein)
+            elif function.lower() in ("xscore", "xscore_hp", "xscore_hm", "xscore_hs"):
+                options = dict(kwargs)
+                options.setdefault("models", function.lower().partition("_")[2] or "consensus")
+                sf = OddtXScoreScoring(protein, *args, **options)
             elif function.lower() == "autodock_vina":
                 from oddt.docking import AutoDockVina
 
@@ -322,7 +327,7 @@ class virtualscreening:
             else:
                 raise ValueError("Scoring Function %s was not implemented in " "ODDT" % function)
         else:
-            if isinstance(function, scorer):
+            if isinstance(function, (scorer, OddtXScoreScoring)):
                 sf = function
                 sf.set_protein(protein)
             else:

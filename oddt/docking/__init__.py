@@ -4,6 +4,7 @@ from .base import DockingBase, LigandPose
 from .internal import OddtVinaDocking, OddtVinaScoring, OddtVinaGA, OddtVinaMC, OddtVinaDE, OddtVinaACO, OddtVinaBO
 from .vinardo import OddtVinardoScoring, OddtVinardoGA, OddtVinardoMC, OddtVinardoDE, OddtVinardoACO, OddtVinardoBO
 from .ad4 import OddtAD4Scoring, OddtAD4GA, OddtAD4MC, OddtAD4DE, OddtAD4ACO, OddtAD4BO
+from .xscore import OddtXScoreScoring
 from .plp import (
     OddtPLPScoring,
     OddtPLPGA,
@@ -49,6 +50,7 @@ __all__ = [
     "OddtAD4DE",
     "OddtAD4ACO",
     "OddtAD4BO",
+    "OddtXScoreScoring",
     "OddtPLPScoring",
     "OddtPLPGA",
     "OddtPLPMC",
