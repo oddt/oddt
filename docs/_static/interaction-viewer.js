@@ -26,6 +26,18 @@
       <a class="oddt-atlas-pdb" target="_blank" rel="noopener"></a>
     </div>
     <p class="oddt-atlas-description"></p>
+    <div class="oddt-atlas-tabs" role="tablist" aria-label="Interaction view">
+      <button type="button" id="oddt-map-tab" role="tab" aria-selected="true"
+        aria-controls="oddt-map-panel" tabindex="0">2D interaction map</button>
+      <button type="button" id="oddt-structure-tab" role="tab" aria-selected="false"
+        aria-controls="oddt-structure-panel" tabindex="-1">3D structure</button>
+    </div>
+    <div id="oddt-map-panel" role="tabpanel" aria-labelledby="oddt-map-tab">
+      <div class="oddt-atlas-map">Loading the 2D interaction map…</div>
+      <p class="oddt-atlas-help">Protein sites surround the ligand and are labeled by residue, chain and number.
+        Surface silhouettes are symbolic. Straight dashed lines group contacts to each site; distances are measured in 3D.</p>
+    </div>
+    <div id="oddt-structure-panel" role="tabpanel" aria-labelledby="oddt-structure-tab" hidden>
     <div class="oddt-atlas-frame">
       <div class="oddt-atlas-viewport" role="img"
         aria-label="Interactive molecular structure; use the controls below to rotate and zoom."></div>
@@ -44,6 +56,7 @@
       <label><input type="checkbox" data-option="surface"> Pocket surface</label>
     </div>
     <p class="oddt-atlas-help">Drag to rotate · scroll or pinch to zoom · select a contact to focus it.</p>
+    </div>
     <p class="oddt-atlas-status" role="status" aria-live="polite">Loading example details…</p>
     <div class="oddt-atlas-contacts" role="group" aria-label="Verified contacts"></div>
     <p class="oddt-atlas-downloads"></p>
@@ -58,6 +71,48 @@
   const labels = find('[data-option="labels"]');
   const surface = find('[data-option="surface"]');
   const contacts = find(".oddt-atlas-contacts");
+  const map = find(".oddt-atlas-map");
+  const tabs = [...root.querySelectorAll('[role="tab"]')];
+
+  function showTab(tab) {
+    for (const item of tabs) {
+      const selected = item === tab;
+      item.setAttribute("aria-selected", String(selected));
+      item.tabIndex = selected ? 0 : -1;
+      find(`#${item.getAttribute("aria-controls")}`).hidden = !selected;
+    }
+    if (ready && viewport.clientWidth) { viewer.resize(); viewer.render(); }
+  }
+  for (const [index, tab] of tabs.entries()) {
+    tab.addEventListener("click", () => showTab(tab));
+    tab.addEventListener("keydown", (event) => {
+      let next;
+      if (event.key === "ArrowRight" || event.key === "ArrowLeft") next = tabs[1 - index];
+      else if (event.key === "Home") next = tabs[0];
+      else if (event.key === "End") next = tabs[tabs.length - 1];
+      if (next) { event.preventDefault(); showTab(next); next.focus(); }
+    });
+  }
+
+  function highlightMap() {
+    for (const contact of map.querySelectorAll("[data-contact]")) {
+      contact.classList.toggle("is-active", contact.dataset.contacts.split(" ").includes(String(active)));
+    }
+  }
+
+  async function showMap(sceneUrl, token) {
+    map.replaceChildren(document.createTextNode("Loading the 2D interaction map…"));
+    try {
+      const svg = await get(new URL(scene.depiction_file, sceneUrl));
+      if (token !== generation) return;
+      const documentSvg = new DOMParser().parseFromString(svg, "image/svg+xml");
+      if (documentSvg.documentElement.localName !== "svg") throw new Error("Invalid 2D map");
+      map.replaceChildren(document.importNode(documentSvg.documentElement, true));
+      highlightMap();
+    } catch (error) {
+      if (token === generation) map.textContent = "The 2D map could not load. Use the structure view or downloads below.";
+    }
+  }
 
   function themeColors() {
     const style = getComputedStyle(root);
@@ -242,6 +297,7 @@
         for (const [i, item] of [...contacts.querySelectorAll("button")].entries()) {
           item.setAttribute("aria-pressed", String(i === active));
         }
+        highlightMap();
         if (ready) {
           annotations();
           viewer.zoomTo(focusSelection());
@@ -253,7 +309,7 @@
     }
     const downloads = find(".oddt-atlas-downloads");
     downloads.replaceChildren(document.createTextNode("Download: "));
-    for (const [label, filename] of [["pocket PDB", scene.protein_file], ["ligand SDF", scene.ligand_file], ["contacts & provenance", "scene.json"]]) {
+    for (const [label, filename] of [["2D SVG", scene.depiction_file], ["pocket PDB", scene.protein_file], ["ligand SDF", scene.ligand_file], ["contacts & provenance", "scene.json"]]) {
       if (downloads.childNodes.length > 1) downloads.append(document.createTextNode(" · "));
       const link = document.createElement("a");
       link.textContent = label;
@@ -284,6 +340,8 @@
       active = 0;
       root.dataset.example = scene.id;
       details(sceneUrl);
+      await showMap(sceneUrl, token);
+      if (token !== generation) return;
       status.textContent = `${scene.contacts.length} displayed contacts · ODDT / RDKit · distances in Å`;
       if (!activated) {
         root.dataset.state = "idle";
@@ -348,7 +406,9 @@
       viewer.render();
     });
   }
-  new ResizeObserver(() => { if (ready) { viewer.resize(); viewer.render(); } }).observe(viewport);
+  new ResizeObserver(() => {
+    if (ready && viewport.clientWidth) { viewer.resize(); viewer.render(); }
+  }).observe(viewport);
   new MutationObserver(annotations).observe(document.documentElement, {
     attributes: true, attributeFilter: ["data-theme"], subtree: true,
   });

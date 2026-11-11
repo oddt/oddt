@@ -103,6 +103,21 @@ the CCD, and uses ODDT's detectors to select the displayed contacts. Review
 the generated structures, detector settings, and software versions when
 updating an example. Every interaction type must have a different PDB ID.
 
+Each example also includes a committed 2D SVG drawn with
+:func:`oddt.depiction.draw_interactions`. To redraw these from the existing
+local structures and contact records, without downloading or changing the
+3D analysis:
+
+.. code-block:: bash
+
+   python docs/generate_interaction_examples.py --depictions-only
+   python -m pytest tests/test_depiction.py tests/test_docs.py
+
+Check residue/chain labels around the ligand, symbolic surface silhouettes,
+ring-centroid endpoints, and standard ligand element colors in both themes.
+The SVG tests check exported straight lines for crossings and verify that
+each grouped line retains its original contact records.
+
 The browser uses the pinned, BSD-licensed 3Dmol.js bundle under
 ``docs/_static/vendor``. Keep its license and dependency notices when updating
 the renderer. Check switching between all eight examples, contact selection,

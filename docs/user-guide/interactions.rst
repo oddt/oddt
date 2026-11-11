@@ -11,13 +11,32 @@ For a compact vector representation of a binding mode, continue with
 
 .. _interaction-atlas:
 
-Explore interactions in 3D
---------------------------
+Explore interactions in 2D and 3D
+-----------------------------------
 
-Choose an interaction type, then select **Load interactive 3D**. Each type
-uses a **different experimental PDB structure**. Drag to rotate, scroll or
-pinch to zoom, and select a contact below the view to focus its atoms or
-rings. Rotation and zoom buttons also work with a keyboard.
+Choose an interaction type to see its **2D interaction map**. Each type
+uses a **different experimental PDB structure**. Contacting protein residues
+are represented by labeled sites around the ligand, with small surface
+silhouettes facing the interacting atoms or rings. Labels include the residue
+name, chain and number. Straight dashed lines avoid the ligand's bonds as
+well as one another. Ring contacts stop at the near ring edge; dots identify
+the corresponding centroids. Select a contact below the map to highlight
+its line.
+
+The ligand's best-fit plane in its bound 3D pose guides the 2D orientation,
+and projected contact directions guide protein-site placement. Alternative
+chemical depictions and independent site angles are considered when a line
+would cross the ligand. The map remains a schematic: path lengths do not
+represent distances, and the surface silhouettes are symbolic. Contacts
+to the same residue and ligand atom/ring share a line. Every original pair
+and distance remains in the contact list and SVG metadata. The reported
+distances come from the original 3D coordinates. Download **2D SVG** for a
+scalable, standalone figure.
+
+Select **3D structure**, then **Load interactive 3D**, to inspect the deposited
+pose. Drag to rotate, scroll or pinch to zoom, and select a contact below the
+view to focus its atoms or rings. Rotation and zoom buttons also work with
+a keyboard.
 
 The ligand is shown as thick sticks (or a sphere for a single ion), the
 protein pocket as thin bonds, and contacting residues as thicker sticks. Colored
@@ -31,7 +50,7 @@ protein atoms. The selected contact has atom/residue labels and a distance.
    <div class="oddt-interaction-atlas"
         data-base-url="../_static/interactions/"
         data-library-url="../_static/vendor/3Dmol-2.5.5.min.js">
-     <p>Enable JavaScript and WebGL to explore the structures interactively.
+     <p>Enable JavaScript to explore the interaction maps; the 3D view also needs WebGL.
         The examples and downloadable data are listed below.</p>
    </div>
    <script defer src="../_static/interaction-viewer.js"></script>
@@ -93,7 +112,7 @@ are numbered within each residue or ligand so they can be distinguished.
 Repeated atom pairs are displayed once. These are examples of ODDT's
 classifications, not measurements of bond energies.
 
-The viewer's downloads include the pocket PDB, bound ligand SDF, contacts,
+The viewer's downloads include the 2D SVG, pocket PDB, bound ligand SDF, contacts,
 detector settings, source URLs/checksums, and software versions. Rendering
 and data are bundled with the docs; no live PDB or CDN connection is needed.
 The Python walkthrough below continues to use 4LB3 as one shared example.
@@ -247,6 +266,52 @@ Export a contact table
 
 This writes a header even when there are no strict contacts. Atom IDs in this
 table are ODDT's zero-based IDs for the prepared molecules, not PDB serials.
+
+Draw your own 2D interaction map
+--------------------------------
+
+:func:`oddt.depiction.draw_interactions` accepts aligned atom or ring records
+from the detectors and returns a standalone SVG. It currently requires
+RDKit-backed ODDT molecules, independently of your default toolkit. For
+example, draw strict hydrogen bonds for the same 4LB3 complex:
+
+.. code-block:: python
+
+   from oddt.depiction import draw_interactions
+   from oddt.toolkits import rdk
+
+   map_protein = next(rdk.readfile('pdb', str(data_dir / '4lb3_pocket.pdb')))
+   map_protein.protein = True
+   map_ligand = next(rdk.readfile('sdf', str(ligand_path)))
+   map_protein.addh(only_polar=True)
+   map_ligand.addh(only_polar=True)
+   p_atoms, l_atoms, map_strict = hbonds(
+       map_protein, map_ligand, mol1_exact=True, mol2_exact=True
+   )
+   svg = draw_interactions(
+       map_protein, map_ligand,
+       p_atoms[map_strict], l_atoms[map_strict],
+       legend='4LB3 ligand',
+   )
+   Path('interactions.svg').write_text(svg, encoding='utf-8')
+
+Protein pseudoatoms are labeled by residue and arranged around a chemical
+depiction of the ligand. Small, symbolic surface patches face the ligand.
+Atom IDs and ring centroids are mapped before hydrogens are hidden. The
+drawing does not modify either source molecule or its coordinates. The
+exported SVG includes atom mappings, residue labels, and contact tooltips
+with the original 3D distances.
+
+The layout fits a least-squares plane to the bound ligand's heavy atoms,
+samples chemical depictions that resemble the projected pose, and places
+protein sites preferentially on their projected 3D sides. It then rejects
+straight contacts that cross ligand bonds, other contact lines or labels.
+Ring contacts terminate just outside the ring boundary, with the centroid
+marked separately. Contacts to the same residue
+and ligand atom/ring are grouped, retaining the original atom pairs and
+distances in the SVG metadata. Very dense contact graphs can exceed what
+can be placed without crossings; in that case the function raises
+``ValueError`` so you can select a smaller set of contacts.
 
 Other interaction types
 -----------------------

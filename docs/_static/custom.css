@@ -156,6 +156,78 @@
   gap: 0.35rem;
 }
 
+.oddt-atlas-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0;
+}
+
+.oddt-atlas-tabs [aria-selected="true"] {
+  border-color: var(--color-brand-primary);
+  color: var(--color-brand-content);
+  font-weight: 650;
+}
+
+.oddt-atlas-map {
+  --oddt-ink: var(--color-foreground-primary);
+  --oddt-nitrogen: #5274ff;
+  --oddt-paper: var(--color-background-primary);
+  background: var(--color-background-primary);
+  border: 1px solid var(--color-background-border);
+  border-radius: 0.5rem;
+  overflow-x: auto;
+}
+
+.oddt-atlas-map svg {
+  display: block;
+  height: auto;
+  min-width: 36rem;
+  width: 100%;
+}
+
+.oddt-atlas-map svg > rect {
+  fill: var(--oddt-paper);
+}
+
+.oddt-atlas-map svg path[style*="stroke:#000000"] {
+  stroke: var(--oddt-ink) !important;
+}
+
+.oddt-atlas-map svg path[style*="fill:#000000"] {
+  fill: var(--oddt-ink) !important;
+}
+
+.oddt-atlas-map svg path[style*="stroke:#0000FF"] {
+  stroke: var(--oddt-nitrogen) !important;
+}
+
+.oddt-atlas-map svg path[style*="fill:#0000FF"] {
+  fill: var(--oddt-nitrogen) !important;
+}
+
+.oddt-atlas-map .residue-label {
+  fill: var(--oddt-ink);
+}
+
+.oddt-atlas-map .protein-surface {
+  fill: color-mix(in srgb, var(--oddt-ink) 20%, var(--oddt-paper));
+  stroke: color-mix(in srgb, var(--oddt-ink) 60%, var(--oddt-paper));
+}
+
+.oddt-atlas-map .protein-site {
+  fill: var(--oddt-ink);
+}
+
+.oddt-atlas-map [data-contact] line {
+  opacity: 0.75;
+  stroke: color-mix(in srgb, var(--interaction-color) 75%, var(--color-foreground-primary));
+}
+
+.oddt-atlas-map [data-contact].is-active line {
+  opacity: 1;
+  stroke-width: 3;
+}
+
 .oddt-atlas-picker label {
   color: var(--color-foreground-secondary);
   font-size: 0.8rem;

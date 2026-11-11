@@ -366,6 +366,8 @@
   "ligand_file": "ligand.sdf",
   "assets_sha256": {
     "protein.pdb": "b5b56fba4ca92c72f1ed9ed0865815ced0f8e955d9624febf8afbd3d86a575ba",
-    "ligand.sdf": "d5cc496b548e98f03d432f97c620ff7ee1f8073fdfcfa4e90dc1f3c4b8894047"
-  }
+    "ligand.sdf": "d5cc496b548e98f03d432f97c620ff7ee1f8073fdfcfa4e90dc1f3c4b8894047",
+    "interaction.svg": "16e994d63e90d069d8c1c912e380f53f094bcb6024f735b36c71b769260dffbb"
+  },
+  "depiction_file": "interaction.svg"
 }

@@ -1,4 +1,4 @@
-"""Regenerate the deposited-coordinate examples used by the 3D interaction atlas.
+"""Regenerate the deposited-coordinate examples used by the interaction atlas.
 
 Run from a checkout with the documentation environment installed:
     python docs/generate_interaction_examples.py
@@ -24,6 +24,7 @@ sys.path.insert(0, str(REPOSITORY))
 
 import oddt
 from oddt import interactions
+from oddt.depiction import draw_interactions
 from oddt.toolkits import rdk
 
 EXAMPLES = [
@@ -374,6 +375,44 @@ def calculate_contacts(scene, protein, ligand):
     return result, settings, len(first)
 
 
+def write_depiction(scene, protein, ligand, directory):
+    """Draw the stored atom/ring contacts without rerunning contact selection."""
+    records = []
+    for side, molecule in (("start", protein), ("end", ligand)):
+        selected = []
+        for contact in scene["contacts"]:
+            end = contact[side]
+            if end["kind"] == "atom":
+                selected.append(molecule.atom_dict[end["indices"][0]])
+            else:
+                selected.append(
+                    next(
+                        ring
+                        for ring in molecule.ring_dict
+                        if np.allclose(ring["centroid"], end["position"], atol=0.001)
+                    )
+                )
+        records.append(np.array(selected))
+    svg = draw_interactions(protein, ligand, *records, color=scene["color"], legend=scene["component"])
+    scene["depiction_file"] = "interaction.svg"
+    scene["assets_sha256"]["interaction.svg"] = hashlib.sha256(svg.encode()).hexdigest()
+    (directory / "interaction.svg").write_text(svg)
+
+
+def regenerate_depictions(output):
+    """Regenerate only the SVG maps, using committed local structures and contacts."""
+    manifest = json.loads((output / "manifest.json").read_text())
+    for entry in manifest:
+        path = output / entry["scene"]
+        scene = json.loads(path.read_text())
+        protein, ligand = prepare(
+            (path.parent / scene["protein_file"]).read_text(), (path.parent / scene["ligand_file"]).read_text()
+        )
+        write_depiction(scene, protein, ligand, path.parent)
+        path.write_text(json.dumps(scene, indent=2, ensure_ascii=False) + "\n")
+        print(f"{scene['title']}: {scene['pdb_id']}, {len(scene['contacts'])} 2D contacts", flush=True)
+
+
 def generate(cache, output):
     manifest = []
     for example in EXAMPLES:
@@ -413,6 +452,7 @@ def generate(cache, output):
         directory.mkdir(parents=True, exist_ok=True)
         (directory / "protein.pdb").write_text(protein_pdb)
         (directory / "ligand.sdf").write_text(ligand_sdf)
+        write_depiction(scene, protein, prepared_ligand, directory)
         (directory / "scene.json").write_text(json.dumps(scene, indent=2, ensure_ascii=False) + "\n")
         manifest.append(
             {key: scene[key] for key in ("id", "title", "pdb_id", "complex", "color")}
@@ -426,5 +466,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--cache", type=Path, default=REPOSITORY / "docs/_build/interaction-sources")
     parser.add_argument("--output", type=Path, default=REPOSITORY / "docs/_static/interactions")
+    parser.add_argument(
+        "--depictions-only", action="store_true", help="Redraw 2D SVGs from local assets without downloads"
+    )
     args = parser.parse_args()
-    generate(args.cache, args.output)
+    if args.depictions_only:
+        regenerate_depictions(args.output)
+    else:
+        generate(args.cache, args.output)

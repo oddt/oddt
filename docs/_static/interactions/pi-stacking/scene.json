@@ -338,6 +338,8 @@
   "ligand_file": "ligand.sdf",
   "assets_sha256": {
     "protein.pdb": "1ce6b4d16aa772ed0a9ec8268b324e2185b7a65b3619740f0382f99f22ec1916",
-    "ligand.sdf": "2aa092a744f7abbd7ed8af63250cbabc40b405421cc742b8c57f9a5f2b234e76"
-  }
+    "ligand.sdf": "2aa092a744f7abbd7ed8af63250cbabc40b405421cc742b8c57f9a5f2b234e76",
+    "interaction.svg": "5698fe6469d76bd984fae8d21cab7355c803cddf5a1b9f8cff5e226cdeb091f6"
+  },
+  "depiction_file": "interaction.svg"
 }
