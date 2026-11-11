@@ -15,6 +15,8 @@
   let activated = false;
   let ready = false;
   let surfaceId;
+  let currentSceneUrl;
+  let mapGeneration = 0;
 
   root.innerHTML = `
     <div class="oddt-atlas-picker">
@@ -33,9 +35,13 @@
         aria-controls="oddt-structure-panel" tabindex="-1">3D structure</button>
     </div>
     <div id="oddt-map-panel" role="tabpanel" aria-labelledby="oddt-map-tab">
+      <div class="oddt-atlas-toolbar" aria-label="2D view controls">
+        <label><input type="checkbox" data-option="protein-atoms" disabled> Show protein residue atoms</label>
+      </div>
       <div class="oddt-atlas-map">Loading the 2D interaction map…</div>
       <p class="oddt-atlas-help">Protein sites surround the ligand and are labeled by residue, chain and number.
-        Surface silhouettes are symbolic. Straight dashed lines group contacts to each site; distances are measured in 3D.</p>
+        Surface silhouettes in the simplified view are symbolic; in the atom view, R marks continuation into other residues.
+        Straight dashed lines mark contacts; small gaps separate crossing contact strokes. Distances are measured in 3D.</p>
     </div>
     <div id="oddt-structure-panel" role="tabpanel" aria-labelledby="oddt-structure-tab" hidden>
     <div class="oddt-atlas-frame">
@@ -72,6 +78,7 @@
   const surface = find('[data-option="surface"]');
   const contacts = find(".oddt-atlas-contacts");
   const map = find(".oddt-atlas-map");
+  const proteinAtoms = find('[data-option="protein-atoms"]');
   const tabs = [...root.querySelectorAll('[role="tab"]')];
 
   function showTab(tab) {
@@ -101,18 +108,27 @@
   }
 
   async function showMap(sceneUrl, token) {
+    const request = ++mapGeneration;
+    const filename = proteinAtoms.checked ? scene.depiction_atoms_file : scene.depiction_file;
+    find("[data-depiction-download]").href = new URL(filename, sceneUrl);
+    map.dataset.state = "loading";
     map.replaceChildren(document.createTextNode("Loading the 2D interaction map…"));
     try {
-      const svg = await get(new URL(scene.depiction_file, sceneUrl));
-      if (token !== generation) return;
+      const svg = await get(new URL(filename, sceneUrl));
+      if (token !== generation || request !== mapGeneration) return;
       const documentSvg = new DOMParser().parseFromString(svg, "image/svg+xml");
       if (documentSvg.documentElement.localName !== "svg") throw new Error("Invalid 2D map");
       map.replaceChildren(document.importNode(documentSvg.documentElement, true));
       highlightMap();
+      map.dataset.state = "ready";
     } catch (error) {
-      if (token === generation) map.textContent = "The 2D map could not load. Use the structure view or downloads below.";
+      if (token === generation && request === mapGeneration) {
+        map.dataset.state = "error";
+        map.textContent = "The 2D map could not load. Use the structure view or downloads below.";
+      }
     }
   }
+  proteinAtoms.addEventListener("change", () => showMap(currentSceneUrl, generation));
 
   function themeColors() {
     const style = getComputedStyle(root);
@@ -135,7 +151,8 @@
   async function get(url, json = false) {
     const key = String(url);
     if (!cache.has(key)) {
-      cache.set(key, fetch(url).then((response) => {
+      // Scene and SVG URLs stay stable when the docs are rebuilt.
+      cache.set(key, fetch(url, { cache: "no-cache" }).then((response) => {
         if (!response.ok) throw new Error(`Unable to load ${url}: ${response.status}`);
         return json ? response.json() : response.text();
       }).catch((error) => { cache.delete(key); throw error; }));
@@ -315,6 +332,7 @@
       link.textContent = label;
       link.href = new URL(filename, sceneUrl);
       link.download = "";
+      if (label === "2D SVG") link.setAttribute("data-depiction-download", "");
       downloads.append(link);
     }
   }
@@ -330,6 +348,7 @@
     if (viewer) { viewer.clear(); viewer.render(); }
     status.textContent = "Loading example…";
     load.disabled = true;
+    proteinAtoms.disabled = true;
     cover.hidden = false;
     try {
       const entry = manifest.find((item) => item.id === picker.value);
@@ -337,6 +356,9 @@
       const nextScene = await get(sceneUrl, true);
       if (token !== generation) return;
       scene = nextScene;
+      currentSceneUrl = sceneUrl;
+      proteinAtoms.disabled = !scene.depiction_atoms_file;
+      if (proteinAtoms.disabled) proteinAtoms.checked = false;
       active = 0;
       root.dataset.example = scene.id;
       details(sceneUrl);

@@ -134,7 +134,7 @@ def _ligand_layouts(molecule, origin, axes):
     return sorted(layouts, key=lambda item: item[0])
 
 
-def _visible_line(start, target, ring, xy, bonds):
+def _visible_line(start, target, ring, xy, bonds, ring_boundary=True):
     """Stop outside an atom label or at the near edge of a contacted ring."""
     vector = target - start
     length = np.linalg.norm(vector)
@@ -142,7 +142,7 @@ def _visible_line(start, target, ring, xy, bonds):
         return None
     unit = vector / length
     finish = target - unit * 0.45
-    if len(ring) > 1:
+    if len(ring) > 1 and ring_boundary:
         ring = set(ring)
         entries = []
         for first, second in bonds:
@@ -172,42 +172,227 @@ def _visible_line(start, target, ring, xy, bonds):
     return line
 
 
-def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred):
+def _protein_fragments(protein, groups):
+    """Copy complete contacting residues, marking cut covalent bonds with R caps."""
+    from rdkit import Chem
+    from rdkit.Chem import rdDepictor
+
+    source = Chem.Mol(protein.Mol)
+    for atom in source.GetAtoms():
+        atom.SetIntProp("_oddt_source_index", atom.GetIdx())
+    source = Chem.RemoveHs(source)
+    fragments = {}
+    for key in sorted({key for key, _, _ in groups}):
+        selected = [a.GetIdx() for a in source.GetAtoms() if a.GetPDBResidueInfo() and _residue(a) == key]
+        copied = Chem.RWMol()
+        indices = {i: copied.AddAtom(Chem.Atom(source.GetAtomWithIdx(i))) for i in selected}
+        caps = {}
+        for bond in source.GetBonds():
+            first, second = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+            if first not in indices and second not in indices:
+                continue
+            for index in (first, second):
+                if index not in indices and index not in caps:
+                    atom = Chem.Atom(0)
+                    atom.SetProp("atomLabel", "R")
+                    caps[index] = copied.AddAtom(atom)
+            copied.AddBond(
+                indices.get(first, caps.get(first)), indices.get(second, caps.get(second)), bond.GetBondType()
+            )
+        # Pocket PDBs can omit entire neighboring residues. Preserve peptide
+        # continuation rather than depicting those artificial cuts as NH2/CHO.
+        amino_acids = {
+            "ALA",
+            "ARG",
+            "ASN",
+            "ASP",
+            "CYS",
+            "GLN",
+            "GLU",
+            "GLY",
+            "HIS",
+            "ILE",
+            "LEU",
+            "LYS",
+            "MET",
+            "PHE",
+            "PRO",
+            "SER",
+            "THR",
+            "TRP",
+            "TYR",
+            "VAL",
+            "MSE",
+            "SEC",
+            "HID",
+            "HIE",
+            "HIP",
+            "ASH",
+            "GLH",
+            "LYN",
+            "CYM",
+            "CYX",
+        }
+        if key[0] in amino_acids:
+            for i, j in indices.items():
+                original = source.GetAtomWithIdx(i)
+                name = original.GetPDBResidueInfo().GetName().strip()
+                names = {
+                    n.GetPDBResidueInfo().GetName().strip() for n in original.GetNeighbors() if n.GetPDBResidueInfo()
+                }
+                outside = any(n.GetIdx() not in indices for n in original.GetNeighbors())
+                cut_n = name == "N" and "CA" in names and not outside and original.GetFormalCharge() == 0
+                cut_c = name == "C" and names == {"CA", "O"}
+                if cut_n or cut_c:
+                    atom = copied.GetAtomWithIdx(j)
+                    atom.SetNumExplicitHs(max(0, original.GetTotalNumHs() - 1))
+                    atom.SetNoImplicit(True)
+                    cap = Chem.Atom(0)
+                    cap.SetProp("atomLabel", "R")
+                    copied.AddBond(j, copied.AddAtom(cap), Chem.BondType.SINGLE)
+        molecule = copied.GetMol()
+        Chem.SanitizeMol(molecule)
+        rdDepictor.Compute2DCoords(molecule, sampleSeed=42, forceRDKit=True)
+        lookup = {source.GetAtomWithIdx(i).GetIntProp("_oddt_source_index"): j for i, j in indices.items()}
+        endpoints = {i for residue, _, ids in groups if residue == key for i in ids}
+        xy = molecule.GetConformer().GetPositions()[:, :2]
+        xy -= xy[[lookup[i] for i in sorted(endpoints)]].mean(axis=0)
+        fragments[key] = {
+            "molecule": molecule,
+            "lookup": lookup,
+            "xy": xy,
+            "bonds": [(b.GetBeginAtomIdx(), b.GetEndAtomIdx()) for b in molecule.GetBonds()],
+        }
+    return fragments
+
+
+def _boxes_overlap(first, second):
+    return not (first[2] < second[0] or second[2] < first[0] or first[3] < second[1] or second[3] < first[1])
+
+
+def _proper_intersection(first, second):
+    a, b = first
+    c, d = second
+    matrix = np.column_stack((b - a, c - d))
+    if abs(np.linalg.det(matrix)) < 1e-9:
+        return None
+    t, u = np.linalg.solve(matrix, c - a)
+    return (t, u) if 1e-6 < t < 1 - 1e-6 and 1e-6 < u < 1 - 1e-6 else None
+
+
+def _contact_strokes(lines, gap=4):
+    """Leave a small gap in the later stroke at a proper contact crossing."""
+    result = []
+    for index, (start, finish) in enumerate(lines):
+        delta = finish - start
+        length = np.linalg.norm(delta)
+        cuts = []
+        for first, second in lines[:index]:
+            intersection = _proper_intersection((start, finish), (first, second))
+            if intersection is None:
+                continue
+            t, _ = intersection
+            other = second - first
+            sine = abs(delta[0] * other[1] - delta[1] * other[0]) / (length * np.linalg.norm(other))
+            half_gap = min(gap / (length * sine), t / 2, (1 - t) / 2)
+            cuts.append((t - half_gap, t + half_gap))
+        segments = []
+        cursor = 0
+        for first, second in sorted(cuts):
+            if first > cursor:
+                segments.append((start + cursor * delta, start + first * delta))
+            cursor = max(cursor, second)
+        if cursor < 1:
+            segments.append((start + cursor * delta, finish))
+        result.append(segments)
+    return result
+
+
+def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred, fragments, allow_crossings=False):
     """Assign each site its own visible angle, preferring its projected 3D side."""
-    keys = sorted({key for key, _ in groups})
+    keys = sorted({key for key, _, _ in groups})
     legend_point = np.array([0.0, xy[:, 1].min() - 1.8])
     legend_box = (-len(legend) * 0.37, legend_point[1] - 0.45, len(legend) * 0.37, legend_point[1] + 1.0)
     if not keys:
-        return {}, [], [(legend, legend_point)]
+        return {}, [], [(legend, legend_point)], {}
     half = np.ptp(xy, axis=0) / 2
+
+    def contact_conflict(first, second):
+        return _crosses(first, second) and (not allow_crossings or _proper_intersection(first, second) is None)
+
     candidates = {}
     for key in keys:
-        indices = [i for i, (residue, _) in enumerate(groups) if residue == key]
+        indices = [i for i, (residue, _, _) in enumerate(groups) if residue == key]
         target_center = np.mean([targets[i] for i in indices], axis=0)
         direction = preferred[key]
         direction_norm = np.linalg.norm(direction)
         options = []
+        fragment = fragments.get(key)
+        rotations = (0, math.pi / 4, -math.pi / 4, math.pi / 2, -math.pi / 2, math.pi) if fragment else (0,)
         for expansion in (1.0, 1.3, 1.7):
             for angle in np.linspace(0, 2 * math.pi, 96, endpoint=False):
-                position = (half + 4.5) * expansion * np.array([math.cos(angle), math.sin(angle)])
-                lines = {}
-                for index in indices:
-                    line = _visible_line(position, targets[index], endpoint_ids[index], xy, bonds)
-                    if line is None or _hits_box(line, legend_box):
-                        break
-                    lines[index] = line
-                else:
-                    if any(_crosses(a, b) for a, b in combinations(lines.values(), 2)):
+                outward = np.array([math.cos(angle), math.sin(angle)])
+                position = (half + 4.5) * expansion * outward
+                for rotation in rotations:
+                    fragment_xy = fragment_box = None
+                    if fragment:
+                        bulk = fragment["xy"].mean(axis=0)
+                        turn = angle - math.atan2(bulk[1], bulk[0]) + rotation
+                        matrix = np.array([[math.cos(turn), -math.sin(turn)], [math.sin(turn), math.cos(turn)]])
+                        rotated = fragment["xy"] @ matrix.T
+                        separation = max(xy @ outward) - min(rotated @ outward) + 1.5
+                        position = outward * separation * expansion
+                        fragment_xy = rotated + position
+                        fragment_box = (*fragment_xy.min(axis=0) - 0.6, *fragment_xy.max(axis=0) + 0.6)
+                        ligand_box = (*xy.min(axis=0) - 0.4, *xy.max(axis=0) + 0.4)
+                        if _boxes_overlap(fragment_box, ligand_box) or _boxes_overlap(fragment_box, legend_box):
+                            continue
+                    lines = {}
+                    for index in indices:
+                        start = position
+                        if fragment:
+                            ids = [fragment["lookup"][i] for i in list(groups)[index][2]]
+                            start = fragment_xy[ids].mean(axis=0)
+                            is_ring = any(
+                                set(ring) <= set(ids) for ring in fragment["molecule"].GetRingInfo().AtomRings()
+                            )
+                            reverse = _visible_line(
+                                targets[index], start, ids, fragment_xy, fragment["bonds"], ring_boundary=is_ring
+                            )
+                            if reverse is None:
+                                break
+                        line = _visible_line(start, targets[index], endpoint_ids[index], xy, bonds)
+                        if line is None:
+                            break
+                        if fragment:
+                            line = (reverse[1], line[1])
+                        if _hits_box(line, legend_box):
+                            break
+                        lines[index] = line
+                    if len(lines) != len(indices):
+                        continue
+                    if any(contact_conflict(a, b) for a, b in combinations(lines.values(), 2)):
                         continue
                     label = f"{key[0]} {key[1] or '–'}:{key[2]}{key[3]}"
-                    label_point = position + position / np.linalg.norm(position) * 2.1
+                    if fragment:
+                        label_point = np.array(
+                            [
+                                (fragment_box[0] + fragment_box[2]) / 2,
+                                fragment_box[3] + 0.9 if outward[1] >= -0.2 else fragment_box[1] - 2.1,
+                            ]
+                        )
+                    else:
+                        label_point = position + position / np.linalg.norm(position) * 2.1
+                    label_width = len(label) * (0.65 if fragment else 0.37)
                     box = (
-                        label_point[0] - len(label) * 0.37,
+                        label_point[0] - label_width,
                         label_point[1] - 0.45,
-                        label_point[0] + len(label) * 0.37,
-                        label_point[1] + 1.0,
+                        label_point[0] + label_width,
+                        label_point[1] + (1.6 if fragment else 1.0),
                     )
                     if any(_hits_box(line, box) for line in lines.values()):
+                        continue
+                    if fragment and _boxes_overlap(box, fragment_box):
                         continue
                     delta = position - target_center
                     angular = (
@@ -216,7 +401,9 @@ def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred):
                         else 0
                     )
                     score = 4 * angular + 0.1 * sum(np.linalg.norm(b - a) for a, b in lines.values())
-                    options.append((float(score), position, lines, (label, label_point), box))
+                    options.append(
+                        (float(score), position, lines, (label, label_point), box, fragment_xy, fragment_box)
+                    )
         if not options:
             raise ValueError("No unobstructed straight contact for a residue")
         candidates[key] = sorted(options, key=lambda option: option[0])
@@ -233,21 +420,27 @@ def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred):
             visits += 1
             if visits > 20000:
                 return False
-            _, position, lines, label, box = option
-            if not (
-                box[2] < legend_box[0] or legend_box[2] < box[0] or box[3] < legend_box[1] or legend_box[3] < box[1]
-            ):
+            _, position, lines, label, box, _, fragment_box = option
+            if _boxes_overlap(box, legend_box):
                 continue
             conflict = False
-            for _, other_position, other_lines, _, other_box in chosen.values():
+            for _, other_position, other_lines, _, other_box, _, other_fragment_box in chosen.values():
                 if (
                     np.linalg.norm(position - other_position) < 2.5
-                    or not (
-                        box[2] < other_box[0] or other_box[2] < box[0] or box[3] < other_box[1] or other_box[3] < box[1]
-                    )
-                    or any(_crosses(a, b) for a in lines.values() for b in other_lines.values())
+                    or _boxes_overlap(box, other_box)
+                    or any(contact_conflict(a, b) for a in lines.values() for b in other_lines.values())
                     or any(_hits_box(line, other_box) for line in lines.values())
                     or any(_hits_box(line, box) for line in other_lines.values())
+                    or (
+                        fragment_box is not None
+                        and (
+                            _boxes_overlap(fragment_box, other_fragment_box)
+                            or _boxes_overlap(fragment_box, other_box)
+                            or _boxes_overlap(box, other_fragment_box)
+                            or any(_hits_box(line, other_fragment_box) for line in lines.values())
+                            or any(_hits_box(line, fragment_box) for line in other_lines.values())
+                        )
+                    )
                 ):
                     conflict = True
                     break
@@ -261,12 +454,21 @@ def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred):
     if not assign(0):
         raise ValueError("Could not place contacts without ligand or label crossings")
     sites = {key: chosen[key][1] for key in keys}
-    lines = [chosen[key][2][index] for index, (key, _) in enumerate(groups)]
+    lines = [chosen[key][2][index] for index, (key, _, _) in enumerate(groups)]
     labels = [(legend, legend_point), *[chosen[key][3] for key in keys]]
-    return sites, lines, labels
+    return sites, lines, labels, {key: chosen[key][5] for key in fragments}
 
 
-def draw_interactions(protein, ligand, protein_atoms, ligand_atoms, size=(1000, 720), color="#0f766e", legend="Ligand"):
+def draw_interactions(
+    protein,
+    ligand,
+    protein_atoms,
+    ligand_atoms,
+    size=(1000, 720),
+    color="#0f766e",
+    legend="Ligand",
+    show_protein_atoms=False,
+):
     """Draw a ligand surrounded by labelled protein sites and straight contacts.
 
     Parameters
@@ -277,37 +479,49 @@ def draw_interactions(protein, ligand, protein_atoms, ligand_atoms, size=(1000, 
     protein_atoms, ligand_atoms : numpy.ndarray
         Aligned atom_dict or ring_dict records from an interaction detector,
         in protein/ligand order. Apply a strict mask before drawing if needed.
-        Contacts to the same residue and ligand atom/ring share one line;
-        all original pairs and 3D distances remain in the SVG metadata.
+        Pseudoatoms group contacts to the same residue and ligand atom/ring.
+        In atom mode, only identical protein/ligand endpoint pairs share a
+        line. All original pairs and 3D distances remain in the SVG metadata.
     size : tuple of int, optional
         SVG width and height in pixels; each dimension must be at least 400.
     color : str, optional
         Six-digit hexadecimal color for the interaction lines.
     legend : str, optional
         Label beneath the ligand.
+    show_protein_atoms : bool, optional
+        Draw the heavy atoms and bonds of each contacting protein residue,
+        instead of a pseudoatom and surface silhouette. Default is False.
+        R caps mark covalent bonds continuing into other residues. Element
+        colors are retained. Each line points to its actual protein atom or
+        aromatic ring centroid; distinct endpoints are never averaged.
 
     Returns
     -------
     str
         Standalone SVG with a chemical ligand depiction, labelled protein
-        pseudoatoms, symbolic surface patches, and straight, uncrossed contacts.
+        pseudoatoms or residue structures, and straight contact strokes.
 
     Raises
     ------
     TypeError
-        If either molecule is not an RDKit-backed ODDT molecule.
+        If either molecule is not RDKit-backed or show_protein_atoms is not boolean.
     ValueError
-        If inputs are incompatible, or straight contacts cannot be laid out
-        without crossings. Select fewer contacts for dense interaction graphs.
+        If inputs are incompatible, or contacts cannot be laid out without
+        crossing covalent bonds or labels. Select fewer contacts for dense graphs.
 
     Notes
     -----
     Protein sites are grouped by residue name, chain, number and insertion code.
     Their surface silhouettes are symbolic, not calculated molecular surfaces.
+    In atom mode, missing peptide neighbors at neutral backbone N or carbonyl C
+    are treated as pocket cuts and capped with R. Explicit charged N termini
+    and terminal oxygens are retained. Bond orders and charges come from inputs.
     The ligand's least-squares best-fit plane guides conformer selection and
     orientation, while projected protein contact directions guide site placement.
     Chemical drawing geometry is retained rather than flattening 3D coordinates
     directly. Straight lines avoid ligand bonds and unrelated atom symbols.
+    In atom mode, layouts without contact crossings are preferred; otherwise
+    small gaps separate crossing contact strokes without moving their endpoints.
     For ring contacts a line stops outside the near ring edge, and a separate
     dot marks the true depicted centroid. The layout remains schematic;
     reported distances always come from the original 3D coordinates.
@@ -331,6 +545,8 @@ def draw_interactions(protein, ligand, protein_atoms, ligand_atoms, size=(1000, 
         raise ValueError("color must be a six-digit hexadecimal color")
     if len(protein_atoms) != len(ligand_atoms):
         raise ValueError("Protein and ligand contact arrays must have the same length")
+    if not isinstance(show_protein_atoms, (bool, np.bool_)):
+        raise TypeError("show_protein_atoms must be a boolean")
     protein_ids, ligand_ids = _indices(protein, protein_atoms), _indices(ligand, ligand_atoms)
     if any(
         m.Mol.GetAtomWithIdx(i).GetAtomicNum() == 1
@@ -351,7 +567,7 @@ def draw_interactions(protein, ligand, protein_atoms, ligand_atoms, size=(1000, 
         key = _residue(protein.Mol.GetAtomWithIdx(first[0]))
         if any(_residue(protein.Mol.GetAtomWithIdx(i)) != key for i in first):
             raise ValueError("A protein endpoint cannot span multiple residues")
-        groups[(key, second)].append(index)
+        groups[(key, second, first if show_protein_atoms else ())].append(index)
         contacts.append(
             {
                 "protein_atoms": first,
@@ -369,21 +585,29 @@ def draw_interactions(protein, ligand, protein_atoms, ligand_atoms, size=(1000, 
             [
                 (protein.coords[list(protein_ids[i])].mean(axis=0) - ligand.coords[list(ligand_ids[i])].mean(axis=0))
                 @ axes.T
-                for (residue, _), indices in groups.items()
+                for (residue, _, _), indices in groups.items()
                 if residue == key
                 for i in indices
             ],
             axis=0,
         )
-        for key in {residue for residue, _ in groups}
+        for key in {residue for residue, _, _ in groups}
     }
+    fragments = _protein_fragments(protein, groups) if show_protein_atoms else {}
     bonds = [(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()) for bond in central.GetBonds()]
-    endpoint_ids = [tuple(lookup[i] for i in second) for _, second in groups]
-    for fit_error, xy in _ligand_layouts(central, origin, axes):
-        targets = [xy[list(ids)].mean(axis=0) for ids in endpoint_ids]
-        try:
-            sites, lines, labels = _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred)
-        except ValueError:
+    endpoint_ids = [tuple(lookup[i] for i in second) for _, second, _ in groups]
+    layouts = _ligand_layouts(central, origin, axes)
+    for allow_crossings in ((False, True) if show_protein_atoms else (False,)):
+        for fit_error, xy in layouts:
+            targets = [xy[list(ids)].mean(axis=0) for ids in endpoint_ids]
+            try:
+                sites, lines, labels, fragment_positions = _place_sites(
+                    xy, targets, groups, legend, bonds, endpoint_ids, preferred, fragments, allow_crossings
+                )
+            except ValueError:
+                continue
+            break
+        else:
             continue
         break
     else:
@@ -391,15 +615,28 @@ def draw_interactions(protein, ligand, protein_atoms, ligand_atoms, size=(1000, 
     for index, (x, y) in enumerate(xy):
         central.GetConformer().SetAtomPosition(index, (float(x), float(y), 0.0))
     central.GetConformer().Set3D(False)
+    drawing = central
+    for key, fragment in fragments.items():
+        molecule = fragment["molecule"]
+        fragment["offset"] = drawing.GetNumAtoms()
+        for i, (x, y) in enumerate(fragment_positions[key]):
+            molecule.GetConformer().SetAtomPosition(i, (float(x), float(y), 0.0))
+        molecule.GetConformer().Set3D(False)
+        drawing = Chem.CombineMols(drawing, molecule)
     all_points = np.concatenate(
-        [xy, np.array([point for _, point in labels]), np.array(list(sites.values())).reshape(-1, 2)]
+        [
+            xy,
+            np.array([point for _, point in labels]),
+            np.array(list(sites.values())).reshape(-1, 2),
+            *fragment_positions.values(),
+        ]
     )
     low, high = all_points.min(axis=0) - 3, all_points.max(axis=0) + 3
     # Long residue labels need horizontal space as well as their anchor points.
     for text, point in labels:
         low = np.minimum(low, point - [len(text) * 0.4 + 1, 1.5])
         high = np.maximum(high, point + [len(text) * 0.4 + 1, 1.5])
-    prepared = rdMolDraw2D.PrepareMolForDrawing(central, addChiralHs=False)
+    prepared = rdMolDraw2D.PrepareMolForDrawing(drawing, addChiralHs=False)
     drawer = rdMolDraw2D.MolDraw2DSVG(*size)
     options = drawer.drawOptions()
     options.clearBackground = False
@@ -407,6 +644,8 @@ def draw_interactions(protein, ligand, protein_atoms, ligand_atoms, size=(1000, 
     font_size = max(8, round(17 * min(size[0] / 1000, size[1] / 720)))
     options.fixedFontSize = font_size
     options.bondLineWidth = 1.7
+    if show_protein_atoms:
+        options.updateAtomPalette({11: (0.67, 0.36, 0.95), 30: (0.49, 0.50, 0.69)})
     drawer.SetScale(*size, Point2D(*low), Point2D(*high))
     drawer.DrawMolecule(prepared)
     drawer.FinishDrawing()
@@ -421,7 +660,12 @@ def draw_interactions(protein, ligand, protein_atoms, ligand_atoms, size=(1000, 
     root.insert(0, background)
     element(root, "title").text = f"{legend}: protein–ligand contacts"
     element(root, "desc").text = (
-        "Labelled protein pseudoatoms surround the ligand. Surface silhouettes are symbolic. Straight dashed lines group contacts by residue and ligand atom/ring; distances in tooltips come from 3D coordinates."
+        "Protein residue structures surround the ligand. R marks continuation into other residues. "
+        "Straight dashed lines join individual atom or ring pairs. Small gaps separate crossing contact strokes; "
+        "distances in tooltips come from 3D coordinates."
+        if show_protein_atoms
+        else "Labelled protein pseudoatoms surround the ligand. Surface silhouettes are symbolic. "
+        "Straight dashed lines group contacts by residue and ligand atom/ring; distances in tooltips come from 3D coordinates."
     )
     to_pixel = lambda p: np.array([drawer.GetDrawCoords(Point2D(*p)).x, drawer.GetDrawCoords(Point2D(*p)).y])
     metadata = {
@@ -441,33 +685,64 @@ def draw_interactions(protein, ligand, protein_atoms, ligand_atoms, size=(1000, 
         },
         "contacts": contacts,
     }
+    if show_protein_atoms:
+        metadata["atom_positions"]["protein"] = {
+            str(i): to_pixel(fragment_positions[key][j]).round(6).tolist()
+            for key, fragment in fragments.items()
+            for i, j in fragment["lookup"].items()
+        }
+        metadata["protein_bonds"] = [
+            [a, b]
+            for fragment in fragments.values()
+            for a, j in fragment["lookup"].items()
+            for b, k in fragment["lookup"].items()
+            if j < k and fragment["molecule"].GetBondBetweenAtoms(j, k) is not None
+        ]
     element(root, "metadata").text = json.dumps(metadata, separators=(",", ":"))
     layer = ET.Element(f"{{{SVG}}}g", {"class": "interaction-contacts"})
     root.insert(1, layer)
-    for (key, second), (start, finish), indices in zip(groups, lines, groups.values()):
-        first_point = to_pixel(start)
-        last_point = to_pixel(finish)
+    strokes = _contact_strokes([(to_pixel(a), to_pixel(b)) for a, b in lines])
+    for (key, second, first), segments, indices in zip(groups, strokes, groups.values()):
         group = element(layer, "g", data_contact=indices[0], data_contacts=" ".join(map(str, indices)))
         name = f"{key[0]} {key[1] or '–'}:{key[2]}{key[3]}"
+        if show_protein_atoms:
+            names = [protein.Mol.GetAtomWithIdx(i).GetPDBResidueInfo().GetName().strip() for i in first]
+            name += " " + (names[0] if len(names) == 1 else "ring centroid (" + ", ".join(names) + ")")
         element(group, "title").text = (
             name + " · " + ", ".join(f"{contacts[i]['distance']:.2f} Å (3D)" for i in indices)
         )
-        element(
-            group,
-            "line",
-            x1=f"{first_point[0]:.3f}",
-            y1=f"{first_point[1]:.3f}",
-            x2=f"{last_point[0]:.3f}",
-            y2=f"{last_point[1]:.3f}",
-            stroke=color,
-            stroke_width="1.8",
-            stroke_dasharray="5 4",
-        )
+        for first_point, last_point in segments:
+            element(
+                group,
+                "line",
+                x1=f"{first_point[0]:.3f}",
+                y1=f"{first_point[1]:.3f}",
+                x2=f"{last_point[0]:.3f}",
+                y2=f"{last_point[1]:.3f}",
+                stroke=color,
+                stroke_width="1.8",
+                stroke_dasharray="5 4",
+            )
         if len(second) > 1:
             x, y = to_pixel(xy[[lookup[i] for i in second]].mean(axis=0))
             element(group, "circle", cx=f"{x:.3f}", cy=f"{y:.3f}", r="3", fill=color)
+        if len(first) > 1:
+            fragment = fragments[key]
+            x, y = to_pixel(fragment_positions[key][[fragment["lookup"][i] for i in first]].mean(axis=0))
+            element(group, "circle", cx=f"{x:.3f}", cy=f"{y:.3f}", r="3", fill=color)
     for key, point in sites.items():
-        target = np.mean([target for target, (residue, _) in zip(targets, groups) if residue == key], axis=0)
+        if show_protein_atoms:
+            site = element(root, "g", data_protein_site=f"{key[0]} {key[1] or '–'}:{key[2]}{key[3]}")
+            element(site, "title").text = f"{key[0]} {key[1] or '–'}:{key[2]}{key[3]} · residue atoms; R = continuation"
+            fragment = fragments[key]
+            drawn_ids = set(range(fragment["offset"], fragment["offset"] + fragment["molecule"].GetNumAtoms()))
+            for node in list(root):
+                atom_ids = {int(i) for i in re.findall(r"\batom-(\d+)\b", node.get("class", ""))}
+                if atom_ids and atom_ids <= drawn_ids:
+                    root.remove(node)
+                    site.append(node)
+            continue
+        target = np.mean([target for target, (residue, _, _) in zip(targets, groups) if residue == key], axis=0)
         direction = math.atan2(*(target - point)[::-1])
         angles = np.linspace(direction - math.pi / 3, direction + math.pi / 3, 13)
         inner = [point + 0.85 * np.array([math.cos(a), math.sin(a)]) for a in angles]

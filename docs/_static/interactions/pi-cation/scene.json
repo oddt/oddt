@@ -231,7 +231,9 @@
   "assets_sha256": {
     "protein.pdb": "c4b46746e8e63b6efecc7f8c941baa4f67b1583d1b46179a190078164e9a6409",
     "ligand.sdf": "cb4c9f785ed262a38d8fe2a5605c254826bc0d8033a0495535f8253b9bd4734d",
-    "interaction.svg": "48439fb4f5488afb0ad70230312174625477e100164a21b6b131582e3db0cf04"
+    "interaction.svg": "48439fb4f5488afb0ad70230312174625477e100164a21b6b131582e3db0cf04",
+    "interaction-atoms.svg": "3a9f9c9e9fbf0cccc4bf125e8ea33eb3c32e5ed929d41be9444e264df7dd0c9c"
   },
-  "depiction_file": "interaction.svg"
+  "depiction_file": "interaction.svg",
+  "depiction_atoms_file": "interaction-atoms.svg"
 }

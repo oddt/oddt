@@ -393,10 +393,16 @@ def write_depiction(scene, protein, ligand, directory):
                     )
                 )
         records.append(np.array(selected))
-    svg = draw_interactions(protein, ligand, *records, color=scene["color"], legend=scene["component"])
-    scene["depiction_file"] = "interaction.svg"
-    scene["assets_sha256"]["interaction.svg"] = hashlib.sha256(svg.encode()).hexdigest()
-    (directory / "interaction.svg").write_text(svg)
+    for key, filename, show_atoms in (
+        ("depiction_file", "interaction.svg", False),
+        ("depiction_atoms_file", "interaction-atoms.svg", True),
+    ):
+        svg = draw_interactions(
+            protein, ligand, *records, color=scene["color"], legend=scene["component"], show_protein_atoms=show_atoms
+        )
+        scene[key] = filename
+        scene["assets_sha256"][filename] = hashlib.sha256(svg.encode()).hexdigest()
+        (directory / filename).write_text(svg)
 
 
 def regenerate_depictions(output):

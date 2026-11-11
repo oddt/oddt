@@ -173,6 +173,7 @@ html_favicon = "_static/oddt-icon.svg"
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ["_static"]
 html_css_files = ["custom.css"]
+html_js_files = [("interaction-viewer.js", {"defer": "defer"})]
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied

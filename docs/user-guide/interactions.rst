@@ -18,8 +18,11 @@ Choose an interaction type to see its **2D interaction map**. Each type
 uses a **different experimental PDB structure**. Contacting protein residues
 are represented by labeled sites around the ligand, with small surface
 silhouettes facing the interacting atoms or rings. Labels include the residue
-name, chain and number. Straight dashed lines avoid the ligand's bonds as
-well as one another. Ring contacts stop at the near ring edge; dots identify
+name, chain and number. Enable **Show protein residue atoms** to see the
+chemical structures, with contacts pointing to individual atoms or rings.
+Straight dashed lines avoid covalent bonds. The layout separates contacts;
+small gaps distinguish strokes at any remaining crossings.
+Ring contacts stop at the near ring edge; dots identify
 the corresponding centroids. Select a contact below the map to highlight
 its line.
 
@@ -53,7 +56,6 @@ protein atoms. The selected contact has atom/residue labels and a distance.
      <p>Enable JavaScript to explore the interaction maps; the 3D view also needs WebGL.
         The examples and downloadable data are listed below.</p>
    </div>
-   <script defer src="../_static/interaction-viewer.js"></script>
 
 .. list-table:: Eight types, eight structures
    :header-rows: 1
@@ -302,13 +304,42 @@ drawing does not modify either source molecule or its coordinates. The
 exported SVG includes atom mappings, residue labels, and contact tooltips
 with the original 3D distances.
 
+Set ``show_protein_atoms=True`` to replace the pseudoatoms with chemical
+depictions of the contacting residues:
+
+.. code-block:: python
+
+   svg = draw_interactions(
+       map_protein, map_ligand,
+       p_atoms[map_strict], l_atoms[map_strict],
+       legend='4LB3 ligand', show_protein_atoms=True,
+   )
+   Path('interactions-residue-atoms.svg').write_text(svg, encoding='utf-8')
+
+This shows each contacting residue's heavy atoms and bonds, using standard
+element colors. Residue labels remain visible. Contacts attach to their actual
+protein atoms or aromatic ring centroids. Distinct atoms and distinct rings
+have separate lines, even when they belong to the same residue; their
+positions are never averaged. Only identical endpoint pairs share a line.
+The original pairs and distances
+remain available in the SVG metadata and contact tooltips. ``R`` marks a
+covalent bond that continues into another residue; no atoms from those
+neighboring residues are depicted. Missing peptide neighbors in cropped
+pocket files are capped this way too, rather than displayed as artificial
+free NH₂ or aldehyde groups. Isolated metal sites display their element symbol, such as
+Zn in the acceptor–metal example. The atlas's **Show protein residue atoms**
+checkbox switches between these two maps and updates the SVG download.
+The depiction uses the input molecule's bond orders and protonation state.
+
 The layout fits a least-squares plane to the bound ligand's heavy atoms,
 samples chemical depictions that resemble the projected pose, and places
 protein sites preferentially on their projected 3D sides. It then rejects
-straight contacts that cross ligand bonds, other contact lines or labels.
+straight contacts that cross covalent bonds or labels. Layouts without
+contact crossings are preferred; in atom mode, small gaps separate any
+remaining crossing strokes while preserving the exact endpoint directions.
 Ring contacts terminate just outside the ring boundary, with the centroid
 marked separately. Contacts to the same residue
-and ligand atom/ring are grouped, retaining the original atom pairs and
+and ligand atom/ring are grouped in the pseudoatom view, retaining the original atom pairs and
 distances in the SVG metadata. Very dense contact graphs can exceed what
 can be placed without crossings; in that case the function raises
 ``ValueError`` so you can select a smaller set of contacts.
