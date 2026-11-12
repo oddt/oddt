@@ -246,20 +246,21 @@
         }
       }
       if (selected && labels.checked) {
-        const style = { fontSize: 12, fontColor: theme.foreground, backgroundColor: theme.background,
-          backgroundOpacity: 0.88, borderThickness: 0.3, borderColor: theme.border, inFront: true };
+        const style = { fontSize: 12, fontColor: theme.foreground, fontOpacity: 0.85,
+          backgroundColor: theme.background, backgroundOpacity: 0.4,
+          borderThickness: 0.3, borderColor: theme.border, borderOpacity: 0.3, inFront: true };
         const shortLabel = (end) => {
           const atom = end.kind === "ring" ? `ring ${end.ring_number}` : end.atom_names[0];
           const residue = end.residue;
           return end.role === "protein" ? `${residue.name} ${residue.chain}${residue.number} ${atom}` : `${scene.component} ${atom}`;
         };
         viewer.addLabel(shortLabel(contact.start), { ...style, position: point(contact.start.position),
-          screenOffset: { x: 5, y: 18 } });
+          screenOffset: { x: -10, y: 38 } });
         viewer.addLabel(shortLabel(contact.end), { ...style, position: point(contact.end.position),
-          screenOffset: { x: 5, y: -20 } });
+          screenOffset: { x: 15, y: -40 } });
         const midpoint = contact.start.position.map((value, i) => (value + contact.end.position[i]) / 2);
         viewer.addLabel(`${contact.distance.toFixed(2)} Å`, {
-          ...style, position: point(midpoint), screenOffset: { x: 0, y: 28 },
+          ...style, position: point(midpoint), screenOffset: { x: 35, y: 25 },
         });
       }
     }
