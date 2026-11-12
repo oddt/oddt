@@ -96,7 +96,66 @@ def _fit_plane(xyz, contact_points):
     return origin, axes
 
 
-def _ligand_layouts(molecule, origin, axes):
+def _branch_flips(molecule, xy, endpoints):
+    """Reflect branches across acyclic single bonds separating contact sites."""
+    from rdkit import Chem
+
+    layouts = [xy]
+    if len(endpoints) < 2:
+        return layouts
+    bonds = [(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()) for bond in molecule.GetBonds()]
+
+    def component(start, cut):
+        side, pending = {start}, [start]
+        while pending:
+            index = pending.pop()
+            for atom in molecule.GetAtomWithIdx(index).GetNeighbors():
+                other = atom.GetIdx()
+                if other not in side and {index, other} != cut:
+                    side.add(other)
+                    pending.append(other)
+        return side
+
+    for bond in molecule.GetBonds():
+        if (
+            bond.IsInRing()
+            or bond.GetBondType() != Chem.BondType.SINGLE
+            or bond.GetStereo() != Chem.BondStereo.STEREONONE
+        ):
+            continue
+        first, second = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+        side = component(second, {first, second})
+        opposite = component(first, {first, second})
+        if (
+            min(len(side), len(opposite)) < 2
+            or not endpoints.intersection(side)
+            or not endpoints.intersection(opposite)
+        ):
+            continue
+        if len(opposite) < len(side):
+            side = opposite
+        ids = sorted(side)
+        for source in layouts[:]:
+            axis = source[second] - source[first]
+            axis /= np.linalg.norm(axis)
+            delta = source[ids] - source[first]
+            reflected = source.copy()
+            reflected[ids] = source[first] + 2 * (delta @ axis)[:, None] * axis - delta
+            if any(
+                _crosses((reflected[a], reflected[b]), (reflected[c], reflected[d]))
+                for (a, b), (c, d) in combinations(bonds, 2)
+            ):
+                continue
+            distances = np.linalg.norm(reflected[:, None] - reflected[None, :], axis=2)
+            if np.any(distances[np.triu_indices(len(xy), 1)] < 0.65):
+                continue
+            layouts.append(reflected)
+            if len(layouts) >= 16:
+                return layouts
+    return layouts
+
+
+def _ligand_layouts(molecule, origin, axes, endpoints):
     """Keep legal chemical geometry while sampling layouts close to the bound pose."""
     from rdkit import Chem
     from rdkit.Chem import rdDepictor
@@ -119,18 +178,17 @@ def _ligand_layouts(molecule, origin, axes):
             rdDepictor.Compute2DCoordsMimicDistmat(
                 copied, dist, weightDistMat=weight, nSample=200, sampleSeed=seed, forceRDKit=True
             )
-        xy = copied.GetConformer().GetPositions()[:, :2]
-        xy -= xy.mean(axis=0)
-        u, _, v = np.linalg.svd(xy.T @ projection)
-        xy = xy @ (u @ v)
-        signature = tuple(np.round(xy, 5).ravel())
-        if signature in seen:
-            continue
-        seen.add(signature)
-        error = float(np.sqrt(np.mean(np.sum((xy - projection) ** 2, axis=1))))
-        # Shared centering is retained when projecting the contact directions.
-        offset = (xy.min(axis=0) + xy.max(axis=0)) / 2
-        layouts.append((error, xy - offset))
+        for xy in _branch_flips(copied, copied.GetConformer().GetPositions()[:, :2], endpoints):
+            xy = xy - xy.mean(axis=0)
+            u, _, v = np.linalg.svd(xy.T @ projection)
+            xy = xy @ (u @ v)
+            signature = tuple(np.round(xy, 5).ravel())
+            if signature in seen:
+                continue
+            seen.add(signature)
+            error = float(np.sqrt(np.mean(np.sum((xy - projection) ** 2, axis=1))))
+            offset = (xy.min(axis=0) + xy.max(axis=0)) / 2
+            layouts.append((error, xy - offset))
     return sorted(layouts, key=lambda item: item[0])
 
 
@@ -308,17 +366,41 @@ def _contact_strokes(lines, gap=4):
     return result
 
 
+def _contact_lengths(lines):
+    return np.array([np.linalg.norm(finish - start) for start, finish in lines])
+
+
+def _within_stretch_budget(lengths, reference):
+    if not len(lengths):
+        return True
+    return (
+        lengths.sum() <= reference.sum() * 1.1 + 1e-8
+        and lengths.max() <= max(reference.max() + 1.0, 1.2 * reference.max()) + 1e-8
+    )
+
+
+def _layout_cost(lengths, directions):
+    if not len(lengths):
+        return 0.0
+    imbalance = float(np.linalg.norm(np.mean(directions, axis=0)) ** 2)
+    return float(lengths.sum() + 2 * lengths.max() + 0.25 * len(directions) * imbalance)
+
+
 def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred, fragments, allow_crossings=False):
-    """Assign each site its own visible angle, preferring its projected 3D side."""
+    """Distribute sites around the ligand while retaining clear, exact contacts."""
     keys = sorted({key for key, _, _ in groups})
     legend_point = np.array([0.0, xy[:, 1].min() - 1.8])
     legend_box = (-len(legend) * 0.37, legend_point[1] - 0.45, len(legend) * 0.37, legend_point[1] + 1.0)
     if not keys:
-        return {}, [], [(legend, legend_point)], {}
+        return {}, [], [(legend, legend_point)], {}, {"reference_lengths": np.array([]), "cost": 0.0}
     half = np.ptp(xy, axis=0) / 2
 
-    def contact_conflict(first, second):
-        return _crosses(first, second) and (not allow_crossings or _proper_intersection(first, second) is None)
+    def contact_conflict(first, second, first_stroke, second_stroke):
+        # A crossing hidden by atom-label clearance still reverses endpoint
+        # order. Only an actual stroke crossing can use the gapped fallback.
+        return _crosses(first, second) and (
+            not allow_crossings or _proper_intersection(first_stroke, second_stroke) is None
+        )
 
     candidates = {}
     for key in keys:
@@ -329,17 +411,21 @@ def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred, fr
         options = []
         fragment = fragments.get(key)
         rotations = (0, math.pi / 4, -math.pi / 4, math.pi / 2, -math.pi / 2, math.pi) if fragment else (0,)
+        transforms = [
+            (rotation, reflection) for rotation in rotations for reflection in ((1, -1) if fragment else (1,))
+        ]
         for expansion in (1.0, 1.3, 1.7):
             for angle in np.linspace(0, 2 * math.pi, 96, endpoint=False):
                 outward = np.array([math.cos(angle), math.sin(angle)])
                 position = (half + 4.5) * expansion * outward
-                for rotation in rotations:
+                for rotation, reflection in transforms:
                     fragment_xy = fragment_box = None
                     if fragment:
-                        bulk = fragment["xy"].mean(axis=0)
+                        reflected = fragment["xy"] * [1, reflection]
+                        bulk = reflected.mean(axis=0)
                         turn = angle - math.atan2(bulk[1], bulk[0]) + rotation
                         matrix = np.array([[math.cos(turn), -math.sin(turn)], [math.sin(turn), math.cos(turn)]])
-                        rotated = fragment["xy"] @ matrix.T
+                        rotated = reflected @ matrix.T
                         separation = max(xy @ outward) - min(rotated @ outward) + 1.5
                         position = outward * separation * expansion
                         fragment_xy = rotated + position
@@ -348,6 +434,7 @@ def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred, fr
                         if _boxes_overlap(fragment_box, ligand_box) or _boxes_overlap(fragment_box, legend_box):
                             continue
                     lines = {}
+                    paths = {}
                     for index in indices:
                         start = position
                         if fragment:
@@ -369,9 +456,12 @@ def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred, fr
                         if _hits_box(line, legend_box):
                             break
                         lines[index] = line
+                        paths[index] = (start, targets[index])
                     if len(lines) != len(indices):
                         continue
-                    if any(contact_conflict(a, b) for a, b in combinations(lines.values(), 2)):
+                    if any(
+                        contact_conflict(paths[i], paths[j], lines[i], lines[j]) for i, j in combinations(indices, 2)
+                    ):
                         continue
                     label = f"{key[0]} {key[1] or '–'}:{key[2]}{key[3]}"
                     if fragment:
@@ -392,6 +482,8 @@ def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred, fr
                     )
                     if any(_hits_box(line, box) for line in lines.values()):
                         continue
+                    if _boxes_overlap(box, legend_box):
+                        continue
                     if fragment and _boxes_overlap(box, fragment_box):
                         continue
                     delta = position - target_center
@@ -400,63 +492,139 @@ def _place_sites(xy, targets, groups, legend, bonds, endpoint_ids, preferred, fr
                         if direction_norm > 1e-6
                         else 0
                     )
-                    score = 4 * angular + 0.1 * sum(np.linalg.norm(b - a) for a, b in lines.values())
+                    score = 0.2 * angular + sum(np.linalg.norm(b - a) for a, b in lines.values())
+                    score += 0.02 if reflection == -1 else 0
                     options.append(
-                        (float(score), position, lines, (label, label_point), box, fragment_xy, fragment_box)
+                        (float(score), position, lines, (label, label_point), box, fragment_xy, fragment_box, paths)
                     )
         if not options:
             raise ValueError("No unobstructed straight contact for a residue")
         candidates[key] = sorted(options, key=lambda option: option[0])
-    order = sorted(keys, key=lambda key: len(candidates[key]))
+    directions = {}
+    for key, options in candidates.items():
+        for option in options:
+            point = option[5][list(fragments[key]["lookup"].values())].mean(axis=0) if key in fragments else option[1]
+            directions[id(option)] = point / np.linalg.norm(point)
+    spread = 0
+    angle_limit = 1
     chosen = {}
     visits = 0
+    max_total = None
 
-    def assign(depth):
+    def lengths_for(options):
+        lengths = {i: np.linalg.norm(b - a) for option in options.values() for i, (a, b) in option[2].items()}
+        return np.array([lengths[i] for i in range(len(groups))])
+
+    def cost(options):
+        return _layout_cost(lengths_for(options), [directions[id(options[key])] for key in keys])
+
+    def compatible(first, second):
+        if spread and np.dot(directions[id(first)], directions[id(second)]) > angle_limit:
+            return False
+        _, position, lines, _, box, _, fragment_box, paths = first
+        _, other_position, other_lines, _, other_box, _, other_fragment_box, other_paths = second
+        return not (
+            np.linalg.norm(position - other_position) < 2.5
+            or _boxes_overlap(box, other_box)
+            or any(
+                contact_conflict(paths[i], other_paths[j], lines[i], other_lines[j]) for i in paths for j in other_paths
+            )
+            or any(_hits_box(line, other_box) for line in lines.values())
+            or any(_hits_box(line, box) for line in other_lines.values())
+            or (
+                fragment_box is not None
+                and (
+                    _boxes_overlap(fragment_box, other_fragment_box)
+                    or _boxes_overlap(fragment_box, other_box)
+                    or _boxes_overlap(box, other_fragment_box)
+                    or any(_hits_box(line, other_fragment_box) for line in lines.values())
+                    or any(_hits_box(line, fragment_box) for line in other_lines.values())
+                )
+            )
+        )
+
+    def assign(remaining):
         nonlocal visits
-        if depth == len(order):
-            return True
-        key = order[depth]
-        for option in candidates[key]:
+        if not remaining:
+            return max_total is None or lengths_for(chosen).sum() <= max_total + 1e-8
+        # Forward checking avoids spending the search budget on placements
+        # that already leave another residue with no possible orientation.
+        key = min(remaining, key=lambda key: len(remaining[key]))
+        for option in remaining[key]:
             visits += 1
             if visits > 20000:
                 return False
-            _, position, lines, label, box, _, fragment_box = option
-            if _boxes_overlap(box, legend_box):
-                continue
-            conflict = False
-            for _, other_position, other_lines, _, other_box, _, other_fragment_box in chosen.values():
-                if (
-                    np.linalg.norm(position - other_position) < 2.5
-                    or _boxes_overlap(box, other_box)
-                    or any(contact_conflict(a, b) for a in lines.values() for b in other_lines.values())
-                    or any(_hits_box(line, other_box) for line in lines.values())
-                    or any(_hits_box(line, box) for line in other_lines.values())
-                    or (
-                        fragment_box is not None
-                        and (
-                            _boxes_overlap(fragment_box, other_fragment_box)
-                            or _boxes_overlap(fragment_box, other_box)
-                            or _boxes_overlap(box, other_fragment_box)
-                            or any(_hits_box(line, other_fragment_box) for line in lines.values())
-                            or any(_hits_box(line, fragment_box) for line in other_lines.values())
-                        )
-                    )
-                ):
-                    conflict = True
+            following = {}
+            for other_key, options in remaining.items():
+                if other_key == key:
+                    continue
+                possible = [other for other in options if compatible(option, other)]
+                if not possible:
                     break
-            if not conflict:
+                following[other_key] = possible
+            else:
                 chosen[key] = option
-                if assign(depth + 1):
+                if assign(following):
                     return True
                 del chosen[key]
         return False
 
-    if not assign(0):
+    if not assign(candidates):
         raise ValueError("Could not place contacts without ligand or label crossings")
+    # Improve the whole arrangement after finding a legal placement. A locally
+    # short choice for one residue must not force another contact into a detour.
+    compact_cost = cost(chosen)
+    for _ in range(2):
+        improved = False
+        for key in keys:
+            for option in candidates[key]:
+                trial = {**chosen, key: option}
+                trial_cost = cost(trial)
+                if trial_cost < compact_cost - 1e-8 and all(
+                    compatible(option, other) for other_key, other in chosen.items() if other_key != key
+                ):
+                    chosen, compact_cost = trial, trial_cost
+                    improved = True
+        if not improved:
+            break
+    reference = lengths_for(chosen)
+    best, best_cost = chosen.copy(), cost(chosen)
+    if len(keys) > 1:
+        # Distribution is optional: compare it with a compact layout and cap
+        # both total stretch and the longest contact.
+        distributed = {}
+        limit = max(reference.max() + 1.0, 1.2 * reference.max())
+        for key, options in candidates.items():
+            sectors = defaultdict(list)
+            for option in options:
+                if any(np.linalg.norm(b - a) > limit + 1e-8 for a, b in option[2].values()):
+                    continue
+                direction = directions[id(option)]
+                sector = int((math.atan2(direction[1], direction[0]) + math.pi) * 24 / (2 * math.pi))
+                if len(sectors[sector]) < 3:
+                    sectors[sector].append(option)
+            distributed[key] = sorted(
+                [option for sector in sectors.values() for option in sector], key=lambda option: option[0]
+            )
+        max_total = reference.sum() * 1.1
+        for spread in (0.85, 0.65):
+            angle_limit = math.cos(2 * math.pi / len(keys) * spread)
+            chosen, visits = {}, 0
+            if assign(distributed):
+                candidate_cost = cost(chosen)
+                if candidate_cost < best_cost:
+                    best, best_cost = chosen.copy(), candidate_cost
+    chosen = best
     sites = {key: chosen[key][1] for key in keys}
     lines = [chosen[key][2][index] for index, (key, _, _) in enumerate(groups)]
     labels = [(legend, legend_point), *[chosen[key][3] for key in keys]]
-    return sites, lines, labels, {key: chosen[key][5] for key in fragments}
+    return (
+        sites,
+        lines,
+        labels,
+        {key: chosen[key][5] for key in fragments},
+        {"reference_lengths": reference, "cost": best_cost},
+    )
 
 
 def draw_interactions(
@@ -516,8 +684,13 @@ def draw_interactions(
     In atom mode, missing peptide neighbors at neutral backbone N or carbonyl C
     are treated as pocket cuts and capped with R. Explicit charged N termini
     and terminal oxygens are retained. Bond orders and charges come from inputs.
-    The ligand's least-squares best-fit plane guides conformer selection and
-    orientation, while projected protein contact directions guide site placement.
+    The ligand's least-squares best-fit plane guides its overall orientation.
+    Branch flips expose contacting atoms on different sides. Site placement
+    prioritizes short contacts and penalizes long outliers. Angular balance is
+    a secondary preference, accepted within a limited increase in total length
+    and the longest line. Projected 3D directions remain a soft preference.
+    Protein residue orientations include rotations and reflections. Complete
+    endpoint paths are checked before clipping strokes for atom-label clearance.
     Chemical drawing geometry is retained rather than flattening 3D coordinates
     directly. Straight lines avoid ligand bonds and unrelated atom symbols.
     In atom mode, layouts without contact crossings are preferred; otherwise
@@ -596,22 +769,35 @@ def draw_interactions(
     fragments = _protein_fragments(protein, groups) if show_protein_atoms else {}
     bonds = [(bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()) for bond in central.GetBonds()]
     endpoint_ids = [tuple(lookup[i] for i in second) for _, second, _ in groups]
-    layouts = _ligand_layouts(central, origin, axes)
+    layouts = _ligand_layouts(central, origin, axes, {i for ids in endpoint_ids for i in ids})
+    best = reference = None
+    best_cost = math.inf
     for allow_crossings in ((False, True) if show_protein_atoms else (False,)):
+        evaluated = 0
         for fit_error, xy in layouts:
             targets = [xy[list(ids)].mean(axis=0) for ids in endpoint_ids]
             try:
-                sites, lines, labels, fragment_positions = _place_sites(
+                placement = _place_sites(
                     xy, targets, groups, legend, bonds, endpoint_ids, preferred, fragments, allow_crossings
                 )
             except ValueError:
                 continue
+            if reference is None:
+                reference = placement[4]["reference_lengths"]
+            lengths = _contact_lengths(placement[1])
+            candidate_cost = placement[4]["cost"] + 0.15 * fit_error
+            if _within_stretch_budget(lengths, reference) and candidate_cost < best_cost:
+                best, best_cost = (fit_error, xy, placement), candidate_cost
+            evaluated += 1
+            if evaluated >= (4 if len(preferred) > 1 else 1):
+                break
+        if best is not None:
             break
-        else:
-            continue
-        break
     else:
         raise ValueError("Could not place straight contacts without crossing the ligand; select fewer contacts")
+    fit_error, xy, placement = best
+    sites, lines, labels, fragment_positions = placement[:4]
+    targets = [xy[list(ids)].mean(axis=0) for ids in endpoint_ids]
     for index, (x, y) in enumerate(xy):
         central.GetConformer().SetAtomPosition(index, (float(x), float(y), 0.0))
     central.GetConformer().Set3D(False)

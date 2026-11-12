@@ -26,10 +26,15 @@ Ring contacts stop at the near ring edge; dots identify
 the corresponding centroids. Select a contact below the map to highlight
 its line.
 
-The ligand's best-fit plane in its bound 3D pose guides the 2D orientation,
-and projected contact directions guide protein-site placement. Alternative
-chemical depictions and independent site angles are considered when a line
-would cross the ligand. The map remains a schematic: path lengths do not
+The ligand's best-fit plane in its bound 3D pose guides the overall 2D
+orientation. The layout prioritizes short contact lines and avoids long
+outliers. More even spacing is a secondary preference, accepted only within
+a small increase in total line length and the longest contact. Residues can
+remain clustered where the contact geometry calls for it. Projected 3D
+contact directions remain a soft preference.
+Flips of ligand branches, independent site angles and mirrored residue
+orientations are considered when a line would cross the ligand.
+The map remains a schematic: path lengths do not
 represent distances, and the surface silhouettes are symbolic. Contacts
 to the same residue and ligand atom/ring share a line. Every original pair
 and distance remains in the contact list and SVG metadata. The reported
@@ -332,8 +337,13 @@ checkbox switches between these two maps and updates the SVG download.
 The depiction uses the input molecule's bond orders and protonation state.
 
 The layout fits a least-squares plane to the bound ligand's heavy atoms,
-samples chemical depictions that resemble the projected pose, and places
-protein sites preferentially on their projected 3D sides. It then rejects
+samples chemical depictions using branch flips to expose contacting atoms
+on different sides, and places protein sites close to their contact targets.
+More even distribution is considered when it does not stretch the lines
+appreciably; equal angular spacing is not required.
+Rotations and reflections of each residue depiction are also considered.
+Complete atom-to-atom paths are checked before the strokes are shortened for label clearance, so
+that a gap beside an atom cannot hide a crossing. The layout rejects
 straight contacts that cross covalent bonds or labels. Layouts without
 contact crossings are preferred; in atom mode, small gaps separate any
 remaining crossing strokes while preserving the exact endpoint directions.

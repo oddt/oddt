@@ -107,6 +107,83 @@ def assert_atom_view_endpoints(root):
                 assert length - distances[-1] == pytest.approx(0.45 * scale, abs=0.002)
 
 
+@pytest.mark.parametrize("source", ["generated", "atlas"])
+def test_083_tyrosines_stay_compact_without_crossings(source):
+    """Distribution must not turn short hydrophobic contacts into long detours."""
+    scene, protein, ligand, records = load_example("hydrophobic")
+    if source == "atlas":
+        root = ET.parse(ASSETS / "hydrophobic" / scene["depiction_atoms_file"]).getroot()
+    else:
+        root = ET.fromstring(
+            draw_interactions(protein, ligand, *records, legend=scene["component"], show_protein_atoms=True)
+        )
+    assert_atom_view_endpoints(root)
+    metadata = json.loads(root.find("svg:metadata", NS).text)
+    paths = []
+    for contact in metadata["contacts"]:
+        paths.append(
+            [
+                np.mean([metadata["atom_positions"][side][str(i)] for i in contact[f"{side}_atoms"]], axis=0)
+                for side in ("protein", "ligand")
+            ]
+        )
+    assert {c["start"]["residue"]["number"] for c in scene["contacts"]} == {91, 186, 193}
+    for first, second in combinations(paths, 2):
+        assert not segments_intersect(*first, *second), (first, second)
+    assert all(len(group.findall("svg:line", NS)) == 1 for group in root.findall(".//svg:g[@data-contact]", NS))
+    lengths = contact_lengths_in_bonds(root)
+    assert lengths.max() < 4
+    assert lengths.sum() < 8
+
+
+def contact_lengths_in_bonds(root):
+    """Measure complete visible spans relative to a drawn covalent bond."""
+    metadata = json.loads(root.find("svg:metadata", NS).text)
+    xy = metadata["atom_positions"]["ligand"]
+    bond_length = np.median([np.linalg.norm(np.array(xy[str(a)]) - xy[str(b)]) for a, b in metadata["ligand_bonds"]])
+    lengths = []
+    for group in root.findall(".//svg:g[@data-contact]", NS):
+        strokes = group.findall("svg:line", NS)
+        start = np.array([float(strokes[0].attrib["x1"]), float(strokes[0].attrib["y1"])])
+        finish = np.array([float(strokes[-1].attrib["x2"]), float(strokes[-1].attrib["y2"])])
+        lengths.append(np.linalg.norm(finish - start) / bond_length)
+    return np.array(lengths)
+
+
+@pytest.mark.parametrize("source", ["generated", "atlas"])
+def test_mk1_contacts_are_not_stretched_for_even_spacing(source):
+    scene, protein, ligand, records = load_example("hydrogen-bond")
+    if source == "atlas":
+        root = ET.parse(ASSETS / "hydrogen-bond" / scene["depiction_atoms_file"]).getroot()
+    else:
+        root = ET.fromstring(draw_interactions(protein, ligand, *records, legend="MK1", show_protein_atoms=True))
+    assert_atom_view_endpoints(root)
+    assert_no_crossovers(root)
+    lengths = contact_lengths_in_bonds(root)
+    assert lengths.max() < 6
+    assert lengths.sum() < 19
+
+
+@pytest.mark.parametrize("smiles,opposite", [("F/C=C/CCc1ccccc1", True), ("F/C=C\\CCc1ccccc1", False)])
+def test_contact_branch_flips_preserve_double_bond_geometry(smiles, opposite):
+    from rdkit.Chem import rdDepictor
+    from oddt.depiction import _branch_flips
+
+    molecule = Chem.MolFromSmiles(smiles)
+    rdDepictor.Compute2DCoords(molecule)
+    before = Chem.MolToMolBlock(molecule)
+    xy = molecule.GetConformer().GetPositions()[:, :2]
+    layouts = _branch_flips(molecule, xy, {0, molecule.GetNumAtoms() - 1})
+    assert len(layouts) > 1
+    for layout in layouts:
+        axis = layout[2] - layout[1]
+        first, second = layout[0] - layout[1], layout[3] - layout[2]
+        side1 = axis[0] * first[1] - axis[1] * first[0]
+        side2 = axis[0] * second[1] - axis[1] * second[0]
+        assert bool(side1 * side2 < 0) == opposite
+    assert before == Chem.MolToMolBlock(molecule)
+
+
 @pytest.mark.parametrize("kind", KINDS)
 @pytest.mark.parametrize("show_protein_atoms", [False, True])
 def test_exported_atlas_maps(kind, show_protein_atoms):
