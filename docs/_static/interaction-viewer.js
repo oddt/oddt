@@ -48,8 +48,8 @@
       <div class="oddt-atlas-viewport" role="img"
         aria-label="Interactive molecular structure; use the controls below to rotate and zoom."></div>
       <div class="oddt-atlas-cover">
-        <p>Explore the deposited binding geometry in 3D.</p>
-        <button type="button" class="oddt-atlas-load">Load interactive 3D</button>
+        <p>Loading the 3D structure…</p>
+        <button type="button" class="oddt-atlas-load" hidden>Retry 3D view</button>
       </div>
     </div>
     <div class="oddt-atlas-toolbar" aria-label="3D view controls">
@@ -87,6 +87,11 @@
       item.setAttribute("aria-selected", String(selected));
       item.tabIndex = selected ? 0 : -1;
       find(`#${item.getAttribute("aria-controls")}`).hidden = !selected;
+    }
+    if (tab === tabs[1] && !activated) {
+      activated = true;
+      // An in-flight example will pick up activation after its data loads.
+      if (manifest && root.dataset.state !== "loading") showExample();
     }
     if (ready && viewport.clientWidth) { viewer.resize(); viewer.render(); }
   }
@@ -348,6 +353,8 @@
     if (viewer) { viewer.clear(); viewer.render(); }
     status.textContent = "Loading example…";
     load.disabled = true;
+    load.hidden = true;
+    cover.querySelector("p").textContent = "Loading the 3D structure…";
     proteinAtoms.disabled = true;
     cover.hidden = false;
     try {
@@ -369,7 +376,6 @@
         root.dataset.state = "idle";
         return;
       }
-      load.textContent = "Loading 3D…";
       const [api, protein, ligand] = await Promise.all([
         renderer(), get(new URL(scene.protein_file, sceneUrl)), get(new URL(scene.ligand_file, sceneUrl)),
       ]);
@@ -400,13 +406,13 @@
       root.dataset.state = "error";
       status.textContent = "The 3D view could not load. Try again in a WebGL-capable browser, or use the structure downloads below.";
       cover.hidden = false;
-      load.textContent = "Retry 3D view";
+      cover.querySelector("p").textContent = "The 3D view could not load.";
+      load.hidden = false;
       console.warn("ODDT interaction atlas:", error);
     } finally {
       if (token === generation) {
         root.setAttribute("aria-busy", "false");
         load.disabled = false;
-        if (root.dataset.state !== "error") load.textContent = "Load interactive 3D";
       }
     }
   }

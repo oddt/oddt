@@ -41,8 +41,8 @@ and distance remains in the contact list and SVG metadata. The reported
 distances come from the original 3D coordinates. Download **2D SVG** for a
 scalable, standalone figure.
 
-Select **3D structure**, then **Load interactive 3D**, to inspect the deposited
-pose. Drag to rotate, scroll or pinch to zoom, and select a contact below the
+Select **3D structure** to load the deposited pose automatically.
+Drag to rotate, scroll or pinch to zoom, and select a contact below the
 view to focus its atoms or rings. Rotation and zoom buttons also work with
 a keyboard.
 
